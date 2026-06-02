@@ -1,0 +1,21 @@
+# /etc/systemd/system/ora-web.service
+# sudo systemctl enable --now ora-web
+[Unit]
+Description=Ora web (Next.js)
+After=network.target ora-mcp.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ora
+# Standalone Next server (output:"standalone" — `next start` does NOT work).
+ExecStart=/usr/bin/node deploy/start-web.js
+EnvironmentFile=/opt/ora/.env.local
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+Restart=always
+RestartSec=3
+User=ora
+
+[Install]
+WantedBy=multi-user.target

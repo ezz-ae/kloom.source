@@ -1,0 +1,279 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  /* Kloom palette — deep cool near-black with a faint indigo cast, violet
+     brand accent, emerald reserved for money/action. */
+  --background: oklch(0.16 0.013 280);
+  --foreground: oklch(0.97 0.004 280);
+  --card: oklch(0.19 0.015 280);
+  --card-foreground: oklch(0.97 0.004 280);
+  --popover: oklch(0.17 0.014 280);
+  --popover-foreground: oklch(0.97 0.004 280);
+  --primary: oklch(0.62 0.21 300);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.26 0.02 280);
+  --secondary-foreground: oklch(0.97 0.004 280);
+  --muted: oklch(0.24 0.016 280);
+  --muted-foreground: oklch(0.72 0.02 280);
+  --accent: oklch(0.28 0.04 300);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.28 0.02 280);
+  --input: oklch(0.26 0.02 280);
+  --ring: oklch(0.62 0.21 300);
+  /* Brand tokens */
+  --kloom: oklch(0.62 0.21 300);
+  --kloom-soft: oklch(0.72 0.16 320);
+  --kloom-emerald: oklch(0.72 0.17 162);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.269 0 0);
+  --sidebar-ring: oklch(0.439 0 0);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist), 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), 'Geist Mono', ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Subtle Ken Burns pan/zoom for room backdrop photos. Different presets so each
+   slide can be assigned a different motion path and they don't all move alike. */
+@keyframes ken-burns-a {
+  0%   { transform: scale(1.12) translate(-1%, -1%); }
+  50%  { transform: scale(1.20) translate(1.5%, 2%); }
+  100% { transform: scale(1.12) translate(-1%, -1%); }
+}
+@keyframes ken-burns-b {
+  0%   { transform: scale(1.15) translate(1.5%, 1%); }
+  50%  { transform: scale(1.10) translate(-2%, -1.5%); }
+  100% { transform: scale(1.15) translate(1.5%, 1%); }
+}
+@keyframes ken-burns-c {
+  0%   { transform: scale(1.10) translate(0, 1.5%); }
+  50%  { transform: scale(1.18) translate(-1.5%, -1%); }
+  100% { transform: scale(1.10) translate(0, 1.5%); }
+}
+
+.ken-burns-a { animation: ken-burns-a 22s ease-in-out infinite; transform-origin: center; }
+.ken-burns-b { animation: ken-burns-b 26s ease-in-out infinite; transform-origin: center; }
+.ken-burns-c { animation: ken-burns-c 30s ease-in-out infinite; transform-origin: center; }
+
+/* Gentle floating motion for clustered avatars — a soft breathing feel. */
+@keyframes avatar-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-3px); }
+}
+.avatar-float { animation: avatar-float 4.5s ease-in-out infinite; }
+
+/* Slow breathing radial highlight that lives on top of the dark overlay so the
+   image doesn't sit completely still even when the photo motion is calm. */
+@keyframes breathing-light {
+  0%, 100% { opacity: 0.0; transform: scale(1) translate(0, 0); }
+  50%      { opacity: 0.55; transform: scale(1.4) translate(2%, -3%); }
+}
+.breathing-light { animation: breathing-light 9s ease-in-out infinite; }
+
+/* Highly-matching room: pulsing emerald inset border that breathes brighter,
+   plus a diagonal "shine" sweep that runs across every few seconds. The
+   combination gives the slide a living "highly recommended" presence without
+   any text saying so. */
+@keyframes match-glow {
+  0%, 100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(16, 185, 129, 0.35),
+      inset 0 0 100px rgba(16, 185, 129, 0.10);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 3px rgba(52, 211, 153, 0.9),
+      inset 0 0 140px rgba(16, 185, 129, 0.22);
+  }
+}
+.match-glow {
+  animation: match-glow 2.8s ease-in-out infinite;
+}
+
+@keyframes match-shine {
+  0%   { left: -55%; opacity: 0; }
+  15%  { opacity: 0.9; }
+  85%  { opacity: 0.9; }
+  100% { left: 115%; opacity: 0; }
+}
+.match-shine {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 45%;
+  background: linear-gradient(110deg, transparent 20%, rgba(16, 185, 129, 0.38) 50%, transparent 80%);
+  animation: match-shine 4.2s cubic-bezier(0.7, 0, 0.3, 1) infinite;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  filter: blur(8px);
+}
+
+/* Avatar dance — four variants so a row of avatars doesn't look like one
+   GIF reused. Bigger amplitude than the earlier float so it actually reads
+   as life rather than a tic. */
+@keyframes dance-a {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  25%      { transform: translate(3px, -6px) rotate(3deg); }
+  50%      { transform: translate(0, -3px) rotate(0deg); }
+  75%      { transform: translate(-3px, -6px) rotate(-3deg); }
+}
+@keyframes dance-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(0, -7px) scale(1.04); }
+}
+@keyframes dance-c {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33%      { transform: translate(-3px, -5px) rotate(-4deg); }
+  66%      { transform: translate(3px, -5px) rotate(4deg); }
+}
+@keyframes dance-d {
+  0%, 100% { transform: translate(0, 0) skewX(0deg); }
+  50%      { transform: translate(0, -5px) skewX(-2deg); }
+}
+.dance-a { animation: dance-a 2.6s ease-in-out infinite; }
+.dance-b { animation: dance-b 3.2s ease-in-out infinite; }
+.dance-c { animation: dance-c 2.8s ease-in-out infinite; }
+.dance-d { animation: dance-d 3.6s ease-in-out infinite; }
+
+/* Active-speaker audio bars — three vertical bars rising in stagger. */
+@keyframes audio-bar {
+  0%, 100% { transform: scaleY(0.3); }
+  50%      { transform: scaleY(1); }
+}
+.audio-bar {
+  display: inline-block;
+  width: 2px;
+  height: 10px;
+  background: rgb(52, 211, 153);
+  border-radius: 1px;
+  transform-origin: center;
+  animation: audio-bar 0.75s ease-in-out infinite;
+}
+
+/* Countdown number pop — scales in with a slight overshoot. */
+@keyframes count-pop {
+  0%   { transform: scale(0.55); opacity: 0; filter: blur(8px); }
+  35%  { transform: scale(1.12); opacity: 1; filter: blur(0); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.count-pop { animation: count-pop 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+
+/* Soft ambient ring pulse around the countdown number. */
+@keyframes count-ring {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50%      { transform: scale(1.08); opacity: 0.75; }
+}
+.count-ring { animation: count-ring 2s ease-in-out infinite; }
+
+/* Slide-in notice from the top, lingers, then slides back up. */
+@keyframes slide-top {
+  0%        { transform: translateY(-120%); opacity: 0; }
+  12%, 85%  { transform: translateY(0); opacity: 1; }
+  100%      { transform: translateY(-130%); opacity: 0; }
+}
+.slide-top { animation: slide-top 5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* Rising gift emoji animation — emoji pops up, drifts, fades. */
+@keyframes gift-rise {
+  0%   { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
+  15%  { transform: translate(-50%, -20px) scale(1.6); opacity: 1; }
+  60%  { transform: translate(-50%, -160px) scale(1.2); opacity: 1; }
+  100% { transform: translate(-50%, -260px) scale(0.8); opacity: 0; }
+}
+.gift-rise { animation: gift-rise 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }

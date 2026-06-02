@@ -1,0 +1,70 @@
+# ── Ora — full self-hosted stack (VPS) ─────────────────────────────────────
+# Bring it up:  cd deploy && docker compose --env-file .env.production up -d --build
+#
+# Services:
+#   ollama  — local models (GPU recommended). Internal only.
+#   mcp     — MCP tools/prompts server. Internal only (never exposed publicly).
+#   web     — Next.js app. Internal; reached via nginx.
+#   nginx   — TLS + reverse proxy. The ONLY publicly exposed service.
+#
+# web reaches the others over the private compose network by service name:
+#   LLM_BASE_URL=http://ollama:11434/v1   MCP_SERVER_URL=http://mcp:3001/mcp
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    # ── GPU: uncomment on an NVIDIA host with the container toolkit installed ──
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    networks: [ora]
+
+  mcp:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.mcp
+    restart: unless-stopped
+    environment:
+      MCP_PORT: "3001"
+    networks: [ora]
+    # not exposed to the host — only `web` reaches it internally
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      # Override the localhost defaults with internal service hostnames
+      LLM_BASE_URL: "http://ollama:11434/v1"
+      MCP_SERVER_URL: "http://mcp:3001/mcp"
+      PORT: "3000"
+    depends_on: [mcp, ollama]
+    networks: [ora]
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro      # put fullchain.pem + privkey.pem here
+    depends_on: [web]
+    networks: [ora]
+
+volumes:
+  ollama:
+
+networks:
+  ora:
+    driver: bridge

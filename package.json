@@ -3,17 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "next build && pnpm --filter ora-mcp-server build && pnpm assets:standalone",
+    "build": "next build && pnpm assets:standalone",
     "assets:standalone": "rm -rf .next/standalone/.next/static .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public",
-    "dev": "concurrently --names \"next,mcp\" --prefix-colors \"cyan,magenta\" \"next dev\" \"node mcp-server/dist/index.js\"",
+    "dev": "next dev",
     "dev:next": "next dev",
-    "dev:mcp": "node mcp-server/dist/index.js",
     "lint": "eslint .",
     "start": "node deploy/start-web.js",
     "bloom:create": "npx tsx scripts/create-bloom-token.ts",
-    "bloom:airdrop": "npx tsx scripts/airdrop-early-users.ts",
-    "mcp:build": "cd mcp-server && pnpm build",
-    "mcp:start": "node mcp-server/dist/index.js"
+    "bloom:airdrop": "npx tsx scripts/airdrop-early-users.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.65",

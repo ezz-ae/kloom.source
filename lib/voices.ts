@@ -36,6 +36,12 @@ const GIRL_WHISPER = "bb1c525033da40da88153a8106144f31"
 const TAROT        = "44bef56c84ad458ebe78b8c2eb74bb83"
 const CRITIQUE     = "90ce7a70e52e46088217cd4bd383a4a4"
 
+const FEMALE_EXPERTS = new Set<string>([])
+const OVERRIDES: Record<string, string> = {
+  // Add any explicit persona-to-voice overrides here when a specific voice should
+  // always be used for a known character name.
+}
+
 /** Premium Vibe Tags — available for autocomplete in room settings */
 export const VIBE_TAGS = [
   "Seductive", "Brutally Honest", "Sarcastic", "Hyper-Active", "Whimsical",

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react"
+import { toast } from "sonner"
 import Link from "next/link"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { getRoomById, roomInvite, ROOM_CATEGORY_COLORS, ROOM_CATEGORY_LABELS, type RoomPersona } from "@/lib/rooms"
@@ -115,6 +116,9 @@ function RoomContent() {
   const [toolOutput, setToolOutput]     = useState<Record<string, string>>({})
   const [copied, setCopied]             = useState<string | null>(null)
   const [decisionPrompt, setDecisionPrompt] = useState<string | null>(null)
+  const [activeTool, setActiveTool]     = useState<string | null>(null)
+  const [roomNotice, setRoomNotice]     = useState<string | null>(null)
+  const noticeTimeoutRef = useRef<number | null>(null)
   
   // Premium Features
   const [disabledAI, setDisabledAI]     = useState<Set<string>>(new Set())
@@ -270,6 +274,19 @@ function RoomContent() {
     } finally { setDmLoading(false); setDmStream("") }
   }, [dmWith, dmMsgs, dmLoading, voicePersonas])
 
+  const notifyRoomEvent = useCallback((text: string) => {
+    setRoomNotice(text)
+    toast(text)
+    if (noticeTimeoutRef.current) window.clearTimeout(noticeTimeoutRef.current)
+    noticeTimeoutRef.current = window.setTimeout(() => setRoomNotice(null), 4500)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimeoutRef.current) window.clearTimeout(noticeTimeoutRef.current)
+    }
+  }, [])
+
   const { isConnected, isConnecting, isSpeaking, activeSpeaker, error,
           connect, disconnect, stopAI, submitText } = useRealtimeVoice(
     primaryPersona
@@ -277,6 +294,7 @@ function RoomContent() {
           persona:      primaryPersona,
           partners:     partnerPersonas.length > 0 ? partnerPersonas : undefined,
           relationship: room?.relationship,
+          roomName:     room?.name,
           onTranscript: (text, speaker, partnerName) => {
             const msg: ChatMessage = {
               id:      `${Date.now()}-${Math.random()}`,
@@ -343,16 +361,15 @@ function RoomContent() {
             },
             premium: isSubscribed(),
             unrestricted: hasUnrestricted(),
-            partners:     others,
+            roomName: room.name,
             relationship: room.relationship,
-            // Transcript so far, with speaker names so each AI knows who said what
+            partners: others,
             messages: running.map((m) => ({
               role:    m.role,
               content: m.role === "assistant" && m.speaker ? `[${m.speaker}]: ${m.content}` : m.content,
             })),
           }),
         })
-
         if (!res.body) continue
         const reader  = res.body.getReader()
         const decoder = new TextDecoder()
@@ -397,14 +414,17 @@ function RoomContent() {
   }, [input, chatLoading, room, chatMsgs, roomId, voicePersonas])
 
   const generateDecisionPrompt = () => {
+    if (!room) return
     const transcript = chatMsgs.map(m => `${m.speaker}: ${m.content}`).join("\n")
-    const prompt = `[CONTEXT: Kloom Co-Intelligence Session]\n\nTRANSCRIPT:\n${transcript}\n\n[TASK]: Based on the multi-AI reasoning above between Claude and Gemini, synthesize a final decision framework. Include the top 3 action items, identified risks, and a prompt to continue this work in Gemini/Claude/NotebookLM.`
+    const prompt = `DECISION EXPORT — ${room.name}\nCATEGORY: ${ROOM_CATEGORY_LABELS[room.category]}\nTOPIC: ${room.tagline}\nPERSONAS: ${roomPersonas.map((p) => p.name).join(", ")}\nSTAKE: ${optionValues.stake ?? "Not specified"}\nUNRESTRICTED: ${optionValues.restriction_mode ? "Yes" : "No"}\n\nTRANSCRIPT:\n${transcript}\n\nTASK:\n- Synthesize the session into the top 3 action items the user should take next.\n- Identify the biggest risks or unknowns that could derail the decision.\n- Provide a ready-to-use continuation prompt for Gemini, Claude, or NotebookLM to keep refining the recommendation.\n\nOUTPUT FORMAT:\nAction 1:\nAction 2:\nAction 3:\nRisks / open questions:\nContinuation prompt:`
     setDecisionPrompt(prompt)
+    toast.success("Decision prompt generated")
   }
 
   // Run a room tool via MCP
   const runTool = useCallback(async (toolId: string) => {
     if (!room || toolLoading) return
+    const toolDef = room.capabilities.tools.find((tool) => tool.id === toolId)
     setToolLoading(toolId)
     try {
       const res = await fetch("/api/mcp-chat", {
@@ -412,10 +432,20 @@ function RoomContent() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           mode:    "chat",
-          persona: { name: "Assistant", category: room.category },
+          persona: {
+            name: "Assistant",
+            role: room.category === "co-intelligence" ? "Decision support operator" : "Tool operator",
+            category: room.category,
+            model: "local",
+          },
+          premium: isSubscribed(),
+          unrestricted: hasUnrestricted(),
+          partners: room.category === "co-intelligence" ? room.personas : undefined,
+          roomName: room.name,
+          relationship: room.relationship,
           messages: [{
             role:    "user",
-            content: `Use the ${toolId} tool with these settings: ${JSON.stringify(optionValues)}. Return the results directly.`,
+            content: `Use the ${toolId} tool with these settings: ${JSON.stringify(optionValues)}. The room is \"${room.name}\". Relationship: ${room.relationship || "none"}. Return only the tool output and a concise summary.`,
           }],
         }),
       })
@@ -429,13 +459,14 @@ function RoomContent() {
         full += decoder.decode(value, { stream: true })
         setToolOutput((prev) => ({ ...prev, [toolId]: full }))
       }
+      toast.success(`${toolDef?.label ?? "Tool"} completed`)
     } catch {
       setToolOutput((prev) => ({ ...prev, [toolId]: "Tool failed. Check MCP server." }))
+      toast.error(`${toolDef?.label ?? "Tool"} failed`)
     } finally {
       setToolLoading(null)
     }
   }, [room, toolLoading, optionValues])
-
   if (!room) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">

@@ -109,7 +109,7 @@ export default function DiscoverPage() {
   const [activeCategory, setCategory] = useState<PresetCategory | "all">("all")
 
   const featured  = PERSONALITY_PRESETS.filter((p) => FEATURED_NAMES.includes(p.name))
-  const categories: Array<PresetCategory | "all"> = ["all", "friends", "romantic", "family", "professional", "roleplay", "dark", "trading", "workshop"]
+  const categories: Array<PresetCategory | "all"> = ["all", "friends", "romantic", "family", "professional", "roleplay", "dark", "trading", "workshop", "co-intelligence", "zero-memory"]
 
   const filtered = useMemo(() => {
     return PERSONALITY_PRESETS.filter((p) => {

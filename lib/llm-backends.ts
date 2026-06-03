@@ -33,6 +33,7 @@ export interface LLMOptions {
 const LOCAL_URL   = (process.env.LLM_BASE_URL || "http://localhost:11434/v1").replace(/\/$/, "")
 const LOCAL_KEY   = process.env.LLM_API_KEY   || "local"
 const LOCAL_MODEL = process.env.LLM_MODEL     || "llama3.2:latest"
+const LOCAL_FALLBACK_MODEL = process.env.LLM_FALLBACK_MODEL || "llama3.2:latest"
 
 const CLAUDE_KEY   = process.env.ANTHROPIC_API_KEY || ""
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-5"
@@ -61,11 +62,13 @@ export function resolveBackend(requested?: Backend): Backend {
 // ── Local (Ollama / OpenAI-compatible) ──────────────────────────────────────
 
 async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
+  const model = opts.localModel || LOCAL_MODEL
+  const fallbackModel = opts.localModel && opts.localModel !== LOCAL_MODEL ? LOCAL_MODEL : undefined
   const res = await fetch(`${LOCAL_URL}/chat/completions`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOCAL_KEY}` },
     body:    JSON.stringify({
-      model:       opts.localModel || LOCAL_MODEL,
+      model,
       messages,
       temperature: opts.temperature ?? 0.9,
       max_tokens:  opts.maxTokens   ?? 600,
@@ -79,7 +82,20 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
       stream:      true,
     }),
   })
-  if (!res.ok || !res.body) throw new Error(`local LLM ${res.status}`)
+  if ((!res.ok || !res.body) && fallbackModel && (res.status === 404 || res.status === 400)) {
+    return yield* streamLocal(messages, { ...opts, localModel: fallbackModel })
+  }
+  if (!res.ok || !res.body) {
+    // If an explicitly requested local model is unavailable, try the default
+    // configured Ollama model before failing.
+    if (model !== LOCAL_MODEL && LOCAL_MODEL !== fallbackModel) {
+      return yield* streamLocal(messages, { ...opts, localModel: LOCAL_MODEL })
+    }
+    if (model !== LOCAL_FALLBACK_MODEL && LOCAL_FALLBACK_MODEL !== LOCAL_MODEL) {
+      return yield* streamLocal(messages, { ...opts, localModel: LOCAL_FALLBACK_MODEL })
+    }
+    throw new Error(`local LLM ${res.status}`)
+  }
 
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
@@ -278,16 +294,40 @@ export async function* streamLLM(
   const backend = resolveBackend(requested)
 
   if (backend === "local") {
-    yield* streamLocal(messages, opts)
-    return
+    try {
+      yield* streamLocal(messages, opts)
+      return
+    } catch (err) {
+      if (OPENAI_KEY) {
+        yield* streamOpenAI(messages, opts)
+        return
+      }
+      throw err
+    }
   }
   if (backend === "mistral") {
-    yield* streamLocal(messages, { ...opts, localModel: "mistral:latest" })
-    return
+    try {
+      yield* streamLocal(messages, { ...opts, localModel: "mistral:latest" })
+      return
+    } catch (err) {
+      if (OPENAI_KEY) {
+        yield* streamOpenAI(messages, opts)
+        return
+      }
+      throw err
+    }
   }
   if (backend === "dolphin") {
-    yield* streamLocal(messages, { ...opts, localModel: "dolphin-mistral:latest" })
-    return
+    try {
+      yield* streamLocal(messages, { ...opts, localModel: "dolphin-mistral:latest" })
+      return
+    } catch (err) {
+      if (OPENAI_KEY) {
+        yield* streamOpenAI(messages, opts)
+        return
+      }
+      throw err
+    }
   }
 
   // Claude / Gemini / GPT with an Ollama (local) safety net. We only fall back if

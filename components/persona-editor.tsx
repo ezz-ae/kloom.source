@@ -667,13 +667,16 @@ export const PERSONALITY_PRESETS: PresetWithCategory[] = [
 ]
 
 export const CATEGORY_INFO: Record<PresetCategory, { label: string; icon: typeof Heart }> = {
-  friends: { label: "Friends", icon: Users },
-  romantic: { label: "Romantic", icon: Heart },
-  family: { label: "Family", icon: Users },
-  professional: { label: "Professional", icon: Briefcase },
-  roleplay: { label: "Role Play", icon: Crown },
-  dark: { label: "Dark", icon: Moon },
-  trading: { label: "Trading", icon: TrendingUp },
+  friends:        { label: "Friends",          icon: Users },
+  romantic:       { label: "Romantic",         icon: Heart },
+  family:         { label: "Family",           icon: Users },
+  professional:   { label: "Professional",     icon: Briefcase },
+  roleplay:       { label: "Role Play",        icon: Crown },
+  dark:           { label: "Dark",             icon: Moon },
+  trading:        { label: "Trading",          icon: TrendingUp },
+  workshop:       { label: "Workshop",         icon: Sparkles },
+  "co-intelligence": { label: "Co-Intelligence", icon: Crown },
+  "zero-memory":  { label: "Zero Memory",     icon: Moon },
 }
 
 type Intensity = "playful" | "flirty" | "intimate" | "intense" | "extreme"

@@ -44,6 +44,8 @@ interface UseRealtimeVoiceProps {
   partners?: Persona[]
   /** Free-text describing the room / how they all relate. */
   relationship?: string
+  /** Optional room name, forwarded to the backend for better AI context. */
+  roomName?: string
   /**
    * Called for each finalized transcript line.
    * `speaker` is "user", "self" (the primary persona), or "partner" — for any

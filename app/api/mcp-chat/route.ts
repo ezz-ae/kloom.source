@@ -40,7 +40,7 @@ function looksCoachy(t: string): boolean {
   return /\b\d+\s+(steps?|ways?|tips?)\b/i.test(t)        // "5 steps", "3 ways"
     || /^\s*step\s*\d/im.test(t)                          // "Step 1"
     || /\bhere'?s? (how|a few|some|the)\b/i.test(t)       // "here's how/the steps"
-    || /\b(first|step one)\b.*\b(then|next|finally|second)\b/is.test(t)
+    || /\b(first|step one)\b(?:.|\n)*\b(then|next|finally|second)\b/i.test(t)
 }
 
 // ── CONTENT POLICY ──────────────────────────────────────────────────────────
@@ -215,7 +215,7 @@ function getPromptName(persona: any): string {
   return "kloom_companion"
 }
 
-function getPromptArgs(persona: any, messages: any[], isVoice: boolean): Record<string, unknown> {
+function getPromptArgs(persona: any, messages: any[], isVoice: boolean, partners?: any[], roomName?: string, relationship?: string): Record<string, unknown> {
   const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content ?? ""
   const rawContent = typeof lastUser === "string" ? lastUser : lastUser?.text ?? ""
   // Strip [USER]: prefix that voice hook adds
@@ -246,10 +246,18 @@ function getPromptArgs(persona: any, messages: any[], isVoice: boolean): Record<
   }
   if (cat === "co-intelligence") {
     const other = partners?.find((p: any) => p.name !== persona.name)?.name || "Partner"
-    return { name: persona.name, role: persona.role, user_message: userText, other_model: other, messages: JSON.stringify(messages) }
+    return {
+      name: persona.name,
+      role: persona.role ?? "Decision support assistant",
+      room_name: roomName,
+      relationship: relationship ?? "",
+      user_message: userText,
+      other_model: other,
+      messages: JSON.stringify(messages),
+    }
   }
   if (cat === "zero-memory") {
-    return { user_message: userText }
+    return { user_message: userText, room_name: roomName, relationship: relationship ?? "" }
   }
   // companion (romantic, friends, family, roleplay, dark)
   return {
@@ -302,7 +310,7 @@ function mcpToolToLLMTool(t: any) {
 // ── Main handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const { persona, messages, mode = "chat", partners, relationship, premium, unrestricted } = await req.json()
+  const { persona, messages, mode = "chat", partners, roomName, relationship, premium, unrestricted } = await req.json()
   const isVoice = mode === "voice"
 
   // ── HARD content line — refused on every tier (unrestriction never lifts this) ──
@@ -340,7 +348,7 @@ export async function POST(req: NextRequest) {
   // 1. Get forcing prompt from MCP server
   const promptName    = getPromptName(persona)
   const promptArgs    = {
-    ...getPromptArgs(persona, messages, isVoice),
+    ...getPromptArgs(persona, messages, isVoice, partners, roomName, relationship),
     unrestricted: unrestricted ? "yes" : "",
     vibe_tags: Array.isArray(vibe_tags) ? vibe_tags.join(", ") : (vibe_tags ?? ""),
   }
@@ -359,6 +367,10 @@ export async function POST(req: NextRequest) {
     ? ["kloom_analyze_profile", "kloom_build_growth_plan", "kloom_instagram_caption", "kloom_generate_hashtags", "kloom_onlyfans_dm", "kloom_content_ideas", "kloom_canva_design", "kloom_get_strategy", "kloom_web_search"]
     : cat === "workshop"
     ? ["kloom_get_crypto_price", "kloom_analyze_token_chart", "kloom_analyze_code", "kloom_generate_code", "kloom_build_html", "kloom_calculate", "kloom_financial_calc", "kloom_web_search", "kloom_create_wallet", "kloom_get_strategy", "kloom_build_connector"]
+    : cat === "co-intelligence"
+    ? ["kloom_web_search", "kloom_calculate", "kloom_financial_calc"]
+    : cat === "zero-memory"
+    ? ["kloom_web_search"]
     : []
 
   const tools = allTools
@@ -396,6 +408,12 @@ export async function POST(req: NextRequest) {
     })),
   ]
 
+  const phase1Model = backend === "mistral"
+    ? "mistral:latest"
+    : backend === "dolphin"
+    ? "dolphin-mistral:latest"
+    : LLM_MODEL
+
   // 4. Tool-call loop (max 3 rounds to prevent runaway)
   let rounds = 0
   while (rounds < 3) {
@@ -406,7 +424,7 @@ export async function POST(req: NextRequest) {
         method:  "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LLM_KEY}` },
         body:    JSON.stringify({
-          model:    LLM_MODEL,
+          model:    phase1Model,
           messages: llmMessages,
           tools:    tools.length > 0 ? tools : undefined,
           tool_choice: tools.length > 0 ? "auto" : undefined,

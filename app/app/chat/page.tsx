@@ -204,10 +204,10 @@ function ChatContent() {
   })
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(248,113,113,0.08),_transparent_22%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.08),_transparent_28%),var(--background)] text-foreground">
 
       {/* ── Conversation list ── */}
-      <div className="w-64 border-r border-white/8 flex flex-col shrink-0 hidden sm:flex">
+      <div className="w-72 border-r border-white/10 bg-white/5 backdrop-blur-xl shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] flex flex-col shrink-0 hidden sm:flex">
         <div className="px-4 py-4 border-b border-white/5">
           <h2 className="font-bold text-sm">Conversations</h2>
           <p className="text-[11px] text-foreground/35 mt-0.5">Unrestricted · private</p>
@@ -244,7 +244,7 @@ function ChatContent() {
       {/* ── Chat center ── */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-white/5 shrink-0">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-white/10 bg-white/5 backdrop-blur-xl shrink-0">
           <img
             src={imageFor(persona)}
             alt={persona.name}
@@ -312,10 +312,10 @@ function ChatContent() {
                 />
               )}
               <div className="max-w-[72%]">
-                <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                <div className={`rounded-[28px] px-5 py-4 text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-amber-500 text-foreground rounded-br-sm"
-                    : "bg-white/8 border border-border/50 text-foreground/90 rounded-bl-sm"
+                    ? "bg-gradient-to-br from-amber-400 via-amber-500 to-orange-500 text-stone-950 shadow-[0_24px_60px_rgba(245,158,11,0.16)] rounded-br-[10px]"
+                    : "bg-white/10 border border-white/10 text-foreground/95 shadow-sm rounded-bl-[10px] backdrop-blur-xl"
                 }`}>
                   {msg.content}
                 </div>
@@ -355,7 +355,7 @@ function ChatContent() {
                 className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
                 onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/notionists/svg?seed=${persona.name}` }}
               />
-              <div className="bg-white/8 border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-foreground/90 max-w-[72%]">
+              <div className="bg-white/10 border border-white/10 rounded-[28px] rounded-bl-[10px] px-4 py-3 text-sm leading-relaxed text-foreground/90 max-w-[72%] shadow-sm backdrop-blur-xl">
                 {streamText || (
                   <span className="flex gap-1">
                     {[0,1,2].map((i) => (
@@ -380,7 +380,7 @@ function ChatContent() {
         {/* Input */}
         <div className="shrink-0 px-5 py-4 border-t border-white/5">
           <div className="flex gap-3 items-end">
-            <div className="flex-1 bg-foreground/5 border border-border/50 rounded-2xl px-4 py-3 focus-within:border-amber-500/40 transition-colors">
+            <div className="flex-1 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 shadow-[0_35px_80px_rgba(15,23,42,0.08)] focus-within:border-amber-400/50 transition-all backdrop-blur-xl">
               <textarea
                 ref={taRef}
                 rows={1}
@@ -399,7 +399,7 @@ function ChatContent() {
             <button
               onClick={send}
               disabled={!input.trim() || streaming}
-              className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 mb-0.5"
+              className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-500 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 mb-0.5 shadow-[0_18px_40px_rgba(245,158,11,0.22)]"
             >
               <Send size={16} className="text-foreground" />
             </button>
@@ -414,8 +414,8 @@ function ChatContent() {
       </div>
 
       {/* ── Right panel ── */}
-      <div className="w-60 border-l border-white/8 flex-col shrink-0 hidden xl:flex">
-        <div className="p-5 border-b border-white/5">
+      <div className="w-72 border-l border-white/10 bg-white/5 backdrop-blur-xl flex-col shrink-0 hidden xl:flex shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]">
+        <div className="p-5 border-b border-white/10">
           <img
             src={imageFor(persona)}
             alt={persona.name}

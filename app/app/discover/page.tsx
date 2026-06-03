@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { PERSONALITY_PRESETS, CATEGORY_INFO, type PresetCategory } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 import { Mic, MessageSquare, Search, Sparkles, Flame, Star } from "lucide-react"
 
 const CATEGORY_COLORS: Record<PresetCategory, string> = {
@@ -34,8 +35,8 @@ function PersonaCard({
     <div
       className={`group relative rounded-2xl overflow-hidden border transition-all hover:scale-[1.015] ${
         featured
-          ? "border-white/15 bg-white/5 hover:border-white/25"
-          : "border-white/8 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"
+          ? "border-border bg-foreground/5 hover:border-white/25"
+          : "border-white/8 bg-white/[0.02] hover:border-border hover:bg-white/[0.04]"
       }`}
     >
       {/* Portrait */}
@@ -70,16 +71,16 @@ function PersonaCard({
         </div>
 
         {/* Online indicator */}
-        <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/40 backdrop-blur-sm border border-white/10 px-2 py-0.5 rounded-full">
+        <div className="absolute top-3 right-3 flex items-center gap-1 bg-black/40 backdrop-blur-sm border border-border/50 px-2 py-0.5 rounded-full">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[10px] text-white/70">Online</span>
+          <span className="text-[10px] text-foreground/80">Online</span>
         </div>
       </div>
 
       {/* Info */}
       <div className="p-4">
         <h3 className="font-bold text-sm leading-tight mb-1">{persona.name}</h3>
-        <p className="text-xs text-white/45 leading-relaxed line-clamp-2 mb-4">
+        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-4">
           {persona.personality?.slice(0, 90)}…
         </p>
 
@@ -87,7 +88,7 @@ function PersonaCard({
         <div className="flex gap-2">
           <button
             onClick={() => router.push(`/app/chat?persona=${encodeURIComponent(persona.name)}`)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-semibold text-white/65 hover:text-white transition-all"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-foreground/5 border border-border/50 hover:bg-foreground/10 text-xs font-semibold text-foreground/70 hover:text-foreground transition-all"
           >
             <MessageSquare size={12} /> Chat
           </button>
@@ -121,24 +122,24 @@ export default function DiscoverPage() {
   const showFeatured = !search && activeCategory === "all"
 
   return (
-    <div className="min-h-full bg-stone-950 text-white">
+    <div className="min-h-full bg-background text-foreground">
 
       {/* ── Header ── */}
-      <div className="sticky top-0 z-10 bg-stone-950/90 backdrop-blur-md border-b border-white/5 px-6 lg:px-8 py-5">
+      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-white/5 px-6 lg:px-8 py-5">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between gap-4 mb-4">
             <div>
               <h1 className="text-2xl font-black tracking-tight">Discover</h1>
-              <p className="text-sm text-white/40 mt-0.5">{PERSONALITY_PRESETS.length} companions · all online</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{PERSONALITY_PRESETS.length} companions · all online</p>
             </div>
             <div className="relative w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
               <input
                 type="text"
                 placeholder="Search…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50 transition-all"
+                className="w-full bg-foreground/5 border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder-white/30 focus:outline-none focus:border-amber-500/50 transition-all"
               />
             </div>
           </div>
@@ -154,7 +155,7 @@ export default function DiscoverPage() {
                   className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                     activeCategory === cat
                       ? "bg-white text-stone-950 border-transparent"
-                      : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white"
+                      : "bg-foreground/5 border-border/50 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
                   }`}
                 >
                   {info && <info.icon size={11} />}
@@ -173,11 +174,22 @@ export default function DiscoverPage() {
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Flame size={15} className="text-amber-400" />
-              <h2 className="text-sm font-bold text-white/70 uppercase tracking-widest">Featured</h2>
+              <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-widest">Featured</h2>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {featured.map((p) => <PersonaCard key={p.name} persona={p} featured />)}
-            </div>
+            <Carousel opts={{ align: "start", dragFree: true }} className="w-full relative">
+              <CarouselContent className="-ml-4">
+                {featured.map((p) => (
+                  <CarouselItem key={p.name} className="pl-4 md:basis-1/2 lg:basis-1/4">
+                    <PersonaCard persona={p} featured />
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              {/* Optional: Navigation buttons if there are many items */}
+              <div className="hidden lg:block">
+                <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-stone-900 border-border/50 hover:bg-stone-800" />
+                <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-stone-900 border-border/50 hover:bg-stone-800" />
+              </div>
+            </Carousel>
           </section>
         )}
 
@@ -186,12 +198,12 @@ export default function DiscoverPage() {
           {showFeatured && (
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={15} className="text-amber-400" />
-              <h2 className="text-sm font-bold text-white/70 uppercase tracking-widest">All companions</h2>
+              <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-widest">All companions</h2>
             </div>
           )}
 
           {filtered.length === 0 ? (
-            <div className="text-center py-20 text-white/30">
+            <div className="text-center py-20 text-muted-foreground/60">
               <Search size={30} className="mx-auto mb-3 opacity-30" />
               <p className="text-sm">No companions match "{search}"</p>
             </div>

@@ -37,3 +37,4 @@ node_modules/
 
 # local tooling config (contains project refs)
 .mcp.json
+.env*.local

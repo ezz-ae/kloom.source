@@ -7,7 +7,8 @@ import { listCustomRooms, deleteCustomRoom } from "@/lib/custom-rooms"
 import { hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
-import { Mic, MessageSquare, Zap, ChevronRight, Plus, Trash2, Lock } from "lucide-react"
+import { ActivitySparkline } from "@/components/ui/sparkline"
+import { Mic, MessageSquare, Zap, ChevronRight, Plus, Trash2, Lock, TrendingUp } from "lucide-react"
 
 const ALL_CATS: Array<"all" | RoomCategory> = ["all", "trading", "creator", "professional", "social", "romantic", "dark", "philosophy"]
 
@@ -22,20 +23,20 @@ export default function RoomsPage() {
   const filtered = activeCat === "all" ? ROOMS : ROOMS.filter((r) => r.category === activeCat)
 
   return (
-    <div className="min-h-full bg-stone-950 text-white">
+    <div className="min-h-full bg-background text-foreground transition-colors duration-300">
 
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-stone-950/90 backdrop-blur-md border-b border-white/5 px-6 lg:px-8 py-5">
+      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border px-6 lg:px-8 py-5 transition-colors duration-300">
         <div className="max-w-6xl mx-auto">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl font-black tracking-tight">Rooms</h1>
-              <p className="text-sm text-white/40 mt-0.5">
+              <p className="text-sm text-muted-foreground mt-0.5">
                 Join a dynamic — or build your own. Chat free, calls pay-as-you-go.
               </p>
             </div>
             <button onClick={() => router.push("/app/create")}
-              className="shrink-0 flex items-center gap-1.5 bg-white text-stone-950 font-bold text-sm px-4 py-2 rounded-xl hover:bg-white/90 transition-all hover:scale-[1.02]">
+              className="shrink-0 flex items-center gap-1.5 bg-foreground text-background font-bold text-sm px-4 py-2 rounded-xl hover:bg-foreground/90 transition-all hover:scale-[1.02]">
               <Plus size={15} /> Build a room
             </button>
           </div>
@@ -48,8 +49,8 @@ export default function RoomsPage() {
                 onClick={() => setActiveCat(cat)}
                 className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
                   activeCat === cat
-                    ? "bg-white text-stone-950 border-transparent"
-                    : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white"
+                    ? "bg-foreground text-background border-transparent"
+                    : "bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 {cat === "all" ? "All rooms" : ROOM_CATEGORY_LABELS[cat]}
@@ -62,14 +63,14 @@ export default function RoomsPage() {
       {/* Your rooms (user-built) */}
       {mine.length > 0 && activeCat === "all" && (
         <div className="max-w-6xl mx-auto px-6 lg:px-8 pt-6">
-          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/35 mb-3">Your rooms</div>
+          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground/35 mb-3">Your rooms</div>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
             {mine.map((room) => (
               <div key={room.id}
-                className={`group relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br ${room.gradient} hover:border-white/20 transition-all hover:scale-[1.01] cursor-pointer p-5`}
+                className={`group relative rounded-3xl overflow-hidden border border-border/50 bg-gradient-to-br ${room.gradient} hover:border-border/80 transition-all hover:scale-[1.01] cursor-pointer p-5`}
                 onClick={() => router.push(`/app/rooms/${room.id}`)}>
                 <button onClick={(e) => { e.stopPropagation(); removeMine(room.id) }}
-                  className="absolute top-3 right-3 text-white/30 hover:text-red-400 z-10"><Trash2 size={15} /></button>
+                  className="absolute top-3 right-3 text-muted-foreground/60 hover:text-red-400 z-10"><Trash2 size={15} /></button>
                 <div className="flex -space-x-3 mb-3">
                   {room.personas.map((p) => (
                     <img key={p.name} src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(p.avatarSeed ?? p.name)}`}
@@ -77,8 +78,8 @@ export default function RoomsPage() {
                   ))}
                 </div>
                 <div className="font-bold">{room.name}</div>
-                <div className="text-xs text-white/45 mt-0.5 line-clamp-1">{room.tagline}</div>
-                <div className="flex items-center gap-2 mt-3 text-[10px] text-white/40">
+                <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{room.tagline}</div>
+                <div className="flex items-center gap-2 mt-3 text-[10px] text-muted-foreground">
                   <span className={`px-1.5 py-0.5 rounded-full border ${ROOM_CATEGORY_COLORS[room.category]}`}>{ROOM_CATEGORY_LABELS[room.category]}</span>
                   <span>{room.personas.length} members</span>
                 </div>
@@ -89,9 +90,9 @@ export default function RoomsPage() {
       )}
 
       {/* Grid */}
-      <div className="max-w-6xl mx-auto px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map((room) => {
+      <div className="max-w-6xl mx-auto px-6 lg:px-8 py-6 pb-24 lg:pb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 auto-rows-max">
+          {filtered.map((room, index) => {
             // Each seat → an avatar. Human personas get photos; workshop AI
             // seats (Claude/Gemini) get a bot avatar via their seed.
             const seats = room.personas.map((rp) => {
@@ -104,10 +105,14 @@ export default function RoomsPage() {
               }
             })
 
+            const isFeatured = index % 5 === 0 && filtered.length > 5;
+
             return (
               <div
                 key={room.id}
-                className={`group relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-br ${room.gradient} hover:border-white/20 transition-all hover:scale-[1.01] cursor-pointer`}
+                className={`group relative rounded-3xl overflow-hidden border border-border/50 bg-gradient-to-br ${room.gradient} hover:border-border/80 transition-all hover:scale-[1.01] cursor-pointer flex flex-col justify-between ${
+                  isFeatured ? "md:col-span-2 xl:col-span-2 md:row-span-2" : ""
+                }`}
                 onClick={() => router.push(`/app/rooms/${room.id}`)}
               >
                 {room.category === "dark" && !unlocked && (
@@ -115,8 +120,15 @@ export default function RoomsPage() {
                     <Lock size={10} /> 18+ · $10
                   </div>
                 )}
-                {/* Persona portraits */}
-                <div className="flex items-end gap-0 p-5 pb-0">
+                {/* Sparkline for featured */}
+                {isFeatured && (
+                  <div className="absolute bottom-0 left-0 right-0 z-0 opacity-40 pointer-events-none">
+                    <ActivitySparkline height={120} color={room.category === 'trading' ? '#10b981' : room.category === 'romantic' ? '#f43f5e' : '#a78bfa'} />
+                  </div>
+                )}
+                
+                {/* Header Section */}
+                <div className="relative z-10 flex items-end gap-0 p-5 pb-0">
                   {seats.map((s, i) => (
                     <div
                       key={s.name}
@@ -132,30 +144,30 @@ export default function RoomsPage() {
                   ))}
 
                   {/* Online indicator */}
-                  <div className="ml-auto flex items-center gap-1.5 bg-black/30 backdrop-blur-sm border border-white/10 px-2.5 py-1 rounded-full self-start">
+                  <div className="ml-auto flex items-center gap-1.5 bg-black/30 backdrop-blur-sm border border-border/50 px-2.5 py-1 rounded-full self-start">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[10px] text-white/60">Live</span>
+                    <span className="text-[10px] text-foreground/60">Live</span>
                   </div>
                 </div>
 
                 {/* Info */}
-                <div className="p-5 pt-3 space-y-3">
+                <div className={`relative z-10 p-5 pt-3 flex flex-col flex-1 ${isFeatured ? 'space-y-4' : 'space-y-3'}`}>
                   {/* Category + name */}
                   <div>
                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${ROOM_CATEGORY_COLORS[room.category]}`}>
                       {ROOM_CATEGORY_LABELS[room.category]}
                     </span>
-                    <h3 className="font-black text-lg mt-2 leading-tight">{room.name}</h3>
-                    <p className="text-xs text-white/50 italic mt-0.5">{room.tagline}</p>
+                    <h3 className={`font-black mt-2 leading-tight ${isFeatured ? 'text-2xl' : 'text-lg'}`}>{room.name}</h3>
+                    <p className={`text-muted-foreground italic mt-0.5 ${isFeatured ? 'text-sm' : 'text-xs'}`}>{room.tagline}</p>
                   </div>
 
                   {/* Personas list */}
-                  <div className="text-xs text-white/40 space-y-0.5">
+                  <div className={`text-muted-foreground space-y-0.5 flex-1 ${isFeatured ? 'text-sm' : 'text-xs'}`}>
                     {room.personas.map((p) => (
                       <div key={p.name} className="flex items-center gap-1.5">
                         <span className="w-1 h-1 rounded-full bg-white/25 shrink-0" />
-                        <span className="font-medium text-white/60">{p.name}</span>
-                        <span className="text-white/30">— {p.role}</span>
+                        <span className="font-medium text-foreground/60">{p.name}</span>
+                        <span className="text-muted-foreground/60">— {p.role}</span>
                       </div>
                     ))}
                   </div>
@@ -166,13 +178,13 @@ export default function RoomsPage() {
                       {room.capabilities.tools.slice(0, 3).map((t) => (
                         <span
                           key={t.id}
-                          className="flex items-center gap-1 text-[10px] font-semibold bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-white/50"
+                          className="flex items-center gap-1 text-[10px] font-semibold bg-foreground/5 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground"
                         >
                           <span>{t.icon}</span>{t.label}
                         </span>
                       ))}
                       {room.capabilities.tools.length > 3 && (
-                        <span className="text-[10px] text-white/30 px-1 py-0.5">
+                        <span className="text-[10px] text-muted-foreground/60 px-1 py-0.5">
                           +{room.capabilities.tools.length - 3} more
                         </span>
                       )}
@@ -183,13 +195,13 @@ export default function RoomsPage() {
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); router.push(`/app/rooms/${room.id}?mode=chat`) }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-semibold text-white/65 hover:text-white transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-foreground/5 border border-border/50 hover:bg-foreground/10 text-xs font-semibold text-foreground/70 hover:text-foreground transition-all"
                     >
                       <MessageSquare size={12} /> Chat
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); router.push(`/app/rooms/${room.id}?mode=voice`) }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white/8 border border-white/15 hover:bg-white/12 text-xs font-semibold text-white/80 hover:text-white transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-foreground/10 border border-border hover:bg-foreground/15 text-xs font-semibold text-foreground/80 hover:text-foreground transition-all"
                     >
                       <Mic size={12} /> Voice
                     </button>
@@ -198,7 +210,7 @@ export default function RoomsPage() {
 
                 {/* Arrow */}
                 <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ChevronRight size={16} className="text-white/40" />
+                  <ChevronRight size={16} className="text-muted-foreground" />
                 </div>
               </div>
             )

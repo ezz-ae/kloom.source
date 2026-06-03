@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { Toaster } from 'sonner'
 import './globals.css'
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
@@ -46,6 +47,7 @@ export default function RootLayout({
     <html lang="en" className={`bg-background dark ${geist.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased">
         {children}
+        <Toaster theme="system" richColors position="bottom-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

@@ -10,8 +10,8 @@ import { createClient } from "@supabase/supabase-js"
  * Set SUPABASE_SERVICE_ROLE_KEY in your environment (Supabase dashboard →
  * Settings → API → service_role secret). Never expose it to the client.
  */
-const url        = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const url        = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-url.supabase.co"
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-key"
 
 export function getAdminClient() {
   if (!serviceKey) {

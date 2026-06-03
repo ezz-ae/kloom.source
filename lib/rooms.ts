@@ -120,7 +120,7 @@ export const ROOMS: Room[] = [
     },
     category: "trading",
     tags: ["Trading", "Live data", "Alpha"],
-    gradient: "from-emerald-900/60 to-stone-950",
+    gradient: "from-emerald-900/60 to-background",
     accentColor: "emerald",
   },
 
@@ -152,7 +152,7 @@ export const ROOMS: Room[] = [
     },
     category: "trading",
     tags: ["Web3", "Launch", "Audit"],
-    gradient: "from-amber-900/60 to-stone-950",
+    gradient: "from-amber-900/60 to-background",
     accentColor: "violet",
   },
 
@@ -195,7 +195,7 @@ export const ROOMS: Room[] = [
     },
     category: "workshop",
     tags: ["Claude", "Gemini", "Multi-AI", "Token launch"],
-    gradient: "from-orange-900/50 to-stone-950",
+    gradient: "from-orange-900/50 to-background",
     accentColor: "orange",
   },
 
@@ -234,7 +234,7 @@ export const ROOMS: Room[] = [
     },
     category: "workshop",
     tags: ["Claude", "Gemini", "Multi-AI", "Coding"],
-    gradient: "from-cyan-900/50 to-stone-950",
+    gradient: "from-cyan-900/50 to-background",
     accentColor: "cyan",
   },
 
@@ -273,7 +273,7 @@ export const ROOMS: Room[] = [
     },
     category: "workshop",
     tags: ["Claude", "Gemini", "Multi-AI", "Strategy"],
-    gradient: "from-orange-900/50 to-stone-950",
+    gradient: "from-orange-900/50 to-background",
     accentColor: "fuchsia",
   },
 
@@ -307,7 +307,7 @@ export const ROOMS: Room[] = [
     },
     category: "creator",
     tags: ["Creator", "Instagram", "OnlyFans"],
-    gradient: "from-pink-900/60 to-stone-950",
+    gradient: "from-pink-900/60 to-background",
     accentColor: "pink",
   },
 
@@ -339,7 +339,7 @@ export const ROOMS: Room[] = [
     },
     category: "creator",
     tags: ["OnlyFans", "Subscribers", "Revenue"],
-    gradient: "from-rose-900/60 to-stone-950",
+    gradient: "from-rose-900/60 to-background",
     accentColor: "rose",
   },
 
@@ -370,7 +370,7 @@ export const ROOMS: Room[] = [
     },
     category: "professional",
     tags: ["Code", "Security", "Engineering"],
-    gradient: "from-blue-900/60 to-stone-950",
+    gradient: "from-blue-900/60 to-background",
     accentColor: "blue",
   },
 
@@ -397,7 +397,7 @@ export const ROOMS: Room[] = [
     },
     category: "social",
     tags: ["Chill", "Friends", "Casual"],
-    gradient: "from-amber-900/40 to-stone-950",
+    gradient: "from-amber-900/40 to-background",
     accentColor: "amber",
   },
 
@@ -425,7 +425,7 @@ export const ROOMS: Room[] = [
     },
     category: "social",
     tags: ["Coaching", "Growth", "Mindset"],
-    gradient: "from-teal-900/50 to-stone-950",
+    gradient: "from-teal-900/50 to-background",
     accentColor: "teal",
   },
 
@@ -453,7 +453,7 @@ export const ROOMS: Room[] = [
     },
     category: "dark",
     tags: ["Dark", "Intense", "Roleplay"],
-    gradient: "from-stone-800/60 to-stone-950",
+    gradient: "from-stone-800/60 to-background",
     accentColor: "zinc",
   },
 
@@ -472,7 +472,7 @@ export const ROOMS: Room[] = [
     ], skills: ["Hotwife dynamic", "Couple roleplay", "Consensual"] },
     category: "dark",
     tags: ["Hotwife", "Couple", "18+"],
-    gradient: "from-rose-950/50 to-stone-950",
+    gradient: "from-rose-950/50 to-background",
     accentColor: "rose",
   },
 
@@ -488,7 +488,7 @@ export const ROOMS: Room[] = [
     capabilities: { voice: true, chat: true, tools: [], options: [], skills: ["Confession", "Dark talk", "No judgment"] },
     category: "dark",
     tags: ["Confession", "Dark", "18+"],
-    gradient: "from-purple-950/50 to-stone-950",
+    gradient: "from-purple-950/50 to-background",
     accentColor: "purple",
   },
 
@@ -506,7 +506,7 @@ export const ROOMS: Room[] = [
     ], skills: ["Power dynamic", "Taboo roleplay", "Consensual"] },
     category: "dark",
     tags: ["Boss", "Power", "18+"],
-    gradient: "from-amber-950/50 to-stone-950",
+    gradient: "from-amber-950/50 to-background",
     accentColor: "amber",
   },
 
@@ -531,7 +531,7 @@ export const ROOMS: Room[] = [
     },
     category: "romantic",
     tags: ["Romantic", "Tension", "Emotional"],
-    gradient: "from-rose-900/40 to-stone-950",
+    gradient: "from-rose-900/40 to-background",
     accentColor: "rose",
   },
 
@@ -560,7 +560,7 @@ export const ROOMS: Room[] = [
     },
     category: "philosophy",
     tags: ["Philosophy", "Deep talk", "Late night"],
-    gradient: "from-indigo-900/50 to-stone-950",
+    gradient: "from-indigo-900/50 to-background",
     accentColor: "indigo",
   },
 ]

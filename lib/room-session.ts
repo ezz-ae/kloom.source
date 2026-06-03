@@ -55,7 +55,7 @@ export function inviteUrl(roomId: string, sessionId: string): string {
 export function resolveHandle(walletAddress?: string | null): string {
   if (walletAddress) return walletAddress.slice(0, 4) + "…" + walletAddress.slice(-4)
   try {
-    const k = "ora_guest_handle"
+    const k = "kloom_guest_handle"
     let h = sessionStorage.getItem(k)
     if (!h) { h = "Guest-" + makeSessionId().slice(0, 4); sessionStorage.setItem(k, h) }
     return h

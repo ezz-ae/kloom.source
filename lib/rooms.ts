@@ -26,7 +26,7 @@ export type SeatModel = "local" | "claude" | "gemini"
 export interface RoomPersona {
   name: string        // matches PERSONALITY_PRESETS name, OR a workshop seat name
   role: string        // their role *in this room* e.g. "the alpha trader"
-  model?: SeatModel   // which AI backend powers this seat (default: local "Ora")
+  model?: SeatModel   // which AI backend powers this seat (default: local "Kloom")
   // Inline definition — used for workshop seats not in PERSONALITY_PRESETS.
   // If omitted, the persona is resolved from PERSONALITY_PRESETS by name.
   personality?: string
@@ -38,7 +38,7 @@ export interface RoomPersona {
 }
 
 export interface RoomTool {
-  id: string          // MCP tool name e.g. "ora_get_crypto_price"
+  id: string          // MCP tool name e.g. "kloom_get_crypto_price"
   label: string       // display label e.g. "Live prices"
   icon: string        // emoji
 }
@@ -104,12 +104,12 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_get_crypto_price", label: "Live prices",    icon: "📊" },
-        { id: "ora_get_multi_price",  label: "Compare coins",  icon: "⚖️" },
-        { id: "ora_analyze_market",   label: "Market analysis",icon: "🔍" },
-        { id: "ora_calculate",        label: "Position sizing", icon: "🧮" },
-        { id: "ora_web_search",       label: "Market news",    icon: "📰" },
-        { id: "ora_get_token_info",   label: "Token lookup",   icon: "🔎" },
+        { id: "kloom_get_crypto_price", label: "Live prices",    icon: "📊" },
+        { id: "kloom_get_multi_price",  label: "Compare coins",  icon: "⚖️" },
+        { id: "kloom_analyze_market",   label: "Market analysis",icon: "🔍" },
+        { id: "kloom_calculate",        label: "Position sizing", icon: "🧮" },
+        { id: "kloom_web_search",       label: "Market news",    icon: "📰" },
+        { id: "kloom_get_token_info",   label: "Token lookup",   icon: "🔎" },
       ],
       options: [
         { id: "timeframe",  label: "Timeframe",      type: "select",  options: ["Scalp (mins)", "Swing (days)", "Position (weeks)"], defaultValue: "Swing (days)" },
@@ -138,10 +138,10 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_get_crypto_price", label: "Market data",      icon: "📊" },
-        { id: "ora_analyze_code",     label: "Contract audit",   icon: "🔐" },
-        { id: "ora_calculate",        label: "Tokenomics math",  icon: "🧮" },
-        { id: "ora_web_search",       label: "Research",         icon: "🔍" },
+        { id: "kloom_get_crypto_price", label: "Market data",      icon: "📊" },
+        { id: "kloom_analyze_code",     label: "Contract audit",   icon: "🔐" },
+        { id: "kloom_calculate",        label: "Tokenomics math",  icon: "🧮" },
+        { id: "kloom_web_search",       label: "Research",         icon: "🔍" },
       ],
       options: [
         { id: "chain",    label: "Chain",        type: "select",  options: ["Solana", "Ethereum", "Base", "BNB"],  defaultValue: "Solana" },
@@ -177,14 +177,14 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_get_crypto_price",     label: "Live prices",     icon: "📊" },
-        { id: "ora_analyze_token_chart",  label: "Chart analysis",  icon: "📈" },
-        { id: "ora_generate_code",        label: "Write code",      icon: "💻" },
-        { id: "ora_analyze_code",         label: "Audit code",      icon: "🔐" },
-        { id: "ora_financial_calc",       label: "Tokenomics calc", icon: "🧮" },
-        { id: "ora_create_wallet",        label: "Create wallet",   icon: "🔑" },
-        { id: "ora_get_strategy",         label: "Launch playbook", icon: "📖" },
-        { id: "ora_web_search",           label: "Research",        icon: "🔍" },
+        { id: "kloom_get_crypto_price",     label: "Live prices",     icon: "📊" },
+        { id: "kloom_analyze_token_chart",  label: "Chart analysis",  icon: "📈" },
+        { id: "kloom_generate_code",        label: "Write code",      icon: "💻" },
+        { id: "kloom_analyze_code",         label: "Audit code",      icon: "🔐" },
+        { id: "kloom_financial_calc",       label: "Tokenomics calc", icon: "🧮" },
+        { id: "kloom_create_wallet",        label: "Create wallet",   icon: "🔑" },
+        { id: "kloom_get_strategy",         label: "Launch playbook", icon: "📖" },
+        { id: "kloom_web_search",           label: "Research",        icon: "🔍" },
       ],
       options: [
         { id: "chain",   label: "Chain",        type: "select", options: ["Solana", "Ethereum", "Base", "BNB"], defaultValue: "Solana" },
@@ -219,12 +219,12 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_generate_code",  label: "Write code",     icon: "💻" },
-        { id: "ora_analyze_code",   label: "Review code",    icon: "🔐" },
-        { id: "ora_build_html",     label: "Build HTML",     icon: "🎨" },
-        { id: "ora_build_connector",label: "API connector",  icon: "🔌" },
-        { id: "ora_calculate",      label: "Complexity",     icon: "📐" },
-        { id: "ora_web_search",     label: "Docs lookup",    icon: "📚" },
+        { id: "kloom_generate_code",  label: "Write code",     icon: "💻" },
+        { id: "kloom_analyze_code",   label: "Review code",    icon: "🔐" },
+        { id: "kloom_build_html",     label: "Build HTML",     icon: "🎨" },
+        { id: "kloom_build_connector",label: "API connector",  icon: "🔌" },
+        { id: "kloom_calculate",      label: "Complexity",     icon: "📐" },
+        { id: "kloom_web_search",     label: "Docs lookup",    icon: "📚" },
       ],
       options: [
         { id: "language", label: "Language",  type: "select", options: ["TypeScript", "Python", "Rust", "Solidity", "Go"], defaultValue: "TypeScript" },
@@ -258,12 +258,12 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_web_search",        label: "Market research", icon: "🔍" },
-        { id: "ora_get_strategy",      label: "Playbooks",       icon: "📖" },
-        { id: "ora_instagram_caption", label: "Content",         icon: "✍️" },
-        { id: "ora_content_ideas",     label: "Content ideas",   icon: "💡" },
-        { id: "ora_canva_design",      label: "Design",          icon: "🎨" },
-        { id: "ora_financial_calc",    label: "Projections",     icon: "🧮" },
+        { id: "kloom_web_search",        label: "Market research", icon: "🔍" },
+        { id: "kloom_get_strategy",      label: "Playbooks",       icon: "📖" },
+        { id: "kloom_instagram_caption", label: "Content",         icon: "✍️" },
+        { id: "kloom_content_ideas",     label: "Content ideas",   icon: "💡" },
+        { id: "kloom_canva_design",      label: "Design",          icon: "🎨" },
+        { id: "kloom_financial_calc",    label: "Projections",     icon: "🧮" },
       ],
       options: [
         { id: "domain", label: "Domain",  type: "select", options: ["Content creator", "SaaS startup", "Crypto project", "E-commerce", "Personal brand"], defaultValue: "Content creator" },
@@ -292,11 +292,11 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_instagram_caption", label: "Caption writer",   icon: "✍️" },
-        { id: "ora_generate_hashtags", label: "Hashtag strategy", icon: "#️⃣" },
-        { id: "ora_content_ideas",     label: "Content ideas",    icon: "💡" },
-        { id: "ora_onlyfans_dm",       label: "DM writer",        icon: "💌" },
-        { id: "ora_web_search",        label: "Trend research",   icon: "📈" },
+        { id: "kloom_instagram_caption", label: "Caption writer",   icon: "✍️" },
+        { id: "kloom_generate_hashtags", label: "Hashtag strategy", icon: "#️⃣" },
+        { id: "kloom_content_ideas",     label: "Content ideas",    icon: "💡" },
+        { id: "kloom_onlyfans_dm",       label: "DM writer",        icon: "💌" },
+        { id: "kloom_web_search",        label: "Trend research",   icon: "📈" },
       ],
       options: [
         { id: "platform",  label: "Platform",     type: "select",  options: ["Instagram", "TikTok", "OnlyFans", "YouTube", "All"], defaultValue: "Instagram" },
@@ -325,10 +325,10 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_onlyfans_dm",       label: "DM writer",       icon: "💌" },
-        { id: "ora_instagram_caption", label: "PPV captions",    icon: "🔒" },
-        { id: "ora_content_ideas",     label: "Content ideas",   icon: "💡" },
-        { id: "ora_web_search",        label: "Trend research",  icon: "🔍" },
+        { id: "kloom_onlyfans_dm",       label: "DM writer",       icon: "💌" },
+        { id: "kloom_instagram_caption", label: "PPV captions",    icon: "🔒" },
+        { id: "kloom_content_ideas",     label: "Content ideas",   icon: "💡" },
+        { id: "kloom_web_search",        label: "Trend research",  icon: "🔍" },
       ],
       options: [
         { id: "goal",     label: "Goal",          type: "select", options: ["Increase retention", "PPV sales", "Re-engage inactive", "Welcome new subs"], defaultValue: "Increase retention" },
@@ -358,9 +358,9 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_analyze_code", label: "Code review",  icon: "🔐" },
-        { id: "ora_web_search",   label: "Docs & CVEs",  icon: "📚" },
-        { id: "ora_calculate",    label: "Complexity",   icon: "📐" },
+        { id: "kloom_analyze_code", label: "Code review",  icon: "🔐" },
+        { id: "kloom_web_search",   label: "Docs & CVEs",  icon: "📚" },
+        { id: "kloom_calculate",    label: "Complexity",   icon: "📐" },
       ],
       options: [
         { id: "language", label: "Language",  type: "select", options: ["TypeScript", "Python", "Solidity", "Rust", "Go", "Other"], defaultValue: "TypeScript" },
@@ -415,7 +415,7 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_web_search", label: "Research tools", icon: "🔍" },
+        { id: "kloom_web_search", label: "Research tools", icon: "🔍" },
       ],
       options: [
         { id: "focus",    label: "Session focus", type: "select", options: ["Career", "Relationships", "Mindset", "Productivity", "Health"], defaultValue: "Career" },
@@ -550,7 +550,7 @@ export const ROOMS: Room[] = [
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_web_search", label: "Sources & research", icon: "📚" },
+        { id: "kloom_web_search", label: "Sources & research", icon: "📚" },
       ],
       options: [
         { id: "topic",   label: "Seed topic",  type: "text",   defaultValue: "" },

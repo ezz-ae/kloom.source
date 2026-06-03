@@ -4,7 +4,7 @@ import { z } from "zod"
 export function registerCreatorTools(server: McpServer) {
 
   server.registerTool(
-    "ora_instagram_caption",
+    "kloom_instagram_caption",
     {
       title: "Generate Instagram Caption",
       description: `Generate a high-converting Instagram caption optimized for engagement and reach.
@@ -44,7 +44,7 @@ Args:
   )
 
   server.registerTool(
-    "ora_generate_hashtags",
+    "kloom_generate_hashtags",
     {
       title: "Generate Hashtag Strategy",
       description: `Generate a targeted hashtag strategy for a post — mixing mega, large, medium, and micro-niche tags.
@@ -80,7 +80,7 @@ Args:
   )
 
   server.registerTool(
-    "ora_onlyfans_dm",
+    "kloom_onlyfans_dm",
     {
       title: "Generate OnlyFans DM Response",
       description: `Generate authentic, engaging DM responses for OnlyFans creators.
@@ -117,7 +117,7 @@ Args:
   )
 
   server.registerTool(
-    "ora_analyze_profile",
+    "kloom_analyze_profile",
     {
       title: "Analyze Creator Profile",
       description: `Analyze a creator's social profile from a URL. Detects platform, extracts handle,
@@ -167,7 +167,7 @@ Args:
   )
 
   server.registerTool(
-    "ora_build_growth_plan",
+    "kloom_build_growth_plan",
     {
       title: "Build Growth Plan",
       description: `Build a complete, personalized 90-day growth plan for a creator based on their
@@ -199,7 +199,7 @@ Args:
   )
 
   server.registerTool(
-    "ora_content_ideas",
+    "kloom_content_ideas",
     {
       title: "Generate Content Ideas",
       description: `Generate 20 unique, platform-optimized content ideas for a creator.

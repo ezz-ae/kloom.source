@@ -4,7 +4,7 @@ import { z } from "zod"
 export function registerComputeTools(server: McpServer) {
 
   server.registerTool(
-    "ora_calculate",
+    "kloom_calculate",
     {
       title: "Calculator",
       description: `Evaluate a mathematical expression. Use for:
@@ -57,7 +57,7 @@ Returns:
   )
 
   server.registerTool(
-    "ora_analyze_code",
+    "kloom_analyze_code",
     {
       title: "Analyze Code",
       description: `Perform structured analysis of code for bugs, security vulnerabilities, performance issues, or style problems.
@@ -97,7 +97,7 @@ Returns:
   )
 
   server.registerTool(
-    "ora_analyze_market",
+    "kloom_analyze_market",
     {
       title: "Analyze Market Pair",
       description: `Fetch and analyze a trading pair — price, momentum, volatility context.
@@ -127,7 +127,7 @@ Args:
         const data = await res.json() as any
         const coin = data[coinId]
         if (!coin) {
-          return { content: [{ type: "text" as const, text: `No data for ${pair}. Use ora_web_search for this pair.` }] }
+          return { content: [{ type: "text" as const, text: `No data for ${pair}. Use kloom_web_search for this pair.` }] }
         }
         const change     = Number(coin.usd_24h_change ?? 0)
         const volatility = Math.abs(change) > 10 ? "high" : Math.abs(change) > 5 ? "medium" : "low"

@@ -55,7 +55,7 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
   const [stream, setStream]   = useState("")
   const [readingDone, setDone] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const key = `ora_reading_${expert.id}`
+  const key = `kloom_reading_${expert.id}`
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }) }, [msgs, stream])
 
@@ -138,18 +138,18 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
         <div className="text-center">
           <div className="text-4xl mb-2">{expert.emoji}</div>
           <h2 className="font-bold text-xl">{expert.name}</h2>
-          <p className="text-sm text-white/45 mt-1.5 leading-relaxed">{expert.greeting}</p>
+          <p className="text-sm text-foreground/45 mt-1.5 leading-relaxed">{expert.greeting}</p>
         </div>
 
         {/* Focus (not for couple) */}
         {!isCouple && (
           <div>
-            <div className="text-[11px] uppercase tracking-widest text-white/35 font-bold mb-2">Focus</div>
+            <div className="text-[11px] uppercase tracking-widest text-foreground/35 font-bold mb-2">Focus</div>
             <div className="flex flex-wrap gap-2">
               {FOCUS.map((f) => (
                 <button key={f} onClick={() => setFocus(f)}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-                    focus === f ? "bg-white text-stone-950 border-transparent" : "bg-white/5 border-white/10 text-white/55 hover:bg-white/10"
+                    focus === f ? "bg-white text-stone-950 border-transparent" : "bg-white/5 border-border/50 text-foreground/55 hover:bg-white/10"
                   }`}>{f}</button>
               ))}
             </div>
@@ -159,7 +159,7 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
         {/* Tarot card pick */}
         {isTarot && (
           <div>
-            <div className="text-[11px] uppercase tracking-widest text-white/35 font-bold mb-2">
+            <div className="text-[11px] uppercase tracking-widest text-foreground/35 font-bold mb-2">
               Pick your three cards — Past · Present · Future
             </div>
             <div className="flex justify-center gap-3">
@@ -172,18 +172,18 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
                     <>
                       <Sparkles size={18} className="text-amber-300 mb-1" />
                       <span className="text-[11px] font-semibold leading-tight text-amber-100">{card}</span>
-                      <span className="text-[9px] text-white/40 mt-1">{["Past","Present","Future"][i]}</span>
+                      <span className="text-[9px] text-foreground/40 mt-1">{["Past","Present","Future"][i]}</span>
                     </>
                   ) : (
                     <>
-                      <span className="text-2xl text-white/30">✦</span>
-                      <span className="text-[9px] text-white/30 mt-1">{["Past","Present","Future"][i]}</span>
+                      <span className="text-2xl text-foreground/30">✦</span>
+                      <span className="text-[9px] text-foreground/30 mt-1">{["Past","Present","Future"][i]}</span>
                     </>
                   )}
                 </button>
               ))}
             </div>
-            {!tarotReady && <p className="text-[11px] text-white/30 text-center mt-2">Tap each card to draw it</p>}
+            {!tarotReady && <p className="text-[11px] text-foreground/30 text-center mt-2">Tap each card to draw it</p>}
           </div>
         )}
 
@@ -191,28 +191,28 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
         {isCouple && (
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-white/50 mb-1 block">You (name, sign, or vibe)</label>
+              <label className="text-xs text-foreground/50 mb-1 block">You (name, sign, or vibe)</label>
               <input value={you} onChange={(e) => setYou(e.target.value)} placeholder="e.g. Maya, Scorpio, intense and loyal"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500/40" />
+                className="w-full bg-white/5 border border-border/50 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500/40" />
             </div>
             <div>
-              <label className="text-xs text-white/50 mb-1 block">Them</label>
+              <label className="text-xs text-foreground/50 mb-1 block">Them</label>
               <input value={them} onChange={(e) => setThem(e.target.value)} placeholder="e.g. Sam, Leo, warm but stubborn"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500/40" />
+                className="w-full bg-white/5 border border-border/50 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500/40" />
             </div>
             {/* Invite the real partner (subscriber-only) */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <div className="rounded-xl border border-border/50 bg-white/[0.03] p-3">
               {isSubscribed() ? (
                 <>
                   <div className="flex items-center gap-2 text-xs font-semibold text-amber-300 mb-2"><Link2 size={13} /> Or invite your partner to add their own side</div>
                   <button onClick={() => { navigator.clipboard.writeText(coupleInviteLink()); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000) }}
-                    className="w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/12 border border-white/10 text-xs font-semibold py-2 rounded-lg">
+                    className="w-full flex items-center justify-center gap-2 bg-white/8 hover:bg-white/12 border border-border/50 text-xs font-semibold py-2 rounded-lg">
                     {inviteCopied ? <><Check size={13} className="text-emerald-400" /> Link copied</> : <><Copy size={13} /> Copy partner invite link</>}
                   </button>
                 </>
               ) : (
-                <div className="flex items-center gap-2 text-xs text-white/45">
-                  <Lock size={13} className="text-white/30 shrink-0" />
+                <div className="flex items-center gap-2 text-xs text-foreground/45">
+                  <Lock size={13} className="text-foreground/30 shrink-0" />
                   <span>Inviting your real partner by link is a subscriber feature.</span>
                 </div>
               )}
@@ -222,13 +222,13 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
 
         {/* Question */}
         <div>
-          <label className="text-xs text-white/50 mb-1 block">{isCouple ? "What do you want to know? (optional)" : "Your question (optional)"}</label>
+          <label className="text-xs text-foreground/50 mb-1 block">{isCouple ? "What do you want to know? (optional)" : "Your question (optional)"}</label>
           <input value={question} onChange={(e) => setQ(e.target.value)} placeholder={isTarot ? "What should I know right now?" : "Ask anything…"}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500/40" />
+            className="w-full bg-white/5 border border-border/50 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500/40" />
         </div>
 
         <button onClick={begin} disabled={!tarotReady || !coupleReady}
-          className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-white font-bold py-3 rounded-2xl transition-all hover:scale-[1.01]">
+          className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-foreground font-bold py-3 rounded-2xl transition-all hover:scale-[1.01]">
           <Sparkles size={16} /> {isTarot ? "Reveal my reading" : isCouple ? "Read us together" : "Begin my reading"}
         </button>
       </div>
@@ -242,7 +242,7 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
         {msgs.filter((m, i) => !(i === 0 && m.role === "user")).map((m, i) => (
           <div key={i} className={`flex gap-2.5 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "assistant" && <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500/40 to-orange-500/40 flex items-center justify-center text-sm shrink-0 mt-0.5">{expert.emoji}</div>}
-            <div className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-amber-500 text-white rounded-br-sm" : "bg-white/8 border border-white/10 text-white/90 rounded-bl-sm"}`}>
+            <div className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-amber-500 text-foreground rounded-br-sm" : "bg-white/8 border border-border/50 text-foreground/90 rounded-bl-sm"}`}>
               {m.role === "user" ? m.content : <MessageRenderer content={m.content} />}
             </div>
           </div>
@@ -250,7 +250,7 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
         {loading && (
           <div className="flex gap-2.5">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500/40 to-orange-500/40 flex items-center justify-center text-sm shrink-0 mt-0.5">{expert.emoji}</div>
-            <div className="bg-white/8 border border-white/10 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[82%] text-sm text-white/90">
+            <div className="bg-white/8 border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[82%] text-sm text-foreground/90">
               {stream ? <MessageRenderer content={stream} /> : <span className="flex gap-1">{[0,1,2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce inline-block" style={{animationDelay:`${i*0.15}s`}}/>)}</span>}
             </div>
           </div>
@@ -263,12 +263,12 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
               <Flower2 size={16} className="text-rose-400" />
               <span className="text-sm font-bold">{expert.name} sent you a flower</span>
             </div>
-            <p className="text-xs text-white/55 leading-relaxed mb-3">
+            <p className="text-xs text-foreground/55 leading-relaxed mb-3">
               "There's more the cards want to say — but some things are better heard than read.
               Come closer, let me tell you on a call." Your first 5 minutes are free.
             </p>
             <button onClick={onTakeCall}
-              className="w-full flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-400 text-white font-bold py-2.5 rounded-xl transition-all hover:scale-[1.01] text-sm">
+              className="w-full flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-400 text-foreground font-bold py-2.5 rounded-xl transition-all hover:scale-[1.01] text-sm">
               <Phone size={15} /> Take the call — first 5 min free
             </button>
           </div>
@@ -279,15 +279,15 @@ export function ReadingExperience({ expert, onTakeCall }: Props) {
       {/* Follow-up input */}
       <div className="shrink-0 px-4 py-3 border-t border-white/5">
         <div className="flex gap-2 items-end max-w-3xl mx-auto">
-          <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/40">
+          <div className="flex-1 bg-white/5 border border-border/50 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/40">
             <textarea rows={1} placeholder={`Ask ${expert.name} more…`} value={input}
               onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px" }}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input) } }}
-              className="w-full bg-transparent text-sm text-white placeholder-white/30 resize-none focus:outline-none" style={{ maxHeight: 120 }} />
+              className="w-full bg-transparent text-sm text-foreground placeholder-white/30 resize-none focus:outline-none" style={{ maxHeight: 120 }} />
           </div>
           <button onClick={() => send(input)} disabled={!input.trim() || loading}
             className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 flex items-center justify-center shrink-0 mb-0.5">
-            <Send size={15} className="text-white" />
+            <Send size={15} className="text-foreground" />
           </button>
         </div>
       </div>

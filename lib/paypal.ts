@@ -97,10 +97,10 @@ export async function createOrder(args: CreateOrderArgs): Promise<{ id: string; 
       purchase_units: [{
         amount:      { currency_code: "USD", value },
         custom_id:   packCustom(args.wallet, args.credits ?? 0, args.kind ?? "purchase"),
-        description: (args.label || "Ora").slice(0, 127),
+        description: (args.label || "Kloom").slice(0, 127),
       }],
       application_context: {
-        brand_name:          "Ora",
+        brand_name:          "Kloom",
         shipping_preference: "NO_SHIPPING",
         user_action:         "PAY_NOW",
       },

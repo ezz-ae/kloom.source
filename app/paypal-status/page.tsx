@@ -15,13 +15,13 @@ import { useEffect, useState } from "react"
 const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ""
 
 function Row({ label, ok, note }: { label: string; ok: boolean | null; note?: string }) {
-  const color = ok === null ? "text-white/40" : ok ? "text-emerald-400" : "text-red-400"
+  const color = ok === null ? "text-foreground/40" : ok ? "text-emerald-400" : "text-red-400"
   const mark  = ok === null ? "…" : ok ? "✅" : "❌"
   return (
-    <div className="flex items-start justify-between gap-4 py-3 border-b border-white/8">
+    <div className="flex items-start justify-between gap-4 py-3 border-b border-border/30">
       <div>
         <div className="text-sm font-semibold">{label}</div>
-        {note && <div className="text-xs text-white/40 mt-0.5">{note}</div>}
+        {note && <div className="text-xs text-foreground/40 mt-0.5">{note}</div>}
       </div>
       <div className={`text-sm font-bold shrink-0 ${color}`}>{mark}</div>
     </div>
@@ -59,16 +59,16 @@ export default function PayPalStatusPage() {
     : <span className="text-emerald-300">LIVE</span>
 
   return (
-    <div className="min-h-screen bg-stone-950 text-white px-6 py-16">
+    <div className="min-h-screen bg-background text-foreground px-6 py-16">
       <div className="max-w-lg mx-auto">
         <h1 className="text-2xl font-black tracking-tight">PayPal readiness</h1>
-        <p className="text-sm text-white/50 mt-1">Confirms your account is ready for embedded card payments.</p>
+        <p className="text-sm text-foreground/50 mt-1">Confirms your account is ready for embedded card payments.</p>
 
-        <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] px-5">
+        <div className="mt-8 rounded-2xl border border-border/50 bg-foreground/5 px-5">
           <Row label="Environment" ok={server ? true : null}
                note={server ? undefined : "checking…"} />
           {server && (
-            <div className="flex items-center justify-between py-3 border-b border-white/8">
+            <div className="flex items-center justify-between py-3 border-b border-border/30">
               <div className="text-sm font-semibold">Mode</div>
               <div className="text-sm font-bold">{envBadge}</div>
             </div>
@@ -86,12 +86,12 @@ export default function PayPalStatusPage() {
                  : eligErr ?? "the definitive answer for embedded card fields"} />
         </div>
 
-        <div className="mt-6 text-xs text-white/40 leading-relaxed space-y-2">
-          <p><span className="text-white/70 font-semibold">What “ready” looks like:</span> all green, Mode = LIVE,
+        <div className="mt-6 text-xs text-foreground/40 leading-relaxed space-y-2">
+          <p><span className="text-foreground/70 font-semibold">What “ready” looks like:</span> all green, Mode = LIVE,
             and “Inline card fields eligible” = ✅. Then buyers type their card right in the app — no PayPal login.</p>
-          <p><span className="text-white/70 font-semibold">If inline = ❌:</span> everything still works — buyers use the
+          <p><span className="text-foreground/70 font-semibold">If inline = ❌:</span> everything still works — buyers use the
             PayPal button (one extra tap, still no account needed). Enable Advanced Card Payments in your dashboard to switch to inline.</p>
-          <p><span className="text-white/70 font-semibold">Tip:</span> set <code>PAYPAL_ENV=sandbox</code> with sandbox keys to test the
+          <p><span className="text-foreground/70 font-semibold">Tip:</span> set <code>PAYPAL_ENV=sandbox</code> with sandbox keys to test the
             full inline flow today — sandbox business accounts are ACDC-eligible by default.</p>
         </div>
       </div>

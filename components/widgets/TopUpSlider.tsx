@@ -38,12 +38,12 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
             <div className="flex items-center justify-center gap-2 text-4xl font-black text-emerald-400">
               <InfinityIcon size={34} /> Unlimited
             </div>
-            <div className="text-sm text-white/50 mt-1">Unlimited voice calls · ${UNLIMITED_USD} flat</div>
+            <div className="text-sm text-foreground/50 mt-1">Unlimited voice calls · ${UNLIMITED_USD} flat</div>
           </>
         ) : (
           <>
-            <div className="text-5xl font-black">{minutes}<span className="text-2xl text-white/40"> min</span></div>
-            <div className="text-sm text-white/50 mt-1">of voice for <span className="text-white font-semibold">${usd}</span></div>
+            <div className="text-5xl font-black">{minutes}<span className="text-2xl text-foreground/40"> min</span></div>
+            <div className="text-sm text-foreground/50 mt-1">of voice for <span className="text-foreground font-semibold">${usd}</span></div>
           </>
         )}
       </div>
@@ -59,7 +59,7 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
           onChange={(e) => setUsd(Number(e.target.value))}
           className="w-full accent-amber-500"
         />
-        <div className="flex justify-between text-[11px] text-white/35 mt-1">
+        <div className="flex justify-between text-[11px] text-foreground/35 mt-1">
           <span>${MIN_TOPUP_USD}</span>
           <span className="text-emerald-400 font-semibold">${UNLIMITED_USD} · unlimited</span>
         </div>
@@ -70,7 +70,7 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
         {[1, 5, 15, 60].map((v) => (
           <button key={v} onClick={() => setUsd(v)}
             className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
-              usd === v ? "bg-white text-stone-950 border-transparent" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+              usd === v ? "bg-white text-stone-950 border-transparent" : "bg-white/5 border-border/50 text-foreground/60 hover:bg-white/10"
             }`}>
             {v === 60 ? "∞" : `$${v}`}
           </button>
@@ -80,9 +80,9 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
       {/* Buy */}
       <button onClick={buy} disabled={busy || purchaseState === "done"}
         className={`w-full flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl transition-all text-sm ${
-          purchaseState === "done" ? "bg-emerald-500 text-white"
+          purchaseState === "done" ? "bg-emerald-500 text-foreground"
           : purchaseState === "error" ? "bg-red-500/20 border border-red-500/40 text-red-300"
-          : "bg-amber-500 hover:bg-amber-400 text-white hover:scale-[1.02] active:scale-[0.98]"
+          : "bg-amber-500 hover:bg-amber-400 text-foreground hover:scale-[1.02] active:scale-[0.98]"
         } disabled:opacity-60`}>
         {busy ? <Loader2 size={15} className="animate-spin" />
           : purchaseState === "done" ? <Check size={15} />
@@ -97,7 +97,7 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
       {purchaseError && purchaseState === "error" && (
         <p className="text-xs text-red-400 text-center">{purchaseError}</p>
       )}
-      <p className="text-[11px] text-white/30 text-center flex items-center justify-center gap-1.5">
+      <p className="text-[11px] text-foreground/30 text-center flex items-center justify-center gap-1.5">
         <CreditCard size={11} /> Pay with SOL or card · credits never expire
       </p>
     </div>

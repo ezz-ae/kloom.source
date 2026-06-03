@@ -112,17 +112,17 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
       {status !== "ineligible" && (
         <>
           <div>
-            <label className="text-[11px] text-white/40">Card number</label>
-            <div ref={numberRef} className="mt-1 h-11 rounded-xl border border-white/10 bg-white/5 px-3 flex items-center" />
+            <label className="text-[11px] text-foreground/40">Card number</label>
+            <div ref={numberRef} className="mt-1 h-11 rounded-xl border border-border/50 bg-white/5 px-3 flex items-center" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] text-white/40">Expiry</label>
-              <div ref={expiryRef} className="mt-1 h-11 rounded-xl border border-white/10 bg-white/5 px-3 flex items-center" />
+              <label className="text-[11px] text-foreground/40">Expiry</label>
+              <div ref={expiryRef} className="mt-1 h-11 rounded-xl border border-border/50 bg-white/5 px-3 flex items-center" />
             </div>
             <div>
-              <label className="text-[11px] text-white/40">CVV</label>
-              <div ref={cvvRef} className="mt-1 h-11 rounded-xl border border-white/10 bg-white/5 px-3 flex items-center" />
+              <label className="text-[11px] text-foreground/40">CVV</label>
+              <div ref={cvvRef} className="mt-1 h-11 rounded-xl border border-border/50 bg-white/5 px-3 flex items-center" />
             </div>
           </div>
           <button
@@ -132,7 +132,7 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
           >
             {status === "loading" ? "Loading…" : status === "paying" ? "Processing…" : status === "done" ? "Paid ✓" : `Pay $${Number(price).toFixed(2)}`}
           </button>
-          <p className="text-[10px] text-white/30 text-center">🔒 Secured by PayPal · no account needed · we never see your card</p>
+          <p className="text-[10px] text-foreground/30 text-center">🔒 Secured by PayPal · no account needed · we never see your card</p>
         </>
       )}
       <div ref={btnRef} />

@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js"
-import express, { Request, Response } from "express"
+import express from "express"
+import type { Request, Response } from "express"
 import { registerSearchTools }   from "./tools/search.js"
 import { registerCryptoTools }   from "./tools/crypto.js"
 import { registerComputeTools }  from "./tools/compute.js"
@@ -12,7 +13,7 @@ const PORT = Number(process.env.MCP_PORT ?? 3001)
 
 function createServer(): McpServer {
   const server = new McpServer({
-    name:    "ora-mcp-server",
+    name:    "kloom-mcp-server",
     version: "1.0.0",
   })
 
@@ -51,28 +52,28 @@ app.post("/mcp", async (req: Request, res: Response) => {
 app.get("/health", (_req: Request, res: Response) => {
   res.json({
     status:  "ok",
-    server:  "ora-mcp-server",
+    server:  "kloom-mcp-server",
     version: "1.0.0",
     tools: [
-      "ora_web_search", "ora_get_crypto_price", "ora_get_multi_price",
-      "ora_get_token_info", "ora_calculate", "ora_analyze_code",
-      "ora_analyze_market", "ora_instagram_caption", "ora_generate_hashtags",
-      "ora_onlyfans_dm", "ora_content_ideas",
-      "ora_analyze_token_chart", "ora_generate_code", "ora_build_html",
-      "ora_get_strategy", "ora_canva_design", "ora_create_wallet",
-      "ora_build_connector", "ora_financial_calc",
+      "kloom_web_search", "kloom_get_crypto_price", "kloom_get_multi_price",
+      "kloom_get_token_info", "kloom_calculate", "kloom_analyze_code",
+      "kloom_analyze_market", "kloom_instagram_caption", "kloom_generate_hashtags",
+      "kloom_onlyfans_dm", "kloom_content_ideas",
+      "kloom_analyze_token_chart", "kloom_generate_code", "kloom_build_html",
+      "kloom_get_strategy", "kloom_canva_design", "kloom_create_wallet",
+      "kloom_build_connector", "kloom_financial_calc",
     ],
     prompts: [
-      "ora_trading_expert",
-      "ora_coding_expert",
-      "ora_creator_expert",
-      "ora_companion",
-      "ora_professional",
+      "kloom_trading_expert",
+      "kloom_coding_expert",
+      "kloom_creator_expert",
+      "kloom_companion",
+      "kloom_professional",
     ],
   })
 })
 
 app.listen(PORT, () => {
-  console.error(`[ora-mcp-server] running on http://localhost:${PORT}`)
-  console.error(`[ora-mcp-server] MCP endpoint: http://localhost:${PORT}/mcp`)
+  console.error(`[kloom-mcp-server] running on http://localhost:${PORT}`)
+  console.error(`[kloom-mcp-server] MCP endpoint: http://localhost:${PORT}/mcp`)
 })

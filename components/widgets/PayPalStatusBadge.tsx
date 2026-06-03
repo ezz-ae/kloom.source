@@ -46,15 +46,15 @@ export function PayPalStatusBadge() {
 
   return (
     <Link href="/paypal-status"
-      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 hover:bg-white/[0.06] transition-colors">
+      className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-white/[0.03] px-4 py-2.5 hover:bg-white/[0.06] transition-colors">
       <div className="flex items-center gap-2.5 min-w-0">
         <span className={`w-2 h-2 rounded-full shrink-0 ${dot} ${state.kind === "loading" ? "animate-pulse" : ""}`} />
         <div className="min-w-0">
           <div className="text-xs font-bold truncate">{text}</div>
-          {sub && <div className="text-[10px] text-white/40 truncate">{sub}</div>}
+          {sub && <div className="text-[10px] text-foreground/40 truncate">{sub}</div>}
         </div>
       </div>
-      <span className="text-[10px] text-white/40 shrink-0">details →</span>
+      <span className="text-[10px] text-foreground/40 shrink-0">details →</span>
     </Link>
   )
 }

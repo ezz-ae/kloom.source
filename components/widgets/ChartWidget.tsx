@@ -100,9 +100,9 @@ export function ChartWidget({ address, symbol }: ChartWidgetProps) {
   }
 
   if (loading) return (
-    <div className="rounded-2xl border border-white/10 bg-stone-900 p-4 flex items-center gap-3 my-1">
-      <RefreshCw size={16} className="text-white/40 animate-spin" />
-      <span className="text-sm text-white/40">Loading chart for {symbol || address.slice(0,8)}…</span>
+    <div className="rounded-2xl border border-border/50 bg-stone-900 p-4 flex items-center gap-3 my-1">
+      <RefreshCw size={16} className="text-foreground/40 animate-spin" />
+      <span className="text-sm text-foreground/40">Loading chart for {symbol || address.slice(0,8)}…</span>
     </div>
   )
 
@@ -110,7 +110,7 @@ export function ChartWidget({ address, symbol }: ChartWidgetProps) {
     <div className="rounded-2xl border border-red-500/20 bg-stone-900 p-4 my-1">
       <p className="text-sm text-red-400">Token not found on DexScreener for address {address.slice(0,8)}…</p>
       <a href={`https://dexscreener.com/solana/${address}`} target="_blank" rel="noopener noreferrer"
-        className="text-xs text-white/40 hover:text-white/70 mt-1 flex items-center gap-1">
+        className="text-xs text-foreground/40 hover:text-foreground/70 mt-1 flex items-center gap-1">
         <ExternalLink size={11} /> View on DexScreener
       </a>
     </div>
@@ -122,7 +122,7 @@ export function ChartWidget({ address, symbol }: ChartWidgetProps) {
   )
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-stone-900 overflow-hidden my-1">
+    <div className="rounded-2xl border border-border/50 bg-stone-900 overflow-hidden my-1">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
         <div className="flex items-center gap-2.5">
@@ -131,7 +131,7 @@ export function ChartWidget({ address, symbol }: ChartWidgetProps) {
           </div>
           <div>
             <div className="font-bold text-sm">{data.symbol}</div>
-            <div className="text-[11px] text-white/40">{data.name}</div>
+            <div className="text-[11px] text-foreground/40">{data.name}</div>
           </div>
         </div>
         <div className="text-right">
@@ -148,19 +148,19 @@ export function ChartWidget({ address, symbol }: ChartWidgetProps) {
         <Sparkline data={sparkData} positive={positive} />
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-right">
           <div>
-            <div className="text-[10px] text-white/30 uppercase">Volume 24h</div>
+            <div className="text-[10px] text-foreground/30 uppercase">Volume 24h</div>
             <div className="text-xs font-semibold">{fmt(data.volume24h)}</div>
           </div>
           <div>
-            <div className="text-[10px] text-white/30 uppercase">Liquidity</div>
+            <div className="text-[10px] text-foreground/30 uppercase">Liquidity</div>
             <div className="text-xs font-semibold">{fmt(data.liquidity)}</div>
           </div>
           <div>
-            <div className="text-[10px] text-white/30 uppercase">Mkt Cap</div>
+            <div className="text-[10px] text-foreground/30 uppercase">Mkt Cap</div>
             <div className="text-xs font-semibold">{data.marketCap ? fmt(data.marketCap) : "N/A"}</div>
           </div>
           <div>
-            <div className="text-[10px] text-white/30 uppercase">DEX</div>
+            <div className="text-[10px] text-foreground/30 uppercase">DEX</div>
             <div className="text-xs font-semibold capitalize">{data.dexId}</div>
           </div>
         </div>
@@ -168,7 +168,7 @@ export function ChartWidget({ address, symbol }: ChartWidgetProps) {
 
       {/* Footer */}
       <div className="flex items-center justify-between px-4 py-2 border-t border-white/8 bg-white/3">
-        <span className="text-[10px] text-white/30 font-mono">{address.slice(0,8)}…{address.slice(-4)}</span>
+        <span className="text-[10px] text-foreground/30 font-mono">{address.slice(0,8)}…{address.slice(-4)}</span>
         <div className="flex gap-3">
           {[
             { label: "DexScreener", url: data.url },

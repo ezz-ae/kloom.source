@@ -83,7 +83,7 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
   const isLive = status === "live" || status === "connecting"
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <div className="rounded-2xl border border-border/50 bg-white/[0.03] p-4">
       <div className="flex items-center gap-2 mb-3">
         <Users size={15} className="text-amber-400" />
         <span className="text-sm font-bold">Group voice</span>
@@ -97,17 +97,17 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
 
       {!isLive ? (
         <>
-          <p className="text-xs text-white/45 mb-3 leading-relaxed">
+          <p className="text-xs text-foreground/45 mb-3 leading-relaxed">
             Live mic-to-mic with everyone in this room. AI replies are spoken aloud too.
           </p>
           <div className="flex gap-2">
             <button onClick={() => join("speak")} disabled={status === "requesting-mic"}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
               {status === "requesting-mic" ? <Loader2 size={15} className="animate-spin" /> : <Phone size={15} />}
               {status === "requesting-mic" ? "Allow mic…" : "Join"}
             </button>
             <button onClick={() => join("listen")} disabled={status === "requesting-mic"}
-              className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+              className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-foreground font-bold py-2.5 rounded-xl transition-all text-sm">
               <Headphones size={15} /> Listen In
             </button>
           </div>
@@ -128,7 +128,7 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
                 <span className="w-1.5 h-1.5 rounded-full bg-current" /> {p.id}
               </span>
             ))}
-            {peers.length === 0 && <span className="text-[11px] text-white/35 self-center">Waiting for others to join…</span>}
+            {peers.length === 0 && <span className="text-[11px] text-foreground/35 self-center">Waiting for others to join…</span>}
           </div>
 
           {/* Controls */}
@@ -136,13 +136,13 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
             {!listenOnly && (
               <button onClick={toggleMute}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  muted ? "bg-red-500/20 border border-red-500/30 text-red-300" : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10"
+                  muted ? "bg-red-500/20 border border-red-500/30 text-red-300" : "bg-white/5 border border-border/50 text-foreground/70 hover:bg-white/10"
                 }`}>
                 {muted ? <MicOff size={14} /> : <Mic size={14} />} {muted ? "Unmute" : "Mute"}
               </button>
             )}
             <button onClick={leave}
-              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white text-sm font-bold transition-all ${listenOnly ? "flex-1" : ""}`}>
+              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-foreground text-sm font-bold transition-all ${listenOnly ? "flex-1" : ""}`}>
               <PhoneOff size={14} /> Leave
             </button>
           </div>
@@ -150,7 +150,7 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
           {/* AI voice toggle */}
           <label className="flex items-center gap-2 mt-3 cursor-pointer">
             <input type="checkbox" checked={aiVoice} onChange={(e) => { setAiVoice(e.target.checked); onWantAiVoice?.(e.target.checked) }} className="accent-amber-500" />
-            <span className="text-[11px] text-white/50">Speak AI replies aloud for everyone</span>
+            <span className="text-[11px] text-foreground/50">Speak AI replies aloud for everyone</span>
           </label>
         </>
       )}

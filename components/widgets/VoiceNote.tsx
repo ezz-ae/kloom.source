@@ -73,7 +73,7 @@ export function VoiceNote({ text, voice = "sage", personaName, paidCredits, onSp
       title={blocked ? "Add voice credit to hear this" : "Play voice note"}
       className={`mt-2 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all ${
         blocked
-          ? "border-white/10 bg-white/5 text-white/40 hover:bg-white/10"
+          ? "border-border/50 bg-white/5 text-foreground/40 hover:bg-white/10"
           : "border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
       }`}
     >

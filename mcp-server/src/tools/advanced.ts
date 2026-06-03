@@ -5,7 +5,7 @@ export function registerAdvancedTools(server: McpServer) {
 
   // ── CHART ANALYSIS ──────────────────────────────────────────────────────────
   server.registerTool(
-    "ora_analyze_token_chart",
+    "kloom_analyze_token_chart",
     {
       title: "Analyze Token Chart",
       description: `Fetch live market data for a Solana token and perform technical analysis.
@@ -72,7 +72,7 @@ Args:
 
   // ── CODE GENERATION ─────────────────────────────────────────────────────────
   server.registerTool(
-    "ora_generate_code",
+    "kloom_generate_code",
     {
       title: "Generate Code",
       description: `Generate production-quality code for a given task. Returns formatted code with explanation.
@@ -106,7 +106,7 @@ Args:
 
   // ── HTML BUILDER ────────────────────────────────────────────────────────────
   server.registerTool(
-    "ora_build_html",
+    "kloom_build_html",
     {
       title: "Step-by-Step HTML Builder",
       description: `Build a complete HTML/CSS/JS page or component.
@@ -149,7 +149,7 @@ Args:
 
   // ── STRATEGY BOOK ───────────────────────────────────────────────────────────
   server.registerTool(
-    "ora_get_strategy",
+    "kloom_get_strategy",
     {
       title: "Get Strategy",
       description: `Get a complete strategy playbook for trading, content, business, or personal goals.
@@ -188,7 +188,7 @@ Args:
 
   // ── CANVA DESIGN ────────────────────────────────────────────────────────────
   server.registerTool(
-    "ora_canva_design",
+    "kloom_canva_design",
     {
       title: "Create Canva Design",
       description: `Generate a Canva design brief and create a direct Canva link.
@@ -221,7 +221,7 @@ Args:
 
   // ── WALLET CREATOR ──────────────────────────────────────────────────────────
   server.registerTool(
-    "ora_create_wallet",
+    "kloom_create_wallet",
     {
       title: "Create Solana Wallet",
       description: `Generate a new Solana wallet. Returns a WalletCreatorWidget in the chat.
@@ -246,7 +246,7 @@ Use when user asks to create a wallet, generate keys, or start fresh on Solana.`
 
   // ── CONNECTOR BUILDER ───────────────────────────────────────────────────────
   server.registerTool(
-    "ora_build_connector",
+    "kloom_build_connector",
     {
       title: "Build API Connector",
       description: `Generate integration code to connect two services or APIs.
@@ -278,7 +278,7 @@ Args:
 
   // ── ADVANCED CALCULATOR ─────────────────────────────────────────────────────
   server.registerTool(
-    "ora_financial_calc",
+    "kloom_financial_calc",
     {
       title: "Financial Calculator",
       description: `Perform financial calculations with context: ROI, compound interest, position sizing, DCA, yield farming APY, token price targets.
@@ -322,7 +322,7 @@ Args:
             result = { price_target: price.toFixed(8), multiplier: (price/parseFloat(i.current_price)).toFixed(2) + "x" }
             break
           default:
-            result = { note: "Calculation performed — check inputs and use ora_calculate for custom expressions" }
+            result = { note: "Calculation performed — check inputs and use kloom_calculate for custom expressions" }
         }
       } catch {
         result = { error: "Invalid inputs for " + calc_type }

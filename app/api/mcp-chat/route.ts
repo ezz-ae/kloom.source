@@ -205,12 +205,12 @@ async function mcpGetPrompt(name: string, args: Record<string, unknown>): Promis
 function getPromptName(persona: any): string {
   const cat = persona?.category ?? ""
   // Any persona carrying a structured expert definition → generic expert prompt
-  if (cat === "expert" || persona?.domain)  return "ora_expert"
-  if (cat === "trading")      return "ora_trading_expert"
-  if (cat === "professional") return "ora_coding_expert"
-  if (cat === "creator")      return "ora_creator_expert"
-  if (["romantic", "friends", "family", "roleplay", "dark"].includes(cat)) return "ora_companion"
-  return "ora_companion"
+  if (cat === "expert" || persona?.domain)  return "kloom_expert"
+  if (cat === "trading")      return "kloom_trading_expert"
+  if (cat === "professional") return "kloom_coding_expert"
+  if (cat === "creator")      return "kloom_creator_expert"
+  if (["romantic", "friends", "family", "roleplay", "dark"].includes(cat)) return "kloom_companion"
+  return "kloom_companion"
 }
 
 function getPromptArgs(persona: any, messages: any[], isVoice: boolean): Record<string, unknown> {
@@ -338,13 +338,13 @@ export async function POST(req: NextRequest) {
   const toolNames = (cat === "expert" || persona?.domain)
     ? (Array.isArray(persona?.tools) ? persona.tools : [])
     : cat === "trading"
-    ? ["ora_get_crypto_price", "ora_get_multi_price", "ora_get_token_info", "ora_analyze_market", "ora_analyze_token_chart", "ora_calculate", "ora_financial_calc", "ora_web_search", "ora_create_wallet", "ora_get_strategy"]
+    ? ["kloom_get_crypto_price", "kloom_get_multi_price", "kloom_get_token_info", "kloom_analyze_market", "kloom_analyze_token_chart", "kloom_calculate", "kloom_financial_calc", "kloom_web_search", "kloom_create_wallet", "kloom_get_strategy"]
     : cat === "professional"
-    ? ["ora_analyze_code", "ora_generate_code", "ora_build_html", "ora_build_connector", "ora_calculate", "ora_web_search"]
+    ? ["kloom_analyze_code", "kloom_generate_code", "kloom_build_html", "kloom_build_connector", "kloom_calculate", "kloom_web_search"]
     : cat === "creator"
-    ? ["ora_analyze_profile", "ora_build_growth_plan", "ora_instagram_caption", "ora_generate_hashtags", "ora_onlyfans_dm", "ora_content_ideas", "ora_canva_design", "ora_get_strategy", "ora_web_search"]
+    ? ["kloom_analyze_profile", "kloom_build_growth_plan", "kloom_instagram_caption", "kloom_generate_hashtags", "kloom_onlyfans_dm", "kloom_content_ideas", "kloom_canva_design", "kloom_get_strategy", "kloom_web_search"]
     : cat === "workshop"
-    ? ["ora_get_crypto_price", "ora_analyze_token_chart", "ora_analyze_code", "ora_generate_code", "ora_build_html", "ora_calculate", "ora_financial_calc", "ora_web_search", "ora_create_wallet", "ora_get_strategy", "ora_build_connector"]
+    ? ["kloom_get_crypto_price", "kloom_analyze_token_chart", "kloom_analyze_code", "kloom_generate_code", "kloom_build_html", "kloom_calculate", "kloom_financial_calc", "kloom_web_search", "kloom_create_wallet", "kloom_get_strategy", "kloom_build_connector"]
     : []
 
   const tools = allTools

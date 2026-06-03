@@ -1,6 +1,6 @@
 import { z } from "zod";
 export function registerSearchTools(server) {
-    server.registerTool("ora_web_search", {
+    server.registerTool("kloom_web_search", {
         title: "Web Search",
         description: `Search the web for real-time information, news, documentation, prices, or any current data.
 

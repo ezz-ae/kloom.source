@@ -300,7 +300,7 @@ export async function* streamLLM(
 }
 
 export const BACKEND_LABELS: Record<Backend, string> = {
-  local:  "Ora",
+  local:  "Kloom",
   claude: "Claude",
   gemini: "Gemini",
   openai: "GPT",

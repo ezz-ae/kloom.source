@@ -39,18 +39,18 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
             <span className="font-bold text-sm">Unlock Unrestricted</span>
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30">$10/mo</span>
           </div>
-          <p className="text-xs text-white/50 mt-0.5">
+          <p className="text-xs text-foreground/50 mt-0.5">
             Full no-restriction mode across the whole platform — not just {context}.
           </p>
           {!open && (
             <button onClick={() => setOpen(true)}
-              className="mt-3 inline-flex items-center gap-1.5 bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all hover:scale-[1.02]">
+              className="mt-3 inline-flex items-center gap-1.5 bg-rose-500 hover:bg-rose-400 text-foreground text-xs font-bold px-4 py-2 rounded-xl transition-all hover:scale-[1.02]">
               <Flame size={13} /> Unlock — $10/mo
             </button>
           )}
         </div>
         {open && (
-          <button onClick={() => setOpen(false)} className="text-white/30 hover:text-white shrink-0"><X size={16} /></button>
+          <button onClick={() => setOpen(false)} className="text-foreground/30 hover:text-foreground shrink-0"><X size={16} /></button>
         )}
       </div>
 
@@ -58,7 +58,7 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
         <div className="mt-4">
           <ul className="grid grid-cols-1 gap-1.5 mb-4">
             {PERKS.map((p) => (
-              <li key={p} className="flex items-start gap-2 text-xs text-white/60">
+              <li key={p} className="flex items-start gap-2 text-xs text-foreground/60">
                 <Check size={13} className="text-rose-400 shrink-0 mt-0.5" /> {p}
               </li>
             ))}
@@ -77,7 +77,7 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
               Connect your Solana wallet first — it's your account ID for the pass.
             </p>
           )}
-          <p className="text-[10px] text-white/30 text-center mt-3">Pay by card · no PayPal account needed · cancel anytime</p>
+          <p className="text-[10px] text-foreground/30 text-center mt-3">Pay by card · no PayPal account needed · cancel anytime</p>
         </div>
       )}
     </div>

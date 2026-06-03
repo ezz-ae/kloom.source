@@ -70,12 +70,12 @@ export function MediaUploader({ onAttach, onScreenShare }: MediaUploaderProps) {
         onChange={(e) => e.target.files && handleFiles(e.target.files)} />
       <button onClick={() => inputRef.current?.click()}
         title="Attach image or file"
-        className="p-2 rounded-xl text-white/40 hover:text-white/80 hover:bg-white/8 transition-all">
+        className="p-2 rounded-xl text-foreground/40 hover:text-foreground/80 hover:bg-white/8 transition-all">
         <ImageIcon size={17} />
       </button>
       <button onClick={startScreenShare}
         title="Share screen"
-        className="p-2 rounded-xl text-white/40 hover:text-white/80 hover:bg-white/8 transition-all">
+        className="p-2 rounded-xl text-foreground/40 hover:text-foreground/80 hover:bg-white/8 transition-all">
         <Monitor size={17} />
       </button>
     </div>
@@ -84,20 +84,20 @@ export function MediaUploader({ onAttach, onScreenShare }: MediaUploaderProps) {
 
 export function AttachmentPreview({ att, onRemove }: { att: MediaAttachment; onRemove: () => void }) {
   return (
-    <div className="relative group rounded-xl overflow-hidden border border-white/10 w-20 h-20 shrink-0">
+    <div className="relative group rounded-xl overflow-hidden border border-border/50 w-20 h-20 shrink-0">
       {att.type === "image" || att.type === "screen" ? (
         <img src={att.url} alt={att.name} className="w-full h-full object-cover" />
       ) : att.type === "video" ? (
         <video src={att.url} className="w-full h-full object-cover" />
       ) : (
         <div className="w-full h-full bg-white/5 flex flex-col items-center justify-center gap-1 p-2">
-          <FileText size={20} className="text-white/40" />
-          <span className="text-[9px] text-white/40 truncate w-full text-center">{att.name}</span>
+          <FileText size={20} className="text-foreground/40" />
+          <span className="text-[9px] text-foreground/40 truncate w-full text-center">{att.name}</span>
         </div>
       )}
       <button onClick={onRemove}
         className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <X size={10} className="text-white" />
+        <X size={10} className="text-foreground" />
       </button>
     </div>
   )
@@ -107,15 +107,15 @@ export function AttachmentInMessage({ att }: { att: MediaAttachment }) {
   return (
     <div className="mt-2">
       {(att.type === "image" || att.type === "screen") && (
-        <img src={att.url} alt={att.name} className="max-w-xs max-h-64 rounded-xl object-cover border border-white/10" />
+        <img src={att.url} alt={att.name} className="max-w-xs max-h-64 rounded-xl object-cover border border-border/50" />
       )}
       {att.type === "video" && (
-        <video src={att.url} controls className="max-w-xs max-h-64 rounded-xl border border-white/10" />
+        <video src={att.url} controls className="max-w-xs max-h-64 rounded-xl border border-border/50" />
       )}
       {att.type === "file" && (
-        <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 max-w-xs">
-          <FileText size={16} className="text-white/40 shrink-0" />
-          <span className="text-sm text-white/70 truncate">{att.name}</span>
+        <div className="flex items-center gap-2 bg-white/5 border border-border/50 rounded-xl px-3 py-2 max-w-xs">
+          <FileText size={16} className="text-foreground/40 shrink-0" />
+          <span className="text-sm text-foreground/70 truncate">{att.name}</span>
         </div>
       )}
     </div>

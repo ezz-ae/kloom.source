@@ -28,7 +28,7 @@ import {
 const BACKEND_BADGE: Record<string, { label: string; cls: string }> = {
   claude: { label: "Claude", cls: "bg-orange-500/15 text-orange-300 border-orange-500/25" },
   gemini: { label: "Gemini", cls: "bg-sky-500/15 text-sky-300 border-sky-500/25" },
-  local:  { label: "Ora",    cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
+  local:  { label: "Kloom",    cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
 }
 
 /** Avatar URL for any room persona — preset photo, or dicebear for workshop seats. */
@@ -55,7 +55,7 @@ interface OptionValues {
 
 // ── Hooks ──────────────────────────────────────────────────────────────────
 
-const CHAT_STORAGE = "ora_room_chats_v1"
+const CHAT_STORAGE = "kloom_room_chats_v1"
 
 function loadRoomChats(roomId: string): ChatMessage[] {
   try {
@@ -228,7 +228,7 @@ function RoomContent() {
       category:      (rp as any).category ?? room?.category ?? preset?.category,
       model:         rp.model          ?? "local",
       ...( (rp as any).domain ? {
-        // expert-style invited seat: pass expert fields through for ora_expert
+        // expert-style invited seat: pass expert fields through for kloom_expert
         domain: (rp as any).domain, expertise: (rp as any).expertise,
         outputFormat: (rp as any).outputFormat, forbidden: (rp as any).forbidden,
         tools: (rp as any).tools,
@@ -618,7 +618,7 @@ function RoomContent() {
                     setExtraAI((prev) => [...prev, {
                       name: e.name, role: e.tagline, voice: e.voice, model: "local",
                       personality: e.expertise, speakingStyle: "In-character expert",
-                      // expert fields for ora_expert routing
+                      // expert fields for kloom_expert routing
                       ...( { category: "expert", domain: e.domain, expertise: e.expertise, outputFormat: e.outputFormat, forbidden: e.forbidden, tools: e.tools } as any ),
                     } as RoomPersona])
                     setAddAIOpen(false)

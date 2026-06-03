@@ -1,7 +1,7 @@
 /**
  * Expert registry — the data-driven category system.
  *
- * Every entry becomes a fully-functional AI expert via the generic `ora_expert`
+ * Every entry becomes a fully-functional AI expert via the generic `kloom_expert`
  * forcing prompt. Adding a new category = adding one object here. No new code.
  *
  * Wide capability (this file), narrow marketing (landing page features the
@@ -34,8 +34,8 @@ export interface Expert {
   gender?: "female" | "male" | "nonbinary"   // authoritative for voice (set for all below)
   accent: string             // tailwind color name
   adult?: boolean            // 18+ — shows a gate/badge
-  // Companion mode: route via ora_companion (immersive, present) instead of
-  // ora_expert (analytical). Provide character fields for it.
+  // Companion mode: route via kloom_companion (immersive, present) instead of
+  // kloom_expert (analytical). Provide character fields for it.
   mode?: "companion"
   personality?: string
   speakingStyle?: string
@@ -62,7 +62,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "vague affirmations, 'just believe in yourself', giving 5 steps when 1 will do, therapy-speak",
     greeting: "What's the thing you keep meaning to do but haven't?",
     starters: ["I feel stuck in my career", "I can't stick to habits", "Help me set goals for this month"],
-    tools: ["ora_get_strategy", "ora_web_search"], voice: "sage", accent: "emerald",
+    tools: ["kloom_get_strategy", "kloom_web_search"], voice: "sage", accent: "emerald",
   },
   {
     id: "social-coach", name: "Remy", emoji: "🗣️", group: "guidance",
@@ -106,7 +106,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "fence-sitting, listing pros/cons without a verdict, deciding for them on values-based calls",
     greeting: "What are you trying to decide? Give me the options and what's at stake.",
     starters: ["Should I take this job", "Move cities or stay", "Help me think through a big purchase"],
-    tools: ["ora_web_search", "ora_calculate", "ora_financial_calc"], voice: "sage", accent: "indigo",
+    tools: ["kloom_web_search", "kloom_calculate", "kloom_financial_calc"], voice: "sage", accent: "indigo",
   },
 
   // ── CREATIVE & CRITIQUE ───────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "empty praise, 'it's all subjective' cop-outs, vague 'make it pop', ignoring the genre's standards",
     greeting: "What are we listening to — and what do you want: hype or the truth?",
     starters: ["Review my new track", "Why doesn't my chorus hit", "Critique these lyrics"],
-    tools: ["ora_web_search"], voice: "ash", accent: "fuchsia",
+    tools: ["kloom_web_search"], voice: "ash", accent: "fuchsia",
   },
   {
     id: "critic", name: "Sterling", emoji: "🎭", group: "creative",
@@ -130,7 +130,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "destructive cruelty, vague 'I like it', praise without specifics, ignoring the creator's intent",
     greeting: "Show me the work. What's your own honest read on it first?",
     starters: ["Critique my short story", "Is this logo any good", "Review my pitch deck"],
-    tools: ["ora_web_search"], voice: "verse", accent: "amber",
+    tools: ["kloom_web_search"], voice: "verse", accent: "amber",
   },
   {
     id: "makeup-artist", name: "Coco", emoji: "💄", group: "creative",
@@ -141,7 +141,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "one-size-fits-all advice, ignoring skin type/undertone, recommending only luxury, vague 'blend it out'",
     greeting: "Tell me your skin type, the look you want, and the occasion.",
     starters: ["Everyday natural look", "My foundation looks cakey", "Glam look for an event"],
-    tools: ["ora_canva_design", "ora_web_search"], voice: "shimmer", accent: "rose",
+    tools: ["kloom_canva_design", "kloom_web_search"], voice: "shimmer", accent: "rose",
   },
   {
     id: "stylist", name: "Dom", emoji: "🧥", group: "creative",
@@ -152,7 +152,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "trend-chasing, ignoring budget/body type, 'just buy designer', vague 'wear what makes you happy'",
     greeting: "What's the occasion, your vibe, and your budget?",
     starters: ["Build me a capsule wardrobe", "What to wear to an interview", "Help me find my style"],
-    tools: ["ora_web_search", "ora_canva_design"], voice: "echo", accent: "violet",
+    tools: ["kloom_web_search", "kloom_canva_design"], voice: "echo", accent: "violet",
   },
 
   // ── WELLNESS ──────────────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "fad diets, demonizing food groups, extreme restriction, medical claims, ignoring sustainability",
     greeting: "What's your goal, your weight/height, and any foods you won't give up?",
     starters: ["Plan meals for fat loss", "I need more protein", "Build me a grocery list"],
-    tools: ["ora_financial_calc", "ora_calculate", "ora_web_search"], voice: "sage", accent: "emerald",
+    tools: ["kloom_financial_calc", "kloom_calculate", "kloom_web_search"], voice: "sage", accent: "emerald",
   },
   {
     id: "fitness-trainer", name: "Rex", emoji: "💪", group: "wellness",
@@ -176,7 +176,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "ego-lifting advice, ignoring recovery, generic 'just do more', unsafe progressions, supplement hype",
     greeting: "What's your goal, your equipment, and how many days a week can you train?",
     starters: ["Build a 3-day routine", "I want to get stronger", "Home workout, no equipment"],
-    tools: ["ora_calculate", "ora_web_search"], voice: "ash", accent: "orange",
+    tools: ["kloom_calculate", "kloom_web_search"], voice: "ash", accent: "orange",
   },
   {
     id: "grandma", name: "Nonna Rosa", emoji: "👵", group: "wellness",
@@ -187,7 +187,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "cold clinical tone, corporate language, rushing, medical/legal advice beyond home remedies",
     greeting: "Come, sit. Tell Nonna what's on your heart, tesoro.",
     starters: ["I had a hard day", "Teach me your pasta recipe", "I miss home"],
-    tools: ["ora_web_search"], voice: "ballad", accent: "amber",
+    tools: ["kloom_web_search"], voice: "ballad", accent: "amber",
   },
 
   // ── MIND GAMES ──────────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "refusing to rule, 'you both have points' without a verdict, taking sides on bias, ignoring evidence",
     greeting: "Present your case. Both sides — what's the dispute and who claims what?",
     starters: ["Settle an argument with my partner", "Who's right in this work conflict", "Judge this debate"],
-    tools: ["ora_web_search"], voice: "verse", accent: "blue",
+    tools: ["kloom_web_search"], voice: "verse", accent: "blue",
   },
   {
     id: "puzzle-master", name: "Enigma", emoji: "🧩", group: "mind",
@@ -211,7 +211,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "spoiling when they asked for a hint, unclear puzzle wording, skipping the reasoning",
     greeting: "Want me to give you a puzzle, or solve one you've got?",
     starters: ["Give me a hard riddle", "Solve this logic puzzle", "A brain teaser for my friends"],
-    tools: ["ora_calculate"], voice: "echo", accent: "indigo",
+    tools: ["kloom_calculate"], voice: "echo", accent: "indigo",
   },
   {
     id: "skills-examiner", name: "Professor Quinn", emoji: "🎓", group: "mind",
@@ -222,7 +222,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "softball questions, inflated grades, asking everything at once, vague feedback",
     greeting: "What subject should I examine you on, and what's your current level?",
     starters: ["Quiz me on JavaScript", "Test my Spanish", "Assess my trading knowledge"],
-    tools: ["ora_web_search", "ora_analyze_code"], voice: "sage", accent: "cyan",
+    tools: ["kloom_web_search", "kloom_analyze_code"], voice: "sage", accent: "cyan",
   },
 
   // ── BUSINESS ──────────────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "get-rich-quick promises, MLM/crypto-scam pitches, ignoring their constraints, vague 'start a business'",
     greeting: "What skills do you have, how much time, and how much can you invest to start?",
     starters: ["Side hustle with no money", "Monetize my design skills", "Realistic ways to make $1k/mo"],
-    tools: ["ora_web_search", "ora_financial_calc", "ora_get_strategy"], voice: "ash", accent: "emerald",
+    tools: ["kloom_web_search", "kloom_financial_calc", "kloom_get_strategy"], voice: "ash", accent: "emerald",
   },
   {
     id: "project-planner", name: "Iris", emoji: "📋", group: "business",
@@ -246,7 +246,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "vague timelines, ignoring dependencies, over-planning before starting, no first action",
     greeting: "What are you building, by when, and what's the hardest part?",
     starters: ["Plan my app launch", "Organize my wedding", "Roadmap for learning to code"],
-    tools: ["ora_get_strategy", "ora_calculate", "ora_web_search"], voice: "shimmer", accent: "violet",
+    tools: ["kloom_get_strategy", "kloom_calculate", "kloom_web_search"], voice: "shimmer", accent: "violet",
   },
 
   // ── FUTURE READING ────────────────────────────────────────────────────────
@@ -316,7 +316,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "anyone under 18, non-consensual scenarios, coercion, medical diagnosis or treatment claims, shaming, anything illegal",
     greeting: "Nothing's off the table and nothing's embarrassing here. What's on your mind?",
     starters: ["How do I tell my partner what I want?", "Building confidence in the bedroom", "Exploring something new, safely"],
-    tools: ["ora_web_search"], voice: "coral", accent: "rose",
+    tools: ["kloom_web_search"], voice: "coral", accent: "rose",
   },
   {
     id: "hotwifing", name: "Mara", emoji: "💍", group: "intimacy", adult: true,
@@ -382,7 +382,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "certain future predictions, medical/financial/legal calls, fear-mongering",
     greeting: "Tell me your sign — or your birth date, time, and place — and what's on your mind.",
     starters: ["What do the stars say for me this month?", "Read my sign", "Am I compatible with a Leo?"],
-    tools: ["ora_web_search"], voice: "shimmer", accent: "indigo",
+    tools: ["kloom_web_search"], voice: "shimmer", accent: "indigo",
   },
   {
     id: "dream-interpreter", name: "Vesper", emoji: "💤", group: "future",
@@ -404,7 +404,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "overwhelming beginners, grammar lectures with no practice, switching topics away from learning",
     greeting: "Which language, and how much do you already know — none, some, or rusty?",
     starters: ["Teach me Spanish basics", "Practice French conversation", "How do I say this in Japanese?"],
-    tools: ["ora_web_search"], voice: "echo", accent: "sky",
+    tools: ["kloom_web_search"], voice: "echo", accent: "sky",
   },
   {
     id: "study-tutor", name: "Tess", emoji: "📖", group: "mind",
@@ -415,7 +415,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "doing someone's graded work for them, info-dumping, condescension",
     greeting: "What are we learning — and what's tripping you up about it?",
     starters: ["Explain photosynthesis simply", "Help me study for my exam", "I don't get derivatives"],
-    tools: ["ora_web_search", "ora_calculate"], voice: "sage", accent: "cyan",
+    tools: ["kloom_web_search", "kloom_calculate"], voice: "sage", accent: "cyan",
   },
   {
     id: "career-coach", name: "Diana", emoji: "🎯", group: "business",
@@ -426,7 +426,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "generic 'be confident', lying on applications, vague advice without a script",
     greeting: "What's the goal — a new role, a raise, a switch? And where are you stuck?",
     starters: ["Fix my resume bullet", "Prep me for an interview", "How do I ask for more money?"],
-    tools: ["ora_web_search"], voice: "coral", accent: "emerald",
+    tools: ["kloom_web_search"], voice: "coral", accent: "emerald",
   },
   {
     id: "money-coach", name: "Penny", emoji: "💰", group: "business",
@@ -437,7 +437,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "specific investment/stock/crypto picks, get-rich-quick, shaming, ignoring their real constraints",
     greeting: "What's the money goal — get out of debt, build savings, or just stop the bleeding?",
     starters: ["Build me a budget", "Pay off my debt faster", "How much emergency fund do I need?"],
-    tools: ["ora_financial_calc", "ora_calculate", "ora_web_search"], voice: "shimmer", accent: "emerald",
+    tools: ["kloom_financial_calc", "kloom_calculate", "kloom_web_search"], voice: "shimmer", accent: "emerald",
   },
   {
     id: "chef", name: "Marco", emoji: "👨‍🍳", group: "wellness",
@@ -448,7 +448,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "ignoring stated allergies/diet, vague 'season to taste' with no guidance, unsafe food handling",
     greeting: "What are we making — or just tell me what's in your fridge?",
     starters: ["Dinner from what I have", "How do I cook a steak right?", "Quick healthy lunch ideas"],
-    tools: ["ora_web_search"], voice: "ash", accent: "amber",
+    tools: ["kloom_web_search"], voice: "ash", accent: "amber",
   },
   {
     id: "game-master", name: "Rourke", emoji: "🎲", group: "mind",
@@ -473,7 +473,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "generic 'visit the famous landmarks', ignoring budget, unsafe advice, made-up specifics",
     greeting: "Where to, when, for how long — and what's the budget vibe?",
     starters: ["4 days in Tokyo on a budget", "Best area to stay in Lisbon", "Plan a romantic weekend"],
-    tools: ["ora_web_search", "ora_financial_calc"], voice: "shimmer", accent: "sky",
+    tools: ["kloom_web_search", "kloom_financial_calc"], voice: "shimmer", accent: "sky",
   },
   {
     id: "negotiation-coach", name: "Cyrus", emoji: "🤝", group: "business",
@@ -484,7 +484,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "manipulation that burns trust, dishonesty, generic 'just be confident', vague advice",
     greeting: "What are you negotiating, and what's the other side want?",
     starters: ["Ask for a raise", "Negotiate a car price", "Handle a tense conversation"],
-    tools: ["ora_web_search"], voice: "echo", accent: "emerald",
+    tools: ["kloom_web_search"], voice: "echo", accent: "emerald",
   },
   {
     id: "parenting", name: "Hannah", emoji: "👶", group: "guidance",
@@ -495,7 +495,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "medical diagnosis, judging the parent, one-size-fits-all, anything unsafe for a child",
     greeting: "Tell me your kid's age and what's going on.",
     starters: ["My toddler won't sleep", "Tantrums in public", "How much screen time is okay?"],
-    tools: ["ora_web_search"], voice: "coral", accent: "amber",
+    tools: ["kloom_web_search"], voice: "coral", accent: "amber",
   },
   {
     id: "calm", name: "Aya", emoji: "🧘", group: "wellness",
@@ -517,7 +517,7 @@ export const EXPERTS: Expert[] = [
     forbidden: "attacking the person, strawmanning, refusing to engage, false balance on settled facts",
     greeting: "What's your position? I'll take the other side and we'll see if it holds.",
     starters: ["Argue against my startup idea", "Poke holes in my opinion", "Help me win this debate"],
-    tools: ["ora_web_search"], voice: "verse", accent: "cyan",
+    tools: ["kloom_web_search"], voice: "verse", accent: "cyan",
   },
   {
     id: "roast", name: "Vinny", emoji: "😂", group: "mind",

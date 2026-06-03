@@ -27,7 +27,7 @@ function highlight(code: string, lang: string): string {
   if (!re) return esc
   return esc.replace(re, '<span class="text-amber-300 font-semibold">$&</span>')
     .replace(/(["'`])(.*?)\1/g, '<span class="text-emerald-300">$1$2$1</span>')
-    .replace(/(\/\/[^\n]*|#[^\n]*)/g, '<span class="text-white/35 italic">$1</span>')
+    .replace(/(\/\/[^\n]*|#[^\n]*)/g, '<span class="text-foreground/35 italic">$1</span>')
     .replace(/\b(\d+\.?\d*)\b/g, '<span class="text-amber-300">$1</span>')
 }
 
@@ -63,14 +63,14 @@ ${code}
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-white/10 bg-stone-900 my-1">
+    <div className="rounded-2xl overflow-hidden border border-border/50 bg-stone-900 my-1">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-white/8">
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-rose-500" />
           <span className="w-2 h-2 rounded-full bg-amber-500" />
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span className="text-[11px] text-white/40 font-mono ml-2">{lang} · {lineCount} lines</span>
+          <span className="text-[11px] text-foreground/40 font-mono ml-2">{lang} · {lineCount} lines</span>
         </div>
         <div className="flex items-center gap-2">
           {isRunnable && !running && (
@@ -85,12 +85,12 @@ ${code}
               Close preview
             </button>
           )}
-          <button onClick={copy} className="flex items-center gap-1 text-[11px] text-white/40 hover:text-white/80 px-2 py-1 rounded transition-colors">
+          <button onClick={copy} className="flex items-center gap-1 text-[11px] text-foreground/40 hover:text-foreground/80 px-2 py-1 rounded transition-colors">
             {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
             {copied ? "Copied" : "Copy"}
           </button>
           {lineCount > 20 && (
-            <button onClick={() => setCollapsed((v) => !v)} className="text-white/40 hover:text-white/80">
+            <button onClick={() => setCollapsed((v) => !v)} className="text-foreground/40 hover:text-foreground/80">
               {collapsed ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
             </button>
           )}
@@ -100,13 +100,13 @@ ${code}
       {/* Code */}
       {!collapsed && (
         <div className="overflow-x-auto">
-          <pre className="p-4 text-[13px] font-mono leading-relaxed text-white/80 max-h-[400px] overflow-y-auto"
+          <pre className="p-4 text-[13px] font-mono leading-relaxed text-foreground/80 max-h-[400px] overflow-y-auto"
             dangerouslySetInnerHTML={{ __html: highlight(code, lang.toLowerCase()) }}
           />
         </div>
       )}
       {collapsed && (
-        <div className="px-4 py-2 text-[11px] text-white/30 italic">
+        <div className="px-4 py-2 text-[11px] text-foreground/30 italic">
           {lineCount} lines hidden — click ↓ to expand
         </div>
       )}
@@ -114,10 +114,10 @@ ${code}
       {/* Live preview */}
       {running && (
         <div className="border-t border-white/8">
-          <div className="px-4 py-2 text-[11px] text-white/40 bg-white/3">Live preview</div>
+          <div className="px-4 py-2 text-[11px] text-foreground/40 bg-white/3">Live preview</div>
           <iframe
             ref={iframeRef}
-            className="w-full bg-stone-950"
+            className="w-full bg-background"
             style={{ height: 320, border: "none" }}
             sandbox="allow-scripts allow-same-origin"
             title="code-preview"

@@ -90,12 +90,12 @@ function SettingsContent() {
   }
 
   return (
-    <div className="min-h-full bg-stone-950 text-white">
+    <div className="min-h-full bg-background text-foreground">
       {/* Header */}
-      <div className="border-b border-white/5 px-8 py-6">
+      <div className="border-b border-border/30 px-8 py-6">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl font-black tracking-tight">Settings</h1>
-          <p className="text-sm text-white/40 mt-1">Manage your account, billing, and preferences</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage your account, billing, and preferences</p>
         </div>
       </div>
 
@@ -109,8 +109,8 @@ function SettingsContent() {
               onClick={() => router.push(`/app/settings?tab=${tab.id}`)}
               className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
                 activeTab === tab.id
-                  ? "bg-white/10 text-white"
-                  : "text-white/45 hover:text-white hover:bg-white/5"
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-foreground/45 hover:text-foreground hover:bg-foreground/5"
               }`}
             >
               <tab.icon size={15} className="shrink-0" />
@@ -141,14 +141,14 @@ function SettingsContent() {
                         <InfinityIcon size={32} /> Unlimited
                       </div>
                     ) : (
-                      <div className="text-4xl font-black">{balance}<span className="text-lg text-white/40"> min</span></div>
+                      <div className="text-4xl font-black">{balance}<span className="text-lg text-muted-foreground"> min</span></div>
                     )}
-                    <div className="text-sm text-white/50 mt-1">
+                    <div className="text-sm text-foreground/50 mt-1">
                       {unlimited ? "Unlimited voice calls · active" : "1 credit ≈ 1 minute · first 5 min free · never expires"}
                     </div>
                   </div>
                   {!unlimited && (
-                    <button onClick={() => setTopUpOpen(true)} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-bold px-5 py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] text-sm">
+                    <button onClick={() => setTopUpOpen(true)} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-foreground font-bold px-5 py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] text-sm">
                       <Plus size={16} />
                       Top up
                     </button>
@@ -158,7 +158,7 @@ function SettingsContent() {
 
               {/* Live SOL price */}
               {solPrice > 0 && (
-                <div className="text-xs text-white/30 -mt-3">
+                <div className="text-xs text-muted-foreground/60 -mt-3">
                   Top up with SOL or card · live rate: 1 SOL ≈ ${solPrice.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                 </div>
               )}
@@ -176,7 +176,7 @@ function SettingsContent() {
               {/* Subscription plans — Creator tools (optional) */}
               <div>
                 <h3 className="font-bold mb-1">Creator Suite plans</h3>
-                <p className="text-xs text-white/40 mb-4">Optional — only if you want the creator tools. Everything else is free.</p>
+                <p className="text-xs text-muted-foreground mb-4">Optional — only if you want the creator tools. Everything else is free.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {PLANS.map((plan) => (
                     <div
@@ -184,24 +184,24 @@ function SettingsContent() {
                       className={`relative rounded-2xl p-5 border ${
                         plan.highlight
                           ? "border-amber-500/40 bg-amber-500/10"
-                          : "border-white/10 bg-white/[0.03]"
+                          : "border-border/50 bg-foreground/5"
                       }`}
                     >
                       {plan.highlight && (
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-500 text-foreground text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
                           Best value
                         </div>
                       )}
                       <div className="mb-4">
-                        <div className="font-bold text-sm text-white/70">{plan.name}</div>
+                        <div className="font-bold text-sm text-foreground">{plan.name}</div>
                         <div className="text-3xl font-black mt-1">
                           ${plan.price}
-                          <span className="text-sm font-normal text-white/40">/{plan.period}</span>
+                          <span className="text-sm font-normal text-muted-foreground">/{plan.period}</span>
                         </div>
                       </div>
                       <ul className="space-y-2 mb-5">
                         {plan.features.map((f) => (
-                          <li key={f} className="flex items-start gap-2 text-xs text-white/60">
+                          <li key={f} className="flex items-start gap-2 text-xs text-muted-foreground">
                             <Check size={12} className="text-emerald-400 shrink-0 mt-0.5" />
                             {f}
                           </li>
@@ -211,15 +211,15 @@ function SettingsContent() {
                         onClick={() => handleSubscribe(plan.id)}
                         className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] active:scale-[0.98] ${
                           plan.highlight
-                            ? "bg-amber-500 hover:bg-amber-400 text-white"
-                            : "bg-white/8 hover:bg-white/12 text-white"
+                            ? "bg-amber-500 hover:bg-amber-400 text-foreground"
+                            : "bg-foreground/8 hover:bg-foreground/12 text-foreground"
                         }`}
                       >
                         {payPlan === plan.id ? "Close" : "Subscribe"}
                       </button>
 
                       {payPlan === plan.id && (
-                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="mt-4 rounded-2xl border border-border/50 bg-foreground/5 p-4">
                           <PayPalCheckout
                             walletAddress={publicKey?.toBase58() ?? ""}
                             price={plan.price}
@@ -233,7 +233,7 @@ function SettingsContent() {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-white/25 text-center mt-4">
+                <p className="text-xs text-muted-foreground/60 text-center mt-4">
                   Powered by PayPal · pay by card, no PayPal account needed
                 </p>
               </div>
@@ -244,14 +244,14 @@ function SettingsContent() {
           {activeTab === "wallet" && (
             <div className="space-y-4">
               {/* Connection status */}
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 space-y-4">
+              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-1">Solana wallet</div>
+                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">Solana wallet</div>
                     {publicKey ? (
-                      <div className="font-mono text-sm text-white">{publicKey.toBase58()}</div>
+                      <div className="font-mono text-sm text-foreground">{publicKey.toBase58()}</div>
                     ) : (
-                      <div className="text-sm text-white/50">Not connected</div>
+                      <div className="text-sm text-foreground/50">Not connected</div>
                     )}
                   </div>
                   <div className={`w-2.5 h-2.5 rounded-full ${publicKey ? "bg-emerald-400" : "bg-white/20"}`} />
@@ -261,7 +261,7 @@ function SettingsContent() {
                   disabled={connecting}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                     publicKey
-                      ? "bg-white/5 border border-white/10 hover:bg-white/10 text-white/70"
+                      ? "bg-foreground/5 border border-border/50 hover:bg-foreground/10 text-foreground"
                       : "bg-white text-stone-950 hover:bg-white/90"
                   }`}
                 >
@@ -271,14 +271,14 @@ function SettingsContent() {
               </div>
 
               {/* $BLOOM token */}
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
+              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-6">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-                    <Zap size={14} className="text-white" />
+                    <Zap size={14} className="text-foreground" />
                   </div>
                   <div>
                     <div className="font-bold text-sm">$BLOOM Token</div>
-                    <div className="text-xs text-white/40">Solana SPL · 6 decimals</div>
+                    <div className="text-xs text-muted-foreground">Solana SPL · 6 decimals</div>
                   </div>
                 </div>
                 {bloomMint ? (
@@ -292,16 +292,16 @@ function SettingsContent() {
                     View on Solana Explorer
                   </a>
                 ) : (
-                  <p className="text-xs text-white/30">Token mint not configured yet.</p>
+                  <p className="text-xs text-muted-foreground/60">Token mint not configured yet.</p>
                 )}
               </div>
 
               {/* Supported wallets */}
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">Supported wallets</div>
+              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-5">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Supported wallets</div>
                 {["Phantom", "Solflare", "Backpack"].map((w) => (
-                  <div key={w} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                    <span className="text-sm text-white/70">{w}</span>
+                  <div key={w} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
+                    <span className="text-sm text-foreground">{w}</span>
                     <Check size={14} className="text-emerald-400" />
                   </div>
                 ))}
@@ -312,26 +312,26 @@ function SettingsContent() {
           {/* ── Account ── */}
           {activeTab === "account" && (
             <div className="space-y-4">
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
-                <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4">Identity</div>
+              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-6">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">Identity</div>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-                    <User size={20} className="text-white" />
+                    <User size={20} className="text-foreground" />
                   </div>
                   <div>
                     <div className="font-semibold text-sm">
                       {publicKey ? shortenAddress(publicKey.toBase58()) : "Anonymous"}
                     </div>
-                    <div className="text-xs text-white/40 mt-0.5">
+                    <div className="text-xs text-muted-foreground mt-0.5">
                       {publicKey ? "Identified by Solana wallet" : "Connect wallet to save account"}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
-                <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-4">Privacy</div>
-                <div className="space-y-3 text-sm text-white/60">
+              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-6">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">Privacy</div>
+                <div className="space-y-3 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2"><Shield size={14} className="text-emerald-400" /> No email required</div>
                   <div className="flex items-center gap-2"><Shield size={14} className="text-emerald-400" /> No tracking or analytics on conversations</div>
                   <div className="flex items-center gap-2"><Shield size={14} className="text-emerald-400" /> Wallet address is your only identifier</div>
@@ -341,7 +341,7 @@ function SettingsContent() {
 
               <div className="bg-red-500/5 border border-red-500/20 rounded-2xl p-6">
                 <div className="text-xs font-semibold text-red-400/60 uppercase tracking-widest mb-3">Danger zone</div>
-                <p className="text-xs text-white/40 mb-4">Wipe all local data including chat history, settings, and cached credits. This cannot be undone.</p>
+                <p className="text-xs text-muted-foreground mb-4">Wipe all local data including chat history, settings, and cached credits. This cannot be undone.</p>
                 <button
                   onClick={() => {
                     if (!confirm("Wipe all local data? This cannot be undone.")) return
@@ -360,7 +360,7 @@ function SettingsContent() {
           {/* ── Preferences ── */}
           {activeTab === "preferences" && (
             <div className="space-y-4">
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl divide-y divide-white/5">
+              <div className="bg-foreground/5 border border-border/50 rounded-2xl divide-y divide-white/5">
                 {[
                   {
                     label: "Push notifications",
@@ -379,10 +379,10 @@ function SettingsContent() {
                 ].map((pref) => (
                   <div key={pref.label} className="flex items-center justify-between px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <pref.icon size={16} className="text-white/40 shrink-0" />
+                      <pref.icon size={16} className="text-muted-foreground shrink-0" />
                       <div>
                         <div className="text-sm font-medium">{pref.label}</div>
-                        <div className="text-xs text-white/35 mt-0.5">{pref.sub}</div>
+                        <div className="text-xs text-foreground/35 mt-0.5">{pref.sub}</div>
                       </div>
                     </div>
                     <button
@@ -401,10 +401,10 @@ function SettingsContent() {
                 ))}
               </div>
 
-              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                <div className="text-xs font-semibold text-white/40 uppercase tracking-widest mb-3">App version</div>
-                <div className="text-sm text-white/50">v0.2 · $BLOOM on Solana mainnet</div>
-                <div className="text-xs text-white/25 mt-1">Built with Next.js · Supabase · Solana</div>
+              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-5">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">App version</div>
+                <div className="text-sm text-foreground/50">v0.2 · $BLOOM on Solana mainnet</div>
+                <div className="text-xs text-muted-foreground/60 mt-1">Built with Next.js · Supabase · Solana</div>
               </div>
             </div>
           )}
@@ -414,12 +414,12 @@ function SettingsContent() {
       {/* Top-up modal — $1 → $60 unlimited */}
       {topUpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setTopUpOpen(false)}>
-          <div className="bg-stone-900 border border-white/10 rounded-3xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-stone-900 border border-border/50 rounded-3xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-bold text-lg flex items-center gap-2"><CreditCard size={18} className="text-amber-400" /> Add voice credit</h3>
-              <button onClick={() => setTopUpOpen(false)} className="text-white/40 hover:text-white"><XIcon size={18} /></button>
+              <button onClick={() => setTopUpOpen(false)} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
             </div>
-            <p className="text-sm text-white/50 mb-5">Slide to choose your minutes — or go unlimited at $60.</p>
+            <p className="text-sm text-foreground/50 mb-5">Slide to choose your minutes — or go unlimited at $60.</p>
             <TopUpSlider onDone={() => setTopUpOpen(false)} />
           </div>
         </div>

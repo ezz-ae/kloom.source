@@ -113,7 +113,7 @@ export function Sidebar() {
         <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
           <Zap size={16} className="text-white" />
         </div>
-        <span className="font-black text-lg tracking-tight text-white">Ora</span>
+        <span className="font-black text-lg tracking-tight text-white">Kloom</span>
         <span className="text-[9px] font-bold bg-amber-500/20 border border-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded-full ml-auto">
           BETA
         </span>

@@ -1,6 +1,6 @@
 import { z } from "zod";
 export function registerCreatorTools(server) {
-    server.registerTool("ora_instagram_caption", {
+    server.registerTool("kloom_instagram_caption", {
         title: "Generate Instagram Caption",
         description: `Generate a high-converting Instagram caption optimized for engagement and reach.
 
@@ -35,7 +35,7 @@ Args:
             structuredContent: output,
         };
     });
-    server.registerTool("ora_generate_hashtags", {
+    server.registerTool("kloom_generate_hashtags", {
         title: "Generate Hashtag Strategy",
         description: `Generate a targeted hashtag strategy for a post — mixing mega, large, medium, and micro-niche tags.
 
@@ -66,7 +66,7 @@ Args:
             structuredContent: output,
         };
     });
-    server.registerTool("ora_onlyfans_dm", {
+    server.registerTool("kloom_onlyfans_dm", {
         title: "Generate OnlyFans DM Response",
         description: `Generate authentic, engaging DM responses for OnlyFans creators.
 Creates personalized responses that maintain subscriber relationships and drive revenue.
@@ -98,7 +98,7 @@ Args:
             structuredContent: output,
         };
     });
-    server.registerTool("ora_analyze_profile", {
+    server.registerTool("kloom_analyze_profile", {
         title: "Analyze Creator Profile",
         description: `Analyze a creator's social profile from a URL. Detects platform, extracts handle,
 and produces a structured intake so the strategist can build a personalized growth plan.
@@ -147,7 +147,7 @@ Args:
             structuredContent: output,
         };
     });
-    server.registerTool("ora_build_growth_plan", {
+    server.registerTool("kloom_build_growth_plan", {
         title: "Build Growth Plan",
         description: `Build a complete, personalized 90-day growth plan for a creator based on their
 profile, niche, and stated goals. Returns a structured plan with phases, weekly actions, and metrics.
@@ -174,7 +174,7 @@ Args:
             structuredContent: output,
         };
     });
-    server.registerTool("ora_content_ideas", {
+    server.registerTool("kloom_content_ideas", {
         title: "Generate Content Ideas",
         description: `Generate 20 unique, platform-optimized content ideas for a creator.
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 export function registerComputeTools(server) {
-    server.registerTool("ora_calculate", {
+    server.registerTool("kloom_calculate", {
         title: "Calculator",
         description: `Evaluate a mathematical expression. Use for:
 - ROI: (profit / cost) * 100
@@ -49,7 +49,7 @@ Returns:
             return { content: [{ type: "text", text: `Calculation error: ${err.message}` }] };
         }
     });
-    server.registerTool("ora_analyze_code", {
+    server.registerTool("kloom_analyze_code", {
         title: "Analyze Code",
         description: `Perform structured analysis of code for bugs, security vulnerabilities, performance issues, or style problems.
 
@@ -84,7 +84,7 @@ Returns:
             structuredContent: output,
         };
     });
-    server.registerTool("ora_analyze_market", {
+    server.registerTool("kloom_analyze_market", {
         title: "Analyze Market Pair",
         description: `Fetch and analyze a trading pair — price, momentum, volatility context.
 Use before giving any trading recommendation. Combines price data with market context.
@@ -108,7 +108,7 @@ Args:
             const data = await res.json();
             const coin = data[coinId];
             if (!coin) {
-                return { content: [{ type: "text", text: `No data for ${pair}. Use ora_web_search for this pair.` }] };
+                return { content: [{ type: "text", text: `No data for ${pair}. Use kloom_web_search for this pair.` }] };
             }
             const change = Number(coin.usd_24h_change ?? 0);
             const volatility = Math.abs(change) > 10 ? "high" : Math.abs(change) > 5 ? "medium" : "low";

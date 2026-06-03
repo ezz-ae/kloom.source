@@ -14,9 +14,9 @@ export const MIN_TOPUP_USD   = 1
 export const MAX_TOPUP_USD   = 60           // $60 = unlimited
 export const UNLIMITED_USD   = 60
 
-const FREE_USED_KEY  = "ora_voice_free_used_sec"
-const PAID_USED_KEY  = "ora_voice_paid_used_sec"   // sub-minute rollover for notes
-const UNLIMITED_KEY  = "ora_voice_unlimited"
+const FREE_USED_KEY  = "kloom_voice_free_used_sec"
+const PAID_USED_KEY  = "kloom_voice_paid_used_sec"   // sub-minute rollover for notes
+const UNLIMITED_KEY  = "kloom_voice_unlimited"
 
 // ── LAUNCH MODE — everything unlimited until billing is finished ──
 // While true, ALL voice is free/unlimited for everyone (no free-pool cap, no

@@ -16,7 +16,7 @@ async function fetchCoinGecko(ids, extras = "") {
     return res.json();
 }
 export function registerCryptoTools(server) {
-    server.registerTool("ora_get_crypto_price", {
+    server.registerTool("kloom_get_crypto_price", {
         title: "Get Crypto Price",
         description: `Get live price, 24h change, market cap, and volume for any cryptocurrency.
 
@@ -47,7 +47,7 @@ Errors:
             const data = await fetchCoinGecko(coinId);
             const coin = data[coinId];
             if (!coin) {
-                return { content: [{ type: "text", text: `Price for "${symbol}" not found. Try ora_get_token_info.` }] };
+                return { content: [{ type: "text", text: `Price for "${symbol}" not found. Try kloom_get_token_info.` }] };
             }
             const change = Number(coin.usd_24h_change ?? 0);
             const sentiment = change > 3 ? "bullish 🟢" : change < -3 ? "bearish 🔴" : "neutral 🟡";
@@ -70,14 +70,14 @@ Errors:
             return { content: [{ type: "text", text: `Price fetch failed: ${err.message}` }] };
         }
     });
-    server.registerTool("ora_get_multi_price", {
+    server.registerTool("kloom_get_multi_price", {
         title: "Get Multiple Crypto Prices",
         description: `Get live prices for multiple cryptocurrencies in a single call. Use for portfolio analysis or comparative views.
 
 Args:
   - symbols (array of strings): Up to 10 coin symbols
 
-Returns: Array of price objects, same schema as ora_get_crypto_price`,
+Returns: Array of price objects, same schema as kloom_get_crypto_price`,
         inputSchema: {
             symbols: z.array(z.string().min(1).max(20)).min(1).max(10).describe("Array of coin symbols, max 10"),
         },
@@ -109,10 +109,10 @@ Returns: Array of price objects, same schema as ora_get_crypto_price`,
             return { content: [{ type: "text", text: `Multi-price fetch failed: ${err.message}` }] };
         }
     });
-    server.registerTool("ora_get_token_info", {
+    server.registerTool("kloom_get_token_info", {
         title: "Get Token Info",
         description: `Search for any token by name or mint address and get full market data.
-Use when ora_get_crypto_price fails or when user mentions a token by name rather than symbol.
+Use when kloom_get_crypto_price fails or when user mentions a token by name rather than symbol.
 
 Args:
   - identifier (string): Token name, symbol, or contract/mint address`,

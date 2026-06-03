@@ -16,7 +16,7 @@ import { ChevronLeft, Send, Mic, Phone, PhoneOff, Loader2, Volume2, VolumeX, Mes
 
 interface Msg { role: "user" | "assistant"; content: string; ts: number }
 
-function chatKey(id: string) { return `ora_expert_chat_${id}` }
+function chatKey(id: string) { return `kloom_expert_chat_${id}` }
 
 function ExpertContent() {
   const params = useParams()
@@ -39,7 +39,7 @@ function ExpertContent() {
   const isCompanion = expert?.mode === "companion"
 
   // Build a persona for the route. Companion-mode experts (e.g. Fantasy Talk)
-  // route via ora_companion (immersive, present); the rest via ora_expert.
+  // route via kloom_companion (immersive, present); the rest via kloom_expert.
   const personaForRoute = expert ? (
     isCompanion
       ? {
@@ -115,32 +115,32 @@ function ExpertContent() {
   }, [msgs, loading, expert, personaForRoute])
 
   if (!expert) {
-    return <div className="h-screen flex items-center justify-center bg-stone-950 text-white/40">
+    return <div className="h-screen flex items-center justify-center bg-background text-foreground/40">
       <div className="text-center"><p>Expert not found</p>
         <button onClick={() => router.push("/app/experts")} className="text-amber-400 text-sm mt-2">← All experts</button></div>
     </div>
   }
 
   return (
-    <div className="h-screen flex flex-col bg-stone-950 text-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       {/* Header */}
       <div className="shrink-0 border-b border-white/8 px-4 lg:px-6 py-3 flex items-center gap-3">
-        <button onClick={() => router.push("/app/experts")} className="text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/30 border border-white/10 flex items-center justify-center text-lg">{expert.emoji}</div>
+        <button onClick={() => router.push("/app/experts")} className="text-foreground/40 hover:text-foreground"><ChevronLeft size={20} /></button>
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/30 border border-border/50 flex items-center justify-center text-lg">{expert.emoji}</div>
         <div className="flex-1 min-w-0">
           {/* Lead with the TITLE/role; name is secondary. */}
           <div className="font-bold text-sm truncate">{expertTitle(expert)}</div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] text-white/40">{expert.name}</span>
+            <span className="text-[10px] text-foreground/40">{expert.name}</span>
             <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${EXPERT_GROUP_COLORS[expert.group]}`}>{EXPERT_GROUP_LABELS[expert.group]}</span>
             {expert.adult && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-rose-500/40 text-rose-300 bg-rose-500/10">18+</span>}
           </div>
         </div>
         <ExpertControls expert={expert} />
-        <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+        <div className="flex gap-1 bg-foreground/5 rounded-xl p-1">
           {(["chat", "voice"] as const).map((t) => (
             <button key={t} onClick={() => setPanel(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${panel === t ? "bg-white text-stone-950" : "text-white/40 hover:text-white"}`}>
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${panel === t ? "bg-white text-stone-950" : "text-foreground/40 hover:text-foreground"}`}>
               {t === "chat" ? <MessageSquare size={12} className="inline" /> : <Mic size={12} className="inline" />} {t}
             </button>
           ))}
@@ -162,15 +162,15 @@ function ExpertContent() {
           <div className="flex-1 overflow-y-auto px-4 lg:px-6 py-5 space-y-4">
             {msgs.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-500/30 border border-white/10 flex items-center justify-center text-3xl">{expert.emoji}</div>
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-500/30 border border-border/50 flex items-center justify-center text-3xl">{expert.emoji}</div>
                 <div>
                   <p className="font-bold text-lg">{expert.name}</p>
-                  <p className="text-sm text-white/40 mt-1 max-w-xs leading-relaxed">{expert.greeting}</p>
+                  <p className="text-sm text-foreground/40 mt-1 max-w-xs leading-relaxed">{expert.greeting}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 justify-center max-w-md">
                   {expert.starters.map((s) => (
                     <button key={s} onClick={() => send(s)}
-                      className="text-xs bg-white/5 border border-white/10 hover:bg-white/10 px-3 py-1.5 rounded-full text-white/60 hover:text-white transition-all">
+                      className="text-xs bg-foreground/5 border border-border/50 hover:bg-white/10 px-3 py-1.5 rounded-full text-foreground/60 hover:text-foreground transition-all">
                       {s}
                     </button>
                   ))}
@@ -180,7 +180,7 @@ function ExpertContent() {
             {msgs.map((m, i) => (
               <div key={i} className={`flex gap-2.5 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 {m.role === "assistant" && <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500/40 to-orange-500/40 flex items-center justify-center text-sm shrink-0 mt-0.5">{expert.emoji}</div>}
-                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-amber-500 text-white rounded-br-sm" : "bg-white/8 border border-white/10 text-white/90 rounded-bl-sm"}`}>
+                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-amber-500 text-foreground rounded-br-sm" : "bg-white/8 border border-border/50 text-foreground/90 rounded-bl-sm"}`}>
                   {m.role === "user" ? m.content : <MessageRenderer content={m.content} />}
                 </div>
               </div>
@@ -188,7 +188,7 @@ function ExpertContent() {
             {loading && (
               <div className="flex gap-2.5">
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-500/40 to-orange-500/40 flex items-center justify-center text-sm shrink-0 mt-0.5">{expert.emoji}</div>
-                <div className="bg-white/8 border border-white/10 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[80%] text-sm text-white/90">
+                <div className="bg-white/8 border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[80%] text-sm text-foreground/90">
                   {stream ? <MessageRenderer content={stream} /> : <span className="flex gap-1">{[0,1,2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce inline-block" style={{animationDelay:`${i*0.15}s`}}/>)}</span>}
                 </div>
               </div>
@@ -197,15 +197,15 @@ function ExpertContent() {
           </div>
           <div className="shrink-0 px-4 py-3 border-t border-white/5">
             <div className="flex gap-2 items-end max-w-3xl mx-auto">
-              <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/40">
+              <div className="flex-1 bg-foreground/5 border border-border/50 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/40">
                 <textarea rows={1} placeholder={`Message ${expert.name}…`} value={input}
                   onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px" }}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input) } }}
-                  className="w-full bg-transparent text-sm text-white placeholder-white/30 resize-none focus:outline-none" style={{ maxHeight: 120 }} />
+                  className="w-full bg-transparent text-sm text-foreground placeholder-white/30 resize-none focus:outline-none" style={{ maxHeight: 120 }} />
               </div>
               <button onClick={() => send(input)} disabled={!input.trim() || loading}
                 className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 flex items-center justify-center shrink-0 mb-0.5">
-                <Send size={15} className="text-white" />
+                <Send size={15} className="text-foreground" />
               </button>
             </div>
           </div>
@@ -217,17 +217,17 @@ function ExpertContent() {
             <div className={`w-28 h-28 rounded-3xl bg-gradient-to-br from-amber-500/30 to-orange-500/30 border flex items-center justify-center text-5xl transition-all ${isSpeaking ? "ring-4 ring-amber-400 shadow-lg shadow-amber-500/30" : "ring-2 ring-white/10"}`}>
               {expert.emoji}
             </div>
-            {isSpeaking && <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center"><Volume2 size={12} className="text-white" /></div>}
+            {isSpeaking && <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center"><Volume2 size={12} className="text-foreground" /></div>}
           </div>
           <div className="text-center">
             <p className="font-bold">{expert.name}</p>
-            <p className="text-xs text-white/40 mt-0.5 max-w-xs">{expert.tagline}</p>
+            <p className="text-xs text-foreground/40 mt-0.5 max-w-xs">{expert.tagline}</p>
           </div>
           <div className="text-center text-sm">
-            {isConnecting && <span className="text-white/50 animate-pulse">Connecting…</span>}
+            {isConnecting && <span className="text-foreground/50 animate-pulse">Connecting…</span>}
             {isConnected && !isSpeaking && <span className="text-emerald-400">Listening</span>}
             {isConnected && isSpeaking && <span className="text-amber-400 animate-pulse">Speaking…</span>}
-            {!isConnected && !isConnecting && <span className="text-white/30">Tap to start the call</span>}
+            {!isConnected && !isConnecting && <span className="text-foreground/30">Tap to start the call</span>}
             {error && <p className="text-xs text-red-400 mt-1 max-w-[200px]">{error}</p>}
           </div>
           <div className="flex items-center gap-3">
@@ -236,7 +236,7 @@ function ExpertContent() {
             )}
             <button onClick={isConnected ? disconnect : connect} disabled={isConnecting}
               className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-105 disabled:opacity-50 ${isConnected ? "bg-red-500 hover:bg-red-400" : "bg-amber-500 hover:bg-amber-400"}`}>
-              {isConnecting ? <Loader2 size={22} className="text-white animate-spin" /> : isConnected ? <PhoneOff size={22} className="text-white" /> : <Phone size={22} className="text-white" />}
+              {isConnecting ? <Loader2 size={22} className="text-foreground animate-spin" /> : isConnected ? <PhoneOff size={22} className="text-foreground" /> : <Phone size={22} className="text-foreground" />}
             </button>
           </div>
         </div>

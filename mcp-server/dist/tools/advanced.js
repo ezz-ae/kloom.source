@@ -1,7 +1,7 @@
 import { z } from "zod";
 export function registerAdvancedTools(server) {
     // ── CHART ANALYSIS ──────────────────────────────────────────────────────────
-    server.registerTool("ora_analyze_token_chart", {
+    server.registerTool("kloom_analyze_token_chart", {
         title: "Analyze Token Chart",
         description: `Fetch live market data for a Solana token and perform technical analysis.
 Detects: trend direction, support/resistance, momentum, volume pattern, buy/sell signal.
@@ -61,7 +61,7 @@ Args:
         }
     });
     // ── CODE GENERATION ─────────────────────────────────────────────────────────
-    server.registerTool("ora_generate_code", {
+    server.registerTool("kloom_generate_code", {
         title: "Generate Code",
         description: `Generate production-quality code for a given task. Returns formatted code with explanation.
 The code is rendered in a syntax-highlighted widget with a live preview button.
@@ -90,7 +90,7 @@ Args:
         };
     });
     // ── HTML BUILDER ────────────────────────────────────────────────────────────
-    server.registerTool("ora_build_html", {
+    server.registerTool("kloom_build_html", {
         title: "Step-by-Step HTML Builder",
         description: `Build a complete HTML/CSS/JS page or component.
 Returns structured HTML with live preview widget.
@@ -128,7 +128,7 @@ Args:
         };
     });
     // ── STRATEGY BOOK ───────────────────────────────────────────────────────────
-    server.registerTool("ora_get_strategy", {
+    server.registerTool("kloom_get_strategy", {
         title: "Get Strategy",
         description: `Get a complete strategy playbook for trading, content, business, or personal goals.
 Returns a step-by-step playbook rendered as an interactive checklist widget.
@@ -162,7 +162,7 @@ Args:
         };
     });
     // ── CANVA DESIGN ────────────────────────────────────────────────────────────
-    server.registerTool("ora_canva_design", {
+    server.registerTool("kloom_canva_design", {
         title: "Create Canva Design",
         description: `Generate a Canva design brief and create a direct Canva link.
 Use when user asks for design, poster, social media graphic, logo, presentation, etc.
@@ -190,7 +190,7 @@ Args:
         };
     });
     // ── WALLET CREATOR ──────────────────────────────────────────────────────────
-    server.registerTool("ora_create_wallet", {
+    server.registerTool("kloom_create_wallet", {
         title: "Create Solana Wallet",
         description: `Generate a new Solana wallet. Returns a WalletCreatorWidget in the chat.
 Use when user asks to create a wallet, generate keys, or start fresh on Solana.`,
@@ -210,7 +210,7 @@ Use when user asks to create a wallet, generate keys, or start fresh on Solana.`
         };
     });
     // ── CONNECTOR BUILDER ───────────────────────────────────────────────────────
-    server.registerTool("ora_build_connector", {
+    server.registerTool("kloom_build_connector", {
         title: "Build API Connector",
         description: `Generate integration code to connect two services or APIs.
 Use for: webhooks, API integrations, automation, data pipelines.
@@ -237,7 +237,7 @@ Args:
         };
     });
     // ── ADVANCED CALCULATOR ─────────────────────────────────────────────────────
-    server.registerTool("ora_financial_calc", {
+    server.registerTool("kloom_financial_calc", {
         title: "Financial Calculator",
         description: `Perform financial calculations with context: ROI, compound interest, position sizing, DCA, yield farming APY, token price targets.
 
@@ -278,7 +278,7 @@ Args:
                     result = { price_target: price.toFixed(8), multiplier: (price / parseFloat(i.current_price)).toFixed(2) + "x" };
                     break;
                 default:
-                    result = { note: "Calculation performed — check inputs and use ora_calculate for custom expressions" };
+                    result = { note: "Calculation performed — check inputs and use kloom_calculate for custom expressions" };
             }
         }
         catch {

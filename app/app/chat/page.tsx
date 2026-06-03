@@ -25,7 +25,7 @@ interface Conversation {
   lastActive: number
 }
 
-const STORAGE_KEY = "ora_chat_convos_v1"
+const STORAGE_KEY = "kloom_chat_convos_v1"
 
 function loadConvos(): Record<string, Conversation> {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") } catch { return {} }
@@ -204,13 +204,13 @@ function ChatContent() {
   })
 
   return (
-    <div className="flex h-screen bg-stone-950 text-white overflow-hidden">
+    <div className="flex h-screen bg-background text-foreground overflow-hidden">
 
       {/* ── Conversation list ── */}
       <div className="w-64 border-r border-white/8 flex flex-col shrink-0 hidden sm:flex">
         <div className="px-4 py-4 border-b border-white/5">
           <h2 className="font-bold text-sm">Conversations</h2>
-          <p className="text-[11px] text-white/35 mt-0.5">Unrestricted · private</p>
+          <p className="text-[11px] text-foreground/35 mt-0.5">Unrestricted · private</p>
         </div>
         <div className="flex-1 overflow-y-auto">
           {sortedPersonas.map((p) => {
@@ -220,7 +220,7 @@ function ChatContent() {
               <button
                 key={p.name}
                 onClick={() => setActive(p.name)}
-                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors text-left ${isActive ? "bg-white/8" : ""}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-foreground/5 transition-colors text-left ${isActive ? "bg-white/8" : ""}`}
               >
                 <img
                   src={imageFor(p)}
@@ -230,7 +230,7 @@ function ChatContent() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate">{p.name}</div>
-                  <div className="text-[11px] text-white/35 truncate mt-0.5">
+                  <div className="text-[11px] text-foreground/35 truncate mt-0.5">
                     {lastMsg ? lastMsg.content.slice(0, 32) + "…" : CATEGORY_INFO[p.category].label}
                   </div>
                 </div>
@@ -255,7 +255,7 @@ function ChatContent() {
             <h3 className="font-bold text-sm">{persona.name}</h3>
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] text-white/40">{CATEGORY_INFO[persona.category].label} · online</span>
+              <span className="text-[11px] text-foreground/40">{CATEGORY_INFO[persona.category].label} · online</span>
             </div>
           </div>
           {/* Breathe — appears when the read is tense/anxious */}
@@ -268,7 +268,7 @@ function ChatContent() {
           {/* Vibe read of the user */}
           {vibe && (
             <span title="What the room is reading from you"
-              className="hidden sm:flex items-center gap-1 text-[11px] font-semibold bg-white/5 border border-white/10 px-2.5 py-1 rounded-full text-white/60 capitalize">
+              className="hidden sm:flex items-center gap-1 text-[11px] font-semibold bg-foreground/5 border border-border/50 px-2.5 py-1 rounded-full text-foreground/60 capitalize">
               {vibe.split("|")[0]}
             </span>
           )}
@@ -295,9 +295,9 @@ function ChatContent() {
               />
               <div>
                 <p className="font-bold text-xl">{persona.name}</p>
-                <p className="text-sm text-white/40 mt-1.5 max-w-xs leading-relaxed">{persona.personality?.slice(0, 120)}…</p>
+                <p className="text-sm text-foreground/40 mt-1.5 max-w-xs leading-relaxed">{persona.personality?.slice(0, 120)}…</p>
               </div>
-              <p className="text-xs text-white/20 mt-2">Say hello to start the conversation</p>
+              <p className="text-xs text-foreground/20 mt-2">Say hello to start the conversation</p>
             </div>
           )}
 
@@ -314,8 +314,8 @@ function ChatContent() {
               <div className="max-w-[72%]">
                 <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === "user"
-                    ? "bg-amber-500 text-white rounded-br-sm"
-                    : "bg-white/8 border border-white/10 text-white/90 rounded-bl-sm"
+                    ? "bg-amber-500 text-foreground rounded-br-sm"
+                    : "bg-white/8 border border-border/50 text-foreground/90 rounded-bl-sm"
                 }`}>
                   {msg.content}
                 </div>
@@ -355,7 +355,7 @@ function ChatContent() {
                 className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
                 onError={(e) => { (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/notionists/svg?seed=${persona.name}` }}
               />
-              <div className="bg-white/8 border border-white/10 rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-white/90 max-w-[72%]">
+              <div className="bg-white/8 border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 text-sm leading-relaxed text-foreground/90 max-w-[72%]">
                 {streamText || (
                   <span className="flex gap-1">
                     {[0,1,2].map((i) => (
@@ -380,7 +380,7 @@ function ChatContent() {
         {/* Input */}
         <div className="shrink-0 px-5 py-4 border-t border-white/5">
           <div className="flex gap-3 items-end">
-            <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 focus-within:border-amber-500/40 transition-colors">
+            <div className="flex-1 bg-foreground/5 border border-border/50 rounded-2xl px-4 py-3 focus-within:border-amber-500/40 transition-colors">
               <textarea
                 ref={taRef}
                 rows={1}
@@ -392,7 +392,7 @@ function ChatContent() {
                   e.target.style.height = Math.min(e.target.scrollHeight, 130) + "px"
                 }}
                 onKeyDown={handleKey}
-                className="w-full bg-transparent text-sm text-white placeholder-white/30 resize-none focus:outline-none leading-relaxed"
+                className="w-full bg-transparent text-sm text-foreground placeholder-white/30 resize-none focus:outline-none leading-relaxed"
                 style={{ maxHeight: 130 }}
               />
             </div>
@@ -401,12 +401,12 @@ function ChatContent() {
               disabled={!input.trim() || streaming}
               className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 mb-0.5"
             >
-              <Send size={16} className="text-white" />
+              <Send size={16} className="text-foreground" />
             </button>
           </div>
           <div className="flex items-center justify-between mt-2">
-            <p className="text-[10px] text-white/20">Shift+Enter for new line</p>
-            <div className="flex items-center gap-1.5 text-[10px] text-white/20">
+            <p className="text-[10px] text-foreground/20">Shift+Enter for new line</p>
+            <div className="flex items-center gap-1.5 text-[10px] text-foreground/20">
               <Lock size={9} /> End-to-end private
             </div>
           </div>
@@ -429,18 +429,18 @@ function ChatContent() {
         </div>
         <div className="flex-1 p-4 space-y-4 overflow-y-auto text-xs">
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-white/25 font-bold mb-1.5">About</div>
-            <p className="text-white/50 leading-relaxed">{persona.personality?.slice(0, 180)}…</p>
+            <div className="text-[10px] uppercase tracking-widest text-foreground/25 font-bold mb-1.5">About</div>
+            <p className="text-foreground/50 leading-relaxed">{persona.personality?.slice(0, 180)}…</p>
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-white/25 font-bold mb-1.5">Voice</div>
-            <p className="text-white/50 capitalize">{persona.voice}</p>
+            <div className="text-[10px] uppercase tracking-widest text-foreground/25 font-bold mb-1.5">Voice</div>
+            <p className="text-foreground/50 capitalize">{persona.voice}</p>
           </div>
         </div>
         <div className="p-4 border-t border-white/5">
           <button
             onClick={() => setCallOpen(true)}
-            className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold py-2.5 rounded-xl transition-all hover:scale-[1.02]"
+            className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-foreground text-xs font-bold py-2.5 rounded-xl transition-all hover:scale-[1.02]"
           >
             <Mic size={13} /> Switch to voice call
           </button>
@@ -461,7 +461,7 @@ function ChatContent() {
 
       {breatheOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4" onClick={() => setBreatheOpen(false)}>
-          <div className="bg-stone-900/80 border border-white/10 rounded-3xl p-8" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-stone-900/80 border border-border/50 rounded-3xl p-8" onClick={(e) => e.stopPropagation()}>
             <BreathingRing onClose={() => setBreatheOpen(false)} />
           </div>
         </div>
@@ -470,12 +470,12 @@ function ChatContent() {
       {/* Top-up modal — slide $1→$60 (unlimited) */}
       {topUpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setTopUpOpen(false)}>
-          <div className="bg-stone-900 border border-white/10 rounded-3xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-stone-900 border border-border/50 rounded-3xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-bold text-lg flex items-center gap-2"><Mic size={18} className="text-amber-400" /> Add voice credit</h3>
-              <button onClick={() => setTopUpOpen(false)} className="text-white/40 hover:text-white"><XIcon size={18} /></button>
+              <button onClick={() => setTopUpOpen(false)} className="text-foreground/40 hover:text-foreground"><XIcon size={18} /></button>
             </div>
-            <p className="text-sm text-white/50 mb-5">Text is free. Your 5 free voice minutes are used — top up to keep hearing the AI out loud.</p>
+            <p className="text-sm text-foreground/50 mb-5">Text is free. Your 5 free voice minutes are used — top up to keep hearing the AI out loud.</p>
             <TopUpSlider onDone={() => setTopUpOpen(false)} />
           </div>
         </div>

@@ -126,13 +126,13 @@ export function PayPalCheckout({ walletAddress, price, credits, kind, label, onS
         <button
           onClick={() => start(vnSession.current)}
           disabled={busy}
-          className="w-full flex items-center justify-center py-3 rounded-xl bg-[#3d95ce] hover:brightness-95 text-white font-extrabold text-sm italic transition-all disabled:opacity-60">
+          className="w-full flex items-center justify-center py-3 rounded-xl bg-[#3d95ce] hover:brightness-95 text-foreground font-extrabold text-sm italic transition-all disabled:opacity-60">
           Venmo
         </button>
       )}
 
       {err && status === "ready" && <p className="text-xs text-red-400 text-center">{err}</p>}
-      <p className="text-[10px] text-white/30 text-center">PayPal, Pay Later &amp; card — no PayPal account needed</p>
+      <p className="text-[10px] text-foreground/30 text-center">PayPal, Pay Later &amp; card — no PayPal account needed</p>
     </div>
   )
 }

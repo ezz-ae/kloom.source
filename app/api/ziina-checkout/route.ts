@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   try {
     const intent = await createPaymentIntent({
       usd:        Number(price),
-      message:    label ? `Ora — ${label}` : "Ora",
+      message:    label ? `Kloom — ${label}` : "Kloom",
       successUrl: success,
       cancelUrl:  `${origin}/app?payment=cancelled`,
       failureUrl: `${origin}/app?payment=failed`,

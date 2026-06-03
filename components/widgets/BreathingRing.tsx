@@ -54,22 +54,22 @@ export function BreathingRing({ level = 0, onClose, compact }: BreathingRingProp
             transition: `transform ${cur.ms}ms ease-in-out`,
           }}
         />
-        <span className="relative text-sm font-semibold text-white/90">{cur.label}</span>
+        <span className="relative text-sm font-semibold text-foreground/90">{cur.label}</span>
       </div>
 
       <div className="flex items-center gap-3">
         <button onClick={() => setRunning((r) => !r)}
-          className="flex items-center gap-1.5 text-xs font-semibold bg-white/8 border border-white/10 hover:bg-white/12 px-3 py-1.5 rounded-xl transition-colors">
+          className="flex items-center gap-1.5 text-xs font-semibold bg-white/8 border border-border/50 hover:bg-white/12 px-3 py-1.5 rounded-xl transition-colors">
           <Wind size={13} /> {running ? "Pause" : "Resume"}
         </button>
         {onClose && (
           <button onClick={onClose}
-            className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 px-2 py-1.5">
+            className="flex items-center gap-1.5 text-xs text-foreground/40 hover:text-foreground/70 px-2 py-1.5">
             <XIcon size={13} /> Done
           </button>
         )}
       </div>
-      <p className="text-[11px] text-white/30">Box breathing · in 4 · hold 4 · out 4 · hold 4</p>
+      <p className="text-[11px] text-foreground/30">Box breathing · in 4 · hold 4 · out 4 · hold 4</p>
     </div>
   )
 }

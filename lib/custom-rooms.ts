@@ -7,7 +7,7 @@
 import type { Room, RoomPersona, RoomCategory } from "@/lib/rooms"
 import { resolveVoiceId } from "@/lib/voices"
 
-const KEY = "ora_custom_rooms"
+const KEY = "kloom_custom_rooms"
 
 export type Gender = "female" | "male" | "nonbinary"
 

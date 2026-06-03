@@ -11,7 +11,7 @@ import {
 
 // ── The five build verticals ──────────────────────────────────────────────
 // Each is a guided AI workspace. `persona` is sent to /api/mcp-chat — built-in
-// categories (creator/trading/professional) or an inline expert (ora_expert).
+// categories (creator/trading/professional) or an inline expert (kloom_expert).
 
 interface Mode {
   id: string
@@ -61,7 +61,7 @@ const MODES: Mode[] = [
       expertise: "Milestones, dependencies, realistic timelines, risk buffers, critical path. You fight scope creep and the planning fallacy, and sequence work so momentum compounds.",
       outputFormat: "1) The goal, sharpened. 2) Phases with milestones. 3) The first week's concrete tasks. 4) The #1 risk and how to defuse it. Under 180 words.",
       forbidden: "vague timelines, ignoring dependencies, over-planning before starting, no first action",
-      tools: ["ora_get_strategy", "ora_calculate", "ora_web_search"],
+      tools: ["kloom_get_strategy", "kloom_calculate", "kloom_web_search"],
     },
   },
   {
@@ -78,7 +78,7 @@ const MODES: Mode[] = [
       expertise: "Shopify setup, product positioning, pricing psychology, conversion, brand naming, store structure, and launch. You know what makes a store convert vs. collect dust.",
       outputFormat: "Give the specific recommendation, a concrete example (real copy/price/name), and the one thing most stores get wrong. Under 170 words.",
       forbidden: "generic 'just start selling', ignoring margins, vague branding advice, dropshipping hype",
-      tools: ["ora_web_search", "ora_canva_design", "ora_financial_calc", "ora_instagram_caption"],
+      tools: ["kloom_web_search", "kloom_canva_design", "kloom_financial_calc", "kloom_instagram_caption"],
     },
   },
   {
@@ -113,7 +113,7 @@ function Workspace({ mode }: { mode: Mode }) {
   const [loading, setLoad] = useState(false)
   const [stream, setStream] = useState("")
   const bottomRef = useRef<HTMLDivElement>(null)
-  const key = `ora_workspace_${mode.id}`
+  const key = `kloom_workspace_${mode.id}`
 
   useEffect(() => { try { setMsgs(JSON.parse(localStorage.getItem(key) ?? "[]")) } catch {} }, [key])
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }) }, [msgs, stream])
@@ -138,18 +138,18 @@ function Workspace({ mode }: { mode: Mode }) {
   }, [msgs, loading, mode, key])
 
   return (
-    <div className="h-screen flex flex-col bg-stone-950 text-white">
+    <div className="h-screen flex flex-col bg-background text-foreground">
       {/* Header */}
       <div className="shrink-0 border-b border-white/8 px-4 lg:px-6 py-3 flex items-center gap-3">
-        <button onClick={() => router.push("/app/creator")} className="text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
+        <button onClick={() => router.push("/app/creator")} className="text-foreground/40 hover:text-foreground"><ChevronLeft size={20} /></button>
         <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${ACCENTS[mode.accent]}`}><mode.icon size={18} /></div>
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm">{mode.name}</div>
-          <div className="text-[11px] text-white/40 truncate">{mode.tagline}</div>
+          <div className="text-[11px] text-foreground/40 truncate">{mode.tagline}</div>
         </div>
         {mode.relatedRoom && (
           <Link href={`/app/rooms/${mode.relatedRoom.id}`}
-            className="hidden sm:flex items-center gap-1.5 text-xs font-semibold bg-white/5 border border-white/10 hover:bg-white/10 px-3 py-1.5 rounded-xl transition-colors text-white/70">
+            className="hidden sm:flex items-center gap-1.5 text-xs font-semibold bg-foreground/5 border border-border/50 hover:bg-white/10 px-3 py-1.5 rounded-xl transition-colors text-foreground/70">
             <Users size={13} /> Live room
           </Link>
         )}
@@ -162,7 +162,7 @@ function Workspace({ mode }: { mode: Mode }) {
             <div className={`w-16 h-16 rounded-2xl border flex items-center justify-center ${ACCENTS[mode.accent]}`}><mode.icon size={28} /></div>
             <div>
               <p className="font-bold text-lg">{mode.name}</p>
-              <p className="text-sm text-white/45 mt-1.5 leading-relaxed">{mode.intro}</p>
+              <p className="text-sm text-foreground/45 mt-1.5 leading-relaxed">{mode.intro}</p>
             </div>
             {mode.relatedRoom && (
               <Link href={`/app/rooms/${mode.relatedRoom.id}`}
@@ -173,7 +173,7 @@ function Workspace({ mode }: { mode: Mode }) {
             <div className="flex flex-wrap gap-2 justify-center mt-2">
               {mode.starters.map((s) => (
                 <button key={s} onClick={() => send(s)}
-                  className="text-xs bg-white/5 border border-white/10 hover:bg-white/10 px-3 py-1.5 rounded-full text-white/60 hover:text-white transition-all">
+                  className="text-xs bg-foreground/5 border border-border/50 hover:bg-white/10 px-3 py-1.5 rounded-full text-foreground/60 hover:text-foreground transition-all">
                   {s}
                 </button>
               ))}
@@ -183,7 +183,7 @@ function Workspace({ mode }: { mode: Mode }) {
         {msgs.map((m, i) => (
           <div key={i} className={`flex gap-2.5 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             {m.role === "assistant" && <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${ACCENTS[mode.accent]}`}><mode.icon size={14} /></div>}
-            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-amber-500 text-white rounded-br-sm" : "bg-white/8 border border-white/10 text-white/90 rounded-bl-sm"}`}>
+            <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${m.role === "user" ? "bg-amber-500 text-foreground rounded-br-sm" : "bg-white/8 border border-border/50 text-foreground/90 rounded-bl-sm"}`}>
               {m.role === "user" ? m.content : <MessageRenderer content={m.content} />}
             </div>
           </div>
@@ -191,7 +191,7 @@ function Workspace({ mode }: { mode: Mode }) {
         {loading && (
           <div className="flex gap-2.5">
             <div className={`w-7 h-7 rounded-full border flex items-center justify-center shrink-0 mt-0.5 ${ACCENTS[mode.accent]}`}><mode.icon size={14} /></div>
-            <div className="bg-white/8 border border-white/10 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[80%] text-sm text-white/90">
+            <div className="bg-white/8 border border-border/50 rounded-2xl rounded-bl-sm px-4 py-3 max-w-[80%] text-sm text-foreground/90">
               {stream ? <MessageRenderer content={stream} /> : <span className="flex gap-1">{[0,1,2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce inline-block" style={{animationDelay:`${i*0.15}s`}}/>)}</span>}
             </div>
           </div>
@@ -202,18 +202,18 @@ function Workspace({ mode }: { mode: Mode }) {
       {/* Input */}
       <div className="shrink-0 px-4 py-3 border-t border-white/5">
         <div className="flex gap-2 items-end max-w-3xl mx-auto">
-          <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/40">
+          <div className="flex-1 bg-foreground/5 border border-border/50 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/40">
             <textarea rows={1} placeholder={`Message ${mode.persona.name as string}…`} value={input}
               onChange={(e) => { setInput(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px" }}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(input) } }}
-              className="w-full bg-transparent text-sm text-white placeholder-white/30 resize-none focus:outline-none" style={{ maxHeight: 120 }} />
+              className="w-full bg-transparent text-sm text-foreground placeholder-white/30 resize-none focus:outline-none" style={{ maxHeight: 120 }} />
           </div>
           <button onClick={() => send(input)} disabled={!input.trim() || loading}
             className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 flex items-center justify-center shrink-0 mb-0.5">
-            <Send size={15} className="text-white" />
+            <Send size={15} className="text-foreground" />
           </button>
         </div>
-        <p className="text-[10px] text-white/25 text-center mt-2">Text is free · pay only for voice calls</p>
+        <p className="text-[10px] text-foreground/25 text-center mt-2">Text is free · pay only for voice calls</p>
       </div>
     </div>
   )
@@ -230,15 +230,15 @@ function CreatorContent() {
   if (active) return <Workspace mode={active} />
 
   return (
-    <div className="min-h-full bg-stone-950 text-white">
+    <div className="min-h-full bg-background text-foreground">
       <div className="border-b border-white/5 px-6 lg:px-8 py-6">
         <div className="max-w-5xl mx-auto flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-            <Sparkles size={18} className="text-white" />
+            <Sparkles size={18} className="text-foreground" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight">Build with Ora</h1>
-            <p className="text-sm text-white/40">Pick what you're building. An expert and live tools are ready for each.</p>
+            <h1 className="text-2xl font-black tracking-tight">Build with Kloom</h1>
+            <p className="text-sm text-foreground/40">Pick what you're building. An expert and live tools are ready for each.</p>
           </div>
         </div>
       </div>
@@ -251,16 +251,16 @@ function CreatorContent() {
               <div className="flex items-center gap-3">
                 <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${ACCENTS[m.accent]}`}><m.icon size={22} /></div>
                 <h3 className="font-bold text-lg">{m.name}</h3>
-                <ArrowRight size={16} className="ml-auto text-white/20 group-hover:text-white/60 transition-colors" />
+                <ArrowRight size={16} className="ml-auto text-foreground/20 group-hover:text-foreground/60 transition-colors" />
               </div>
-              <p className="text-sm text-white/50 leading-relaxed">{m.tagline}</p>
+              <p className="text-sm text-foreground/50 leading-relaxed">{m.tagline}</p>
               {m.relatedRoom && (
                 <span className="text-[11px] text-amber-400/80 flex items-center gap-1"><Users size={11} /> Has a live Claude + Gemini room</span>
               )}
             </button>
           ))}
         </div>
-        <p className="text-center text-xs text-white/25 mt-8">Every workspace is free to chat in · voice calls are pay-as-you-go</p>
+        <p className="text-center text-xs text-foreground/25 mt-8">Every workspace is free to chat in · voice calls are pay-as-you-go</p>
       </div>
     </div>
   )

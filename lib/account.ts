@@ -7,8 +7,8 @@
 
 import { hasUnlimited, LAUNCH_UNLIMITED } from "@/lib/voice-credits"
 
-const SUB_KEY    = "ora_subscribed"
-const UNREST_KEY = "ora_unrestricted"
+const SUB_KEY    = "kloom_subscribed"
+const UNREST_KEY = "kloom_unrestricted"
 
 /**
  * The $95/mo "Unrestricted" tier — full no-restriction mode across the WHOLE

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { joinVoiceRoom, type VoiceRoomHandle, type VoiceStatus } from "@/lib/voice-room"
 import { colorFor } from "@/lib/room-session"
-import { Mic, MicOff, PhoneOff, Phone, Loader2, Users } from "lucide-react"
+import { Mic, MicOff, PhoneOff, Phone, Loader2, Users, Headphones } from "lucide-react"
 
 interface GroupVoiceProps {
   roomId: string
@@ -20,11 +20,15 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
   const [statusMsg, setMsg]   = useState<string>("")
   const [peers, setPeers]     = useState<RemotePeer[]>([])
   const [muted, setMuted]     = useState(false)
+  const [listenOnly, setListenOnly] = useState(false)
   const [aiVoice, setAiVoice] = useState(true)
   const handleRef             = useRef<VoiceRoomHandle | null>(null)
   const audioElsRef           = useRef<Map<string, HTMLAudioElement>>(new Map())
 
-  const join = useCallback(async () => {
+  const join = useCallback(async (mode: "speak" | "listen" = "speak") => {
+    const isListenOnly = mode === "listen"
+    setListenOnly(isListenOnly)
+    setMuted(isListenOnly) // Muted by default if listen only
     try {
       const h = await joinVoiceRoom(roomId, sessionId, selfId, {
         onRemoteStream: (peerId, stream) => {
@@ -37,7 +41,7 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
         },
         onStatus:    (s, m) => { setStatus(s); if (m) setMsg(m) },
         onPeerCount: () => {},
-      })
+      }, { listenOnly: isListenOnly })
       handleRef.current = h
       onWantAiVoice?.(aiVoice)
     } catch {
@@ -96,19 +100,27 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
           <p className="text-xs text-white/45 mb-3 leading-relaxed">
             Live mic-to-mic with everyone in this room. AI replies are spoken aloud too.
           </p>
-          <button onClick={join} disabled={status === "requesting-mic"}
-            className="w-full flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
-            {status === "requesting-mic" ? <Loader2 size={15} className="animate-spin" /> : <Phone size={15} />}
-            {status === "requesting-mic" ? "Allow mic…" : "Join group voice"}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => join("speak")} disabled={status === "requesting-mic"}
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+              {status === "requesting-mic" ? <Loader2 size={15} className="animate-spin" /> : <Phone size={15} />}
+              {status === "requesting-mic" ? "Allow mic…" : "Join"}
+            </button>
+            <button onClick={() => join("listen")} disabled={status === "requesting-mic"}
+              className="flex-1 flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+              <Headphones size={15} /> Listen In
+            </button>
+          </div>
           {status === "error" && <p className="text-xs text-red-400 mt-2 text-center">{statusMsg || "Couldn't start voice"}</p>}
         </>
       ) : (
         <>
           {/* Participants */}
           <div className="flex flex-wrap gap-2 mb-3">
-            <span className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/25 rounded-full px-2.5 py-1 text-[11px] font-semibold text-amber-300">
-              <Mic size={10} /> You
+            <span className={`flex items-center gap-1.5 border rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              listenOnly ? "bg-stone-800 border-stone-700 text-stone-300" : "bg-amber-500/15 border-amber-500/25 text-amber-300"
+            }`}>
+              {listenOnly ? <Headphones size={10} /> : <Mic size={10} />} You
             </span>
             {peers.map((p) => (
               <span key={p.id} className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold border"
@@ -121,14 +133,16 @@ export function GroupVoice({ roomId, sessionId, selfId, onWantAiVoice }: GroupVo
 
           {/* Controls */}
           <div className="flex items-center gap-2">
-            <button onClick={toggleMute}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                muted ? "bg-red-500/20 border border-red-500/30 text-red-300" : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10"
-              }`}>
-              {muted ? <MicOff size={14} /> : <Mic size={14} />} {muted ? "Unmute" : "Mute"}
-            </button>
+            {!listenOnly && (
+              <button onClick={toggleMute}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  muted ? "bg-red-500/20 border border-red-500/30 text-red-300" : "bg-white/5 border border-white/10 text-white/70 hover:bg-white/10"
+                }`}>
+                {muted ? <MicOff size={14} /> : <Mic size={14} />} {muted ? "Unmute" : "Mute"}
+              </button>
+            )}
             <button onClick={leave}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white text-sm font-bold transition-all">
+              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white text-sm font-bold transition-all ${listenOnly ? "flex-1" : ""}`}>
               <PhoneOff size={14} /> Leave
             </button>
           </div>

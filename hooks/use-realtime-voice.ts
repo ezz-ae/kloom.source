@@ -51,6 +51,8 @@ interface UseRealtimeVoiceProps {
   onTranscript?: (text: string, speaker: "user" | "self" | "partner", partnerName?: string) => void
   /** Audio level. */
   onAudioLevel?: (level: number, speaker?: "self" | "partner") => void
+  /** If true, the hook does not request the user's mic at all, acting as a listen-only client. */
+  listenOnly?: boolean
 }
 
 // Internal canonical transcript entry.
@@ -87,6 +89,7 @@ export function useRealtimeVoice({
   relationship,
   onTranscript,
   onAudioLevel,
+  listenOnly,
 }: UseRealtimeVoiceProps) {
   // Normalize: callers either pass `partner` (legacy, single) or `partners`
   // (array). Combine into one canonical list throughout the hook.
@@ -425,10 +428,10 @@ export function useRealtimeVoice({
         await new Promise((r) => setTimeout(r, 80))
       }
 
-      onTranscript?.(userText, "user")
+      onTranscript?.(userText, "user" as const)
       transcriptRef.current = [
         ...transcriptRef.current,
-        { speaker: "user", content: userText },
+        { speaker: "user" as const, content: userText },
       ].slice(-30)
 
       // Pause mic immediately so the AI's response doesn't echo back through it.
@@ -480,36 +483,11 @@ export function useRealtimeVoice({
     [onTranscript, runAITurn, onAudioLevel, stopAI]
   )
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (options?: { listenOnly?: boolean }) => {
     setIsConnecting(true)
     setError(null)
 
     try {
-      const SpeechRecognition =
-        (typeof window !== "undefined" &&
-          ((window as any).SpeechRecognition ||
-            (window as any).webkitSpeechRecognition)) ||
-        null
-
-      if (!SpeechRecognition) {
-        throw new Error(
-          "Speech recognition isn't supported in this browser. Try Chrome or Edge."
-        )
-      }
-
-      // Ask for mic permission up-front (SpeechRecognition does this internally
-      // on some browsers, but doing it explicitly gives clearer errors).
-      // The constraints hint to the OS to enable echo cancellation / noise
-      // suppression even though SpeechRecognition opens its own mic afterwards.
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      })
-      stream.getTracks().forEach((t) => t.stop())
-
       // Create reusable <audio> element for TTS playback + analysis. Attaching
       // it to the DOM avoids a Chromium bug where a detached element's second
       // `.play()` after a `src` swap silently no-ops.
@@ -523,48 +501,76 @@ export function useRealtimeVoice({
         startAudioAnalysis(audioEl)
       }
 
-      const recognition = new SpeechRecognition()
-      recognition.continuous = true
-      recognition.interimResults = false
-      recognition.lang =
-        LANGUAGE_TO_BCP47[personaRef.current.language] || "en-US"
+      const isListenOnly = options?.listenOnly || false
 
-      recognition.onresult = (event: any) => {
-        if (isSpeakingRef.current) return
-        let finalText = ""
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i]
-          if (result.isFinal) {
-            finalText += result[0].transcript
+      if (!isListenOnly) {
+        const SpeechRecognition =
+          (typeof window !== "undefined" &&
+            ((window as any).SpeechRecognition ||
+              (window as any).webkitSpeechRecognition)) ||
+          null
+
+        if (!SpeechRecognition) {
+          throw new Error(
+            "Speech recognition isn't supported in this browser. Try Chrome or Edge."
+          )
+        }
+
+        // Ask for mic permission up-front
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        })
+        stream.getTracks().forEach((t) => t.stop())
+
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = false
+        recognition.lang =
+          LANGUAGE_TO_BCP47[personaRef.current.language] || "en-US"
+
+        recognition.onresult = (event: any) => {
+          if (isSpeakingRef.current) return
+          let finalText = ""
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const result = event.results[i]
+            if (result.isFinal) {
+              finalText += result[0].transcript
+            }
+          }
+          if (finalText.trim()) {
+            handleUserUtterance(finalText.trim())
           }
         }
-        if (finalText.trim()) {
-          handleUserUtterance(finalText.trim())
+
+        recognition.onerror = (event: any) => {
+          if (event.error === "no-speech" || event.error === "aborted") return
+          console.warn("SpeechRecognition error:", event.error)
+          if (event.error === "not-allowed") {
+            setError("Microphone access denied")
+          }
         }
+
+        recognition.onend = () => {
+          // Auto-restart if we're still meant to be listening and not speaking.
+          if (shouldListenRef.current && !isSpeakingRef.current) {
+            try {
+              recognition.start()
+            } catch {}
+          }
+        }
+
+        recognitionRef.current = recognition
+        shouldListenRef.current = true
+        recognition.start()
+      } else {
+        shouldListenRef.current = false // No mic listening
       }
 
-      recognition.onerror = (event: any) => {
-        if (event.error === "no-speech" || event.error === "aborted") return
-        console.warn("SpeechRecognition error:", event.error)
-        if (event.error === "not-allowed") {
-          setError("Microphone access denied")
-        }
-      }
-
-      recognition.onend = () => {
-        // Auto-restart if we're still meant to be listening and not speaking.
-        if (shouldListenRef.current && !isSpeakingRef.current) {
-          try {
-            recognition.start()
-          } catch {}
-        }
-      }
-
-      recognitionRef.current = recognition
-      shouldListenRef.current = true
       transcriptRef.current = []
-      recognition.start()
-
       setIsConnected(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Connection failed")

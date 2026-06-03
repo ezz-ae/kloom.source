@@ -47,7 +47,11 @@ export interface VoiceRoomHandlers {
 export interface VoiceRoomHandle {
   leave: () => void
   setMuted: (muted: boolean) => void
-  localStream: MediaStream
+  localStream: MediaStream | null
+}
+
+export interface VoiceRoomOptions {
+  listenOnly?: boolean
 }
 
 export async function joinVoiceRoom(
@@ -55,21 +59,26 @@ export async function joinVoiceRoom(
   sessionId: string,
   selfId: string,
   handlers: VoiceRoomHandlers,
+  options: VoiceRoomOptions = {}
 ): Promise<VoiceRoomHandle> {
-  handlers.onStatus("requesting-mic")
+  if (!options.listenOnly) {
+    handlers.onStatus("requesting-mic")
+  }
 
   // Resolve ICE servers (STUN + TURN) from the server before connecting
   const iceServers = await fetchIceServers()
 
-  let localStream: MediaStream
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: false,
-    })
-  } catch {
-    handlers.onStatus("error", "Microphone access denied")
-    throw new Error("mic-denied")
+  let localStream: MediaStream | null = null
+  if (!options.listenOnly) {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false,
+      })
+    } catch {
+      handlers.onStatus("error", "Microphone access denied")
+      throw new Error("mic-denied")
+    }
   }
 
   handlers.onStatus("connecting")
@@ -91,7 +100,12 @@ export async function joinVoiceRoom(
 
   function createPeer(peerId: string, initiator: boolean): RTCPeerConnection {
     const pc = new RTCPeerConnection({ iceServers })
-    localStream.getTracks().forEach((t) => pc.addTrack(t, localStream))
+    if (localStream) {
+      localStream.getTracks().forEach((t) => pc.addTrack(t, localStream!))
+    } else {
+      // If listen-only, explicitly add a transceiver to receive audio
+      pc.addTransceiver('audio', { direction: 'recvonly' })
+    }
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {
@@ -177,11 +191,15 @@ export async function joinVoiceRoom(
   return {
     localStream,
     setMuted: (muted: boolean) => {
-      localStream.getAudioTracks().forEach((t) => { t.enabled = !muted })
+      if (localStream) {
+        localStream.getAudioTracks().forEach((t) => { t.enabled = !muted })
+      }
     },
     leave: () => {
       try { sig.send({ type: "broadcast", event: "bye", payload: { from: selfId } }) } catch {}
-      localStream.getTracks().forEach((t) => t.stop())
+      if (localStream) {
+        localStream.getTracks().forEach((t) => t.stop())
+      }
       peers.forEach((pc) => pc.close())
       peers.clear()
       try { supabase.removeChannel(sig) } catch {}

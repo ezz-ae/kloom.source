@@ -412,9 +412,9 @@ function RoomContent() {
 
   if (!room) {
     return (
-      <div className="min-h-screen bg-stone-950 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <div className="text-center space-y-3">
-          <p className="text-white/40">{roomChecked ? "Room not found" : "Loading room…"}</p>
+          <p className="text-muted-foreground">{roomChecked ? "Room not found" : "Loading room…"}</p>
           {roomChecked && (
             <button onClick={() => router.push("/app/rooms")} className="text-amber-400 text-sm hover:text-amber-300">
               ← Back to rooms
@@ -429,10 +429,10 @@ function RoomContent() {
   // the topic and who's in it, then hit the restriction with a clear $10 unlock.
   if (room.category === "dark" && adultChecked && !adultUnlocked) {
     return (
-      <div className="min-h-screen bg-stone-950 text-white flex items-center justify-center px-5">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-5">
         <div className="max-w-md w-full">
-          <button onClick={() => router.push("/app/rooms")} className="text-white/40 hover:text-white text-sm mb-5">← Rooms</button>
-          <div className={`rounded-3xl border border-white/10 bg-gradient-to-br ${room.gradient} p-6`}>
+          <button onClick={() => router.push("/app/rooms")} className="text-muted-foreground hover:text-foreground text-sm mb-5">← Rooms</button>
+          <div className={`rounded-3xl border border-border/50 bg-gradient-to-br ${room.gradient} p-6`}>
             <div className="flex -space-x-3 mb-4">
               {room.personas.map((p) => (
                 <img key={p.name} src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(p.avatarSeed ?? p.name)}`}
@@ -443,11 +443,11 @@ function RoomContent() {
               <h1 className="text-xl font-black">{room.name}</h1>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-rose-500/40 text-rose-300 bg-rose-500/10">18+ LOCKED</span>
             </div>
-            <p className="text-sm text-white/55 mt-1">{room.tagline}</p>
-            <p className="text-sm text-white/40 mt-3 leading-relaxed">{room.description}</p>
-            <div className="mt-4 rounded-xl bg-black/30 border border-white/10 px-3 py-2 text-xs text-white/50">
+            <p className="text-sm text-foreground/55 mt-1">{room.tagline}</p>
+            <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{room.description}</p>
+            <div className="mt-4 rounded-xl bg-black/30 border border-border/50 px-3 py-2 text-xs text-muted-foreground">
               This is an adult room. Free accounts can see it, but going in needs <span className="text-rose-300 font-semibold">Unrestricted</span> —
-              one pass unlocks every adult room <span className="text-white">and</span> removes restrictions across the whole platform.
+              one pass unlocks every adult room <span className="text-foreground">and</span> removes restrictions across the whole platform.
             </div>
           </div>
           <div className="mt-4"><UnrestrictedUpsell context={room.name} /></div>
@@ -462,13 +462,13 @@ function RoomContent() {
   const inviteLocked = !!invite.requiresSub && !isSubscribed()
 
   return (
-    <div className="h-screen flex flex-col bg-stone-950 text-white overflow-hidden">
+    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
 
       {/* ── Header ── */}
-      <div className="shrink-0 border-b border-white/8 px-4 lg:px-6 py-3 flex items-center gap-3">
-        <button onClick={() => router.push("/app/rooms")} className="text-white/40 hover:text-white transition-colors">
+      <div className="shrink-0 h-16 bg-background/80 backdrop-blur-md border-b border-border/20 px-4 flex items-center justify-between gap-3 sticky top-0 z-10 shadow-sm">
+        <Link href="/app/rooms" className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-foreground/5 transition-colors">
           <ChevronLeft size={20} />
-        </button>
+        </Link>
 
         {/* Persona avatars — click to DM that member 1:1 */}
         <div className="flex items-center">
@@ -518,13 +518,13 @@ function RoomContent() {
                 {p.handle.replace("Guest-", "").slice(0, 2).toUpperCase()}
               </div>
             ))}
-            {participants.length > 4 && <span className="text-[10px] text-white/40 pl-2">+{participants.length - 4}</span>}
+            {participants.length > 4 && <span className="text-[10px] text-muted-foreground pl-2">+{participants.length - 4}</span>}
           </div>
         )}
 
         {/* Add AI */}
         <button onClick={() => setAddAIOpen(true)} title="Invite an AI character"
-          className="flex items-center gap-1 text-xs font-semibold bg-white/5 border border-white/10 hover:bg-white/10 px-2.5 py-1.5 rounded-xl transition-colors text-white/70">
+          className="flex items-center gap-1 text-xs font-semibold bg-foreground/5 border border-border/50 hover:bg-foreground/10 px-2.5 py-1.5 rounded-xl transition-colors text-foreground/70">
           <Bot size={13} /> <span className="hidden md:inline">Add AI</span>
         </button>
 
@@ -537,13 +537,13 @@ function RoomContent() {
         )}
 
         {/* Panel tabs */}
-        <div className="flex gap-1 bg-white/5 rounded-xl p-1">
+        <div className="flex gap-1 bg-foreground/5 rounded-xl p-1 shadow-inner">
           {(["chat", "voice", "tools"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActivePanel(tab)}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${
-                activePanel === tab ? "bg-white text-stone-950" : "text-white/40 hover:text-white"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${
+                activePanel === tab ? "bg-amber-500 text-stone-950 shadow-[0_0_10px_rgba(245,158,11,0.3)]" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {tab === "tools" && room.capabilities.tools.length > 0 ? `Tools` : tab}
@@ -555,46 +555,46 @@ function RoomContent() {
       {/* ── Invite modal ── */}
       {inviteOpen && sessionId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setInviteOpen(false)}>
-          <div className="bg-stone-900 border border-white/10 rounded-3xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-stone-900 border border-border/50 rounded-3xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-lg flex items-center gap-2">
                 <UserPlus size={18} className="text-amber-400" />
                 {invite.mode === "one" ? "Invite your partner" : "Invite to the room"}
               </h3>
-              <button onClick={() => setInviteOpen(false)} className="text-white/40 hover:text-white"><XIcon size={18} /></button>
+              <button onClick={() => setInviteOpen(false)} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
             </div>
 
             {inviteLocked ? (
               // Subscriber-only invite (e.g. couple rooms)
               <>
-                <p className="text-sm text-white/50 mb-4 leading-relaxed">
-                  Inviting a partner into this room is a <span className="text-white font-semibold">subscriber</span> feature.
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                  Inviting a partner into this room is a <span className="text-foreground font-semibold">subscriber</span> feature.
                   Upgrade to bring someone in with you.
                 </p>
                 <Link href="/app/settings?tab=billing"
-                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-bold py-3 rounded-xl transition-all">
+                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-foreground font-bold py-3 rounded-xl transition-all">
                   Subscribe to invite
                 </Link>
               </>
             ) : (
               <>
-                <p className="text-sm text-white/50 mb-4 leading-relaxed">
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
                   {invite.note ?? (
-                    <>Share this link. Anyone who opens it joins <span className="text-white font-semibold">{room.name}</span> live.</>
+                    <>Share this link. Anyone who opens it joins <span className="text-foreground font-semibold">{room.name}</span> live.</>
                   )}
-                  {invite.mode === "one" && <span className="block mt-1 text-white/40">This room is for two — one invite.</span>}
+                  {invite.mode === "one" && <span className="block mt-1 text-muted-foreground">This room is for two — one invite.</span>}
                 </p>
-                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 mb-3">
-                  <Link2 size={14} className="text-white/30 shrink-0" />
-                  <code className="text-xs text-white/70 flex-1 truncate">{inviteUrl(roomId, sessionId)}</code>
+                <div className="flex items-center gap-2 bg-foreground/5 border border-border/50 rounded-xl px-3 py-2.5 mb-3">
+                  <Link2 size={14} className="text-muted-foreground/60 shrink-0" />
+                  <code className="text-xs text-foreground/70 flex-1 truncate">{inviteUrl(roomId, sessionId)}</code>
                 </div>
                 <button
                   onClick={() => { navigator.clipboard.writeText(inviteUrl(roomId, sessionId)); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000) }}
-                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-white font-bold py-3 rounded-xl transition-all">
+                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-foreground font-bold py-3 rounded-xl transition-all">
                   {linkCopied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy invite link</>}
                 </button>
                 {participants.length > 0 && (
-                  <p className="text-[11px] text-white/35 text-center mt-3">{participants.length} {participants.length === 1 ? "person" : "people"} in the room now</p>
+                  <p className="text-[11px] text-muted-foreground/70 text-center mt-3">{participants.length} {participants.length === 1 ? "person" : "people"} in the room now</p>
                 )}
               </>
             )}
@@ -605,12 +605,12 @@ function RoomContent() {
       {/* ── Add AI modal ── */}
       {addAIOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setAddAIOpen(false)}>
-          <div className="bg-stone-900 border border-white/10 rounded-3xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-stone-900 border border-border/50 rounded-3xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
               <h3 className="font-bold text-lg flex items-center gap-2"><Bot size={18} className="text-amber-400" /> Invite an AI character</h3>
-              <button onClick={() => setAddAIOpen(false)} className="text-white/40 hover:text-white"><XIcon size={18} /></button>
+              <button onClick={() => setAddAIOpen(false)} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
             </div>
-            <p className="text-sm text-white/50 mb-4">They join the conversation and respond in turn with everyone else.</p>
+            <p className="text-sm text-muted-foreground mb-4">They join the conversation and respond in turn with everyone else.</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {EXPERTS.filter((e) => !allRoomPersonas.some((p) => p.name === e.name)).map((e) => (
                 <button key={e.id}
@@ -623,10 +623,10 @@ function RoomContent() {
                     } as RoomPersona])
                     setAddAIOpen(false)
                   }}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/[0.03] border border-white/8 hover:bg-white/[0.08] hover:border-white/15 transition-all text-center">
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/[0.03] border border-border/30 hover:bg-white/[0.08] hover:border-white/15 transition-all text-center">
                   <span className="text-2xl">{e.emoji}</span>
                   <span className="text-xs font-bold leading-tight">{e.name}</span>
-                  <span className="text-[10px] text-white/40 line-clamp-1">{e.tagline}</span>
+                  <span className="text-[10px] text-muted-foreground line-clamp-1">{e.tagline}</span>
                 </button>
               ))}
             </div>
@@ -655,14 +655,14 @@ function RoomContent() {
                 </div>
                 <div>
                   <p className="font-bold">{room.name}</p>
-                  <p className="text-xs text-white/40 mt-1 max-w-xs leading-relaxed">{room.tagline}</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">{room.tagline}</p>
                 </div>
                 {roomPersonas.some((rp) => rp.model && rp.model !== "local") && (
                   <p className="text-[11px] text-orange-300/70 max-w-xs">
                     Multi-AI room — each reply comes from a different model working together.
                   </p>
                 )}
-                <p className="text-[11px] text-white/20">Start the conversation or join the voice call</p>
+                <p className="text-[11px] text-foreground/20">Start the conversation or join the voice call</p>
               </div>
             )}
 
@@ -676,32 +676,34 @@ function RoomContent() {
                 <div key={msg.id} className={`flex gap-2.5 ${isMe ? "justify-end" : "justify-start"}`}>
                   {!isMe && (
                     isOther ? (
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5"
-                        style={{ backgroundColor: otherColor + "33", color: otherColor }}>
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 shadow-sm"
+                        style={{ backgroundColor: otherColor + "33", color: otherColor, border: `1px solid ${otherColor}55` }}>
                         {(msg.speaker ?? "?").replace("Guest-", "").slice(0, 2).toUpperCase()}
                       </div>
                     ) : (
-                      <img src={rp ? personaAvatar(rp) : `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${msg.speaker}`} alt={msg.speaker ?? ""}
-                        className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5 bg-stone-800" />
+                      <div className="relative shrink-0 mt-0.5">
+                        <img src={rp ? personaAvatar(rp) : `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${msg.speaker}`} alt={msg.speaker ?? ""}
+                          className="w-8 h-8 rounded-xl object-cover bg-stone-800 border border-border/50 shadow-sm" />
+                      </div>
                     )
                   )}
-                  <div className="max-w-[78%]">
+                  <div className="max-w-[80%]">
                     {!isMe && msg.speaker && (
-                      <div className="flex items-center gap-1.5 mb-1 ml-1">
-                        <span className="text-[10px] font-semibold" style={{ color: isOther ? otherColor : "rgba(255,255,255,0.45)" }}>{msg.speaker}</span>
+                      <div className="flex items-center gap-2 mb-1 ml-1">
+                        <span className="text-[11px] font-bold tracking-wide" style={{ color: isOther ? otherColor : "rgba(255,255,255,0.6)" }}>{msg.speaker}</span>
                         {rp?.model && rp.model !== "local" && (
-                          <span className={`text-[9px] font-bold px-1 py-px rounded border ${BACKEND_BADGE[rp.model].cls}`}>
+                          <span className={`text-[9px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-full border ${BACKEND_BADGE[rp.model].cls} shadow-inner`}>
                             {BACKEND_BADGE[rp.model].label}
                           </span>
                         )}
                       </div>
                     )}
-                    <div className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed backdrop-blur-sm ${
                       isMe
-                        ? "bg-amber-500 text-white rounded-br-sm"
+                        ? "bg-gradient-to-br from-amber-500 to-orange-500 text-stone-950 rounded-br-sm shadow-[0_2px_15px_rgba(245,158,11,0.2)] font-medium"
                         : isOther
-                        ? "bg-white/10 border border-white/15 text-white/90 rounded-bl-sm"
-                        : "bg-white/8 border border-white/10 text-white/90 rounded-bl-sm"
+                        ? "bg-foreground/10 border border-white/15 text-foreground/90 rounded-bl-sm"
+                        : "bg-foreground/5 border border-border/30 text-foreground/90 rounded-bl-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                     }`}>
                       {isHuman ? msg.content : <MessageRenderer content={msg.content} />}
                     </div>
@@ -716,17 +718,17 @@ function RoomContent() {
                   const rp = roomPersonas.find((p) => p.name === activeResponder) ?? roomPersonas[0]
                   return (
                     <img src={personaAvatar(rp)} alt=""
-                      className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5 bg-stone-800" />
+                      className="w-8 h-8 rounded-xl object-cover shrink-0 mt-0.5 bg-stone-800 border border-border/50 shadow-sm" />
                   )
                 })()}
-                <div className="max-w-[78%]">
+                <div className="max-w-[80%]">
                   {activeResponder && (
-                    <div className="text-[10px] text-white/45 font-semibold mb-1 ml-1">{activeResponder}</div>
+                    <div className="text-[11px] text-foreground/60 font-bold tracking-wide mb-1 ml-1">{activeResponder}</div>
                   )}
-                  <div className="bg-white/8 border border-white/10 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-white/90 leading-relaxed">
+                  <div className="bg-foreground/5 border border-border/30 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-foreground/90 leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm">
                     {streamText
                       ? <MessageRenderer content={streamText} />
-                      : <span className="flex gap-1">{[0,1,2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce inline-block" style={{animationDelay:`${i*0.15}s`}}/>)}</span>}
+                      : <span className="flex gap-1.5 py-1">{[0,1,2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/50 animate-bounce inline-block" style={{animationDelay:`${i*0.15}s`}}/>)}</span>}
                   </div>
                 </div>
               </div>
@@ -735,9 +737,9 @@ function RoomContent() {
           </div>
 
           {/* Chat input */}
-          <div className="shrink-0 px-4 py-3 border-t border-white/5">
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/40 transition-colors">
+          <div className="shrink-0 px-4 py-3 border-t border-border/20 bg-background/50 backdrop-blur-sm">
+            <div className="flex gap-2 items-end max-w-4xl mx-auto">
+              <div className="flex-1 bg-foreground/5 border border-border/50 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/50 focus-within:ring-1 focus-within:ring-amber-500/30 transition-all shadow-inner">
                 <textarea
                   rows={1}
                   placeholder={`Message ${room.personas[0].name}…`}
@@ -748,24 +750,24 @@ function RoomContent() {
                     e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"
                   }}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat() } }}
-                  className="w-full bg-transparent text-sm text-white placeholder-white/30 resize-none focus:outline-none leading-relaxed"
+                  className="w-full bg-transparent text-sm text-foreground placeholder-muted-foreground resize-none focus:outline-none leading-relaxed"
                   style={{ maxHeight: 120 }}
                 />
               </div>
               <button
                 onClick={sendChat}
                 disabled={!input.trim() || chatLoading}
-                className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-30 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 mb-0.5"
+                className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-30 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 mb-0.5 shadow-[0_4px_15px_rgba(245,158,11,0.25)]"
               >
-                <Send size={15} className="text-white" />
+                <Send size={16} className="text-stone-950 ml-0.5" />
               </button>
             </div>
           </div>
         </div>
 
         {/* VOICE PANEL */}
-        <div className={`flex flex-col bg-stone-950 ${
-          activePanel === "voice" ? "flex-1" : "hidden lg:flex lg:w-72 border-l border-white/8"
+        <div className={`flex flex-col bg-background ${
+          activePanel === "voice" ? "flex-1" : "hidden lg:flex lg:w-72 border-l border-border/30"
         }`}>
           <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
             {/* Persona speaking indicators */}
@@ -777,25 +779,26 @@ function RoomContent() {
                 const b = BACKEND_BADGE[rp.model ?? "local"]
                 return (
                   <div key={rp.name} className="flex flex-col items-center gap-2">
-                    <div className={`relative transition-all duration-200 ${isActiveSpeaker ? "scale-110" : ""}`}>
+                    <div className={`relative transition-all duration-300 ${isActiveSpeaker ? "scale-110" : "scale-100"}`}>
+                      <div className={`absolute inset-0 rounded-2xl bg-amber-500/20 blur-xl transition-opacity duration-300 ${isActiveSpeaker ? "opacity-100" : "opacity-0"}`} />
                       <img
                         src={personaAvatar(rp)}
                         alt={rp.name}
-                        className={`w-20 h-20 rounded-2xl object-cover transition-all bg-stone-800 ${
+                        className={`relative w-24 h-24 rounded-2xl object-cover transition-all bg-background ${
                           isActiveSpeaker
-                            ? "ring-4 ring-amber-400 shadow-lg shadow-amber-500/30"
-                            : "ring-2 ring-white/10"
+                            ? "ring-4 ring-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.5)]"
+                            : "ring-2 ring-border/50 shadow-sm"
                         }`}
                       />
                       {isActiveSpeaker && (
-                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center">
-                          <Volume2 size={10} className="text-white" />
+                        <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                          <Volume2 size={12} className="text-stone-950" />
                         </div>
                       )}
                     </div>
-                    <div className="text-center">
-                      <div className="text-xs font-semibold">{rp.name.split(" ")[0]}</div>
-                      <div className="text-[10px] text-white/35">{rp.role}</div>
+                    <div className="text-center mt-1">
+                      <div className="text-sm font-black tracking-wide text-foreground">{rp.name.split(" ")[0]}</div>
+                      <div className="text-[10px] text-muted-foreground/70 uppercase tracking-widest mt-0.5">{rp.role}</div>
                       {rp.model && rp.model !== "local" && (
                         <span className={`text-[9px] font-bold px-1 py-px rounded border mt-0.5 inline-block ${b.cls}`}>{b.label}</span>
                       )}
@@ -807,10 +810,10 @@ function RoomContent() {
 
             {/* Status */}
             <div className="text-center space-y-1">
-              {isConnecting && <p className="text-sm text-white/50 animate-pulse">Connecting…</p>}
+              {isConnecting && <p className="text-sm text-muted-foreground animate-pulse">Connecting…</p>}
               {isConnected && !isSpeaking && <p className="text-sm text-emerald-400">Listening</p>}
               {isConnected && isSpeaking && <p className="text-sm text-amber-400 animate-pulse">Speaking…</p>}
-              {!isConnected && !isConnecting && <p className="text-sm text-white/30">Voice disconnected</p>}
+              {!isConnected && !isConnecting && <p className="text-sm text-muted-foreground/60">Voice disconnected</p>}
               {error && <p className="text-xs text-red-400 max-w-[180px] text-center">{error}</p>}
             </div>
 
@@ -825,33 +828,44 @@ function RoomContent() {
                   <VolumeX size={16} className="text-amber-400" />
                 </button>
               )}
-              <button
-                onClick={isConnected ? disconnect : connect}
-                disabled={isConnecting}
-                className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-xl ${
-                  isConnected
-                    ? "bg-red-500 hover:bg-red-400 hover:scale-105"
-                    : "bg-amber-500 hover:bg-amber-400 hover:scale-105"
-                } disabled:opacity-50`}
-              >
-                {isConnecting
-                  ? <Loader2 size={22} className="text-white animate-spin" />
-                  : isConnected
-                  ? <PhoneOff size={22} className="text-white" />
-                  : <Phone size={22} className="text-white" />
-                }
-              </button>
+              {isConnected ? (
+                <button
+                  onClick={disconnect}
+                  className="w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)] bg-red-500 hover:bg-red-400 hover:scale-105"
+                >
+                  <PhoneOff size={22} className="text-white" />
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => connect()}
+                    disabled={isConnecting}
+                    title="Join with Mic"
+                    className="w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)] bg-amber-500 hover:bg-amber-400 hover:scale-105 disabled:opacity-50"
+                  >
+                    {isConnecting ? <Loader2 size={22} className="text-stone-950 animate-spin" /> : <Phone size={22} className="text-stone-950" />}
+                  </button>
+                  <button
+                    onClick={() => connect({ listenOnly: true })}
+                    disabled={isConnecting}
+                    title="Listen In Only"
+                    className="w-10 h-10 rounded-full bg-foreground/10 border border-border/20 flex items-center justify-center text-muted-foreground hover:bg-foreground/20 hover:text-foreground transition-all"
+                  >
+                    <Volume2 size={16} />
+                  </button>
+                </>
+              )}
               {isConnected && (
                 <button
                   onClick={() => submitText("...")}
-                  className="w-10 h-10 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-white/50"
+                  className="w-10 h-10 rounded-full bg-foreground/10 border border-border/20 flex items-center justify-center text-muted-foreground hover:bg-foreground/20 transition-all"
                   title="Type instead"
                 >
                   <MessageSquare size={15} />
                 </button>
               )}
             </div>
-            <p className="text-[10px] text-white/25 -mt-3">Solo voice — just you and the AIs</p>
+            <p className="text-[10px] text-muted-foreground/50 -mt-3">Solo voice — just you and the AIs</p>
 
             {/* ── Group voice (multi-human, WebRTC) ── */}
             {sessionId && (
@@ -868,30 +882,30 @@ function RoomContent() {
         </div>
 
         {/* TOOLS PANEL */}
-        <div className={`flex flex-col bg-stone-950/50 ${
-          activePanel === "tools" ? "flex-1" : "hidden xl:flex xl:w-72 border-l border-white/8"
+        <div className={`flex flex-col bg-background/50 ${
+          activePanel === "tools" ? "flex-1" : "hidden xl:flex xl:w-72 border-l border-border/30"
         }`}>
-          <div className="px-4 py-4 border-b border-white/5">
+          <div className="px-4 py-4 border-b border-border/20">
             <div className="flex items-center gap-2">
               <Zap size={14} className="text-amber-400" />
               <span className="text-sm font-bold">Room capabilities</span>
             </div>
-            <p className="text-[11px] text-white/35 mt-0.5">Unlocked by who's in this room</p>
+            <p className="text-[11px] text-muted-foreground/70 mt-0.5">Unlocked by who's in this room</p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-5">
             {/* Options */}
             {room.capabilities.options.length > 0 && (
               <div className="space-y-3">
-                <div className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Room settings</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">Room settings</div>
                 {room.capabilities.options.map((opt) => (
                   <div key={opt.id}>
-                    <label className="text-xs font-medium text-white/50 block mb-1">{opt.label}</label>
+                    <label className="text-xs font-medium text-muted-foreground block mb-1">{opt.label}</label>
                     {opt.type === "select" && (
                       <select
                         value={String(optionValues[opt.id] ?? opt.defaultValue)}
                         onChange={(e) => setOptionValues((prev) => ({ ...prev, [opt.id]: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500/40"
+                        className="w-full bg-foreground/5 border border-border/50 rounded-xl px-3 py-2 text-xs text-foreground focus:outline-none focus:border-amber-500/40"
                       >
                         {opt.options?.map((o) => <option key={o} value={o}>{o}</option>)}
                       </select>
@@ -905,7 +919,7 @@ function RoomContent() {
                           onChange={(e) => setOptionValues((prev) => ({ ...prev, [opt.id]: Number(e.target.value) }))}
                           className="flex-1 accent-amber-500"
                         />
-                        <span className="text-xs text-white/60 w-6 text-right">{optionValues[opt.id] ?? opt.defaultValue}</span>
+                        <span className="text-xs text-foreground/60 w-6 text-right">{optionValues[opt.id] ?? opt.defaultValue}</span>
                       </div>
                     )}
                     {opt.type === "text" && (
@@ -913,7 +927,7 @@ function RoomContent() {
                         type="text"
                         value={String(optionValues[opt.id] ?? opt.defaultValue)}
                         onChange={(e) => setOptionValues((prev) => ({ ...prev, [opt.id]: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/25 focus:outline-none focus:border-amber-500/40"
+                        className="w-full bg-foreground/5 border border-border/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-white/25 focus:outline-none focus:border-amber-500/40"
                       />
                     )}
                   </div>
@@ -924,25 +938,25 @@ function RoomContent() {
             {/* Tools */}
             {room.capabilities.tools.length > 0 && (
               <div className="space-y-3">
-                <div className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Live tools</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">Live tools</div>
                 {room.capabilities.tools.map((tool) => (
                   <div key={tool.id} className="space-y-2">
                     <button
                       onClick={() => runTool(tool.id)}
                       disabled={toolLoading === tool.id}
-                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/8 transition-colors text-left disabled:opacity-50"
+                      className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-foreground/5 border border-border/50 hover:bg-foreground/5 transition-colors text-left disabled:opacity-50"
                     >
                       <span className="text-base">{tool.icon}</span>
-                      <span className="text-xs font-semibold text-white/80 flex-1">{tool.label}</span>
+                      <span className="text-xs font-semibold text-foreground/80 flex-1">{tool.label}</span>
                       {toolLoading === tool.id
-                        ? <Loader2 size={13} className="animate-spin text-white/40" />
+                        ? <Loader2 size={13} className="animate-spin text-muted-foreground" />
                         : <Zap size={13} className="text-amber-400 opacity-0 group-hover:opacity-100" />
                       }
                     </button>
 
                     {toolOutput[tool.id] && (
-                      <div className="relative bg-stone-900 border border-white/8 rounded-xl p-3">
-                        <pre className="text-[11px] text-white/70 whitespace-pre-wrap font-sans leading-relaxed max-h-40 overflow-y-auto">
+                      <div className="relative bg-stone-900 border border-border/30 rounded-xl p-3">
+                        <pre className="text-[11px] text-foreground/70 whitespace-pre-wrap font-sans leading-relaxed max-h-40 overflow-y-auto">
                           {toolOutput[tool.id]}
                         </pre>
                         <button
@@ -951,7 +965,7 @@ function RoomContent() {
                             setCopied(tool.id)
                             setTimeout(() => setCopied(null), 2000)
                           }}
-                          className="absolute top-2 right-2 text-[10px] bg-white/8 hover:bg-white/15 border border-white/10 px-2 py-1 rounded-lg flex items-center gap-1 text-white/50"
+                          className="absolute top-2 right-2 text-[10px] bg-foreground/5 hover:bg-white/15 border border-border/50 px-2 py-1 rounded-lg flex items-center gap-1 text-muted-foreground"
                         >
                           {copied === tool.id ? <Check size={10} className="text-emerald-400" /> : <Copy size={10} />}
                           {copied === tool.id ? "Copied" : "Copy"}
@@ -966,10 +980,10 @@ function RoomContent() {
             {/* Skills */}
             {room.capabilities.skills.length > 0 && (
               <div className="space-y-2">
-                <div className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Room skills</div>
+                <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">Room skills</div>
                 <div className="flex flex-wrap gap-1.5">
                   {room.capabilities.skills.map((s) => (
-                    <span key={s} className="text-[10px] font-medium bg-white/5 border border-white/10 px-2 py-1 rounded-full text-white/45">
+                    <span key={s} className="text-[10px] font-medium bg-foreground/5 border border-border/50 px-2 py-1 rounded-full text-foreground/45">
                       {s}
                     </span>
                   ))}
@@ -984,37 +998,37 @@ function RoomContent() {
       {dmWith && (
         <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setDmWith(null)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div onClick={(e) => e.stopPropagation()} className="relative w-full sm:w-[26rem] h-full bg-stone-950 border-l border-white/10 flex flex-col">
-            <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-white/10">
+          <div onClick={(e) => e.stopPropagation()} className="relative w-full sm:w-[26rem] h-full bg-background border-l border-border/50 flex flex-col">
+            <div className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-border/50">
               {(() => { const rp = roomPersonas.find((p) => p.name === dmWith); return rp ? <img src={personaAvatar(rp)} alt={dmWith} className="w-9 h-9 rounded-full object-cover bg-stone-800" /> : null })()}
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-sm truncate">{dmWith}</div>
-                <div className="text-[10px] text-white/40">Private chat · just you two</div>
+                <div className="text-[10px] text-muted-foreground">Private chat · just you two</div>
               </div>
-              <button onClick={() => setDmWith(null)} className="text-white/40 hover:text-white"><XIcon size={18} /></button>
+              <button onClick={() => setDmWith(null)} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
               {dmMsgs.length === 0 && !dmLoading && (
-                <p className="text-center text-white/30 text-sm mt-8">Say something to {dmWith} — just the two of you.</p>
+                <p className="text-center text-muted-foreground/60 text-sm mt-8">Say something to {dmWith} — just the two of you.</p>
               )}
               {dmMsgs.map((m, i) => (
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${m.role === "user" ? "bg-amber-500 text-white rounded-br-sm" : "bg-white/8 border border-white/10 text-white/90 rounded-bl-sm"}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm ${m.role === "user" ? "bg-amber-500 text-foreground rounded-br-sm" : "bg-foreground/5 border border-border/50 text-foreground/90 rounded-bl-sm"}`}>
                     {m.role === "user" ? m.content : <MessageRenderer content={m.content} />}
                   </div>
                 </div>
               ))}
               {dmLoading && (
-                <div className="flex justify-start"><div className="bg-white/8 border border-white/10 rounded-2xl rounded-bl-sm px-3.5 py-2 max-w-[80%] text-sm text-white/90">{dmStream ? <MessageRenderer content={dmStream} /> : "…"}</div></div>
+                <div className="flex justify-start"><div className="bg-foreground/5 border border-border/50 rounded-2xl rounded-bl-sm px-3.5 py-2 max-w-[80%] text-sm text-foreground/90">{dmStream ? <MessageRenderer content={dmStream} /> : "…"}</div></div>
               )}
             </div>
-            <div className="shrink-0 p-3 border-t border-white/10 flex gap-2 items-end">
+            <div className="shrink-0 p-3 border-t border-border/50 flex gap-2 items-end">
               <textarea rows={1} value={dmInput} placeholder={`Message ${dmWith}…`}
                 onChange={(e) => setDmInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendDM(dmInput) } }}
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-500/40" />
+                className="flex-1 bg-foreground/5 border border-border/50 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-500/40" />
               <button onClick={() => sendDM(dmInput)} disabled={!dmInput.trim() || dmLoading}
-                className="w-9 h-9 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-30 flex items-center justify-center shrink-0"><Send size={15} className="text-white" /></button>
+                className="w-9 h-9 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-30 flex items-center justify-center shrink-0"><Send size={15} className="text-foreground" /></button>
             </div>
           </div>
         </div>

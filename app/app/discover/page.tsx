@@ -125,40 +125,39 @@ export default function DiscoverPage() {
     <div className="min-h-full bg-background text-foreground">
 
       {/* ── Header ── */}
-      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-white/5 px-6 lg:px-8 py-5">
+      <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/80 px-6 lg:px-8 py-5">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-black tracking-tight">Discover</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">{PERSONALITY_PRESETS.length} companions · all online</p>
+              <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/80 font-semibold">Explore companions</p>
+              <h1 className="mt-3 text-4xl font-black tracking-tight text-white">Discover the perfect AI partner.</h1>
+              <p className="mt-2 text-sm text-slate-400">{PERSONALITY_PRESETS.length} AI companions and personalities — voice ready, chat ready, context aware.</p>
             </div>
-            <div className="relative w-64">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/60" />
+            <div className="relative w-full max-w-sm">
+              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search…"
+                placeholder="Search companions…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-foreground/5 border border-border/50 rounded-xl pl-9 pr-4 py-2.5 text-sm text-foreground placeholder-white/30 focus:outline-none focus:border-amber-500/50 transition-all"
+                className="w-full rounded-3xl border border-slate-800/80 bg-slate-900/80 py-3 pl-12 pr-4 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition"
               />
             </div>
           </div>
 
-          {/* Category filters */}
-          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+          <div className="mt-5 flex flex-wrap gap-2">
             {categories.map((cat) => {
               const info = cat === "all" ? null : CATEGORY_INFO[cat]
               return (
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                  className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                     activeCategory === cat
-                      ? "bg-white text-stone-950 border-transparent"
-                      : "bg-foreground/5 border-border/50 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+                      ? "bg-white text-slate-950 shadow-lg shadow-slate-950/10"
+                      : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white"
                   }`}
                 >
-                  {info && <info.icon size={11} />}
                   {cat === "all" ? "All" : info!.label}
                 </button>
               )
@@ -174,7 +173,7 @@ export default function DiscoverPage() {
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Flame size={15} className="text-amber-400" />
-              <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-widest">Featured</h2>
+              <h2 className="text-sm font-bold text-white uppercase tracking-widest">Featured companions</h2>
             </div>
             <Carousel opts={{ align: "start", dragFree: true }} className="w-full relative">
               <CarouselContent className="-ml-4">
@@ -184,10 +183,9 @@ export default function DiscoverPage() {
                   </CarouselItem>
                 ))}
               </CarouselContent>
-              {/* Optional: Navigation buttons if there are many items */}
               <div className="hidden lg:block">
-                <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-stone-900 border-border/50 hover:bg-stone-800" />
-                <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-stone-900 border-border/50 hover:bg-stone-800" />
+                <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 rounded-2xl border border-slate-800 bg-slate-900/90 p-3 text-slate-300 hover:bg-slate-800" />
+                <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 rounded-2xl border border-slate-800 bg-slate-900/90 p-3 text-slate-300 hover:bg-slate-800" />
               </div>
             </Carousel>
           </section>

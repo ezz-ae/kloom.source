@@ -86,21 +86,21 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-3xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-2 bg-foreground/5 border border-border rounded-full px-4 py-1.5 text-xs font-medium text-foreground/70">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Claude · Gemini · GPT · 100+ characters · free &amp; unrestricted
+            Claude · Gemini · GPT · 100+ characters · free & unrestricted
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-[1.05]">
-            Talk to more than one AI model
+            Multi-AI rooms, not just speech-to-text.
             <br />
             <span className="bg-gradient-to-r from-amber-400 via-orange-300 to-emerald-400 bg-clip-text text-transparent">
-              at the same time.
+              Talk with more than one mind.
             </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-foreground/60 max-w-xl mx-auto leading-relaxed">
-            <span className="text-foreground">Claude</span>, <span className="text-foreground">Gemini</span>,{" "}
-            <span className="text-foreground">GPT</span> and {EXPERTS.length} expert and role-model personas —
-            in one conversation, by voice or text. Bring friends in and let the minds work together.
+            <span className="text-foreground">Claude</span>, <span className="text-foreground">Gemini</span>,{' '}
+            <span className="text-foreground">GPT</span> and {EXPERTS.length} expert personas collaborate in the same session.
+            Text is free. Voice is pay-as-you-go. Bring friends, share ideas, and build real outcomes.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-center pt-2">
@@ -108,10 +108,10 @@ export default function LandingPage() {
               <Play size={16} /> Start free
             </Link>
             <a href="#voice" className="w-full sm:w-auto flex items-center justify-center gap-2 border border-white/15 text-foreground/80 font-semibold px-8 py-4 rounded-2xl hover:bg-foreground/5 transition-colors text-base">
-              See the rooms
+              Explore rooms
             </a>
           </div>
-          <p className="text-xs text-foreground/35">Real, free &amp; unrestricted · no email · full privacy · pay only for voice</p>
+          <p className="text-xs text-foreground/35">Real, free & unrestricted · no email · full privacy · pay only for voice</p>
         </div>
       </section>
 
@@ -122,34 +122,35 @@ export default function LandingPage() {
             <Mic size={12} /> Live multi-character voice
           </div>
           <h2 className="text-4xl sm:text-5xl font-black tracking-tight leading-tight">
-            Join an interesting<br />multi-character voice chat
+            Real rooms built around live AI collaboration.
           </h2>
+          <p className="text-foreground/55 mt-4 max-w-2xl mx-auto text-base leading-relaxed">
+            Not transcription. Not a bot on repeat. Every room is a conversation with multiple AI minds, real-time tools, and shared context.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {/* Box 1 — couple / intimate */}
           <Link href="/app/rooms" className="group rounded-3xl border border-rose-500/20 bg-gradient-to-br from-rose-900/25 to-stone-950 p-7 hover:border-rose-500/40 transition-all">
             <div className="flex items-center gap-2 mb-4">
               <span className="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/25 flex items-center justify-center"><Heart size={16} className="text-rose-300" /></span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300/80">Live now</span>
             </div>
             <h3 className="font-bold text-xl leading-snug">
-              Join John &amp; his lovely wife Lola on their all-night voice conversation
+              Drop into a real couple's room and listen in or take the mic.
             </h3>
-            <p className="text-sm text-foreground/45 mt-3">A real couple's room — drop into the call, listen in, or take a seat.</p>
+            <p className="text-sm text-foreground/45 mt-3">A shared audio room with real chemistry, no script, no delay.</p>
             <span className="inline-flex items-center gap-1.5 text-rose-300 text-sm font-semibold mt-5 group-hover:gap-2.5 transition-all">Enter the room <ArrowRight size={14} /></span>
           </Link>
 
-          {/* Box 2 — crypto launch with Claude + Gemini */}
           <Link href="/app/rooms" className="group rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-900/25 to-stone-950 p-7 hover:border-amber-500/40 transition-all">
             <div className="flex items-center gap-2 mb-4">
               <span className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center"><Coins size={16} className="text-amber-300" /></span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300/80">Workshop</span>
             </div>
             <h3 className="font-bold text-xl leading-snug">
-              Launch a crypto token with Claude &amp; Gemini
+              Build a launch plan with Claude + Gemini in one live room.
             </h3>
-            <p className="text-sm text-foreground/45 mt-3">Two minds on the same call — tokenomics, contracts, and live market checks.</p>
+            <p className="text-sm text-foreground/45 mt-3">AI tools, market signals, and direct action steps — all in the same session.</p>
             <span className="inline-flex items-center gap-1.5 text-amber-300 text-sm font-semibold mt-5 group-hover:gap-2.5 transition-all">Open the war room <ArrowRight size={14} /></span>
           </Link>
         </div>

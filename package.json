@@ -3,13 +3,14 @@
   "version": "0.1.1",
   "private": true,
   "scripts": {
-    "build": "next build --standalone",
+    "build": "next build && pnpm assets:standalone",
     "dev": "next dev",
     "dev:next": "next dev",
     "lint": "eslint .",
     "start": "node deploy/start-web.js",
     "bloom:create": "npx tsx scripts/create-bloom-token.ts",
-    "bloom:airdrop": "npx tsx scripts/airdrop-early-users.ts"
+    "bloom:airdrop": "npx tsx scripts/airdrop-early-users.ts",
+    "assets:standalone": "rm -rf .next/standalone/.next/static .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.65",

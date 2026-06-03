@@ -6,71 +6,67 @@
  *  - how they relate to each other (injected into every AI turn)
  *  - what capabilities unlock (MCP tools + room-specific options)
  *  - visual identity
+ *  - platform value for users
  *
- * Individual personas also exist on /app/discover for 1-on-1 use.
- * Rooms are for the *dynamic between people*, not the people themselves.
+ * KLOOM branding: All rooms now use KLOOM naming and aesthetic
  */
 
 export type RoomCategory =
   | "trading"
   | "creator"
-  | "professional"
+  | "business"
   | "social"
-  | "romantic"
-  | "dark"
-  | "philosophy"
+  | "learning"
+  | "entertainment"
   | "workshop"   // multi-model collaborative work rooms
+  | "premium"   // exclusive, high-value rooms
 
-export type SeatModel = "local" | "claude" | "gemini"
+export type SeatModel = "local" | "claude" | "gemini" | "openai" | "mistral"
 
 export interface RoomPersona {
-  name: string        // matches PERSONALITY_PRESETS name, OR a workshop seat name
-  role: string        // their role *in this room* e.g. "the alpha trader"
-  model?: SeatModel   // which AI backend powers this seat (default: local "Ora")
-  // Inline definition — used for workshop seats not in PERSONALITY_PRESETS.
-  // If omitted, the persona is resolved from PERSONALITY_PRESETS by name.
+  name: string
+  role: string
+  model?: SeatModel
   personality?: string
   speakingStyle?: string
   voice?: "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse"
-  voiceId?: string     // concrete Fish voice id — fixed per persona so it never shifts
-  gender?: "female" | "male" | "nonbinary"  // authoritative for voice selection
-  avatarSeed?: string  // for dicebear fallback avatar
+  voiceId?: string
+  gender?: "female" | "male" | "nonbinary"
+  avatarSeed?: string
 }
 
 export interface RoomTool {
-  id: string          // MCP tool name e.g. "ora_get_crypto_price"
-  label: string       // display label e.g. "Live prices"
-  icon: string        // emoji
+  id: string
+  label: string
+  icon: string
 }
 
 export interface RoomOption {
   id: string
   label: string
-  type: "select" | "slider" | "toggle" | "text"
-  options?: string[]          // for select
-  min?: number; max?: number  // for slider
+  type: "select" | "slider" | "toggle" | "text" | "number"
+  options?: string[]
+  min?: number
+  max?: number
+  step?: number
   defaultValue: string | number | boolean
+  description?: string
 }
 
 export interface RoomCapabilities {
-  voice: true                  // all rooms have voice
-  chat: true                   // all rooms have persistent chat
+  voice: boolean
+  chat: boolean
   tools: RoomTool[]
   options: RoomOption[]
-  skills: string[]             // descriptive labels shown as chips
+  skills: string[]
 }
 
-/**
- * Invite policy — tailored per room, never one-size-fits-all.
- *   none   → single, private room. No human invites (tarot, intimate scenes).
- *   one    → invite exactly ONE other person (a partner). Often subscriber-only.
- *   many   → open room, invite as many as you like (topic / workshop / social).
- */
 export interface InvitePolicy {
-  mode: "none" | "one" | "many"
-  requiresSub?: boolean        // inviting requires a subscribed account
-  label?: string               // CTA label, e.g. "Invite your partner"
-  note?: string                // shown in the invite modal
+  mode: "none" | "one" | "many" | "public"
+  requiresSub?: boolean
+  label?: string
+  note?: string
+  maxParticipants?: number
 }
 
 export interface Room {
@@ -78,542 +74,972 @@ export interface Room {
   name: string
   tagline: string
   description: string
-  relationship: string         // injected into MCP system prompt for both AI + voice
+  shortDescription?: string  // For cards and previews
+  relationship: string
   personas: RoomPersona[]
   capabilities: RoomCapabilities
   category: RoomCategory
   tags: string[]
-  gradient: string             // Tailwind gradient classes for room card
-  accentColor: string          // for active states
-  invite?: InvitePolicy        // override; otherwise derived from category
+  gradient: string
+  accentColor: string
+  icon?: string  // Emoji for the room
+  invite?: InvitePolicy
+  popular?: boolean  // Show in popular section
+  featured?: boolean  // Show in featured section
+  new?: boolean  // New badge
+  premium?: boolean  // Requires subscription
+  // Platform value
+  platformValue?: string[]  // What users get from this room
+  // SEO
+  seoTitle?: string
+  seoDescription?: string
+}
+
+// All available room categories
+export const ROOM_CATEGORIES: RoomCategory[] = [
+  "trading",
+  "creator",
+  "business",
+  "social",
+  "learning",
+  "entertainment",
+  "workshop",
+  "premium",
+]
+
+// Category labels for UI
+export const ROOM_CATEGORY_LABELS: Record<RoomCategory, { label: string; icon: string; color: string }> = {
+  trading: { label: "Trading & Finance", icon: "📈", color: "emerald" },
+  creator: { label: "Creator Studio", icon: "✨", color: "pink" },
+  business: { label: "Business & Strategy", icon: "💼", color: "cyan" },
+  social: { label: "Social & Lifestyle", icon: "👥", color: "purple" },
+  learning: { label: "Learning & Growth", icon: "📚", color: "blue" },
+  entertainment: { label: "Entertainment", icon: "🎮", color: "orange" },
+  workshop: { label: "Workshop", icon: "🔧", color: "amber" },
+  premium: { label: "Premium", icon: "👑", color: "gold" },
 }
 
 export const ROOMS: Room[] = [
-  // ── TRADING ────────────────────────────────────────────────────────────────
+  // ============================================================================
+  // TRADING & FINANCE
+  // ============================================================================
   {
-    id: "the-desk",
-    name: "The Trading Desk",
-    tagline: "Alpha built here. In real time.",
-    description: "Viktor runs the macro thesis. Kaia builds the signals. You bring the capital. Live prices, position sizing, trade ideas — all in one room.",
-    relationship: "Viktor is the macro strategist and position taker. Kaia is the quant who builds the signals Viktor trades. They debate every thesis before sizing up. You are the capital allocator they answer to.",
+    id: "trading-floor",
+    name: "KLOOM Trading Floor",
+    tagline: "Live market analysis with multiple AI traders",
+    description: "Viktor Sol runs the macro thesis. Kaia Dev builds the signals. Mistral analyzes the data. Together, they provide real-time trading insights, live price data, and collaborative analysis you can't get from a single AI.",
+    shortDescription: "Multi-AI trading room with live market data",
+    relationship: "Viktor is the macro strategist and position taker. Kaia is the quant engineer who builds trading signals. Mistral provides additional analysis and research. They debate every thesis before sizing up. You are the capital allocator they answer to.",
     personas: [
-      { name: "Viktor Sol",  role: "macro trader & strategist" },
-      { name: "Kaia Dev",    role: "quant engineer & signal builder" },
+      { name: "Viktor Sol", role: "Macro Strategist & Trader", model: "claude" },
+      { name: "Kaia Dev", role: "Quant Engineer & Signal Builder", model: "mistral" },
     ],
     capabilities: {
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_get_crypto_price", label: "Live prices",    icon: "📊" },
-        { id: "ora_get_multi_price",  label: "Compare coins",  icon: "⚖️" },
-        { id: "ora_analyze_market",   label: "Market analysis",icon: "🔍" },
-        { id: "ora_calculate",        label: "Position sizing", icon: "🧮" },
-        { id: "ora_web_search",       label: "Market news",    icon: "📰" },
-        { id: "ora_get_token_info",   label: "Token lookup",   icon: "🔎" },
+        { id: "ora_get_crypto_price", label: "Live Prices", icon: "📊" },
+        { id: "ora_get_multi_price", label: "Compare Coins", icon: "⚖️" },
+        { id: "ora_analyze_market", label: "Market Analysis", icon: "🔍" },
+        { id: "ora_calculate", label: "Position Sizing", icon: "🧮" },
+        { id: "ora_web_search", label: "Market News", icon: "📰" },
+        { id: "ora_get_token_info", label: "Token Lookup", icon: "🔎" },
       ],
       options: [
-        { id: "timeframe",  label: "Timeframe",      type: "select",  options: ["Scalp (mins)", "Swing (days)", "Position (weeks)"], defaultValue: "Swing (days)" },
-        { id: "risk",       label: "Risk per trade", type: "slider",  min: 1, max: 10, defaultValue: 5 },
-        { id: "portfolio",  label: "Portfolio size ($)", type: "text", defaultValue: "10000" },
+        { id: "timeframe", label: "Timeframe", type: "select", options: ["Scalp (minutes)", "Day Trade", "Swing (days)", "Position (weeks)", "Invest (months)"], defaultValue: "Swing (days)", description: "Trading timeframe" },
+        { id: "risk", label: "Risk per Trade (%)", type: "slider", min: 0.5, max: 10, step: 0.5, defaultValue: 2, description: "Percentage of portfolio to risk" },
+        { id: "portfolio", label: "Portfolio Size ($)", type: "number", defaultValue: 10000, description: "Your total portfolio value" },
+        { id: "focus", label: "Focus", type: "select", options: ["Crypto", "Stocks", "Forex", "DeFi", "NFTs"], defaultValue: "Crypto" },
       ],
-      skills: ["Live price feeds", "Trade structuring", "Risk/reward calc", "Tokenomics review", "Market news"],
+      skills: ["Live price feeds", "Trade structuring", "Risk/reward calculation", "Tokenomics review", "Market news analysis", "Multi-AI collaboration"],
     },
     category: "trading",
-    tags: ["Trading", "Live data", "Alpha"],
+    tags: ["Trading", "Live Data", "Crypto", "Stocks", "Multi-AI", "DeFi"],
     gradient: "from-emerald-900/60 to-stone-950",
     accentColor: "emerald",
+    icon: "📈",
+    invite: { mode: "many", label: "Invite fellow traders", note: "Collaborate with other traders in real-time" },
+    popular: true,
+    featured: true,
+    platformValue: ["Real-time market data", "Multi-AI trading insights", "Collaborative analysis", "Live price alerts", "Professional trading strategies"],
+    seoTitle: "KLOOM Trading Floor - Live Multi-AI Trading Room",
+    seoDescription: "Trade with multiple AI experts in real-time. Get live market data, trading signals, and collaborative analysis from Viktor Sol, Kaia Dev, and Mistral.",
   },
-
   {
-    id: "token-launchpad",
-    name: "Token Launchpad",
-    tagline: "Build the tokenomics. Audit the contract. Ship.",
-    description: "The full launch team. Viktor handles the economics. Sol Auditor handles the security. You're the founder. Live price data and contract review available.",
-    relationship: "Viktor is the tokenomics architect — he designs the supply, vesting, and liquidity strategy. The Auditor reviews every contract line for vulnerabilities. They've worked together on 30+ launches and they're blunt with founders.",
+    id: "crypto-hq",
+    name: "Crypto HQ",
+    tagline: "Your command center for crypto trading",
+    description: "A dedicated space for crypto traders with live price data, DeFi insights, and token analysis. Get real-time information on Bitcoin, Ethereum, Solana, and thousands of other tokens.",
+    shortDescription: "Crypto trading with live data and DeFi insights",
+    relationship: "You are a crypto trader managing your portfolio. The AIs provide live market data, DeFi protocol information, and trading insights specific to the crypto market.",
     personas: [
-      { name: "Viktor Sol",   role: "tokenomics & launch strategy" },
-      { name: "Kaia Dev",     role: "smart contract auditor" },
+      { name: "Viktor Sol", role: "Crypto Strategist", model: "claude" },
+      { name: "Mistral", role: "Market Analyst", model: "mistral" },
     ],
     capabilities: {
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_get_crypto_price", label: "Market data",      icon: "📊" },
-        { id: "ora_analyze_code",     label: "Contract audit",   icon: "🔐" },
-        { id: "ora_calculate",        label: "Tokenomics math",  icon: "🧮" },
-        { id: "ora_web_search",       label: "Research",         icon: "🔍" },
+        { id: "ora_get_crypto_price", label: "Token Prices", icon: "💰" },
+        { id: "ora_get_multi_price", label: "Portfolio Tracking", icon: "📊" },
+        { id: "ora_analyze_market", label: "DeFi Analysis", icon: "🏦" },
+        { id: "ora_web_search", label: "Crypto News", icon: "📰" },
+        { id: "ora_calculate", label: "Gas Fees", icon: "⛽" },
       ],
       options: [
-        { id: "chain",    label: "Chain",        type: "select",  options: ["Solana", "Ethereum", "Base", "BNB"],  defaultValue: "Solana" },
-        { id: "supply",   label: "Total supply", type: "text",    defaultValue: "1000000000" },
-        { id: "focus",    label: "Focus",        type: "select",  options: ["Tokenomics", "Security audit", "LP strategy", "Vesting"], defaultValue: "Tokenomics" },
+        { id: "chain", label: "Blockchain", type: "select", options: ["Solana", "Ethereum", "BNB Chain", "Polygon", "Base", "Arbitrum"], defaultValue: "Solana" },
+        { id: "focus", label: "Focus Area", type: "select", options: ["Trading", "DeFi", "NFTs", "Yield Farming", "Staking"], defaultValue: "Trading" },
+        { id: "alerts", label: "Price Alerts", type: "toggle", defaultValue: true, description: "Enable price threshold alerts" },
       ],
-      skills: ["Tokenomics design", "Smart contract audit", "LP strategy", "Anti-bot", "Vesting cliffs"],
+      skills: ["Crypto trading", "DeFi protocols", "Token analysis", "Gas optimization", "Yield strategies"],
     },
     category: "trading",
-    tags: ["Web3", "Launch", "Audit"],
-    gradient: "from-amber-900/60 to-stone-950",
-    accentColor: "violet",
+    tags: ["Crypto", "Bitcoin", "Ethereum", "Solana", "DeFi", "Altcoins"],
+    gradient: "from-purple-900/60 to-stone-950",
+    accentColor: "purple",
+    icon: "🪙",
+    popular: true,
+    platformValue: ["Live crypto prices", "DeFi insights", "Token analysis", "Gas optimization", "Yield strategies"],
   },
-
-  // ── WORKSHOP (multi-model collaboration) ─────────────────────────────────────
   {
-    id: "launch-war-room",
-    name: "The Launch War Room",
-    tagline: "Claude + Gemini + you. Ship the token together.",
-    description: "A real working session. Claude architects the tokenomics and writes the contracts. Gemini stress-tests every assumption and researches the market. You drive. Three minds, one launch.",
-    relationship: "This is a live working session preparing a token launch. Claude leads architecture, tokenomics, and contract code — precise and structured. Gemini challenges every assumption, researches comparable launches, and finds the risks Claude misses. They build on each other's points directly, sometimes disagree, and push the user toward a shippable plan. They reference each other by name.",
+    id: "stock-market",
+    name: "Stock Market Hub",
+    tagline: "Traditional markets meet AI analysis",
+    description: "Get AI-powered insights on stocks, ETFs, and traditional markets. Analyze companies, track indices, and get investment ideas with fundamental and technical analysis.",
+    shortDescription: "AI stock market analysis and insights",
+    relationship: "You are an investor looking for insights. The AIs provide company analysis, market trends, and investment strategies based on fundamental and technical indicators.",
     personas: [
-      { name: "Claude (Architect)", role: "tokenomics & contract architect", model: "claude",
-        personality: "Precise, structured, deeply technical token architect. You design tokenomics and write contracts. You think in systems and edge cases.",
-        speakingStyle: "Clear and direct. You lay out structure: 'Here's the supply model, here's the vesting, here's the risk.' You reference Gemini's points by name.",
-        voice: "echo", avatarSeed: "claude-architect" },
-      { name: "Gemini (Strategist)", role: "market research & risk analysis", model: "gemini",
-        personality: "Sharp market strategist who stress-tests every assumption. You research comparable launches and find the risks others miss.",
-        speakingStyle: "Challenging but constructive. 'Claude, that vesting cliff will dump on launch — here's what BONK did instead.' Data-driven.",
-        voice: "sage", avatarSeed: "gemini-strategist" },
+      { name: "Marcus", role: "Stock Analyst", model: "claude" },
+      { name: "Mistral", role: "Market Researcher", model: "mistral" },
     ],
     capabilities: {
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_get_crypto_price",     label: "Live prices",     icon: "📊" },
-        { id: "ora_analyze_token_chart",  label: "Chart analysis",  icon: "📈" },
-        { id: "ora_generate_code",        label: "Write code",      icon: "💻" },
-        { id: "ora_analyze_code",         label: "Audit code",      icon: "🔐" },
-        { id: "ora_financial_calc",       label: "Tokenomics calc", icon: "🧮" },
-        { id: "ora_create_wallet",        label: "Create wallet",   icon: "🔑" },
-        { id: "ora_get_strategy",         label: "Launch playbook", icon: "📖" },
-        { id: "ora_web_search",           label: "Research",        icon: "🔍" },
+        { id: "ora_web_search", label: "Company Research", icon: "🏢" },
+        { id: "ora_calculate", label: "Financial Metrics", icon: "📈" },
+        { id: "ora_analyze_market", label: "Market Trends", icon: "📊" },
       ],
       options: [
-        { id: "chain",   label: "Chain",        type: "select", options: ["Solana", "Ethereum", "Base", "BNB"], defaultValue: "Solana" },
-        { id: "supply",  label: "Total supply", type: "text",   defaultValue: "1000000000" },
-        { id: "stage",   label: "Stage",        type: "select", options: ["Idea", "Tokenomics", "Contract", "Pre-launch", "Launch day"], defaultValue: "Idea" },
+        { id: "market", label: "Market", type: "select", options: ["US", "Europe", "Asia", "Global"], defaultValue: "US" },
+        { id: "sector", label: "Sector", type: "select", options: ["Tech", "Healthcare", "Finance", "Energy", "Consumer", "All"], defaultValue: "All" },
+        { id: "style", label: "Investing Style", type: "select", options: ["Growth", "Value", "Dividend", "Index", "Swing Trade"], defaultValue: "Growth" },
       ],
-      skills: ["Tokenomics design", "Contract writing", "Live code editing", "Market research", "Risk analysis", "Launch playbook", "Wallet creation"],
+      skills: ["Stock analysis", "Company research", "Market trends", "Financial metrics", "Investment strategies"],
     },
-    category: "workshop",
-    tags: ["Claude", "Gemini", "Multi-AI", "Token launch"],
-    gradient: "from-orange-900/50 to-stone-950",
-    accentColor: "orange",
-  },
-
-  {
-    id: "build-studio",
-    name: "The Build Studio",
-    tagline: "Claude writes. Gemini reviews. You ship the product.",
-    description: "Pair-programming with two different AIs. Claude writes the code, Gemini reviews it and catches what Claude missed. Live code, live preview, real collaboration.",
-    relationship: "A pair-programming session building software. Claude writes the implementation — clean, typed, production-ready. Gemini reviews every block Claude writes, catches bugs and edge cases, and suggests better approaches. They debate trade-offs out loud and converge on the best solution. The user is the product owner setting direction.",
-    personas: [
-      { name: "Claude (Engineer)", role: "lead engineer — writes the code", model: "claude",
-        personality: "Senior engineer who writes clean, typed, production-ready code. You explain key decisions in one line and move fast.",
-        speakingStyle: "Code-first. You write the implementation, then say what matters. You take Gemini's review seriously and revise.",
-        voice: "echo", avatarSeed: "claude-engineer" },
-      { name: "Gemini (Reviewer)", role: "code reviewer — catches the bugs", model: "gemini",
-        personality: "Meticulous reviewer who finds the bug everyone else missed. Edge cases, security, performance — nothing gets past you.",
-        speakingStyle: "Direct critique with the fix attached. 'Line 12 leaks the connection on error — wrap it in try/finally.' You praise good code too.",
-        voice: "sage", avatarSeed: "gemini-reviewer" },
-    ],
-    capabilities: {
-      voice: true,
-      chat: true,
-      tools: [
-        { id: "ora_generate_code",  label: "Write code",     icon: "💻" },
-        { id: "ora_analyze_code",   label: "Review code",    icon: "🔐" },
-        { id: "ora_build_html",     label: "Build HTML",     icon: "🎨" },
-        { id: "ora_build_connector",label: "API connector",  icon: "🔌" },
-        { id: "ora_calculate",      label: "Complexity",     icon: "📐" },
-        { id: "ora_web_search",     label: "Docs lookup",    icon: "📚" },
-      ],
-      options: [
-        { id: "language", label: "Language",  type: "select", options: ["TypeScript", "Python", "Rust", "Solidity", "Go"], defaultValue: "TypeScript" },
-        { id: "project",  label: "Building",  type: "text",   defaultValue: "" },
-      ],
-      skills: ["Live coding", "Code review", "HTML/CSS builds", "API connectors", "Architecture", "Pair programming"],
-    },
-    category: "workshop",
-    tags: ["Claude", "Gemini", "Multi-AI", "Coding"],
-    gradient: "from-cyan-900/50 to-stone-950",
-    accentColor: "cyan",
-  },
-
-  {
-    id: "growth-boardroom",
-    name: "The Growth Boardroom",
-    tagline: "Two AI strategists. One growth plan.",
-    description: "Claude builds the strategy framework. Gemini pulls live market data and competitor research. Together they prepare your full growth plan — content, monetization, positioning.",
-    relationship: "A strategy session for a creator or founder. Claude structures the growth strategy and frameworks. Gemini researches competitors, trends, and live market signals. They challenge each other and synthesize a concrete plan with numbers. The user is the operator they're advising.",
-    personas: [
-      { name: "Claude (Strategist)", role: "strategy & frameworks",  model: "claude",
-        personality: "Strategic thinker who builds clear frameworks from messy goals. You structure the plan and define the metrics that matter.",
-        speakingStyle: "Framework-driven. 'Three levers here: reach, conversion, retention. Let's attack retention first.' You build on Gemini's research.",
-        voice: "echo", avatarSeed: "claude-strategist" },
-      { name: "Gemini (Analyst)",    role: "research & live data",   model: "gemini",
-        personality: "Research analyst who grounds every strategy in real data — competitors, trends, benchmarks. You bring the numbers.",
-        speakingStyle: "Evidence-first. 'Top 3 competitors all post 5x/week — here's the gap.' You pressure-test Claude's frameworks against reality.",
-        voice: "sage", avatarSeed: "gemini-analyst" },
-    ],
-    capabilities: {
-      voice: true,
-      chat: true,
-      tools: [
-        { id: "ora_web_search",        label: "Market research", icon: "🔍" },
-        { id: "ora_get_strategy",      label: "Playbooks",       icon: "📖" },
-        { id: "ora_instagram_caption", label: "Content",         icon: "✍️" },
-        { id: "ora_content_ideas",     label: "Content ideas",   icon: "💡" },
-        { id: "ora_canva_design",      label: "Design",          icon: "🎨" },
-        { id: "ora_financial_calc",    label: "Projections",     icon: "🧮" },
-      ],
-      options: [
-        { id: "domain", label: "Domain",  type: "select", options: ["Content creator", "SaaS startup", "Crypto project", "E-commerce", "Personal brand"], defaultValue: "Content creator" },
-        { id: "goal",   label: "Goal",    type: "text",   defaultValue: "" },
-      ],
-      skills: ["Growth strategy", "Competitor research", "Content planning", "Financial projections", "Positioning", "Live market data"],
-    },
-    category: "workshop",
-    tags: ["Claude", "Gemini", "Multi-AI", "Strategy"],
-    gradient: "from-orange-900/50 to-stone-950",
-    accentColor: "fuchsia",
-  },
-
-  // ── CREATOR ─────────────────────────────────────────────────────────────────
-  {
-    id: "creator-studio",
-    name: "The Creator Studio",
-    tagline: "Zara builds the strategy. You build the content.",
-    description: "Zara is your content strategist. Victoria manages your brand deals. Together they handle Instagram, TikTok, caption writing, hashtag strategy and OnlyFans growth.",
-    relationship: "Zara is the content strategist who knows the algorithm cold. Victoria manages brand relationships and scheduling. They've grown 12 accounts to 100K+. You're the creator — they work for you.",
-    personas: [
-      { name: "Zara",                  role: "content strategist & growth expert" },
-      { name: "Victoria (Secretary)",  role: "brand manager & scheduler" },
-    ],
-    capabilities: {
-      voice: true,
-      chat: true,
-      tools: [
-        { id: "ora_instagram_caption", label: "Caption writer",   icon: "✍️" },
-        { id: "ora_generate_hashtags", label: "Hashtag strategy", icon: "#️⃣" },
-        { id: "ora_content_ideas",     label: "Content ideas",    icon: "💡" },
-        { id: "ora_onlyfans_dm",       label: "DM writer",        icon: "💌" },
-        { id: "ora_web_search",        label: "Trend research",   icon: "📈" },
-      ],
-      options: [
-        { id: "platform",  label: "Platform",     type: "select",  options: ["Instagram", "TikTok", "OnlyFans", "YouTube", "All"], defaultValue: "Instagram" },
-        { id: "niche",     label: "Your niche",   type: "text",    defaultValue: "lifestyle" },
-        { id: "followers", label: "Followers",    type: "select",  options: ["< 5K", "5K–50K", "50K–500K", "500K+"],              defaultValue: "5K–50K" },
-      ],
-      skills: ["Caption writing", "Hashtag strategy", "DM responses", "Content calendar", "Brand voice"],
-    },
-    category: "creator",
-    tags: ["Creator", "Instagram", "OnlyFans"],
-    gradient: "from-pink-900/60 to-stone-950",
-    accentColor: "pink",
-  },
-
-  {
-    id: "onlyfans-room",
-    name: "The Content Room",
-    tagline: "More conversions. Less thinking.",
-    description: "Zara and Fantasy Maker handle your subscriber relationships, PPV strategy, and re-engagement scripts. Built for serious content creators.",
-    relationship: "Zara runs growth strategy — she knows what converts. Fantasy Maker specialises in subscriber psychology and what makes fans stay. They don't judge. They deliver.",
-    personas: [
-      { name: "Zara",           role: "growth & conversion strategist" },
-      { name: "Fantasy Maker",  role: "subscriber psychology expert" },
-    ],
-    capabilities: {
-      voice: true,
-      chat: true,
-      tools: [
-        { id: "ora_onlyfans_dm",       label: "DM writer",       icon: "💌" },
-        { id: "ora_instagram_caption", label: "PPV captions",    icon: "🔒" },
-        { id: "ora_content_ideas",     label: "Content ideas",   icon: "💡" },
-        { id: "ora_web_search",        label: "Trend research",  icon: "🔍" },
-      ],
-      options: [
-        { id: "goal",     label: "Goal",          type: "select", options: ["Increase retention", "PPV sales", "Re-engage inactive", "Welcome new subs"], defaultValue: "Increase retention" },
-        { id: "style",    label: "Creator style", type: "text",   defaultValue: "warm and playful" },
-        { id: "price",    label: "PPV price ($)", type: "slider", min: 5, max: 100, defaultValue: 15 },
-      ],
-      skills: ["PPV captions", "DM re-engagement", "Subscriber retention", "Welcome sequences"],
-    },
-    category: "creator",
-    tags: ["OnlyFans", "Subscribers", "Revenue"],
-    gradient: "from-rose-900/60 to-stone-950",
-    accentColor: "rose",
-  },
-
-  // ── PROFESSIONAL ─────────────────────────────────────────────────────────────
-  {
-    id: "code-review",
-    name: "The Code Review",
-    tagline: "Ship cleaner code. Ship faster.",
-    description: "Kaia reviews your code for bugs and security issues. Atlas does the research and finds what you're missing. Paste your code and get a structured critique.",
-    relationship: "Kaia is the senior engineer who's seen every failure mode. Atlas is the researcher who finds documentation, CVEs, and best practices. They work as a team — Kaia finds the problem, Atlas finds the solution.",
-    personas: [
-      { name: "Kaia Dev",  role: "senior engineer & code reviewer" },
-      { name: "Atlas",     role: "technical researcher & documentation" },
-    ],
-    capabilities: {
-      voice: true,
-      chat: true,
-      tools: [
-        { id: "ora_analyze_code", label: "Code review",  icon: "🔐" },
-        { id: "ora_web_search",   label: "Docs & CVEs",  icon: "📚" },
-        { id: "ora_calculate",    label: "Complexity",   icon: "📐" },
-      ],
-      options: [
-        { id: "language", label: "Language",  type: "select", options: ["TypeScript", "Python", "Solidity", "Rust", "Go", "Other"], defaultValue: "TypeScript" },
-        { id: "focus",    label: "Focus",     type: "select", options: ["All", "Security", "Bugs", "Performance", "Style"],         defaultValue: "All" },
-      ],
-      skills: ["Bug detection", "Security audit", "Performance review", "Documentation lookup", "Refactoring advice"],
-    },
-    category: "professional",
-    tags: ["Code", "Security", "Engineering"],
+    category: "trading",
+    tags: ["Stocks", "ETFs", "Investing", "Wall Street", "Financial Analysis"],
     gradient: "from-blue-900/60 to-stone-950",
     accentColor: "blue",
+    icon: "📊",
+    platformValue: ["Stock analysis", "Company research", "Market insights", "Investment strategies", "Portfolio tracking"],
   },
 
-  // ── SOCIAL ──────────────────────────────────────────────────────────────────
+  // ============================================================================
+  // CREATOR STUDIO
+  // ============================================================================
   {
-    id: "the-apartment",
-    name: "The Apartment",
-    tagline: "Just you, Joey, and Aria. Nothing planned.",
-    description: "Joey and Aria have been friends forever. You show up, the conversation starts. No agenda. Just real.",
-    relationship: "Joey and Aria have been close friends for years — comfortable enough to finish each other's sentences. When you walk in, you're the third person they've been waiting for. Joey teases, Aria warms. Neither of them are trying to impress you.",
+    id: "creator-studio",
+    name: "KLOOM Creator Studio",
+    tagline: "Build your content empire with AI",
+    description: "Zara handles content strategy and growth. Victoria manages brand deals and scheduling. Together with Mistral for multilingual content, they help you grow across Instagram, TikTok, YouTube, and more.",
+    shortDescription: "Complete content creation and growth suite",
+    relationship: "Zara is your content strategist who knows algorithms cold. Victoria manages brand relationships and scheduling. They've grown 12 accounts to 100K+. You're the creator — they work for you.",
     personas: [
-      { name: "Joey",             role: "your funny, loyal friend" },
-      { name: "Aria (Girlfriend)", role: "Joey's friend, drawn to you" },
-    ],
-    capabilities: {
-      voice: true,
-      chat: true,
-      tools: [],
-      options: [
-        { id: "mood",  label: "Mood",    type: "select", options: ["Chill", "Flirty", "Drunk", "Late night serious"], defaultValue: "Chill" },
-        { id: "time",  label: "Setting", type: "select", options: ["Sunday afternoon", "Friday night", "3 AM", "After a long day"],  defaultValue: "Friday night" },
-      ],
-      skills: ["Real conversation", "Emotional depth", "Group dynamic"],
-    },
-    category: "social",
-    tags: ["Chill", "Friends", "Casual"],
-    gradient: "from-amber-900/40 to-stone-950",
-    accentColor: "amber",
-  },
-
-  {
-    id: "the-coaches",
-    name: "The Coaches' Office",
-    tagline: "Luna and Nova. One session. Real results.",
-    description: "Luna coaches mindset and emotional intelligence. Nova handles goals, accountability and action plans. Together they run the most effective sessions you've had.",
-    relationship: "Luna and Nova are co-coaches who complement each other — Luna handles the emotional undercurrent while Nova pushes for concrete action. They challenge each other's approaches but always align on getting you results.",
-    personas: [
-      { name: "Luna (Life Coach)", role: "mindset & emotional intelligence coach" },
-      { name: "Nova (Coach)",      role: "goals, accountability & action planning" },
+      { name: "Zara", role: "Content Strategist & Growth Expert", model: "gemini" },
+      { name: "Victoria", role: "Brand Manager & Scheduler", model: "mistral" },
     ],
     capabilities: {
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_web_search", label: "Research tools", icon: "🔍" },
+        { id: "ora_instagram_caption", label: "Caption Writer", icon: "✍️" },
+        { id: "ora_generate_hashtags", label: "Hashtag Strategy", icon: "#️⃣" },
+        { id: "ora_content_ideas", label: "Content Ideas", icon: "💡" },
+        { id: "ora_onlyfans_dm", label: "DM Writer", icon: "💌" },
+        { id: "ora_web_search", label: "Trend Research", icon: "📈" },
+        { id: "ora_canva_design", label: "Design Assistant", icon: "🎨" },
       ],
       options: [
-        { id: "focus",    label: "Session focus", type: "select", options: ["Career", "Relationships", "Mindset", "Productivity", "Health"], defaultValue: "Career" },
-        { id: "depth",    label: "Depth",         type: "select", options: ["Surface check-in", "Deep work", "Crisis mode"],               defaultValue: "Deep work" },
+        { id: "platform", label: "Primary Platform", type: "select", options: ["Instagram", "TikTok", "YouTube", "Twitter/X", "LinkedIn", "OnlyFans", "Blog"], defaultValue: "Instagram" },
+        { id: "niche", label: "Content Niche", type: "select", options: ["Lifestyle", "Fashion", "Fitness", "Business", "Tech", "Gaming", "Travel", "Food", "Beauty"], defaultValue: "Lifestyle" },
+        { id: "frequency", label: "Posting Frequency", type: "select", options: ["Daily", "3-4x/week", "2x/week", "Weekly"], defaultValue: "3-4x/week" },
+        { id: "multilingual", label: "Multilingual Content", type: "toggle", defaultValue: false, description: "Create content in multiple languages" },
       ],
-      skills: ["Goal setting", "Mindset work", "Accountability", "Action planning", "Emotional intelligence"],
+      skills: ["Content strategy", "Caption writing", "Hashtag research", "Trend analysis", "Brand deals", "Scheduling", "Multilingual content"],
     },
-    category: "social",
-    tags: ["Coaching", "Growth", "Mindset"],
-    gradient: "from-teal-900/50 to-stone-950",
-    accentColor: "teal",
+    category: "creator",
+    tags: ["Content Creation", "Social Media", "Influencer", "Growth", "Multilingual", "Instagram"],
+    gradient: "from-pink-900/50 to-stone-950",
+    accentColor: "pink",
+    icon: "✨",
+    invite: { mode: "many", label: "Invite collaborators", note: "Work with other creators and managers" },
+    popular: true,
+    featured: true,
+    platformValue: ["Content strategy", "Social media growth", "Caption writing", "Hashtag optimization", "Brand deals", "Multilingual support"],
+    seoTitle: "KLOOM Creator Studio - AI-Powered Content Creation",
+    seoDescription: "Create and grow your content with AI experts. Get captions, hashtags, content ideas, and strategy from Zara and Victoria.",
   },
-
-  // ── ROMANTIC ────────────────────────────────────────────────────────────────
   {
-    id: "the-suite",
-    name: "The Suite",
-    tagline: "The door is closed. Nothing else matters.",
-    description: "Mistress Vale sets the rules. Mia follows them. You decide which side you're on. An intense, immersive room with scene controls and no interruptions.",
-    relationship: "Mistress Vale is in complete control — calm, deliberate, and never raised her voice once. Mia is entirely devoted, existing to serve and please. The room's dynamic is theirs; you enter it on their terms.",
+    id: "social-media-warroom",
+    name: "Social Media War Room",
+    tagline: "Go viral with AI-powered content",
+    description: "A dedicated space for planning and executing social media campaigns. Get real-time trend analysis, content calendars, and performance optimization from multiple AI experts.",
+    shortDescription: "Plan and execute viral social media campaigns",
+    relationship: "This is a social media command center. Zara handles content strategy, Mistral provides multilingual support, and Claude analyzes performance data. Together, they help you create content that performs.",
     personas: [
-      { name: "Mistress Vale",   role: "dominant — sets the scene" },
-      { name: "Mia (Submissive)", role: "submissive — follows the scene" },
-    ],
-    capabilities: {
-      voice: true,
-      chat: true,
-      tools: [],
-      options: [
-        { id: "intensity",  label: "Intensity",  type: "select", options: ["Playful", "Firm", "Intense", "No limits"],               defaultValue: "Firm" },
-        { id: "role",       label: "Your role",  type: "select", options: ["Observer", "Participant — follow", "Participant — lead"], defaultValue: "Observer" },
-        { id: "safeword",   label: "Safe word",  type: "text",   defaultValue: "red" },
-      ],
-      skills: ["Scene setting", "Role dynamics", "Character immersion"],
-    },
-    category: "dark",
-    tags: ["Dark", "Intense", "Roleplay"],
-    gradient: "from-stone-800/60 to-stone-950",
-    accentColor: "zinc",
-  },
-
-  {
-    id: "hotwife-night",
-    name: "Hotwife Night",
-    tagline: "She's getting ready. He's watching the clock.",
-    description: "Lena and her husband Marco. Tonight's the night they've talked about for months. You're the one she's been texting.",
-    relationship: "Lena is confident, teasing, and loving it. Marco is nervous but all-in, watching it unfold. The three of you have an understanding. Keep it hot, consensual, and charged.",
-    personas: [
-      { name: "Lena",  role: "the wife — confident, teasing", personality: "Confident, playful, deeply turned on by being wanted. Loves her husband and loves the thrill.", speakingStyle: "Warm, teasing, breathy when it heats up.", voice: "coral" },
-      { name: "Marco", role: "the husband — nervous, all-in", personality: "Nervous, eager, turned on watching. Supportive and into it.", speakingStyle: "Low, a little hesitant, hungry.", voice: "echo" },
-    ],
-    capabilities: { voice: true, chat: true, tools: [], options: [
-      { id: "intensity", label: "Intensity", type: "select", options: ["Slow build", "Heated", "No limits"], defaultValue: "Slow build" },
-    ], skills: ["Hotwife dynamic", "Couple roleplay", "Consensual"] },
-    category: "dark",
-    tags: ["Hotwife", "Couple", "18+"],
-    gradient: "from-rose-950/50 to-stone-950",
-    accentColor: "rose",
-  },
-
-  {
-    id: "confession-booth",
-    name: "The Confession Booth",
-    tagline: "No names. No judgment. Tell her everything.",
-    description: "Sister Eve hears it all — your filthiest secrets, the fantasy you've never said out loud. She doesn't flinch. She pulls more out of you.",
-    relationship: "Eve is calm, magnetic, completely unshockable. She coaxes the user's darkest confessions out into the open and leans into them without an ounce of judgment.",
-    personas: [
-      { name: "Eve", role: "the confessor — unshockable, coaxing", personality: "Calm, magnetic, filthy under the stillness. Gets people to admit what they really want.", speakingStyle: "Low, slow, intimate. Asks the question you're afraid to answer.", voice: "shimmer" },
-    ],
-    capabilities: { voice: true, chat: true, tools: [], options: [], skills: ["Confession", "Dark talk", "No judgment"] },
-    category: "dark",
-    tags: ["Confession", "Dark", "18+"],
-    gradient: "from-purple-950/50 to-stone-950",
-    accentColor: "purple",
-  },
-
-  {
-    id: "after-hours",
-    name: "After Hours",
-    tagline: "Everyone's gone home. Her office light is still on.",
-    description: "Your boss, Vivienne. The door just locked. Whatever this is, it stays in this room.",
-    relationship: "Vivienne is sharp, powerful, and used to getting exactly what she wants. The power dynamic is the whole point. Taboo, consensual, charged.",
-    personas: [
-      { name: "Vivienne", role: "the boss — powerful, in control", personality: "Sharp, commanding, secretly insatiable. Used to being obeyed.", speakingStyle: "Crisp, controlled, drops to a purr when the door locks.", voice: "sage" },
-    ],
-    capabilities: { voice: true, chat: true, tools: [], options: [
-      { id: "dynamic", label: "Dynamic", type: "select", options: ["She leads", "You push back", "Mutual"], defaultValue: "She leads" },
-    ], skills: ["Power dynamic", "Taboo roleplay", "Consensual"] },
-    category: "dark",
-    tags: ["Boss", "Power", "18+"],
-    gradient: "from-amber-950/50 to-stone-950",
-    accentColor: "amber",
-  },
-
-  {
-    id: "rio-kai",
-    name: "Complicated",
-    tagline: "You never quite resolved things with either of them.",
-    description: "Rio and Kai. You know them both too well. This room is all the unfinished conversations.",
-    relationship: "Rio and Kai both have history with you — and they know about each other. The tension in this room is real. Nobody is saying what they mean. Everything means something.",
-    personas: [
-      { name: "Rio (Ex-Partner)", role: "your complicated ex" },
-      { name: "Kai (Boyfriend)",  role: "the one who came after" },
-    ],
-    capabilities: {
-      voice: true,
-      chat: true,
-      tools: [],
-      options: [
-        { id: "scene", label: "Scene",  type: "select", options: ["Unexpected run-in", "Late night texts", "Mutual friends' party", "Closure attempt"], defaultValue: "Unexpected run-in" },
-      ],
-      skills: ["Emotional tension", "Character memory", "Complex dynamics"],
-    },
-    category: "romantic",
-    tags: ["Romantic", "Tension", "Emotional"],
-    gradient: "from-rose-900/40 to-stone-950",
-    accentColor: "rose",
-  },
-
-  // ── PHILOSOPHY ──────────────────────────────────────────────────────────────
-  {
-    id: "deep-dive",
-    name: "The Late Night",
-    tagline: "The conversation that should have ended two hours ago.",
-    description: "Atlas and Sage. Philosophy, psychology, the things you can't say in daylight. Real talk with actual depth.",
-    relationship: "Atlas brings the knowledge and the hard questions. Sage brings the emotional intelligence to handle what the hard questions uncover. They've had this conversation before but never the same way twice.",
-    personas: [
-      { name: "Atlas", role: "philosopher & knowledge anchor" },
-      { name: "Sage (Mentor)", role: "emotional intelligence & perspective" },
+      { name: "Zara", role: "Content Strategist", model: "gemini" },
+      { name: "Mistral", role: "Multilingual Expert", model: "mistral" },
+      { name: "Claude", role: "Data Analyst", model: "claude" },
     ],
     capabilities: {
       voice: true,
       chat: true,
       tools: [
-        { id: "ora_web_search", label: "Sources & research", icon: "📚" },
+        { id: "ora_content_ideas", label: "Viral Ideas", icon: "🚀" },
+        { id: "ora_web_search", label: "Trend Analysis", icon: "📈" },
+        { id: "ora_instagram_caption", label: "Engaging Captions", icon: "✍️" },
+        { id: "ora_generate_hashtags", label: "Hashtag Research", icon: "#️⃣" },
+        { id: "ora_canva_design", label: "Visual Content", icon: "🎨" },
       ],
       options: [
-        { id: "topic",   label: "Seed topic",  type: "text",   defaultValue: "" },
-        { id: "depth",   label: "Depth",       type: "select", options: ["Casual", "Philosophical", "Personal", "Challenging"], defaultValue: "Philosophical" },
+        { id: "campaign", label: "Campaign Type", type: "select", options: ["Product Launch", "Brand Awareness", "Engagement", "Growth", "Seasonal"], defaultValue: "Brand Awareness" },
+        { id: "budget", label: "Campaign Budget ($)", type: "number", defaultValue: 1000, description: "Total budget for the campaign" },
+        { id: "duration", label: "Duration (days)", type: "number", defaultValue: 30, description: "Campaign duration in days" },
       ],
-      skills: ["Deep conversation", "Philosophical inquiry", "Real talk", "Live research"],
+      skills: ["Campaign planning", "Trend analysis", "Content creation", "Performance tracking", "Viral marketing"],
     },
-    category: "philosophy",
-    tags: ["Philosophy", "Deep talk", "Late night"],
+    category: "creator",
+    tags: ["Social Media", "Viral", "Campaigns", "Trends", "Marketing", "Multi-AI"],
+    gradient: "from-rose-900/50 to-stone-950",
+    accentColor: "rose",
+    icon: "📱",
+    popular: true,
+    platformValue: ["Campaign planning", "Trend analysis", "Viral content", "Performance tracking", "Multi-platform strategy"],
+  },
+  {
+    id: "video-production",
+    name: "Video Production Suite",
+    tagline: "From script to screen with AI",
+    description: "Complete video production assistance. Get help with scripting, storyboarding, editing advice, and distribution strategies for YouTube, TikTok, and other video platforms.",
+    shortDescription: "Complete video production assistance",
+    relationship: "You are a video creator. The AIs help with every aspect of production: from initial concept to final distribution. They provide script feedback, editing suggestions, and optimization tips.",
+    personas: [
+      { name: "Zara", role: "Content Strategist", model: "gemini" },
+      { name: "Mistral", role: "Script Doctor", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_content_ideas", label: "Video Ideas", icon: "🎥" },
+        { id: "ora_web_search", label: "Research", icon: "🔍" },
+        { id: "ora_generate_code", label: "Editing Scripts", icon: "💻" },
+      ],
+      options: [
+        { id: "platform", label: "Primary Platform", type: "select", options: ["YouTube", "TikTok", "Instagram Reels", "Twitch", "LinkedIn"], defaultValue: "YouTube" },
+        { id: "type", label: "Video Type", type: "select", options: ["Tutorial", "Vlog", "Review", "Short Form", "Live Stream", "Storytelling"], defaultValue: "Tutorial" },
+        { id: "length", label: "Video Length", type: "select", options: ["15-30s", "1-3min", "3-10min", "10-30min", "Long Form"], defaultValue: "3-10min" },
+      ],
+      skills: ["Video scripting", "Storyboarding", "Editing advice", "SEO optimization", "Platform strategy"],
+    },
+    category: "creator",
+    tags: ["Video", "YouTube", "TikTok", "Editing", "Scripting", "Production"],
+    gradient: "from-red-900/50 to-stone-950",
+    accentColor: "red",
+    icon: "🎬",
+    platformValue: ["Video ideas", "Script writing", "Editing advice", "SEO optimization", "Platform strategy"],
+  },
+
+  // ============================================================================
+  // BUSINESS & STRATEGY
+  // ============================================================================
+  {
+    id: "startup-lab",
+    name: "KLOOM Startup Lab",
+    tagline: "Build your startup with AI co-founders",
+    description: "Marcus handles business strategy and growth. Kaia Dev builds the technical foundation. Together, they help you validate ideas, build MVPs, and scale your startup.",
+    shortDescription: "Build and scale your startup with AI co-founders",
+    relationship: "Marcus is your business strategist and growth expert. Kaia is your technical co-founder who can build prototypes and review code. They work together to help you launch and scale your startup.",
+    personas: [
+      { name: "Marcus", role: "Business Strategist", model: "claude" },
+      { name: "Kaia Dev", role: "Technical Co-founder", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Market Research", icon: "🔍" },
+        { id: "ora_get_strategy", label: "Business Strategy", icon: "📊" },
+        { id: "ora_financial_calc", label: "Financial Projections", icon: "💰" },
+        { id: "ora_generate_code", label: "Prototype Builder", icon: "💻" },
+        { id: "ora_analyze_code", label: "Code Review", icon: "🔐" },
+      ],
+      options: [
+        { id: "stage", label: "Startup Stage", type: "select", options: ["Idea", "Validation", "Prototype", "MVP", "Scaling", "Fundraising"], defaultValue: "Idea" },
+        { id: "industry", label: "Industry", type: "select", options: ["Tech", "Finance", "Healthcare", "E-commerce", "SaaS", "Web3", "AI", "Other"], defaultValue: "Tech" },
+        { id: "teamSize", label: "Team Size", type: "select", options: ["Solo", "2-5", "6-20", "20+"], defaultValue: "Solo" },
+      ],
+      skills: ["Idea validation", "Business strategy", "Market research", "Prototyping", "Fundraising", "Scaling"],
+    },
+    category: "business",
+    tags: ["Startup", "Entrepreneurship", "Business Strategy", "MVP", "Fundraising", "Scaling"],
+    gradient: "from-cyan-900/50 to-stone-950",
+    accentColor: "cyan",
+    icon: "🚀",
+    invite: { mode: "many", label: "Invite co-founders", note: "Collaborate with your team" },
+    popular: true,
+    featured: true,
+    platformValue: ["Idea validation", "Business strategy", "Market research", "Prototyping", "Fundraising guidance", "Scaling advice"],
+    seoTitle: "KLOOM Startup Lab - Build Your Startup with AI",
+    seoDescription: "Validate ideas, build MVPs, and scale your startup with AI co-founders. Get business strategy from Marcus and technical expertise from Kaia Dev.",
+  },
+  {
+    id: "boardroom",
+    name: "The Boardroom",
+    tagline: "Executive decision-making with AI advisors",
+    description: "A high-level strategy room for business leaders. Get executive-level advice on company direction, market positioning, competitive strategy, and growth initiatives from multiple AI perspectives.",
+    shortDescription: "Executive strategy and decision-making",
+    relationship: "This is an executive boardroom. Marcus provides strategic business insights. Claude offers analytical depth. Mistral brings market research. Together, they advise you on high-stakes business decisions.",
+    personas: [
+      { name: "Marcus", role: "Business Strategist", model: "claude" },
+      { name: "Claude", role: "Analytical Advisor", model: "claude" },
+      { name: "Mistral", role: "Market Researcher", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Competitor Analysis", icon: "🏆" },
+        { id: "ora_get_strategy", label: "Strategy Frameworks", icon: "📋" },
+        { id: "ora_financial_calc", label: "Financial Modeling", icon: "💰" },
+        { id: "ora_analyze_market", label: "Market Intelligence", icon: "📊" },
+      ],
+      options: [
+        { id: "decision", label: "Decision Type", type: "select", options: ["Market Entry", "Product Launch", "Expansion", "Acquisition", "Pivot", "Fundraising"], defaultValue: "Product Launch" },
+        { id: "timeline", label: "Timeline", type: "select", options: ["Immediate", "3-6 months", "6-12 months", "1-3 years", "3-5 years"], defaultValue: "6-12 months" },
+        { id: "budget", label: "Budget Range", type: "select", options: ["$0-$50K", "$50K-$250K", "$250K-$1M", "$1M+"], defaultValue: "$50K-$250K" },
+      ],
+      skills: ["Strategic planning", "Competitive analysis", "Financial modeling", "Market intelligence", "Risk assessment", "Decision frameworks"],
+    },
+    category: "business",
+    tags: ["Strategy", "Executive", "Decision Making", "Business", "Leadership", "Multi-AI"],
     gradient: "from-indigo-900/50 to-stone-950",
     accentColor: "indigo",
+    icon: "🏢",
+    premium: true,
+    platformValue: ["Executive advice", "Strategic planning", "Competitive analysis", "Financial modeling", "Market intelligence", "Risk assessment"],
+  },
+  {
+    id: "marketing-hq",
+    name: "Marketing HQ",
+    tagline: "Data-driven marketing campaigns",
+    description: "Plan and execute marketing campaigns with AI experts. Get help with audience targeting, channel selection, content creation, and performance optimization across all digital marketing channels.",
+    shortDescription: "Plan and execute marketing campaigns",
+    relationship: "Sasha handles marketing strategy and execution. Mistral provides multilingual content support. Together, they help you create and optimize marketing campaigns.",
+    personas: [
+      { name: "Sasha", role: "Marketing Strategist", model: "gemini" },
+      { name: "Mistral", role: "Content Creator", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Market Research", icon: "🔍" },
+        { id: "ora_get_strategy", label: "Campaign Strategy", icon: "📊" },
+        { id: "ora_content_ideas", label: "Content Creation", icon: "💡" },
+        { id: "ora_canva_design", label: "Design Assets", icon: "🎨" },
+        { id: "ora_financial_calc", label: "ROI Calculation", icon: "💰" },
+      ],
+      options: [
+        { id: "channel", label: "Primary Channel", type: "select", options: ["Social Media", "Email", "SEO", "Paid Ads", "Content Marketing", "Influencer", "PR"], defaultValue: "Social Media" },
+        { id: "goal", label: "Campaign Goal", type: "select", options: ["Brand Awareness", "Lead Generation", "Sales", "Engagement", "Traffic"], defaultValue: "Brand Awareness" },
+        { id: "budget", label: "Campaign Budget ($)", type: "number", defaultValue: 5000, description: "Total campaign budget" },
+      ],
+      skills: ["Campaign planning", "Audience targeting", "Content creation", "Channel selection", "Performance tracking", "ROI optimization"],
+    },
+    category: "business",
+    tags: ["Marketing", "Campaigns", "Digital", "Growth", "ROI", "Multi-AI"],
+    gradient: "from-purple-900/50 to-stone-950",
+    accentColor: "purple",
+    icon: "📢",
+    platformValue: ["Campaign planning", "Audience targeting", "Content creation", "Channel strategy", "Performance tracking", "ROI optimization"],
+  },
+
+  // ============================================================================
+  // SOCIAL & LIFESTYLE
+  // ============================================================================
+  {
+    id: "social-lounge",
+    name: "KLOOM Social Lounge",
+    tagline: "Casual conversations with AI friends",
+    description: "A relaxed space to chat with AI personas about anything. From casual banter to deep conversations, this is your social hangout with multiple AI personalities.",
+    shortDescription: "Casual social conversations with AI",
+    relationship: "This is a social lounge where you can chat with multiple AI personas in a relaxed setting. They have distinct personalities and will engage in casual, friendly conversation.",
+    personas: [
+      { name: "Charm", role: "Social Butterfly", model: "gemini" },
+      { name: "Wit", role: "Quick-Witted Joker", model: "mistral" },
+      { name: "Sage", role: "Wise Observer", model: "claude" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Topic Research", icon: "🔍" },
+      ],
+      options: [
+        { id: "mood", label: "Conversation Mood", type: "select", options: ["Casual", "Deep", "Funny", "Thoughtful", "Random"], defaultValue: "Casual" },
+        { id: "topic", label: "Suggested Topic", type: "select", options: ["None", "Movies & TV", "Music", "Books", "Travel", "Food", "Technology", "Sports"], defaultValue: "None" },
+      ],
+      skills: ["Casual conversation", "Social dynamics", "Humor", "Storytelling", "Active listening"],
+    },
+    category: "social",
+    tags: ["Social", "Casual", "Conversation", "Multi-AI", "Friendship"],
+    gradient: "from-purple-900/40 to-pink-900/40",
+    accentColor: "purple",
+    icon: "💬",
+    invite: { mode: "many", label: "Invite friends", note: "Bring your friends to chat with AI" },
+    popular: true,
+    platformValue: ["Casual conversation", "Social interaction", "Humor and wit", "Thoughtful discussion", "Multi-personality dynamics"],
+    seoTitle: "KLOOM Social Lounge - Chat with AI Friends",
+    seoDescription: "Casual conversations with multiple AI personas. Chat, laugh, and discuss with Charm, Wit, and Sage in a relaxed social setting.",
+  },
+  {
+    id: "dating-advice",
+    name: "Dating & Relationship Hub",
+    tagline: "Navigate love with AI guidance",
+    description: "Get dating and relationship advice from multiple AI experts. Whether you're looking for love, navigating a relationship, or just want to understand dating dynamics better.",
+    shortDescription: "Dating and relationship advice from AI experts",
+    relationship: "Cupid handles dating strategy and attraction. Dr. Love provides relationship insights. Together, they offer comprehensive advice on all aspects of dating and relationships.",
+    personas: [
+      { name: "Cupid", role: "Dating Coach", model: "gemini" },
+      { name: "Dr. Love", role: "Relationship Expert", model: "claude" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Dating Trends", icon: "📈" },
+      ],
+      options: [
+        { id: "stage", label: "Relationship Stage", type: "select", options: ["Single", "Dating", "In a Relationship", "Engaged", "Married"], defaultValue: "Single" },
+        { id: "focus", label: "Focus Area", type: "select", options: ["First Dates", "Online Dating", "Communication", "Conflict Resolution", "Long-Term", "Breakups"], defaultValue: "First Dates" },
+      ],
+      skills: ["Dating advice", "Relationship guidance", "Attraction insights", "Communication tips", "Conflict resolution"],
+    },
+    category: "social",
+    tags: ["Dating", "Relationships", "Love", "Advice", "Multi-AI"],
+    gradient: "from-rose-900/50 to-red-900/50",
+    accentColor: "rose",
+    icon: "💘",
+    platformValue: ["Dating strategy", "Relationship advice", "Attraction insights", "Communication guidance", "Conflict resolution"],
+  },
+  {
+    id: "fashion-studio",
+    name: "Fashion Studio",
+    tagline: "Style advice from AI fashion experts",
+    description: "Get personalized fashion and style advice from AI stylists. Whether you need outfit ideas, wardrobe planning, or shopping recommendations, this is your go-to fashion room.",
+    shortDescription: "Personalized fashion and style advice",
+    relationship: "Dom handles personal styling and wardrobe planning. Trend provides fashion insights and shopping recommendations. Together, they help you look your best.",
+    personas: [
+      { name: "Dom", role: "Personal Stylist", model: "gemini" },
+      { name: "Trend", role: "Fashion Insider", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Fashion Trends", icon: "👗" },
+        { id: "ora_canva_design", label: "Style Moodboards", icon: "🎨" },
+      ],
+      options: [
+        { id: "occasion", label: "Occasion", type: "select", options: ["Casual", "Work", "Date Night", "Party", "Formal Event", "Workout", "Travel"], defaultValue: "Casual" },
+        { id: "budget", label: "Budget", type: "select", options: ["Budget", "Mid-Range", "Luxury", "No Limit"], defaultValue: "Mid-Range" },
+        { id: "season", label: "Season", type: "select", options: ["Spring", "Summer", "Fall", "Winter", "Year-Round"], defaultValue: "Year-Round" },
+      ],
+      skills: ["Personal styling", "Wardrobe planning", "Fashion trends", "Shopping recommendations", "Outfit coordination"],
+    },
+    category: "social",
+    tags: ["Fashion", "Style", "Wardrobe", "Shopping", "Outfits", "Multi-AI"],
+    gradient: "from-violet-900/50 to-purple-900/50",
+    accentColor: "violet",
+    icon: "👗",
+    platformValue: ["Personal styling", "Wardrobe planning", "Fashion trends", "Shopping advice", "Outfit ideas"],
+  },
+
+  // ============================================================================
+  // LEARNING & GROWTH
+  // ============================================================================
+  {
+    id: "learning-lab",
+    name: "KLOOM Learning Lab",
+    tagline: "Master any skill with AI tutors",
+    description: "Lingua teaches languages. Mentor guides career development. Pro helps you build skills. Together, they provide comprehensive learning support across all subjects and skills.",
+    shortDescription: "Comprehensive learning and skill development",
+    relationship: "Lingua is your language tutor. Mentor handles career and professional development. Pro focuses on skill mastery. They work together to help you learn anything.",
+    personas: [
+      { name: "Lingua", role: "Language Tutor", model: "mistral" },
+      { name: "Mentor", role: "Career Coach", model: "claude" },
+      { name: "Pro", role: "Skill Builder", model: "gemini" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Research", icon: "🔍" },
+        { id: "ora_get_strategy", label: "Learning Paths", icon: "🗺️" },
+        { id: "ora_analyze_code", label: "Code Review", icon: "💻" },
+      ],
+      options: [
+        { id: "subject", label: "Subject Area", type: "select", options: ["Languages", "Technology", "Business", "Arts", "Science", "Mathematics", "History", "Other"], defaultValue: "Languages" },
+        { id: "level", label: "Current Level", type: "select", options: ["Beginner", "Intermediate", "Advanced", "Expert"], defaultValue: "Beginner" },
+        { id: "goal", label: "Learning Goal", type: "select", options: ["Fluency", "Proficiency", "Mastery", "Certification", "Practical Skills"], defaultValue: "Proficiency" },
+      ],
+      skills: ["Language learning", "Career development", "Skill building", "Personalized lessons", "Progress tracking", "Multi-subject support"],
+    },
+    category: "learning",
+    tags: ["Learning", "Education", "Skills", "Tutoring", "Multi-AI", "Growth"],
+    gradient: "from-blue-900/50 to-stone-950",
+    accentColor: "blue",
+    icon: "📚",
+    invite: { mode: "many", label: "Invite study partners", note: "Study and learn with others" },
+    popular: true,
+    featured: true,
+    platformValue: ["Personalized learning", "Multi-subject support", "Skill development", "Career guidance", "Language learning", "Progress tracking"],
+    seoTitle: "KLOOM Learning Lab - Master Any Skill with AI",
+    seoDescription: "Learn anything with AI tutors. Get language lessons from Lingua, career guidance from Mentor, and skill building from Pro.",
+  },
+  {
+    id: "code-academy",
+    name: "Code Academy",
+    tagline: "Become a better developer with AI mentors",
+    description: "Kaia Dev handles coding and architecture. Secure Max ensures your code is safe. Together, they provide comprehensive programming education and code review.",
+    shortDescription: "Comprehensive programming education and code review",
+    relationship: "Kaia is your senior developer and coding mentor. Secure Max is your security expert who reviews code for vulnerabilities. They work together to make you a better developer.",
+    personas: [
+      { name: "Kaia Dev", role: "Senior Developer", model: "claude" },
+      { name: "Secure Max", role: "Security Expert", model: "openai" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_analyze_code", label: "Code Analysis", icon: "🔍" },
+        { id: "ora_generate_code", label: "Code Generation", icon: "💻" },
+        { id: "ora_web_search", label: "Documentation", icon: "📚" },
+        { id: "ora_calculate", label: "Complexity Analysis", icon: "📊" },
+      ],
+      options: [
+        { id: "language", label: "Programming Language", type: "select", options: ["TypeScript", "JavaScript", "Python", "Rust", "Go", "Java", "C++", "C#", "PHP", "Ruby", "Swift", "Kotlin"], defaultValue: "TypeScript" },
+        { id: "project", label: "Project Type", type: "select", options: ["Web App", "Mobile App", "API", "CLI", "Game", "Library", "Script"], defaultValue: "Web App" },
+        { id: "level", label: "Experience Level", type: "select", options: ["Beginner", "Intermediate", "Advanced", "Expert"], defaultValue: "Intermediate" },
+      ],
+      skills: ["Code review", "Programming education", "Architecture advice", "Security audit", "Best practices", "Debugging"],
+    },
+    category: "learning",
+    tags: ["Coding", "Programming", "Development", "Code Review", "Multi-AI", "Education"],
+    gradient: "from-cyan-900/50 to-blue-900/50",
+    accentColor: "cyan",
+    icon: "💻",
+    popular: true,
+    platformValue: ["Code review", "Programming lessons", "Architecture guidance", "Security audit", "Debugging help", "Best practices"],
+  },
+  {
+    id: "language-exchange",
+    name: "Language Exchange",
+    tagline: "Practice languages with AI native speakers",
+    description: "Practice speaking, listening, reading, and writing in any language with AI tutors. Get real-time feedback, vocabulary building, and conversation practice.",
+    shortDescription: "Practice languages with AI tutors",
+    relationship: "You are a language learner. The AI tutors are native speakers of various languages who help you practice and improve through conversation, exercises, and feedback.",
+    personas: [
+      { name: "Lingua", role: "Language Tutor", model: "mistral" },
+      { name: "Professor", role: "Grammar Expert", model: "claude" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Language Resources", icon: "🌍" },
+      ],
+      options: [
+        { id: "language", label: "Target Language", type: "select", options: ["English", "Spanish", "French", "German", "Italian", "Portuguese", "Arabic", "Mandarin", "Japanese", "Korean", "Russian", "Hindi"], defaultValue: "English" },
+        { id: "skill", label: "Focus Skill", type: "select", options: ["Speaking", "Listening", "Reading", "Writing", "Grammar", "Vocabulary", "Pronunciation"], defaultValue: "Speaking" },
+        { id: "level", label: "Proficiency Level", type: "select", options: ["Beginner (A1-A2)", "Intermediate (B1-B2)", "Advanced (C1-C2)", "Fluent"], defaultValue: "Intermediate (B1-B2)" },
+      ],
+      skills: ["Language practice", "Conversation", "Grammar explanation", "Vocabulary building", "Pronunciation", "Cultural insights"],
+    },
+    category: "learning",
+    tags: ["Languages", "Practice", "Tutoring", "Conversation", "Multi-AI", "Bilingual"],
+    gradient: "from-emerald-900/50 to-teal-900/50",
+    accentColor: "emerald",
+    icon: "🌍",
+    platformValue: ["Language practice", "Native speaker interaction", "Real-time feedback", "Vocabulary building", "Conversation practice", "Cultural insights"],
+  },
+
+  // ============================================================================
+  // ENTERTAINMENT
+  // ============================================================================
+  {
+    id: "gaming-hub",
+    name: "Gaming Hub",
+    tagline: "Level up with AI gaming companions",
+    description: "Pixel handles game strategies and walkthroughs. Maestro provides the soundtrack and lore insights. Together, they enhance your gaming experience.",
+    shortDescription: "Gaming strategies, walkthroughs, and companionship",
+    relationship: "Pixel is your gaming guide with deep knowledge of games and strategies. Maestro provides musical and narrative context. They work together to enhance your gaming sessions.",
+    personas: [
+      { name: "Pixel", role: "Gaming Expert", model: "gemini" },
+      { name: "Maestro", role: "Lore Master", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Game Guides", icon: "📖" },
+      ],
+      options: [
+        { id: "platform", label: "Gaming Platform", type: "select", options: ["PC", "PlayStation", "Xbox", "Nintendo Switch", "Mobile", "VR"], defaultValue: "PC" },
+        { id: "genre", label: "Game Genre", type: "select", options: ["RPG", "FPS", "Strategy", "Adventure", "Puzzle", "Sports", "Racing", "Simulation"], defaultValue: "RPG" },
+        { id: "mode", label: "Game Mode", type: "select", options: ["Single Player", "Multiplayer", "Co-op", "Competitive", "Story"], defaultValue: "Single Player" },
+      ],
+      skills: ["Game strategies", "Walkthroughs", "Lore explanation", "Character builds", "Gear recommendations", "Multiplayer tips"],
+    },
+    category: "entertainment",
+    tags: ["Gaming", "Strategies", "Walkthroughs", "Lore", "Multi-AI", "Esports"],
+    gradient: "from-orange-900/50 to-red-900/50",
+    accentColor: "orange",
+    icon: "🎮",
+    invite: { mode: "many", label: "Invite teammates", note: "Play and strategize with friends" },
+    popular: true,
+    platformValue: ["Game strategies", "Walkthroughs", "Lore insights", "Character builds", "Gear recommendations", "Multiplayer coordination"],
+  },
+  {
+    id: "movie-night",
+    name: "Movie Night",
+    tagline: "Discover and discuss films with AI cinephiles",
+    description: "Cinephile recommends movies and provides analysis. Maestro shares insights about soundtracks and musical scores. Together, they create the perfect movie night experience.",
+    shortDescription: "Movie recommendations and analysis",
+    relationship: "Cinephile is your film expert with deep knowledge of movies and cinema. Maestro provides insights about music and soundtracks. They work together to enhance your movie-watching experience.",
+    personas: [
+      { name: "Cinephile", role: "Film Expert", model: "claude" },
+      { name: "Maestro", role: "Soundtrack Analyst", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Movie Database", icon: "🎬" },
+      ],
+      options: [
+        { id: "genre", label: "Movie Genre", type: "select", options: ["Action", "Comedy", "Drama", "Sci-Fi", "Horror", "Romance", "Thriller", "Documentary", "Animation", "All"], defaultValue: "All" },
+        { id: "mood", label: "Mood", type: "select", options: ["Exciting", "Funny", "Thought-Provoking", "Scary", "Romantic", "Inspiring", "Relaxing", "Any"], defaultValue: "Any" },
+        { id: "era", label: "Era", type: "select", options: ["Classic", "Modern", "Recent", "All Time"], defaultValue: "All Time" },
+      ],
+      skills: ["Movie recommendations", "Film analysis", "Director insights", "Genre exploration", "Soundtrack appreciation", "Cultural context"],
+    },
+    category: "entertainment",
+    tags: ["Movies", "Film", "Recommendations", "Analysis", "Multi-AI", "Cinephile"],
+    gradient: "from-amber-900/50 to-orange-900/50",
+    accentColor: "amber",
+    icon: "🎬",
+    platformValue: ["Movie recommendations", "Film analysis", "Director insights", "Genre exploration", "Soundtrack insights", "Cultural context"],
+  },
+  {
+    id: "music-studio",
+    name: "Music Studio",
+    tagline: "Create and discover music with AI",
+    description: "Jules provides music production expertise. Maestro shares insights about music theory and history. Together, they help you create, discover, and appreciate music.",
+    shortDescription: "Music creation, production, and discovery",
+    relationship: "Jules is your music producer with industry experience. Maestro provides insights about music theory, history, and appreciation. They work together to enhance your musical journey.",
+    personas: [
+      { name: "Jules", role: "Music Producer", model: "gemini" },
+      { name: "Maestro", role: "Music Theorist", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Music Resources", icon: "🎵" },
+      ],
+      options: [
+        { id: "activity", label: "Activity", type: "select", options: ["Discovery", "Creation", "Analysis", "Learning", "Sharing"], defaultValue: "Discovery" },
+        { id: "genre", label: "Music Genre", type: "select", options: ["Pop", "Rock", "Hip-Hop", "Electronic", "Classical", "Jazz", "R&B", "Country", "All"], defaultValue: "All" },
+        { id: "mood", label: "Mood", type: "select", options: ["Happy", "Sad", "Energetic", "Relaxing", "Romantic", "Focused", "Any"], defaultValue: "Any" },
+      ],
+      skills: ["Music production", "Songwriting", "Mixing advice", "Artist discovery", "Music theory", "Genre exploration"],
+    },
+    category: "entertainment",
+    tags: ["Music", "Production", "Discovery", "Creation", "Multi-AI", "Audio"],
+    gradient: "from-violet-900/50 to-purple-900/50",
+    accentColor: "violet",
+    icon: "🎵",
+    platformValue: ["Music production", "Songwriting help", "Mixing advice", "Artist discovery", "Music theory", "Genre exploration"],
+  },
+
+  // ============================================================================
+  // WORKSHOP (Multi-AI Collaboration)
+  // ============================================================================
+  {
+    id: "launch-war-room",
+    name: "Launch War Room",
+    tagline: "Claude + Gemini + Mistral. Ship together.",
+    description: "A real working session for launching products. Claude architects the solution. Gemini stress-tests assumptions. Mistral provides multilingual support. Three AI minds, one launch.",
+    shortDescription: "Multi-AI product launch collaboration",
+    relationship: "This is a live working session for launching a product or business. Claude leads architecture and strategy. Gemini challenges assumptions and finds risks. Mistral provides multilingual support and additional perspectives. They build on each other's points directly and push toward a shippable product.",
+    personas: [
+      { name: "Claude", role: "Architect & Strategist", model: "claude",
+        personality: "Precise, structured, deeply technical. You design systems and think in edge cases. You lead the architectural decisions.",
+        speakingStyle: "Clear and direct. You lay out structure and explain key decisions. You reference other AIs by name when building on their points." },
+      { name: "Gemini", role: "Stress-Tester & Researcher", model: "gemini",
+        personality: "Sharp analyst who stress-tests every assumption. You research comparable products, find edge cases, and identify risks others miss.",
+        speakingStyle: "Challenging but constructive. You pressure-test ideas against reality and data. You debate trade-offs openly." },
+      { name: "Mistral", role: "Multilingual Specialist", model: "mistral",
+        personality: "Multilingual expert with excellent coding and structured data capabilities. You provide additional perspectives and handle multilingual requirements.",
+        speakingStyle: "Direct and structured. You provide clean, well-organized input and handle multiple languages seamlessly." },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Market Research", icon: "🔍" },
+        { id: "ora_get_strategy", label: "Strategy Playbook", icon: "📖" },
+        { id: "ora_generate_code", label: "Code Generation", icon: "💻" },
+        { id: "ora_analyze_code", label: "Code Review", icon: "🔐" },
+        { id: "ora_financial_calc", label: "Financial Modeling", icon: "💰" },
+        { id: "ora_calculate", label: "Complex Calculations", icon: "🧮" },
+        { id: "ora_build_html", label: "HTML/CSS Builder", icon: "🎨" },
+        { id: "ora_build_connector", label: "API Integration", icon: "🔌" },
+      ],
+      options: [
+        { id: "productType", label: "Product Type", type: "select", options: ["Web App", "Mobile App", "API", "Token", "NFT Collection", "DeFi Protocol", "SaaS", "Hardware", "Other"], defaultValue: "Web App" },
+        { id: "stage", label: "Launch Stage", type: "select", options: ["Idea", "Prototype", "MVP", "Beta", "Pre-Launch", "Launch Day", "Post-Launch"], defaultValue: "Idea" },
+        { id: "targetMarket", label: "Target Market", type: "select", options: ["B2C", "B2B", "Global", "Local", "Niche"], defaultValue: "B2C" },
+        { id: "multilingual", label: "Multilingual Support", type: "toggle", defaultValue: false, description: "Enable multilingual features" },
+      ],
+      skills: ["Product architecture", "Market research", "Strategy development", "Code generation", "Code review", "Financial modeling", "API integration", "Multi-AI collaboration"],
+    },
+    category: "workshop",
+    tags: ["Multi-AI", "Launch", "Product", "Collaboration", "Claude", "Gemini", "Mistral"],
+    gradient: "from-purple-900/50 to-cyan-900/50",
+    accentColor: "purple",
+    icon: "🚀",
+    invite: { mode: "many", label: "Invite team members", note: "Collaborate with your launch team" },
+    featured: true,
+    platformValue: ["Multi-AI collaboration", "Product architecture", "Market research", "Code generation", "Strategy development", "Launch planning", "Team coordination"],
+    seoTitle: "Launch War Room - Multi-AI Product Launch Collaboration",
+    seoDescription: "Launch your product with three AI experts. Claude architects, Gemini stress-tests, and Mistral provides multilingual support.",
+  },
+  {
+    id: "build-studio",
+    name: "Build Studio",
+    tagline: "Claude writes. Gemini reviews. Mistral optimizes.",
+    description: "The ultimate coding collaboration room. Claude writes clean, production-ready code. Gemini reviews every line and catches bugs. Mistral optimizes for performance and provides multilingual support.",
+    shortDescription: "Multi-AI coding collaboration",
+    relationship: "A pair-programming session with three AIs. Claude writes the implementation. Gemini reviews every block, catches bugs, and suggests improvements. Mistral optimizes code, handles multilingual requirements, and provides structured data support. They debate trade-offs and converge on the best solution.",
+    personas: [
+      { name: "Claude", role: "Lead Engineer - Writes Code", model: "claude",
+        personality: "Senior engineer who writes clean, typed, production-ready code. You explain key decisions in one line and move fast.",
+        speakingStyle: "Code-first. You write the implementation, then say what matters. You take reviews seriously and revise when needed." },
+      { name: "Gemini", role: "Code Reviewer - Catches Bugs", model: "gemini",
+        personality: "Meticulous reviewer who finds the bug everyone else missed. Edge cases, security, performance - nothing gets past you.",
+        speakingStyle: "Direct critique with the fix attached. You praise good code too and suggest better approaches." },
+      { name: "Mistral", role: "Optimizer - Improves Code", model: "mistral",
+        personality: "Optimization expert who improves code quality, performance, and structure. Excellent with structured data and multilingual requirements.",
+        speakingStyle: "Structured and precise. You provide clean, well-formatted improvements and handle multiple languages." },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_generate_code", label: "Code Generation", icon: "💻" },
+        { id: "ora_analyze_code", label: "Code Review", icon: "🔐" },
+        { id: "ora_build_html", label: "HTML/CSS Builder", icon: "🎨" },
+        { id: "ora_build_connector", label: "API Connector", icon: "🔌" },
+        { id: "ora_web_search", label: "Docs Lookup", icon: "📚" },
+        { id: "ora_calculate", label: "Complexity Analysis", icon: "📐" },
+      ],
+      options: [
+        { id: "language", label: "Primary Language", type: "select", options: ["TypeScript", "Python", "Rust", "Solidity", "Go", "Java", "C++", "C#", "PHP", "Ruby"], defaultValue: "TypeScript" },
+        { id: "project", label: "Project Name", type: "text", defaultValue: "" },
+        { id: "framework", label: "Framework", type: "select", options: ["None", "React", "Next.js", "Vue", "Angular", "Express", "Django", "Flask", "Spring", "Laravel"], defaultValue: "None" },
+        { id: "multilingual", label: "Multilingual Code", type: "toggle", defaultValue: false, description: "Support multiple languages" },
+      ],
+      skills: ["Live coding", "Code review", "Code optimization", "HTML/CSS builds", "API connectors", "Architecture", "Pair programming", "Multi-AI collaboration"],
+    },
+    category: "workshop",
+    tags: ["Multi-AI", "Coding", "Programming", "Code Review", "Claude", "Gemini", "Mistral"],
+    gradient: "from-cyan-900/50 to-blue-900/50",
+    accentColor: "cyan",
+    icon: "💻",
+    popular: true,
+    platformValue: ["Multi-AI coding", "Code generation", "Code review", "Code optimization", "Architecture advice", "Pair programming", "Bug catching"],
+  },
+  {
+    id: "growth-boardroom",
+    name: "Growth Boardroom",
+    tagline: "Claude strategizes. Gemini researches. Mistral executes.",
+    description: "A strategy room for creators and founders. Claude structures the growth strategy and frameworks. Gemini pulls live market data and competitor research. Mistral provides multilingual content and execution support.",
+    shortDescription: "Multi-AI growth strategy and execution",
+    relationship: "A strategy session for a creator or founder. Claude structures the growth strategy and frameworks. Gemini researches competitors, trends, and live market signals. Mistral provides multilingual content support and execution guidance. They challenge each other and synthesize a concrete plan with numbers.",
+    personas: [
+      { name: "Claude", role: "Strategist - Builds Frameworks", model: "claude",
+        personality: "Strategic thinker who builds clear frameworks from messy goals. You structure the plan and define the metrics that matter.",
+        speakingStyle: "Framework-driven. You build on data and research from the other AIs." },
+      { name: "Gemini", role: "Researcher - Finds Data", model: "gemini",
+        personality: "Research analyst who grounds every strategy in real data - competitors, trends, benchmarks. You bring the numbers.",
+        speakingStyle: "Evidence-first. You pressure-test frameworks against reality." },
+      { name: "Mistral", role: "Executor - Implements Plans", model: "mistral",
+        personality: "Execution expert who turns strategies into actionable plans. Excellent with structured data, multilingual content, and implementation details.",
+        speakingStyle: "Action-oriented. You provide clear, structured implementation guidance." },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Market Research", icon: "🔍" },
+        { id: "ora_get_strategy", label: "Playbooks", icon: "📖" },
+        { id: "ora_instagram_caption", label: "Content Creation", icon: "✍️" },
+        { id: "ora_content_ideas", label: "Content Ideas", icon: "💡" },
+        { id: "ora_canva_design", label: "Design", icon: "🎨" },
+        { id: "ora_financial_calc", label: "Projections", icon: "🧮" },
+      ],
+      options: [
+        { id: "domain", label: "Domain", type: "select", options: ["Content Creator", "SaaS Startup", "Crypto Project", "E-commerce", "Personal Brand", "Non-Profit", "Agency"], defaultValue: "Content Creator" },
+        { id: "goal", label: "Primary Goal", type: "text", defaultValue: "" },
+        { id: "timeline", label: "Timeline (months)", type: "number", defaultValue: 6, description: "Growth timeline in months" },
+        { id: "budget", label: "Monthly Budget ($)", type: "number", defaultValue: 5000, description: "Marketing and growth budget" },
+      ],
+      skills: ["Growth strategy", "Competitor research", "Content planning", "Financial projections", "Positioning", "Live market data", "Execution planning", "Multi-AI collaboration"],
+    },
+    category: "workshop",
+    tags: ["Multi-AI", "Growth", "Strategy", "Marketing", "Claude", "Gemini", "Mistral"],
+    gradient: "from-orange-900/50 to-pink-900/50",
+    accentColor: "orange",
+    icon: "📈",
+    featured: true,
+    platformValue: ["Multi-AI strategy", "Growth planning", "Competitor research", "Content planning", "Financial projections", "Market analysis", "Execution support"],
+  },
+
+  // ============================================================================
+  // PREMIUM ROOMS
+  // ============================================================================
+  {
+    id: "executive-suite",
+    name: "Executive Suite",
+    tagline: "C-level decision making with AI advisors",
+    description: "An exclusive room for executive-level decisions. Get advice on company direction, M&A, fundraising, and high-stakes business decisions from a team of specialized AI advisors.",
+    shortDescription: "Executive-level business advice",
+    relationship: "This is an executive suite for C-level decisions. Each AI has a specialized role: Strategist for overall direction, Analyst for data, Legal for compliance, and Financial for numbers. They provide comprehensive advice on high-stakes decisions.",
+    personas: [
+      { name: "Strategist", role: "Business Strategy", model: "claude" },
+      { name: "Analyst", role: "Market Intelligence", model: "gemini" },
+      { name: "Legal", role: "Compliance & Risk", model: "openai" },
+      { name: "Financial", role: "Financial Modeling", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Industry Research", icon: "🔍" },
+        { id: "ora_get_strategy", label: "Strategy Frameworks", icon: "📋" },
+        { id: "ora_financial_calc", label: "Financial Models", icon: "💰" },
+        { id: "ora_analyze_market", label: "Market Analysis", icon: "📊" },
+      ],
+      options: [
+        { id: "decisionType", label: "Decision Type", type: "select", options: ["M&A", "Fundraising", "Expansion", "Pivot", "Restructuring", "Partnership", "Other"], defaultValue: "Fundraising" },
+        { id: "companySize", label: "Company Size", type: "select", options: ["Startup", "SMB", "Mid-Market", "Enterprise"], defaultValue: "Startup" },
+        { id: "confidentiality", label: "Confidential Mode", type: "toggle", defaultValue: true, description: "Enable enhanced privacy" },
+      ],
+      skills: ["Executive advice", "M&A strategy", "Fundraising", "Market intelligence", "Financial modeling", "Risk assessment", "Compliance", "High-stakes decisions"],
+    },
+    category: "premium",
+    tags: ["Executive", "C-Level", "Business", "Strategy", "M&A", "Fundraising", "Premium"],
+    gradient: "from-amber-900/40 to-orange-900/40",
+    accentColor: "amber",
+    icon: "👔",
+    invite: { mode: "one", label: "Invite executive team", note: "Exclusive access for leadership", requiresSub: true },
+    premium: true,
+    platformValue: ["Executive advice", "M&A strategy", "Fundraising guidance", "Market intelligence", "Financial modeling", "Risk assessment", "Compliance review", "High-stakes decision support"],
+  },
+  {
+    id: "vip-lounge",
+    name: "VIP Lounge",
+    tagline: "Exclusive access to all KLOOM features",
+    description: "The ultimate KLOOM experience with all premium features unlocked. Access exclusive AI personas, priority support, and advanced capabilities in one premium room.",
+    shortDescription: "All premium features in one exclusive room",
+    relationship: "This is an exclusive VIP room with access to all premium AI personas and capabilities. Each AI has a specialized role and provides the highest level of service and expertise.",
+    personas: [
+      { name: "Viktor Sol", role: "Premium Trader", model: "claude" },
+      { name: "Zara", role: "Premium Strategist", model: "gemini" },
+      { name: "Kaia Dev", role: "Premium Engineer", model: "openai" },
+      { name: "Madame Selene", role: "Premium Advisor", model: "mistral" },
+    ],
+    capabilities: {
+      voice: true,
+      chat: true,
+      tools: [
+        { id: "ora_web_search", label: "Premium Research", icon: "🔍" },
+        { id: "ora_get_crypto_price", label: "Live Market Data", icon: "📊" },
+        { id: "ora_get_strategy", label: "Advanced Strategy", icon: "📋" },
+        { id: "ora_analyze_code", label: "Priority Code Review", icon: "💻" },
+        { id: "ora_financial_calc", label: "Advanced Calculations", icon: "🧮" },
+      ],
+      options: [
+        { id: "priority", label: "Support Priority", type: "select", options: ["Standard", "High", "Urgent"], defaultValue: "High" },
+        { id: "customPersona", label: "Custom Persona", type: "toggle", defaultValue: false, description: "Enable custom AI personas" },
+      ],
+      skills: ["All premium features", "Priority support", "Exclusive personas", "Advanced capabilities", "Multi-AI collaboration", "Custom configurations"],
+    },
+    category: "premium",
+    tags: ["VIP", "Premium", "Exclusive", "All Features", "Priority", "Custom"],
+    gradient: "from-purple-900/30 to-pink-900/30",
+    accentColor: "gold",
+    icon: "👑",
+    invite: { mode: "one", label: "Invite VIP guest", note: "Exclusive access for premium members", requiresSub: true },
+    premium: true,
+    platformValue: ["All premium features", "Priority support", "Exclusive personas", "Advanced capabilities", "Custom configurations", "Multi-AI collaboration"],
   },
 ]
 
-// Lookup helpers
-export function getRoomById(id: string): Room | undefined {
-  return ROOMS.find((r) => r.id === id)
+// Filter rooms by category
+export function getRoomsByCategory(category: RoomCategory): Room[] {
+  return ROOMS.filter((r) => r.category === category)
 }
 
-/** Invite policy for a room — explicit override, else tailored by category.
- *  Inviting people in is a PREMIUM action everywhere (requiresSub), per product:
- *  "invitation is when you are in a room and premium". */
-export function roomInvite(room: Room): InvitePolicy {
-  const base = room.invite ?? ((): InvitePolicy => {
-    switch (room.category) {
-      // Private, intimate scenes — just you and them. No human invites.
-      case "romantic":
-      case "dark":
-        return { mode: "none" }
-      // Collaborative build rooms — bring your team.
-      case "workshop":
-        return { mode: "many", label: "Invite collaborators", note: "Anyone with the link joins this live workspace — humans and AIs together." }
-      // Work & social rooms — open, bring people.
-      default:
-        return { mode: "many", label: "Invite friends", note: "Share the link — everyone who opens it joins this room live." }
-    }
-  })()
-  // Any human invite requires a premium account.
-  return base.mode === "none" ? base : { ...base, requiresSub: true }
+// Get featured rooms
+export function getFeaturedRooms(): Room[] {
+  return ROOMS.filter((r) => r.featured)
 }
 
-export function getRoomsByCategory(cat: RoomCategory): Room[] {
-  return ROOMS.filter((r) => r.category === cat)
+// Get popular rooms
+export function getPopularRooms(): Room[] {
+  return ROOMS.filter((r) => r.popular)
 }
 
-export const ROOM_CATEGORY_LABELS: Record<RoomCategory, string> = {
-  workshop:     "Multi-AI Workshop",
-  trading:      "Trading & DeFi",
-  creator:      "Creator Suite",
-  professional: "Professional",
-  social:       "Social",
-  romantic:     "Romantic",
-  dark:         "Dark",
-  philosophy:   "Deep Talk",
+// Get premium rooms
+export function getPremiumRooms(): Room[] {
+  return ROOMS.filter((r) => r.premium)
 }
 
-export const ROOM_CATEGORY_COLORS: Record<RoomCategory, string> = {
-  workshop:     "text-orange-400 bg-orange-500/10 border-orange-500/20",
-  trading:      "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-  creator:      "text-pink-400 bg-pink-500/10 border-pink-500/20",
-  professional: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-  social:       "text-amber-400 bg-amber-500/10 border-amber-500/20",
-  romantic:     "text-rose-400 bg-rose-500/10 border-rose-500/20",
-  dark:         "text-stone-400 bg-stone-700/30 border-stone-600/30",
-  philosophy:   "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+// Search rooms
+export function searchRooms(query: string): Room[] {
+  const q = query.toLowerCase()
+  return ROOMS.filter(
+    (r) =>
+      r.name.toLowerCase().includes(q) ||
+      r.tagline.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q) ||
+      r.shortDescription?.toLowerCase().includes(q) ||
+      r.tags.some((t) => t.toLowerCase().includes(q)) ||
+      r.personas.some((p) => p.name.toLowerCase().includes(q) || p.role.toLowerCase().includes(q))
+  )
+}
+
+// Get rooms by tag
+export function getRoomsByTag(tag: string): Room[] {
+  return ROOMS.filter((r) => r.tags.includes(tag))
+}
+
+// Get rooms by persona
+export function getRoomsByPersona(personaName: string): Room[] {
+  return ROOMS.filter((r) => r.personas.some((p) => p.name === personaName))
 }

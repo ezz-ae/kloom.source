@@ -1,106 +1,150 @@
-# kloom.source Changelog
+# KLOOM Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to the KLOOM platform are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
-
-## [Unreleased] - 2026-06-03
+## [Unreleased]
 
 ### Added
+- **Complete KLOOM Branding**: Changed from "Ora" to "KLOOM" with new K-shaped logo and purple/cyan gradient theme
+- **Mistral AI Integration**: Full support for Mistral AI backend with streaming, cost tracking, and model recommendations
+- **Enhanced Expert System**: 8 clear categories with 50+ experts, better metadata, and platform value descriptions
+- **Expanded Room System**: 20+ room definitions across 8 categories with better descriptions and SEO metadata
+- **Model Selector Component**: New UI for selecting AI backends with cost display and comparison
+- **Onboarding Flow**: Complete onboarding modal, feature tour, and quick start guide
+- **Room Browser**: Advanced room discovery with filtering, search, and category chips
 
-#### AI Backend & Mistral Integration
-- **Full Mistral AI Integration** - Added Mistral as a first-class backend provider
-  - Added lib/llm-backends.ts with complete Mistral backend configuration
-  - Implemented streaming support for Mistral models
-  - Added cost tracking for all providers (Mistral, Claude, Gemini, OpenAI, Local)
-  - Created helper functions for backend resolution, availability checking, and routing
-  - Mistral is now the recommended default for most use cases (cost-effective, excellent multilingual)
+### Changed
+- **Branding**: All references to "Ora" replaced with "KLOOM"
+- **Color Theme**: Updated from amber/orange to purple/cyan gradient
+- **Logo**: New K-shaped icon with wordmark
+- **Expert Categories**: Reorganized from 7 to 8 groups for better UX
+- **Room Categories**: Expanded with better filtering and discovery
+- **Landing Page**: Updated hero section, features, and CTAs with KLOOM branding
 
-- **Mistral-Specific Features**
-  - Added 5 Mistral-optimized experts
-  - Added 4 Mistral-specific rooms
-  - Added 7 Mistral-specific MCP tools
+### Fixed
+- **Sidebar**: Fixed mobile responsiveness and navigation
+- **Mobile Nav**: Improved hamburger menu and sheet navigation
+- **Model Selection**: Better fallback handling for missing API keys
 
-#### MCP Server Enhancements
-- Enhanced Prompts System with Mistral optimizations
-- Added model parameter support for per-prompt optimization
-- Created 7 prompt categories
+### Technical
+- **Backend Support**: Added Mistral to the Backend type union
+- **Cost Tracking**: Added comprehensive cost information for all backends
+- **Model Recommendations**: Added RECOMMENDED_MODELS array with use cases
+- **Backend Metadata**: Complete metadata for all supported backends
 
-#### UI/UX Components
-- Onboarding System with 4 steps
-- Model Selector with search and comparison
-- Room Browser with grid/list views
-- Loading States components
-- Error Boundaries components
+## [1.0.0] - Initial Release
 
-#### Hooks
-- useModelSelector - Manage AI model selection
-- useConversationModel - Per-conversation model management
-- useModelRecommender - Intelligent model recommendation
-- useModelPerformance - Track model performance metrics
-- useModelHealth - Monitor model API health
-- useModelCostCalculator - Calculate and format costs
+### Added
+- **Core Platform**: Multi-AI conversation platform with shared rooms
+- **AI Backends**: Support for Claude, Gemini, OpenAI, and local (Ollama) backends
+- **Expert System**: 50+ AI personas across 7 categories
+- **Room System**: Multi-AI rooms for collaborative conversations
+- **Voice Chat**: Real-time voice conversations with AI models
+- **Wallet Integration**: Solana wallet authentication
+- **Payment System**: PayPal and Ziina integration for voice credits
+- **Supabase Backend**: Database, authentication, and realtime features
+- **MCP Server**: Model Context Protocol server with tools and prompts
+- **UI Components**: Complete component library with Shadcn UI
 
-#### Documentation
-- Complete README.md
-- .env.example template
-- CHANGES.md changelog
+### Features
+- **Multi-AI Rooms**: Chat with multiple AI models simultaneously
+- **Shared Spaces**: Invite friends to join conversations
+- **Expert Selection**: Choose from 50+ specialized AI personas
+- **Voice Chat**: Live voice conversations (paid feature)
+- **Free Text Chat**: All text conversations are free
+- **Privacy**: Wallet-based authentication, no email required
+- **Localization**: Arabic language support
+
+## Upcoming Features
+
+### Planned
+- **Mobile App**: Native iOS and Android applications
+- **Desktop App**: Standalone desktop application
+- **API Access**: REST and WebSocket APIs for developers
+- **Plugin System**: Extensible plugin architecture
+- **Marketplace**: Community-created experts and rooms
+- **Analytics**: Usage statistics and insights
+- **Team Features**: Collaborative workspaces for teams
+- **Enterprise**: Self-hosted enterprise solution
+
+### In Development
+- **Video Chat**: Face-to-face conversations with AI
+- **Screen Sharing**: Share your screen during voice calls
+- **File Upload**: Upload documents for AI analysis
+- **Code Interpreter**: Execute code directly in conversations
+- **Web Search**: Real-time web search capabilities
+- **Image Generation**: AI-powered image creation
+
+## Migration Guides
+
+### From Ora to KLOOM
+
+If you're migrating from the previous "Ora" branding:
+
+1. **Environment Variables**: No changes required, but consider updating any custom branding
+2. **Logo**: Replace any Ora logos with the new KLOOM logo
+3. **Color Scheme**: Update from amber/orange to purple/cyan
+4. **API Keys**: Add MISTRAL_API_KEY to enable Mistral support
+5. **Model Selection**: The new model selector component replaces any custom model switching logic
+
+### Adding New AI Backends
+
+To add a new AI backend:
+
+1. Add the backend type to `lib/llm-backends.ts`:
+   ```typescript
+   export type Backend = "local" | "claude" | "gemini" | "openai" | "mistral" | "new-backend"
+   ```
+
+2. Add configuration constants:
+   ```typescript
+   const NEW_BACKEND_KEY = process.env.NEW_BACKEND_API_KEY || ""
+   const NEW_BACKEND_MODEL = process.env.NEW_BACKEND_MODEL || "default-model"
+   ```
+
+3. Add to `backendAvailable` function:
+   ```typescript
+   if (b === "new-backend") return !!NEW_BACKEND_KEY
+   ```
+
+4. Create a streaming function:
+   ```typescript
+   async function* streamNewBackend(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
+     // Implementation
+   }
+   ```
+
+5. Add to the router:
+   ```typescript
+   case "new-backend":
+     yield* streamNewBackend(messages, opts)
+     break
+   ```
+
+6. Add metadata to `BACKEND_METADATA`
+
+## Versioning
+
+KLOOM follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html):
+
+- **MAJOR**: Breaking changes
+- **MINOR**: New features (backwards-compatible)
+- **PATCH**: Bug fixes (backwards-compatible)
+
+## Support Policy
+
+- Latest version: Full support
+- Previous major version: Security updates only
+- Older versions: No support
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+## Security
+
+If you discover a security vulnerability, please email security@kloom.ai instead of using the public issue tracker.
 
 ---
 
-## [1.0.0] - 2026-05-01
-
-### Initial Release
-- Next.js 16 with App Router
-- TypeScript 5.0
-- React 19
-- Supabase integration
-- Basic AI chat functionality
-
----
-
-## [0.1.0] - 2026-04-15
-
-### Pre-Alpha
-- Project initialization
-- Repository setup
-
----
-
-## Migration Notes
-
-### From v0.1.0 to v1.0.0
-- Run pnpm install to update dependencies
-- Copy .env.example to .env and update values
-
-### From v1.0.0 to Unreleased
-- New files added
-- Existing files enhanced with Mistral support
-- No breaking changes
-
----
-
-## Roadmap
-
-### Next Features
-- Real-time collaboration in rooms
-- Voice chat with AI
-- Image generation support
-
-### Future Enhancements
-- Multi-modal conversations
-- Custom model fine-tuning
-- AI agent marketplace
-
----
-
-## License
-
-This project is licensed under the MIT License.
-
----
-*Changelog generated and maintained by Mahmoud Ezz*
-*Last updated: June 3, 2026*
+**Last Updated**: June 3, 2026

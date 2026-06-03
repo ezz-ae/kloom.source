@@ -9,6 +9,7 @@ import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
 import { useRealtimeVoice, type Persona } from "@/hooks/use-realtime-voice"
+import { VIBE_TAGS } from "@/lib/voices"
 import { MessageRenderer } from "@/components/widgets/MessageRenderer"
 import { GroupVoice } from "@/components/widgets/GroupVoice"
 import { UnrestrictedUpsell } from "@/components/widgets/UnrestrictedUpsell"
@@ -90,9 +91,9 @@ function RoomContent() {
   }, [roomId, staticRoom])
 
   // Adult-room gate (checked on mount to avoid an SSR/hydration flash).
-  const [adultUnlocked, setAdultUnlocked] = useState(true)
-  const [adultChecked, setAdultChecked]   = useState(false)
-  useEffect(() => { setAdultUnlocked(hasUnrestricted()); setAdultChecked(true) }, [])
+  const [unrestrictedStatus, setUnrestrictedStatus] = useState(true)
+  const [unrestrictedChecked, setUnrestrictedChecked]   = useState(false)
+  useEffect(() => { setUnrestrictedStatus(hasUnrestricted()); setUnrestrictedChecked(true) }, [])
 
   // DM — a private 1:1 with one room member (opens by clicking their avatar).
   const [dmWith, setDmWith]   = useState<string | null>(null)
@@ -113,6 +114,13 @@ function RoomContent() {
   const [toolLoading, setToolLoading]   = useState<string | null>(null)
   const [toolOutput, setToolOutput]     = useState<Record<string, string>>({})
   const [copied, setCopied]             = useState<string | null>(null)
+  const [decisionPrompt, setDecisionPrompt] = useState<string | null>(null)
+  
+  // Premium Features
+  const [disabledAI, setDisabledAI]     = useState<Set<string>>(new Set())
+  const [vibeEdits, setVibeEdits]       = useState<Record<string, string[]>>({})
+  const [resettingAI, setResettingAI]   = useState<string | null>(null)
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef  = useRef<AbortController | null>(null)
 
@@ -227,6 +235,9 @@ function RoomContent() {
       talkStyle:     preset?.defaultTalkStyle ?? 55,
       category:      (rp as any).category ?? room?.category ?? preset?.category,
       model:         rp.model          ?? "local",
+      gender:        rp.gender         ?? preset?.gender        ?? "female",
+      adult:         optionValues.restriction_mode === true ? "yes" : ((rp as any).adult ?? (preset as any)?.adult),
+      vibe_tags:     vibeEdits[rp.name] ?? [],
       ...( (rp as any).domain ? {
         // expert-style invited seat: pass expert fields through for kloom_expert
         domain: (rp as any).domain, expertise: (rp as any).expertise,
@@ -270,16 +281,18 @@ function RoomContent() {
             const msg: ChatMessage = {
               id:      `${Date.now()}-${Math.random()}`,
               role:    speaker === "user" ? "user" : "assistant",
-              speaker: speaker === "user" ? "You" : (partnerName ?? primaryPersona.name),
+              speaker: speaker === "user" ? (room?.category === "zero-memory" ? "Unknown" : "You") : (partnerName ?? primaryPersona.name),
               content: text,
               ts:      Date.now(),
             }
             setChatMsgs((prev) => {
               const next = [...prev, msg]
-              saveRoomChats(roomId, next)
+              if (room?.category !== "zero-memory") saveRoomChats(roomId, next)
               return next
             })
           },
+          listenOnly: search.get("listen") === "1",
+          disabledPartners: disabledAI,
         }
       : { persona: { name: "", personality: "", speakingStyle: "", backstory: "", voice: "echo", language: "English", warmth: 50, talkStyle: 50 } }
   )
@@ -293,12 +306,12 @@ function RoomContent() {
     const text = input.trim()
     if (!text || chatLoading || !room) return
 
-    const me = myHandleRef.current || "You"
+    const me = room.category === "zero-memory" ? "Unknown" : (myHandleRef.current || "You")
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", speaker: me, content: text, ts: Date.now() }
     seenMsgIds.current.add(userMsg.id)
     let running = [...chatMsgs, userMsg]
     setChatMsgs(running)
-    saveRoomChats(roomId, running)
+    if (room.category !== "zero-memory") saveRoomChats(roomId, running)
     setInput("")
     setChatLoading(true)
     abortRef.current = new AbortController()
@@ -310,7 +323,9 @@ function RoomContent() {
       // Each persona responds in sequence. Others' turns become context.
       for (let i = 0; i < voicePersonas.length; i++) {
         const speaker  = voicePersonas[i]
-        const others   = voicePersonas.filter((_, j) => j !== i)
+        if (disabledAI.has(speaker.name)) continue // Premium: Skip disabled AI
+
+        const others   = voicePersonas.filter((_, j) => j !== i && !disabledAI.has(_.name))
         setActiveResponder(speaker.name)
         setStreamText("")
 
@@ -320,7 +335,12 @@ function RoomContent() {
           signal:  abortRef.current.signal,
           body:    JSON.stringify({
             mode:    "chat",
-            persona: { ...speaker, category: room.category },
+            persona: { 
+              ...speaker, 
+              category: room.category,
+              adult: optionValues.restriction_mode === true ? "yes" : (speaker as any).adult,
+              vibe_tags: vibeEdits[speaker.name] || []
+            },
             premium: isSubscribed(),
             unrestricted: hasUnrestricted(),
             partners:     others,
@@ -354,7 +374,7 @@ function RoomContent() {
         seenMsgIds.current.add(aiMsg.id)
         running = [...running, aiMsg]
         setChatMsgs(running)
-        saveRoomChats(roomId, running)
+        if (room.category !== "zero-memory") saveRoomChats(roomId, running)
         setStreamText("")
 
         // Share this AI reply with everyone else in the session
@@ -375,6 +395,12 @@ function RoomContent() {
       setStreamText("")
     }
   }, [input, chatLoading, room, chatMsgs, roomId, voicePersonas])
+
+  const generateDecisionPrompt = () => {
+    const transcript = chatMsgs.map(m => `${m.speaker}: ${m.content}`).join("\n")
+    const prompt = `[CONTEXT: Kloom Co-Intelligence Session]\n\nTRANSCRIPT:\n${transcript}\n\n[TASK]: Based on the multi-AI reasoning above between Claude and Gemini, synthesize a final decision framework. Include the top 3 action items, identified risks, and a prompt to continue this work in Gemini/Claude/NotebookLM.`
+    setDecisionPrompt(prompt)
+  }
 
   // Run a room tool via MCP
   const runTool = useCallback(async (toolId: string) => {
@@ -427,7 +453,7 @@ function RoomContent() {
 
   // Adult rooms are visible to everyone but LOCKED on entry — you see the room,
   // the topic and who's in it, then hit the restriction with a clear $10 unlock.
-  if (room.category === "dark" && adultChecked && !adultUnlocked) {
+  if (room.category === "dark" && unrestrictedChecked && !unrestrictedStatus) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-5">
         <div className="max-w-md w-full">
@@ -930,8 +956,59 @@ function RoomContent() {
                         className="w-full bg-foreground/5 border border-border/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-white/25 focus:outline-none focus:border-amber-500/40"
                       />
                     )}
+                    {opt.type === "toggle" && (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-muted-foreground/60">{(opt.id === 'restriction_mode' || opt.id === 'export_decision') && !unrestrictedStatus ? '(Paid feature)' : ''}</span>
+                          <button
+                            onClick={() => {
+                              if ((opt.id === 'restriction_mode' || opt.id === 'export_decision') && !unrestrictedStatus) {
+                                // Show upsell? For now just don't toggle
+                                return
+                              }
+                              setOptionValues((prev) => ({ ...prev, [opt.id]: !(optionValues[opt.id] ?? opt.defaultValue) }))
+                            }}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 ${
+                              (optionValues[opt.id] ?? opt.defaultValue) ? "bg-amber-500" : "bg-foreground/10"
+                            } ${(opt.id === 'restriction_mode' || opt.id === 'export_decision') && !unrestrictedStatus ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+                          >
+                            <span
+                              className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                                (optionValues[opt.id] ?? opt.defaultValue) ? "translate-x-4" : "translate-x-1"
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        {opt.id === 'export_decision' && (optionValues.export_decision || (optionValues[opt.id] ?? opt.defaultValue)) && (
+                          <button 
+                            onClick={generateDecisionPrompt}
+                            className="w-full py-2 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold rounded-lg hover:bg-emerald-500/30 transition-all"
+                          >
+                            Generate Decision Prompt
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
+              </div>
+            )}
+
+            {decisionPrompt && (
+              <div className="space-y-2 pb-4 border-b border-border/20">
+                <div className="text-[10px] uppercase tracking-widest text-emerald-500 font-bold flex items-center gap-2">
+                  <Check size={10} /> Session Synthesis
+                </div>
+                <div className="relative bg-background border border-emerald-500/30 rounded-xl p-3 shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                  <pre className="text-[10px] text-foreground/80 whitespace-pre-wrap font-mono leading-relaxed max-h-60 overflow-y-auto scrollbar-hide">
+                    {decisionPrompt}
+                  </pre>
+                  <button onClick={() => { navigator.clipboard.writeText(decisionPrompt); setDecisionPrompt(null) }}
+                    className="absolute top-2 right-2 p-1.5 rounded-lg bg-emerald-500 text-stone-950 hover:bg-emerald-400 transition-all shadow-lg">
+                    <Copy size={12} />
+                  </button>
+                </div>
+                <p className="text-[9px] text-muted-foreground italic">Take this to Gemini, Claude, or NotebookLM to continue.</p>
               </div>
             )}
 
@@ -990,6 +1067,94 @@ function RoomContent() {
                 </div>
               </div>
             )}
+
+            {/* Premium Character Controls */}
+            <div className="space-y-4 pt-4 border-t border-border/20">
+              <div className="text-[10px] uppercase tracking-widest text-amber-500 font-bold flex items-center gap-2">
+                <Zap size={10} /> Character Tuning
+              </div>
+              
+              {roomPersonas.map((rp) => (
+                <div key={rp.name} className="space-y-3 bg-foreground/5 border border-border/30 rounded-2xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <img src={personaAvatar(rp)} alt="" className="w-6 h-6 rounded-full border border-border/50" />
+                      <span className="text-xs font-bold truncate max-w-[100px]">{rp.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {/* Selective Mic Removal */}
+                      <button 
+                        onClick={() => {
+                          if (!unrestrictedStatus) return
+                          setDisabledAI(prev => {
+                            const next = new Set(prev)
+                            if (next.has(rp.name)) next.delete(rp.name); else next.add(rp.name)
+                            return next
+                          })
+                        }}
+                        title={disabledAI.has(rp.name) ? "Enable in turns" : "Disable in turns"}
+                        className={`p-1.5 rounded-lg border transition-all ${
+                          !unrestrictedStatus ? "opacity-30 grayscale cursor-not-allowed" :
+                          disabledAI.has(rp.name) ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-foreground/5 border-border/50 text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {disabledAI.has(rp.name) ? <MicOff size={12} /> : <Mic size={12} />}
+                      </button>
+
+                      {/* Reset Character */}
+                      <button 
+                        onClick={() => {
+                          setResettingAI(rp.name)
+                          setChatMsgs(prev => prev.filter(m => m.speaker !== rp.name))
+                          setTimeout(() => setResettingAI(null), 1000)
+                        }}
+                        title="Recognized any problem? Reset character"
+                        className="p-1.5 rounded-lg border border-border/50 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                      >
+                        {resettingAI === rp.name ? <Loader2 size={12} className="animate-spin" /> : <XIcon size={12} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Vibe Tags (Premium) */}
+                  <div className="space-y-2">
+                    <div className="text-[9px] text-muted-foreground/70 uppercase font-semibold">Active Vibes</div>
+                    <div className="flex flex-wrap gap-1">
+                      {(vibeEdits[rp.name] || []).map(tag => (
+                        <span key={tag} className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md">
+                          {tag}
+                          <button onClick={() => setVibeEdits(prev => ({...prev, [rp.name]: prev[rp.name].filter(t => t !== tag)}))}>
+                            <XIcon size={8} />
+                          </button>
+                        </span>
+                      ))}
+                      {!unrestrictedStatus ? (
+                        <span className="text-[9px] text-muted-foreground/40">(Premium only)</span>
+                      ) : (
+                        <select 
+                          onChange={(e) => {
+                            const val = e.target.value; if (!val) return
+                            setVibeEdits(prev => ({...prev, [rp.name]: Array.from(new Set([...(prev[rp.name] || []), val]))}))
+                            e.target.value = ""
+                          }}
+                          className="bg-transparent border-none text-[10px] text-amber-500/60 focus:ring-0 cursor-pointer"
+                        >
+                          <option value="">+ Add Vibe</option>
+                          {VIBE_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
+                <div className="text-[10px] text-amber-500/70 font-semibold mb-1 italic">Recognized any problem?</div>
+                <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
+                  Reset characters to fix language, volume, or voice drift. Premium vibes override base behaviors.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

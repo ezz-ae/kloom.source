@@ -10,7 +10,7 @@ import { imageFor } from "@/lib/persona-utils"
 import { ActivitySparkline } from "@/components/ui/sparkline"
 import { Mic, MessageSquare, Zap, ChevronRight, Plus, Trash2, Lock, TrendingUp } from "lucide-react"
 
-const ALL_CATS: Array<"all" | RoomCategory> = ["all", "trading", "creator", "professional", "social", "romantic", "dark", "philosophy"]
+const ALL_CATS: Array<"all" | RoomCategory> = ["all", "trading", "workshop", "co-intelligence", "creator", "professional", "social", "romantic", "dark", "philosophy", "zero-memory"]
 
 export default function RoomsPage() {
   const router = useRouter()

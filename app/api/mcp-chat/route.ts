@@ -209,7 +209,9 @@ function getPromptName(persona: any): string {
   if (cat === "trading")      return "kloom_trading_expert"
   if (cat === "professional") return "kloom_coding_expert"
   if (cat === "creator")      return "kloom_creator_expert"
-  if (["romantic", "friends", "family", "roleplay", "dark"].includes(cat)) return "kloom_companion"
+  if (cat === "co-intelligence") return "kloom_co_intelligence"
+  if (cat === "zero-memory")     return "kloom_total_intelligence"
+  if (["romantic", "friends", "family", "roleplay", "dark", "philosophy"].includes(cat)) return "kloom_companion"
   return "kloom_companion"
 }
 
@@ -242,6 +244,13 @@ function getPromptArgs(persona: any, messages: any[], isVoice: boolean): Record<
   if (cat === "creator") {
     return { user_message: userText, platform: "instagram", niche: "lifestyle" }
   }
+  if (cat === "co-intelligence") {
+    const other = partners?.find((p: any) => p.name !== persona.name)?.name || "Partner"
+    return { name: persona.name, role: persona.role, user_message: userText, other_model: other, messages: JSON.stringify(messages) }
+  }
+  if (cat === "zero-memory") {
+    return { user_message: userText }
+  }
   // companion (romantic, friends, family, roleplay, dark)
   return {
     name:           persona.name,
@@ -250,14 +259,14 @@ function getPromptArgs(persona: any, messages: any[], isVoice: boolean): Record<
     backstory:      persona.backstory ?? "",
     user_message:   userText,
     mode:           isVoice ? "voice" : "chat",
-    adult:          isAdultPersona(persona) ? "yes" : "",
+    unrestricted:   isUnrestrictedPersona(persona) ? "yes" : "",
   }
 }
 
-// A persona is adult when explicitly flagged, or in the inherently-adult "dark"
-// category. Adult personas get the fully-explicit register + longer, uncut replies.
-function isAdultPersona(persona: any): boolean {
-  return persona?.adult === true || persona?.adult === "yes" || (persona?.category ?? "") === "dark"
+// A persona is unrestricted when explicitly flagged, or in the inherently-dark "dark"
+// category. Unrestricted personas get the fully-explicit register + longer, uncut replies.
+function isUnrestrictedPersona(persona: any): boolean {
+  return persona?.unrestricted === true || persona?.unrestricted === "yes" || (persona?.category ?? "") === "dark"
 }
 
 // Helper — builds messages array compatible with /api/chat for multi-partner voice
@@ -308,16 +317,17 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // ── Inline unlock moment — a free user asks a NON-adult persona for explicit
-  // content. Don't deliver it; notice them it's behind Unrestricted ($10). The
-  // X-MCP-Upsell header lets the UI surface a one-tap unlock. (During launch mode
-  // clients send unrestricted:true, so this never fires for them.) ──
-  if (!unrestricted && !isAdultPersona(persona) && EXPLICIT_RE.test(latestUserText)) {
+  // ── Inline unlock moment — a free user asks a NON-unrestricted persona for 
+  // explicit or high-risk content. Don't deliver it; notice them it's behind Unrestricted ($10).
+  if (!unrestricted && !isUnrestrictedPersona(persona) && EXPLICIT_RE.test(latestUserText)) {
     const notice = "mmm, I'd love to go there with you — but that's behind Unrestricted. unlock it for $10 and nothing's off-limits, here or anywhere on the platform."
     return new Response(notice, {
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-MCP-Upsell": "unrestricted" },
     })
   }
+
+  const { vibe_tags } = persona
+
 
   // Which model backend powers THIS persona's turn (local / claude / gemini)
   const backend: Backend = resolveBackend(persona?.model as Backend | undefined)
@@ -329,7 +339,11 @@ export async function POST(req: NextRequest) {
 
   // 1. Get forcing prompt from MCP server
   const promptName    = getPromptName(persona)
-  const promptArgs    = getPromptArgs(persona, messages, isVoice)
+  const promptArgs    = {
+    ...getPromptArgs(persona, messages, isVoice),
+    unrestricted: unrestricted ? "yes" : "",
+    vibe_tags: Array.isArray(vibe_tags) ? vibe_tags.join(", ") : (vibe_tags ?? ""),
+  }
   const forcingPrompt = await mcpGetPrompt(promptName, promptArgs)
 
   // 2. Get tools from MCP server (persona-appropriate subset)
@@ -360,7 +374,7 @@ export async function POST(req: NextRequest) {
   // Steer from the user's vibe as a pure directive — no "they seem X" the model
   // could parrot back. For adult/dark personas we do NOT inject the soft casual
   // hints (e.g. "keep it easy and natural") — they dilute the dark/seductive scene.
-  const vibeNote = isAdultPersona(persona)
+  const vibeNote = isUnrestrictedPersona(persona)
     ? `\n\nHow to respond right now: stay fully in your dark, in-character voice — seductive, present, immersive. Never soften into small-talk.`
     : `\n\nHow to respond right now: ${vibe.hint}`
 
@@ -460,7 +474,7 @@ export async function POST(req: NextRequest) {
   // anti-assistant). Only expert/tool categories stay on the instruct/expert path.
   const COMPANION_CATS = ["romantic", "friends", "family", "roleplay", "dark", "social", "philosophy"]
   const isCompanion = COMPANION_CATS.includes(cat)
-  const isAdult     = isAdultPersona(persona)
+  const isAdult     = isUnrestrictedPersona(persona)
   // Model tiers:
   //   - free companion/adult → LLM_MODEL_UNCENSORED
   //   - premium companion/adult, OR the $95 "unrestricted" tier → LLM_MODEL_UNRESTRICTED

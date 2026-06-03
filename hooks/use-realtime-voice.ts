@@ -26,7 +26,8 @@ export interface Persona {
   /** Persona category — used by MCP server to select the right forcing prompt + tools */
   category?: string
   /** Which AI backend powers this persona's turn (local / claude / gemini) */
-  model?: "local" | "claude" | "gemini"
+  model?: "local" | "claude" | "gemini" | "mistral" | "dolphin"
+  gender?: "female" | "male" | "nonbinary"
 }
 
 interface UseRealtimeVoiceProps {
@@ -53,6 +54,8 @@ interface UseRealtimeVoiceProps {
   onAudioLevel?: (level: number, speaker?: "self" | "partner") => void
   /** If true, the hook does not request the user's mic at all, acting as a listen-only client. */
   listenOnly?: boolean
+  /** List of partner names to skip in the rotation pool. */
+  disabledPartners?: Set<string>
 }
 
 // Internal canonical transcript entry.
@@ -90,6 +93,7 @@ export function useRealtimeVoice({
   onTranscript,
   onAudioLevel,
   listenOnly,
+  disabledPartners,
 }: UseRealtimeVoiceProps) {
   // Normalize: callers either pass `partner` (legacy, single) or `partners`
   // (array). Combine into one canonical list throughout the hook.
@@ -113,6 +117,7 @@ export function useRealtimeVoice({
   // AbortController for the current AI turn — lets us cancel mid-generation on barge-in
   const turnAbortRef = useRef<AbortController | null>(null)
   const partnersRef = useRef<Persona[]>(partnersList)
+  const disabledRef = useRef(disabledPartners)
   const relationshipRef = useRef(relationship)
   const isSpeakingRef = useRef(false)
   const shouldListenRef = useRef(false)
@@ -122,6 +127,7 @@ export function useRealtimeVoice({
 
   useEffect(() => { partnersRef.current = partnersList }, [partnersList])
   useEffect(() => { relationshipRef.current = relationship }, [relationship])
+  useEffect(() => { disabledRef.current = disabledPartners }, [disabledPartners])
 
   useEffect(() => {
     personaRef.current = persona
@@ -443,10 +449,11 @@ export function useRealtimeVoice({
 
       try {
         // Build the rotation pool: [primary, ...partners]. Round-robin so each
-        // AI eventually gets a turn. We respond with up to 2 AIs per user turn
-        // to keep latency bounded.
-        const pool = [personaRef.current, ...partnersRef.current]
-        if (pool.length === 1) {
+        // AI eventually gets a turn. Skip any AIs disabled by the user.
+        const pool = [personaRef.current, ...partnersRef.current].filter(p => !disabledRef.current?.has(p.name))
+        if (pool.length === 0) {
+           // No AIs enabled to respond
+        } else if (pool.length === 1) {
           await runAITurn(pool[0])
         } else if (pool.length === 2) {
           // Classic Third Mode: both AIs reply every user turn.

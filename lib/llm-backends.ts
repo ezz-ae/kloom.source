@@ -13,7 +13,7 @@
  * the app keeps working even before the user adds Claude/Gemini keys.
  */
 
-export type Backend = "local" | "claude" | "gemini" | "openai"
+export type Backend = "local" | "claude" | "gemini" | "openai" | "mistral" | "dolphin"
 
 export interface LLMMessage {
   role: "system" | "user" | "assistant"
@@ -54,6 +54,7 @@ export function backendAvailable(b: Backend): boolean {
 /** Resolve requested backend, falling back to local if its key is missing. */
 export function resolveBackend(requested?: Backend): Backend {
   if (!requested || requested === "local") return "local"
+  if (requested === "mistral" || requested === "dolphin") return requested
   return backendAvailable(requested) ? requested : "local"
 }
 
@@ -280,6 +281,14 @@ export async function* streamLLM(
     yield* streamLocal(messages, opts)
     return
   }
+  if (backend === "mistral") {
+    yield* streamLocal(messages, { ...opts, localModel: "mistral:latest" })
+    return
+  }
+  if (backend === "dolphin") {
+    yield* streamLocal(messages, { ...opts, localModel: "dolphin-mistral:latest" })
+    return
+  }
 
   // Claude / Gemini / GPT with an Ollama (local) safety net. We only fall back if
   // the primary failed BEFORE emitting anything — otherwise we'd duplicate output.
@@ -300,8 +309,10 @@ export async function* streamLLM(
 }
 
 export const BACKEND_LABELS: Record<Backend, string> = {
-  local:  "Kloom",
-  claude: "Claude",
-  gemini: "Gemini",
-  openai: "GPT",
+  local:   "Kloom",
+  claude:  "Claude",
+  gemini:  "Gemini",
+  openai:  "GPT",
+  mistral: "Mistral",
+  dolphin: "Dolphin",
 }

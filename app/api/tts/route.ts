@@ -1,4 +1,4 @@
-import { resolveVoiceId } from "@/lib/voices"
+import { resolveVoiceId, getFallbackVoiceId } from "@/lib/voices"
 
 export async function POST(request: Request) {
   const { text, voice, voiceId, personaName, gender } = (await request.json()) as {
@@ -23,24 +23,31 @@ export async function POST(request: Request) {
 
   // Priority: explicit fixed voiceId (set per persona — never shifts) → resolve by
   // name + EXPLICIT gender (so a female char never gets a male voice) → slot → env.
-  const referenceId = voiceId?.trim() || resolveVoiceId(personaName, gender) || resolveReferenceId(voice)
+  let referenceId = voiceId?.trim() || resolveVoiceId(personaName, gender) || resolveReferenceId(voice)
 
   // Fish's inference backend occasionally returns 502 with "empty audio" or
   // similar transient errors. Retry up to 3 times with short backoff before
   // surfacing the failure to the client — without this, a single bad call
   // makes one sentence in the middle of a reply silently drop.
-  const body = JSON.stringify({
-    text,
-    reference_id: referenceId,
-    format: "mp3",
-    mp3_bitrate: 128,
-    normalize: true,
-    latency: process.env.FISH_LATENCY || "balanced",
-  })
-
   let fishResponse: Response | null = null
   let lastErrorText = ""
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    // Premium failover: if we reached the 3rd attempt, rotate the voice ID 
+    // in case the specific ID is what's failing.
+    if (attempt === 3 && referenceId) {
+      referenceId = getFallbackVoiceId(referenceId)
+    }
+
+    const body = JSON.stringify({
+      text,
+      reference_id: referenceId,
+      format: "mp3",
+      mp3_bitrate: 128,
+      normalize: true,
+      latency: process.env.FISH_LATENCY || "balanced",
+    })
+
     try {
       fishResponse = await fetch("https://api.fish.audio/v1/tts", {
         method: "POST",

@@ -62,7 +62,7 @@ const LANGUAGE_OPTIONS = [
   { value: "Polish", label: "Polish (Polski)" },
 ]
 
-export type PresetCategory = "friends" | "romantic" | "family" | "professional" | "roleplay" | "dark" | "trading"
+export type PresetCategory = "friends" | "romantic" | "family" | "professional" | "roleplay" | "dark" | "trading" | "workshop" | "co-intelligence" | "zero-memory"
 
 export interface PresetWithCategory extends Omit<Persona, "language" | "warmth" | "talkStyle"> {
   category: PresetCategory

@@ -10,9 +10,10 @@ import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
 import { PayPalStatusBadge } from "@/components/widgets/PayPalStatusBadge"
 import { hasUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
+import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
   CreditCard, Wallet, Bell, Shield, Trash2,
-  ExternalLink, Check, Plus, Zap,
+  ExternalLink, Check, Plus, Zap, HeartHandshake,
   User, Globe, Loader2, X as XIcon, Infinity as InfinityIcon,
 } from "lucide-react"
 
@@ -68,6 +69,15 @@ function SettingsContent() {
 
   const [notifs, setNotifs]       = useState(true)
   const [autoMic, setAutoMic]     = useState(true)
+  const [wellnessOn, setWellnessOn] = useState(true)
+  const [wellnessErased, setWellnessErased] = useState(false)
+  useEffect(() => { setWellnessOn(isWellnessEnabled()) }, [])
+  const toggleWellness = () => {
+    const next = !wellnessOn
+    setWellnessOn(next)
+    setWellnessEnabled(next)        // off also erases history (privacy by default)
+    if (!next) setWellnessErased(false)
+  }
   const [subLoading, setSubLoading] = useState<string | null>(null)
   const [subSuccess, setSubSuccess] = useState(false)
   const [payPlan, setPayPlan]       = useState<string | null>(null)
@@ -399,6 +409,36 @@ function SettingsContent() {
                     </button>
                   </div>
                 ))}
+              </div>
+
+              {/* Wellness & privacy — the consented, on-device mood signal */}
+              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <HeartHandshake size={16} className="text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium">Wellness check-ins</div>
+                      <div className="text-xs text-foreground/35 mt-0.5">
+                        Reads the mood of your chats <span className="text-foreground/60">on your device</span> to
+                        offer support (Breathe, a resource). Never uploaded, never sold.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleWellness}
+                    className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${wellnessOn ? "bg-amber-500" : "bg-white/15"}`}
+                  >
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${wellnessOn ? "translate-x-4" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
+                {wellnessOn && (
+                  <button
+                    onClick={() => { clearWellnessData(); setWellnessErased(true) }}
+                    className="flex items-center gap-2 text-xs font-semibold text-foreground/60 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 size={13} /> {wellnessErased ? "Wellness data erased" : "Erase my wellness data"}
+                  </button>
+                )}
               </div>
 
               <div className="bg-foreground/5 border border-border/50 rounded-2xl p-5">

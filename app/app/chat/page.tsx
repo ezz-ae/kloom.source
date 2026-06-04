@@ -10,6 +10,8 @@ import { UnrestrictedUpsell } from "@/components/widgets/UnrestrictedUpsell"
 import { TopUpSlider } from "@/components/widgets/TopUpSlider"
 import { BreathingRing } from "@/components/widgets/BreathingRing"
 import { VoiceCallPanel } from "@/components/widgets/VoiceCallPanel"
+import { WellnessSupport, WellnessDisclosure } from "@/components/widgets/WellnessSupport"
+import { recordWellness, isWellnessEnabled, hasSeenWellnessDisclosure, markWellnessDisclosureSeen, type WellnessSignal } from "@/lib/wellness"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { Send, Sparkles, Lock, MessageSquare, Mic, Zap, Globe, Hash, Calculator, Wind, X as XIcon } from "lucide-react"
 
@@ -49,7 +51,10 @@ function ChatContent() {
   const [topUpOpen, setTopUpOpen]     = useState(false)
   const [showUnlock, setShowUnlock]   = useState(false)
   const [callOpen, setCallOpen]       = useState(false)
-  const isTense = /tense|anxious/i.test(vibe)
+  const [wellness, setWellness]       = useState<WellnessSignal | null>(null)
+  const [showSupport, setShowSupport] = useState(false)
+  const [showWellnessNote, setShowWellnessNote] = useState(false)
+  const isTense = /tense|anxious/i.test(vibe) || wellness === "distress"
   const { balance, spendCredits }     = useSolCredits()
   const bottomRef                     = useRef<HTMLDivElement>(null)
   const taRef                         = useRef<HTMLTextAreaElement>(null)
@@ -138,6 +143,14 @@ function ChatContent() {
       if (vibeHeader) setVibe(decodeURIComponent(vibeHeader))
       // Restricted ask by a free user → surface the one-tap $10 unlock.
       if (res.headers.get("X-MCP-Upsell")) setShowUnlock(true)
+      // Private, on-device wellness read — offer support, never restrict.
+      const wellnessHeader = res.headers.get("X-Wellness") as WellnessSignal | null
+      if (wellnessHeader && isWellnessEnabled()) {
+        recordWellness(wellnessHeader)
+        setWellness(wellnessHeader)
+        if (wellnessHeader === "crisis") setShowSupport(true)
+        if (!hasSeenWellnessDisclosure()) setShowWellnessNote(true)
+      }
 
       if (!res.body) throw new Error("No stream body")
 
@@ -369,6 +382,23 @@ function ChatContent() {
           )}
           <div ref={bottomRef} />
         </div>
+
+        {/* Crisis support — offered when the intent layer reads acute distress. Never blocks. */}
+        {showSupport && (
+          <div className="shrink-0 px-5 pb-2">
+            <WellnessSupport
+              onBreathe={() => { setShowSupport(false); setBreatheOpen(true) }}
+              onDismiss={() => setShowSupport(false)}
+            />
+          </div>
+        )}
+
+        {/* One-time, plain-language disclosure for the on-device wellness read. */}
+        {showWellnessNote && (
+          <div className="shrink-0 px-5 pb-2">
+            <WellnessDisclosure onAck={() => { markWellnessDisclosureSeen(); setShowWellnessNote(false) }} />
+          </div>
+        )}
 
         {/* Restricted-ask unlock prompt */}
         {showUnlock && (

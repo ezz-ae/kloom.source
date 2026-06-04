@@ -2,16 +2,16 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Compass, MessageSquare, Sparkles, Users, GraduationCap } from "lucide-react"
+import { Compass, Sparkles, Users, GraduationCap, User } from "lucide-react"
 
-// Group-chat-first ordering. Rooms is primary. Voice lives inside rooms/experts
-// now, so the standalone orb is reachable via Discover rather than a bottom tab.
+// Group-chat-first ordering. Rooms is primary. 1:1 Chat now lives inside the
+// Creator suite; the freed slot is "You" (billing, your rooms, character setup).
 const TABS = [
   { href: "/app/rooms",    icon: Users,         label: "Rooms"    },
   { href: "/app/experts",  icon: GraduationCap, label: "Experts"  },
   { href: "/app/discover", icon: Compass,       label: "Discover" },
-  { href: "/app/chat",     icon: MessageSquare, label: "Chat"     },
   { href: "/app/creator",  icon: Sparkles,      label: "Creator"  },
+  { href: "/app/you",      icon: User,          label: "You"      },
 ]
 
 export function MobileNav() {
@@ -43,9 +43,6 @@ export function MobileNav() {
                 isActive ? "bg-amber-500/20" : ""
               }`}>
                 <tab.icon size={20} className={isActive ? "text-amber-400" : ""} />
-                {tab.label === "Chat" && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-500 rounded-full" />
-                )}
               </div>
               <span className={`text-[10px] font-medium ${isActive ? "text-amber-300" : ""}`}>
                 {tab.label}

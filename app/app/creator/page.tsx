@@ -6,7 +6,7 @@ import Link from "next/link"
 import { MessageRenderer } from "@/components/widgets/MessageRenderer"
 import {
   Sparkles, Coins, ClipboardList, ShoppingBag, Bot,
-  ChevronLeft, Send, ArrowRight, Users, Check,
+  ChevronLeft, Send, ArrowRight, Users, Check, MessageSquare,
 } from "lucide-react"
 
 // ── The five build verticals ──────────────────────────────────────────────
@@ -244,6 +244,19 @@ function CreatorContent() {
       </div>
 
       <div className="max-w-5xl mx-auto px-6 lg:px-8 py-8">
+        {/* 1:1 Chat with characters — moved into the Creator suite. */}
+        <Link href="/app/chat"
+          className="group mb-4 flex items-center gap-4 rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/10 to-orange-500/5 hover:border-amber-500/40 transition-all p-5">
+          <div className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
+            <MessageSquare size={22} className="text-amber-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-lg">Chat with characters</h3>
+            <p className="text-sm text-foreground/50 leading-relaxed">1:1 conversations with any persona — free to chat, voice is pay-as-you-go.</p>
+          </div>
+          <ArrowRight size={18} className="text-foreground/20 group-hover:text-amber-400 transition-colors shrink-0" />
+        </Link>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {MODES.map((m) => (
             <button key={m.id} onClick={() => router.push(`/app/creator?mode=${m.id}`)}

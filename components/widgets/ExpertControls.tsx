@@ -42,14 +42,17 @@ export function ExpertControls({ expert }: { expert: Expert }) {
   return (
     <div className="relative">
       <button onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white/5 border border-border/50 text-foreground/70 hover:text-foreground hover:bg-white/10 transition-all">
-        <Sparkles size={13} /> Profile <ChevronDown size={12} className={open ? "rotate-180 transition-transform" : "transition-transform"} />
+        className="flex items-center gap-1.5 text-xs font-semibold px-2 sm:px-2.5 py-1.5 rounded-lg bg-white/5 border border-border/50 text-foreground/70 hover:text-foreground hover:bg-white/10 transition-all shrink-0">
+        <Sparkles size={13} /> <span className="hidden sm:inline">Profile</span>
+        <ChevronDown size={12} className={open ? "rotate-180 transition-transform" : "transition-transform"} />
       </button>
 
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-2 w-[min(92vw,360px)] z-40 rounded-2xl border border-white/12 bg-zinc-950/95 backdrop-blur-xl shadow-2xl p-4">
+          {/* Mobile: a viewport-anchored sheet (never overflows off-screen).
+              Desktop (sm+): a panel anchored under the button. */}
+          <div className="fixed left-3 right-3 top-[68px] sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[360px] max-h-[72vh] overflow-y-auto z-40 rounded-2xl border border-white/12 bg-zinc-950/95 backdrop-blur-xl shadow-2xl p-4">
             {/* Title-first header */}
             <div className="flex items-start gap-3 pb-3 border-b border-white/8">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/30 to-fuchsia-500/30 border border-border/50 flex items-center justify-center text-xl shrink-0">{expert.emoji}</div>

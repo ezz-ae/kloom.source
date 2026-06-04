@@ -217,7 +217,7 @@ function ChatContent() {
   })
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(248,113,113,0.08),_transparent_22%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.08),_transparent_28%),var(--background)] text-foreground">
+    <div className="flex h-[100dvh] overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(248,113,113,0.08),_transparent_22%),radial-gradient(circle_at_bottom_right,_rgba(59,130,246,0.08),_transparent_28%),var(--background)] text-foreground">
 
       {/* ── Conversation list ── */}
       <div className="w-72 border-r border-white/10 bg-white/5 backdrop-blur-xl shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] flex flex-col shrink-0 hidden sm:flex">
@@ -407,8 +407,8 @@ function ChatContent() {
           </div>
         )}
 
-        {/* Input */}
-        <div className="shrink-0 px-5 py-4 border-t border-white/5">
+        {/* Input — extra bottom padding below lg clears the fixed mobile nav. */}
+        <div className="shrink-0 px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+76px)] lg:pb-4 border-t border-white/5">
           <div className="flex gap-3 items-end">
             <div className="flex-1 rounded-3xl border border-white/10 bg-white/5 px-4 py-4 shadow-[0_35px_80px_rgba(15,23,42,0.08)] focus-within:border-amber-400/50 transition-all backdrop-blur-xl">
               <textarea

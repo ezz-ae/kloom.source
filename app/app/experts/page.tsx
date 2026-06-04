@@ -8,6 +8,18 @@ import { Search, MessageSquare, Mic, Sparkles } from "lucide-react"
 const ALL_GROUPS: Array<"all" | ExpertGroup> =
   ["all", "guidance", "creative", "wellness", "mind", "business", "future", "intimacy"]
 
+// Per-group visual identity so the grid doesn't read as identical e-commerce
+// cards. Each group gets its own hue for the card wash, emoji tile, and hover glow.
+const GROUP_STYLE: Record<ExpertGroup, { wash: string; tile: string; glow: string; ring: string }> = {
+  guidance: { wash: "from-emerald-500/10",  tile: "from-emerald-500/30 to-emerald-800/10",  glow: "hover:border-emerald-500/40",  ring: "text-emerald-300" },
+  creative: { wash: "from-orange-500/10",   tile: "from-orange-500/30 to-orange-800/10",    glow: "hover:border-orange-500/40",   ring: "text-orange-300" },
+  wellness: { wash: "from-amber-500/10",    tile: "from-amber-500/30 to-amber-800/10",      glow: "hover:border-amber-500/40",    ring: "text-amber-300" },
+  mind:     { wash: "from-cyan-500/10",     tile: "from-cyan-500/30 to-cyan-800/10",        glow: "hover:border-cyan-500/40",     ring: "text-cyan-300" },
+  business: { wash: "from-blue-500/10",     tile: "from-blue-500/30 to-blue-800/10",        glow: "hover:border-blue-500/40",     ring: "text-blue-300" },
+  future:   { wash: "from-indigo-500/10",   tile: "from-indigo-500/30 to-indigo-800/10",    glow: "hover:border-indigo-500/40",   ring: "text-indigo-300" },
+  intimacy: { wash: "from-rose-500/10",     tile: "from-rose-500/30 to-rose-800/10",        glow: "hover:border-rose-500/40",     ring: "text-rose-300" },
+}
+
 function ExpertsContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -75,19 +87,24 @@ function ExpertsContent() {
             <p className="text-base">No experts match <span className="font-semibold text-foreground">"{search}"</span></p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {filtered.map((expert) => (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 auto-rows-max">
+            {filtered.map((expert, index) => {
+              const s = GROUP_STYLE[expert.group]
+              // Featured: every 6th card (when the set is large enough) gets a
+              // wide, prominent treatment so the grid has rhythm, not uniformity.
+              const featured = index % 6 === 0 && filtered.length > 6
+              return (
               <article
                 key={expert.id}
                 onClick={() => router.push(`/app/experts/${expert.id}`)}
-                className="group cursor-pointer overflow-hidden rounded-[2rem] border border-border/50 bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:bg-accent/40"
+                className={`group cursor-pointer overflow-hidden rounded-[2rem] border border-border/50 bg-gradient-to-br ${s.wash} to-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 ${s.glow} ${featured ? "sm:col-span-2" : ""}`}
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-500/25 to-orange-500/25 border border-border/50 text-3xl">
+                  <div className={`flex items-center justify-center rounded-3xl bg-gradient-to-br ${s.tile} border border-border/50 ${featured ? "h-20 w-20 text-5xl" : "h-14 w-14 text-3xl"}`}>
                     {expert.emoji}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-bold leading-tight line-clamp-2">{expertTitle(expert)}</h2>
+                    <h2 className={`font-bold leading-tight line-clamp-2 ${featured ? "text-2xl" : "text-lg"}`}>{expertTitle(expert)}</h2>
                     <p className="mt-2 text-xs uppercase tracking-[0.32em] text-muted-foreground">{expert.name}</p>
                   </div>
                 </div>
@@ -103,7 +120,7 @@ function ExpertsContent() {
                   )}
                 </div>
 
-                <p className="mt-4 text-sm leading-6 text-muted-foreground line-clamp-3">{expert.tagline}</p>
+                <p className={`mt-4 leading-6 text-muted-foreground ${featured ? "text-base line-clamp-2" : "text-sm line-clamp-3"}`}>{expert.tagline}</p>
 
                 <div className="mt-6 flex gap-3">
                   <button
@@ -130,7 +147,8 @@ function ExpertsContent() {
                   </button>
                 </div>
               </article>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

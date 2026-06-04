@@ -124,20 +124,21 @@ function ExpertContent() {
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       {/* Header */}
-      <div className="shrink-0 border-b border-white/8 px-4 lg:px-6 py-3 flex items-center gap-3">
-        <button onClick={() => router.push("/app/experts")} className="text-foreground/40 hover:text-foreground"><ChevronLeft size={20} /></button>
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/30 border border-border/50 flex items-center justify-center text-lg">{expert.emoji}</div>
+      <div className="shrink-0 border-b border-white/8 px-3 lg:px-6 py-3 flex items-center gap-2 sm:gap-3">
+        <button onClick={() => router.push("/app/experts")} className="text-foreground/40 hover:text-foreground shrink-0"><ChevronLeft size={20} /></button>
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/30 border border-border/50 flex items-center justify-center text-lg shrink-0">{expert.emoji}</div>
         <div className="flex-1 min-w-0">
           {/* Lead with the TITLE/role; name is secondary. */}
           <div className="font-bold text-sm truncate">{expertTitle(expert)}</div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] text-foreground/40">{expert.name}</span>
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${EXPERT_GROUP_COLORS[expert.group]}`}>{EXPERT_GROUP_LABELS[expert.group]}</span>
-            {expert.adult && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-rose-500/40 text-rose-300 bg-rose-500/10">18+</span>}
+          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            <span className="text-[10px] text-foreground/40 truncate">{expert.name}</span>
+            {/* Category badge is long ("Guidance & Coaching") — desktop only; it also lives in the Profile panel. */}
+            <span className={`hidden sm:inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${EXPERT_GROUP_COLORS[expert.group]}`}>{EXPERT_GROUP_LABELS[expert.group]}</span>
+            {expert.adult && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-rose-500/40 text-rose-300 bg-rose-500/10 shrink-0">18+</span>}
           </div>
         </div>
         <ExpertControls expert={expert} />
-        <div className="flex gap-1 bg-foreground/5 rounded-xl p-1">
+        <div className="flex gap-1 bg-foreground/5 rounded-xl p-1 shrink-0">
           {(["chat", "voice"] as const).map((t) => (
             <button key={t} onClick={() => setPanel(t)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${panel === t ? "bg-white text-stone-950" : "text-foreground/40 hover:text-foreground"}`}>

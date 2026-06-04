@@ -6,7 +6,6 @@ import { useWallet } from "@solana/wallet-adapter-react"
 import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import {
   Compass,
-  MessageSquare,
   Plus,
   Wallet,
   Settings,
@@ -14,6 +13,7 @@ import {
   Users,
   GraduationCap,
   Sparkles,
+  User,
 } from "lucide-react"
 import { useSolCredits } from "@/hooks/use-sol-credits"
 
@@ -43,18 +43,16 @@ const NAV = [
     badgeColor: "bg-emerald-500",
   },
   {
-    label: "Chat",
-    href: "/app/chat",
-    icon: MessageSquare,
-    badge: "Pro",
-    badgeColor: "bg-amber-500",
-  },
-  {
     label: "Creator Suite",
     href: "/app/creator",
     icon: Sparkles,
     badge: "Hot",
     badgeColor: "bg-rose-500",
+  },
+  {
+    label: "You",
+    href: "/app/you",
+    icon: User,
   },
 ]
 

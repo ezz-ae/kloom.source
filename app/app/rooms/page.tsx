@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { ROOMS, ROOM_CATEGORY_LABELS, ROOM_CATEGORY_COLORS, type RoomCategory, type Room } from "@/lib/rooms"
 import { listCustomRooms, deleteCustomRoom } from "@/lib/custom-rooms"
+import { getCharacter, scoreRoom, type UserCharacter } from "@/lib/character"
 import { hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
@@ -17,10 +18,20 @@ export default function RoomsPage() {
   const [activeCat, setActiveCat] = useState<"all" | RoomCategory>("all")
   const [mine, setMine] = useState<Room[]>([])
   const [unlocked, setUnlocked] = useState(true)
-  useEffect(() => { setMine(listCustomRooms()); setUnlocked(hasUnrestricted()) }, [])
+  const [char, setChar] = useState<UserCharacter | null>(null)
+  useEffect(() => { setMine(listCustomRooms()); setUnlocked(hasUnrestricted()); setChar(getCharacter()) }, [])
   const removeMine = (id: string) => { deleteCustomRoom(id); setMine(listCustomRooms()) }
 
-  const filtered = activeCat === "all" ? ROOMS : ROOMS.filter((r) => r.category === activeCat)
+  // Reorder by the user's character — preferred categories + interests bubble up.
+  // Stable for ties, so without a profile the original curated order is preserved.
+  const filtered = useMemo(() => {
+    const base = activeCat === "all" ? ROOMS : ROOMS.filter((r) => r.category === activeCat)
+    if (!char) return base
+    return base
+      .map((r, i) => ({ r, i, s: scoreRoom(r, char) }))
+      .sort((a, b) => (b.s - a.s) || (a.i - b.i))
+      .map((x) => x.r)
+  }, [activeCat, char])
 
   return (
     <div className="min-h-full bg-background text-foreground transition-colors duration-300">

@@ -27,24 +27,24 @@ function ExpertsContent() {
   }), [search, group])
 
   return (
-    <div className="min-h-full bg-slate-950 text-slate-100">
-      <div className="sticky top-0 z-20 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/70 px-6 lg:px-8 py-5">
+    <div className="min-h-full bg-background text-foreground transition-colors duration-300">
+      <div className="sticky top-0 z-20 bg-background/90 backdrop-blur-xl border-b border-border px-6 lg:px-8 py-5">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/80 font-semibold">Expert marketplace</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight text-white">Experts</h1>
-              <p className="mt-2 text-sm text-slate-400">{EXPERTS.length} specialists · voice + chat · real expertise, no fluff.</p>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-amber-400/80 font-semibold">Expert marketplace</p>
+              <h1 className="mt-2 text-2xl font-black tracking-tight">Experts</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{EXPERTS.length} specialists · voice + chat · real expertise, no fluff.</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative w-full max-w-sm">
-                <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Search experts…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full rounded-3xl border border-slate-800/80 bg-slate-900/80 py-3 pl-12 pr-4 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition"
+                  className="w-full rounded-3xl border border-border bg-muted/40 py-3 pl-12 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition"
                 />
               </div>
             </div>
@@ -55,10 +55,10 @@ function ExpertsContent() {
               <button
                 key={g}
                 onClick={() => setGroup(g)}
-                className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                className={`rounded-full px-4 py-2 text-xs font-semibold border transition-all ${
                   group === g
-                    ? "bg-white text-slate-950 shadow-lg shadow-slate-950/10"
-                    : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white"
+                    ? "bg-foreground text-background border-transparent"
+                    : "bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 {g === "all" ? "All" : EXPERT_GROUP_LABELS[g]}
@@ -68,11 +68,11 @@ function ExpertsContent() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 lg:px-8 py-6">
+      <div className="max-w-6xl mx-auto px-6 lg:px-8 py-6 pb-24 lg:pb-6">
         {filtered.length === 0 ? (
-          <div className="rounded-[2rem] border border-slate-800 bg-slate-900/80 p-16 text-center text-slate-400">
-            <Sparkles size={32} className="mx-auto mb-4 text-cyan-300" />
-            <p className="text-base">No experts match <span className="font-semibold text-white">"{search}"</span></p>
+          <div className="rounded-[2rem] border border-border bg-card p-16 text-center text-muted-foreground">
+            <Sparkles size={32} className="mx-auto mb-4 text-amber-400" />
+            <p className="text-base">No experts match <span className="font-semibold text-foreground">"{search}"</span></p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -80,15 +80,15 @@ function ExpertsContent() {
               <article
                 key={expert.id}
                 onClick={() => router.push(`/app/experts/${expert.id}`)}
-                className="group cursor-pointer overflow-hidden rounded-[2rem] border border-slate-800/90 bg-gradient-to-br from-slate-900/90 via-slate-950/80 to-slate-950/95 p-6 shadow-[0_24px_60px_-40px_rgba(15,23,42,0.9)] transition duration-300 hover:-translate-y-0.5 hover:border-cyan-500/20 hover:bg-slate-900/95"
+                className="group cursor-pointer overflow-hidden rounded-[2rem] border border-border/50 bg-card p-6 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:bg-accent/40"
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-cyan-500/15 to-slate-900 border border-slate-800 text-3xl shadow-sm shadow-cyan-500/10">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-500/25 to-orange-500/25 border border-border/50 text-3xl">
                     {expert.emoji}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-lg font-bold text-white leading-tight line-clamp-2">{expertTitle(expert)}</h2>
-                    <p className="mt-2 text-xs uppercase tracking-[0.32em] text-slate-500">{expert.name}</p>
+                    <h2 className="text-lg font-bold leading-tight line-clamp-2">{expertTitle(expert)}</h2>
+                    <p className="mt-2 text-xs uppercase tracking-[0.32em] text-muted-foreground">{expert.name}</p>
                   </div>
                 </div>
 
@@ -97,13 +97,13 @@ function ExpertsContent() {
                     {EXPERT_GROUP_LABELS[expert.group]}
                   </span>
                   {expert.adult && (
-                    <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-[11px] font-semibold text-rose-200">
+                    <span className="rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-[11px] font-semibold text-rose-300">
                       18+
                     </span>
                   )}
                 </div>
 
-                <p className="mt-4 text-sm leading-6 text-slate-300 line-clamp-3">{expert.tagline}</p>
+                <p className="mt-4 text-sm leading-6 text-muted-foreground line-clamp-3">{expert.tagline}</p>
 
                 <div className="mt-6 flex gap-3">
                   <button
@@ -111,7 +111,7 @@ function ExpertsContent() {
                       event.stopPropagation()
                       router.push(`/app/experts/${expert.id}?mode=chat`)
                     }}
-                    className="flex-1 rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-200 transition hover:border-cyan-500/30 hover:bg-slate-800"
+                    className="flex-1 rounded-2xl border border-border/50 bg-foreground/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-foreground/70 transition hover:bg-foreground/10 hover:text-foreground"
                   >
                     <span className="inline-flex items-center gap-2">
                       <MessageSquare size={14} /> Chat
@@ -122,7 +122,7 @@ function ExpertsContent() {
                       event.stopPropagation()
                       router.push(`/app/experts/${expert.id}?mode=voice`)
                     }}
-                    className="flex-1 rounded-2xl bg-cyan-500 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-950 transition hover:bg-cyan-400"
+                    className="flex-1 rounded-2xl bg-amber-500 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-stone-950 transition hover:bg-amber-400"
                   >
                     <span className="inline-flex items-center gap-2">
                       <Mic size={14} /> Voice
@@ -139,5 +139,5 @@ function ExpertsContent() {
 }
 
 export default function ExpertsPage() {
-  return <Suspense fallback={<div className="min-h-full bg-slate-950" />}><ExpertsContent /></Suspense>
+  return <Suspense fallback={<div className="min-h-full bg-background" />}><ExpertsContent /></Suspense>
 }

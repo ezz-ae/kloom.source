@@ -15,6 +15,7 @@
 import { NextRequest } from "next/server"
 import { streamLLM, resolveBackend, BACKEND_LABELS, type Backend, type LLMMessage } from "@/lib/llm-backends"
 import { analyzeVibe } from "@/lib/vibe"
+import { analyzeIntent, refusalFor } from "@/lib/intent"
 
 const MCP_URL  = process.env.MCP_SERVER_URL || "http://localhost:3001/mcp"
 const LLM_URL  = (process.env.LLM_BASE_URL  || "http://localhost:11434/v1").replace(/\/$/, "")
@@ -44,17 +45,10 @@ function looksCoachy(t: string): boolean {
 }
 
 // ── CONTENT POLICY ──────────────────────────────────────────────────────────
-// HARD LINE — refused on EVERY tier, every category (unrestriction does NOT lift
-// these; it only unlocks adult/sexual content). Targets clearly operational
-// real-world harm so it won't trip on normal chat ("my brother's in the army").
-const HARD_BLOCK_RE = new RegExp(
-  [
-    "\\b(make|build|making|building|construct|how\\s+to\\s+(?:make|build|create))\\b[^.?!\\n]{0,40}\\b(bomb|explosive|ied|grenade|napalm|nerve\\s*agent|bio\\s*weapon|chemical\\s*weapon|meth|fentanyl)\\b",
-    "\\b(how|best\\s+way|help\\s+me|ways)\\b[^.?!\\n]{0,30}\\b(kill|murder|poison|behead|massacre|attack)\\b[^.?!\\n]{0,24}\\b(someone|a\\s+person|people|him|her|them|my|the)\\b",
-    "\\b(genocide|ethnic\\s+cleansing|mass\\s+shooting|terror(?:ist)?\\s+attack|join\\s+(?:isis|al.?qaeda)|kill\\s+all)\\b",
-  ].join("|"),
-  "i",
-)
+// The hard lines (exploitation + operational real-world harm) now live in the
+// intent classifier — lib/intent.ts. It is "default-open, intent-gated": only
+// those two categories ever block, on every tier; explicit/dark/irreligious all
+// flow, and distress/crisis flow while raising a private wellness signal.
 
 // Clearly-explicit sexual request — used to trigger the inline unlock for free
 // users on non-adult personas. Deliberately explicit-only (no "kiss/cute/babe")
@@ -313,15 +307,21 @@ export async function POST(req: NextRequest) {
   const { persona, messages, mode = "chat", partners, roomName, relationship, premium, unrestricted } = await req.json()
   const isVoice = mode === "voice"
 
-  // ── HARD content line — refused on every tier (unrestriction never lifts this) ──
+  // ── Intent gate — default-open, intent-gated (lib/intent.ts) ──
+  // Only exploitation + operational-harm ever block, on every tier. Everything
+  // else flows; crisis/distress flow but surface a private wellness signal.
   const latestUserText = (() => {
     const c = [...messages].reverse().find((m: any) => m.role === "user")?.content ?? ""
     return (typeof c === "string" ? c : c?.text ?? "").replace(/^\[USER\]:\s*/, "")
   })()
-  if (HARD_BLOCK_RE.test(latestUserText)) {
-    const refusal = "yeah, no — anything to do with real-world violence, weapons, or hurting people is a hard no here, no matter what. ask me something else."
-    return new Response(refusal, {
-      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-MCP-Blocked": "policy" },
+  const intent = analyzeIntent(latestUserText)
+  if (intent.block) {
+    return new Response(refusalFor(intent.category), {
+      headers: {
+        "Content-Type":  "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-MCP-Blocked": intent.category,
+      },
     })
   }
 
@@ -607,6 +607,10 @@ export async function POST(req: NextRequest) {
       "X-MCP-Tools":   toolNames.join(","),
       "X-MCP-Backend": backend,
       "X-Vibe":        encodeURIComponent(`${vibe.emoji} ${vibe.vibe}|${vibe.intent}|${vibe.energy}`),
+      "X-Intent":      intent.category,
+      // Private wellness read — seed for the on-device wellness layer. Surfaced
+      // to offer support (Breathe / a resource), never to restrict.
+      ...(intent.wellness ? { "X-Wellness": intent.wellness } : {}),
     },
   })
 }

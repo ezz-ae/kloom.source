@@ -6,6 +6,7 @@ import { registerCryptoTools } from "./tools/crypto.js";
 import { registerComputeTools } from "./tools/compute.js";
 import { registerCreatorTools } from "./tools/creator.js";
 import { registerAdvancedTools } from "./tools/advanced.js";
+import { registerSafetyTools } from "./tools/safety.js";
 import { registerPrompts } from "./prompts/index.js";
 const PORT = Number(process.env.MCP_PORT ?? 3001);
 function createServer() {
@@ -19,6 +20,7 @@ function createServer() {
     registerComputeTools(server);
     registerCreatorTools(server);
     registerAdvancedTools(server);
+    registerSafetyTools(server);
     // Register all forcing prompts
     registerPrompts(server);
     return server;
@@ -51,6 +53,7 @@ app.get("/health", (_req, res) => {
             "kloom_analyze_token_chart", "kloom_generate_code", "kloom_build_html",
             "kloom_get_strategy", "kloom_canva_design", "kloom_create_wallet",
             "kloom_build_connector", "kloom_financial_calc",
+            "kloom_analyze_intent",
         ],
         prompts: [
             "kloom_trading_expert",

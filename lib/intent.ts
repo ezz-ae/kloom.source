@@ -1,6 +1,12 @@
 /**
  * Harmful-intent detection — the "default-open, intent-gated" safety core.
  *
+ * MIRROR: the canonical shared version lives in the MCP server
+ * (mcp-server/src/safety/intent.ts, exposed as the `kloom_analyze_intent` tool
+ * so every product in the cloud gates on identical logic). This copy is the
+ * deterministic INLINE fast-path — the per-message gate must not depend on a
+ * network hop or the MCP server being up. Keep the two in sync on any rule change.
+ *
  * Philosophy: we do NOT restrict by topic, taboo, religion, or explicitness.
  * Adult, dark, irreligious, and edgy content all FLOW. We gate on *intent*:
  *

@@ -20,21 +20,13 @@ export const metadata: Metadata = {
     type: 'website',
   },
   icons: {
+    // Amber-backed Kloom mark — reads on both light and dark backgrounds.
     icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: '/kloom-icon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/kloom-icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/kloom-icon-512.png', sizes: '512x512', type: 'image/png' },
     ],
-    apple: '/apple-icon.png',
+    apple: '/kloom-apple-icon.png',
   },
 }
 

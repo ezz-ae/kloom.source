@@ -28,8 +28,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Global Branding Footer */}
         <footer className="w-full border-t border-border/20 py-8 px-6 mt-12 bg-background/50 backdrop-blur-sm shrink-0">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <img src="/icon.svg" alt="Kloom Logo" className="w-6 h-6 opacity-80" />
+            <div className="flex items-center gap-2.5">
+              <img src="/kloom-icon-192.png" alt="Kloom" className="w-6 h-6 rounded-md" />
               <span className="font-bold text-sm tracking-widest uppercase text-foreground/80">KLOOM.AI</span>
             </div>
             <div className="flex items-center gap-6 text-xs text-muted-foreground font-medium">

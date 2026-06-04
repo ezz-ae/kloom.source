@@ -506,6 +506,12 @@ export async function POST(req: NextRequest) {
     : (isCompanion || isAdult) ? UNCENSORED
     : process.env.LLM_MODEL
 
+  // Intent-routed backend: send adult/dark/explicit/unrestricted turns to the
+  // dedicated uncensored endpoint (self-hosted open weights); everything else
+  // stays on the cheap default endpoint. The intent gate already blocked the two
+  // hard-illegal categories above, so this endpoint only ever sees lawful content.
+  const uncensoredTurn = unrestricted || isAdult || cat === "dark" || intent.category === "explicit"
+
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream<Uint8Array>({
@@ -523,7 +529,7 @@ export async function POST(req: NextRequest) {
         const gen = async (extra?: LLMMessage[]): Promise<string> => {
           let full = ""
           for await (const d of streamLLM(backend, extra ? [...backendMessages, ...extra] : backendMessages, {
-            temperature: 0.92, maxTokens: maxTok, localModel,
+            temperature: 0.92, maxTokens: maxTok, localModel, uncensored: uncensoredTurn,
           })) {
             full += d
             const w = full.split(/\s+/).filter(Boolean).length
@@ -572,6 +578,7 @@ export async function POST(req: NextRequest) {
           temperature: isVoice ? 0.85 : 0.92,
           maxTokens:   isVoice ? 220 : 700,
           localModel,
+          uncensored:  uncensoredTurn,
         })) {
           wordCount += delta.split(/\s+/).filter(Boolean).length
           emitted   += delta

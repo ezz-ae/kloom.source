@@ -26,6 +26,9 @@ export interface LLMOptions {
   localModel?: string        // override the local model (e.g. uncensored for roleplay)
   frequencyPenalty?: number  // anti-repetition (defaults applied per-backend)
   presencePenalty?: number
+  /** Route this turn to the self-hosted UNCENSORED endpoint (adult/dark/explicit/
+   *  unrestricted). Falls back to the default endpoint if none is configured. */
+  uncensored?: boolean
 }
 
 // ── Config ────────────────────────────────────────────────────────────────
@@ -34,6 +37,16 @@ const LOCAL_URL   = (process.env.LLM_BASE_URL || "http://localhost:11434/v1").re
 const LOCAL_KEY   = process.env.LLM_API_KEY   || "local"
 const LOCAL_MODEL = process.env.LLM_MODEL     || "llama3.2:latest"
 const LOCAL_FALLBACK_MODEL = process.env.LLM_FALLBACK_MODEL || "llama3.2:latest"
+
+// Dedicated UNCENSORED endpoint — a self-hosted open-weights model (Qwen/etc.
+// via Ollama/vLLM on a GPU, or a serverless GPU that scales to zero). Used ONLY
+// for adult/dark/explicit/unrestricted turns so the cheap cloud handles the rest.
+// If UNCENSORED_LLM_BASE_URL is unset, everything uses the default endpoint above.
+const UNCENSORED_URL   = (process.env.UNCENSORED_LLM_BASE_URL || LOCAL_URL).replace(/\/$/, "")
+const UNCENSORED_KEY   = process.env.UNCENSORED_LLM_API_KEY || LOCAL_KEY
+const UNCENSORED_MODEL = process.env.UNCENSORED_LLM_MODEL
+  || process.env.LLM_MODEL_UNRESTRICTED || process.env.LLM_MODEL_UNCENSORED || LOCAL_MODEL
+const HAS_UNCENSORED   = !!process.env.UNCENSORED_LLM_BASE_URL
 
 const CLAUDE_KEY   = process.env.ANTHROPIC_API_KEY || ""
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-5"
@@ -62,11 +75,17 @@ export function resolveBackend(requested?: Backend): Backend {
 // ── Local (Ollama / OpenAI-compatible) ──────────────────────────────────────
 
 async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
-  const model = opts.localModel || LOCAL_MODEL
-  const fallbackModel = opts.localModel && opts.localModel !== LOCAL_MODEL ? LOCAL_MODEL : undefined
-  const res = await fetch(`${LOCAL_URL}/chat/completions`, {
+  // Adult/unrestricted turns go to the dedicated uncensored endpoint when one is
+  // configured; everything else (and the fallback) uses the default endpoint.
+  const useUnc  = !!opts.uncensored && HAS_UNCENSORED
+  const baseUrl = useUnc ? UNCENSORED_URL : LOCAL_URL
+  const baseKey = useUnc ? UNCENSORED_KEY : LOCAL_KEY
+  const defModel = useUnc ? UNCENSORED_MODEL : LOCAL_MODEL
+  const model = opts.localModel || defModel
+  const fallbackModel = opts.localModel && opts.localModel !== defModel ? defModel : undefined
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method:  "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LOCAL_KEY}` },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${baseKey}` },
     body:    JSON.stringify({
       model,
       messages,
@@ -86,15 +105,15 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
     return yield* streamLocal(messages, { ...opts, localModel: fallbackModel })
   }
   if (!res.ok || !res.body) {
-    // If an explicitly requested local model is unavailable, try the default
-    // configured Ollama model before failing.
-    if (model !== LOCAL_MODEL && LOCAL_MODEL !== fallbackModel) {
-      return yield* streamLocal(messages, { ...opts, localModel: LOCAL_MODEL })
+    // If an explicitly requested model is unavailable, try this endpoint's
+    // default model, then the global fallback, before failing.
+    if (model !== defModel && defModel !== fallbackModel) {
+      return yield* streamLocal(messages, { ...opts, localModel: defModel })
     }
-    if (model !== LOCAL_FALLBACK_MODEL && LOCAL_FALLBACK_MODEL !== LOCAL_MODEL) {
+    if (model !== LOCAL_FALLBACK_MODEL && LOCAL_FALLBACK_MODEL !== defModel) {
       return yield* streamLocal(messages, { ...opts, localModel: LOCAL_FALLBACK_MODEL })
     }
-    throw new Error(`local LLM ${res.status}`)
+    throw new Error(`${useUnc ? "uncensored" : "local"} LLM ${res.status}`)
   }
 
   const reader  = res.body.getReader()

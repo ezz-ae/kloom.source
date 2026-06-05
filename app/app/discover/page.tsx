@@ -15,6 +15,9 @@ const CATEGORY_COLORS: Record<PresetCategory, string> = {
   roleplay:     "bg-orange-500/15 text-orange-300 border-orange-500/20",
   dark:         "bg-stone-700/40 text-stone-300 border-stone-600/30",
   trading:      "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
+  workshop:          "bg-orange-500/15 text-orange-300 border-orange-500/20",
+  "co-intelligence": "bg-emerald-500/15 text-emerald-300 border-emerald-500/20",
+  "zero-memory":     "bg-stone-900 text-stone-300 border-white/10",
 }
 
 // Featured personas shown at the top

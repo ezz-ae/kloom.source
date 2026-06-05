@@ -57,7 +57,7 @@ export function VoiceCallPanel({
         {isConnected && isSpeaking && (
           <button onClick={stopAI} title="Interrupt" className="w-11 h-11 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center"><VolumeX size={17} className="text-amber-400" /></button>
         )}
-        <button onClick={isConnected ? hangUp : connect} disabled={isConnecting}
+        <button onClick={() => (isConnected ? hangUp() : connect())} disabled={isConnecting}
           className={`w-16 h-16 rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-105 disabled:opacity-50 ${isConnected ? "bg-red-500 hover:bg-red-400" : "bg-emerald-500 hover:bg-emerald-400"}`}>
           {isConnecting ? <Loader2 size={24} className="text-foreground animate-spin" /> : isConnected ? <PhoneOff size={24} className="text-foreground" /> : <Phone size={24} className="text-foreground" />}
         </button>

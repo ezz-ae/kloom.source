@@ -110,6 +110,9 @@ const CATEGORY_GRADIENTS: Record<PresetCategory, string> = {
   roleplay:     "from-amber-500/20 via-transparent to-orange-700/25",
   dark:         "from-stone-900/35 via-transparent to-purple-950/35",
   trading:      "from-emerald-500/20 via-transparent to-teal-700/25",
+  workshop:          "from-orange-500/20 via-transparent to-cyan-700/25",
+  "co-intelligence": "from-emerald-500/20 via-transparent to-emerald-800/30",
+  "zero-memory":     "from-stone-900/40 via-transparent to-black/40",
 }
 
 // Warp shader palette per room vibe — same shader as the call screen, colored
@@ -122,6 +125,9 @@ const CATEGORY_WARP_COLORS: Record<PresetCategory, [string, string, string]> = {
   roleplay:     ["#a78bfa", "#ede9fe", "#7c3aed"], // violet
   dark:         ["#52525b", "#27272a", "#831843"], // deep wine
   trading:      ["#10b981", "#a7f3d0", "#0f766e"], // emerald/teal (crypto)
+  workshop:          ["#fb923c", "#fed7aa", "#0e7490"], // orange/cyan (multi-AI)
+  "co-intelligence": ["#10b981", "#a7f3d0", "#065f46"], // deep emerald
+  "zero-memory":     ["#52525b", "#27272a", "#000000"], // void
 }
 
 // ─── Image inference ────────────────────────────────────────────────────────
@@ -713,6 +719,34 @@ const PREVIEW_LINES: Record<PresetCategory, string[]> = {
     "Don't pretend you haven't been thinking about this.",
     "I told you not to look back. Why are you looking back?",
     "Sit down. We're not done yet.",
+  ],
+  trading: [
+    "Liquidity's thin here — size down or skip it.",
+    "That's not a dip, that's a distribution. Watch.",
+    "Risk first. Tell me your invalidation, then we talk entry.",
+    "Funding flipped negative. Shorts are paying you to wait.",
+    "Cut it. The thesis broke two candles ago.",
+  ],
+  workshop: [
+    "Ship the smallest thing that proves it works.",
+    "Claude, write the contract — Gemini, find the hole in it.",
+    "That edge case will bite on launch day. Handle it now.",
+    "Good. Now make it boring and reliable.",
+    "Let's stress-test that assumption before we commit.",
+  ],
+  "co-intelligence": [
+    "Two reads, one decision. Here's where we agree.",
+    "The downside is recoverable; the upside isn't. Lean in.",
+    "Let's separate what you know from what you fear.",
+    "Name the decision you're actually avoiding.",
+    "If this fails, what's the story you'll tell yourself?",
+  ],
+  "zero-memory": [
+    "Nothing said here is kept. Say the real thing.",
+    "No history, no judgment. Start anywhere.",
+    "Ask the question you can't ask anywhere else.",
+    "This conversation doesn't exist. Neither do the rules.",
+    "When you leave, this is gone. So — what is it?",
   ],
 }
 
@@ -2653,7 +2687,7 @@ function ParticipantThumbnail({
   active: boolean
   dim?: boolean
 }) {
-  const voice = "voice" in persona ? persona.voice : persona.voice
+  const voice = persona.voice
   const emoji = "emoji" in persona ? persona.emoji : presetByName(persona.name)?.emoji ?? "✨"
   return (
     <div className={`relative transition-opacity ${dim ? "opacity-50" : "opacity-100"}`}>
@@ -3463,7 +3497,8 @@ function BuyCreditsDialog({
   const [cardMode, setCardMode]           = useState(false)
   const [cardLoading, setCardLoading]     = useState(false)
   const [cardError, setCardError]         = useState<string | null>(null)
-  const solBusy = purchaseState !== "idle" && purchaseState !== "error"
+  // "in progress" only — excluding "done" so the success state (✓) renders.
+  const solBusy = purchaseState !== "idle" && purchaseState !== "error" && purchaseState !== "done"
 
   useEffect(() => {
     if (!open) { setPickedOffer(null); setCardMode(false); setCardLoading(false); setCardError(null) }
@@ -4996,7 +5031,7 @@ export function AiOrb() {
         rate={freelancerSession.rate}
         onBack={() => {
           setFreelancerSession(null)
-          setView("freelancers")
+          setView("hire")
         }}
       />
     )

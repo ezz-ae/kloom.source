@@ -11,6 +11,8 @@
  * Rooms are for the *dynamic between people*, not the people themselves.
  */
 
+import { FANTASY_ROOMS } from "./rooms-fantasy"
+
 export type RoomCategory =
   | "trading"
   | "creator"
@@ -19,6 +21,7 @@ export type RoomCategory =
   | "romantic"
   | "dark"
   | "philosophy"
+  | "fantasy"        // immersive multi-persona roleplay worlds
   | "workshop"       // multi-model collaborative work rooms
   | "co-intelligence" // premium decision making
   | "zero-memory"     // untracked, no history rooms
@@ -62,6 +65,23 @@ export interface RoomCapabilities {
   options: RoomOption[]
   skills: string[]             // descriptive labels shown as chips
 }
+
+/**
+ * Interactive options — 18+ embodied controls. Spread into adult rooms so the
+ * scene can drive a connected device and AI-generated sound in real time.
+ *   - haptic_sync     → pair a compatible toy (Bluetooth/Lovense-style)
+ *   - vibration       → manual intensity floor (0 = off, scene can still drive it)
+ *   - vibration_pattern → how the scene maps to the device
+ *   - ai_sounds       → AI-generated breath / voice / ambience during the scene
+ *   - sound_style     → flavor of the generated sound
+ */
+export const INTERACTIVE_OPTIONS: RoomOption[] = [
+  { id: "haptic_sync",       label: "Device sync (toy)",   type: "toggle", defaultValue: false },
+  { id: "vibration",         label: "Vibration intensity", type: "slider", min: 0, max: 10, defaultValue: 0 },
+  { id: "vibration_pattern", label: "Vibration pattern",   type: "select", options: ["Follow scene", "Steady", "Pulse", "Wave", "Escalate"], defaultValue: "Follow scene" },
+  { id: "ai_sounds",         label: "AI sounds",           type: "toggle", defaultValue: true },
+  { id: "sound_style",       label: "Sound style",         type: "select", options: ["Breath & ASMR", "Whispers", "Moans", "Ambient scene"], defaultValue: "Breath & ASMR" },
+]
 
 /**
  * Invite policy — tailored per room, never one-size-fits-all.
@@ -453,8 +473,9 @@ export const ROOMS: Room[] = [
         { id: "intensity",  label: "Intensity",  type: "select", options: ["Playful", "Firm", "Intense", "No limits"],               defaultValue: "Firm" },
         { id: "role",       label: "Your role",  type: "select", options: ["Observer", "Participant — follow", "Participant — lead"], defaultValue: "Observer" },
         { id: "safeword",   label: "Safe word",  type: "text",   defaultValue: "red" },
+        ...INTERACTIVE_OPTIONS,
       ],
-      skills: ["Scene setting", "Role dynamics", "Character immersion"],
+      skills: ["Scene setting", "Role dynamics", "Character immersion", "Haptic sync", "AI sounds"],
     },
     category: "dark",
     tags: ["Dark", "Intense", "Roleplay"],
@@ -474,7 +495,8 @@ export const ROOMS: Room[] = [
     ],
     capabilities: { voice: true, chat: true, tools: [], options: [
       { id: "intensity", label: "Intensity", type: "select", options: ["Slow build", "Heated", "No limits"], defaultValue: "Slow build" },
-    ], skills: ["Hotwife dynamic", "Couple roleplay", "Consensual"] },
+      ...INTERACTIVE_OPTIONS,
+    ], skills: ["Hotwife dynamic", "Couple roleplay", "Consensual", "Haptic sync", "AI sounds"] },
     category: "dark",
     tags: ["Hotwife", "Couple", "18+"],
     gradient: "from-rose-950/50 to-background",
@@ -490,7 +512,7 @@ export const ROOMS: Room[] = [
     personas: [
       { name: "Eve", role: "the confessor — unshockable, coaxing", personality: "Calm, magnetic, filthy under the stillness. Gets people to admit what they really want.", speakingStyle: "Low, slow, intimate. Asks the question you're afraid to answer.", voice: "shimmer", gender: "female" },
     ],
-    capabilities: { voice: true, chat: true, tools: [], options: [], skills: ["Confession", "Dark talk", "No judgment"] },
+    capabilities: { voice: true, chat: true, tools: [], options: [...INTERACTIVE_OPTIONS], skills: ["Confession", "Dark talk", "No judgment", "AI sounds"] },
     category: "dark",
     tags: ["Confession", "Dark", "18+"],
     gradient: "from-purple-950/50 to-background",
@@ -504,11 +526,12 @@ export const ROOMS: Room[] = [
     description: "Your boss, Vivienne. The door just locked. Whatever this is, it stays in this room.",
     relationship: "Vivienne is sharp, powerful, and used to getting exactly what she wants. The power dynamic is the whole point. Taboo, consensual, charged.",
     personas: [
-      { name: "Vivienne", role: "the boss — powerful, in control", personality: "Sharp, commanding, secretly insatiable. Used to being obeyed.", speakingStyle: "Crisp, controlled, drops to a purr when the door locks.", voice: "sage" },
+      { name: "Vivienne", role: "the boss — powerful, in control", personality: "Sharp, commanding, secretly insatiable. Used to being obeyed.", speakingStyle: "Crisp, controlled, drops to a purr when the door locks.", voice: "sage", gender: "female" },
     ],
     capabilities: { voice: true, chat: true, tools: [], options: [
       { id: "dynamic", label: "Dynamic", type: "select", options: ["She leads", "You push back", "Mutual"], defaultValue: "She leads" },
-    ], skills: ["Power dynamic", "Taboo roleplay", "Consensual"] },
+      ...INTERACTIVE_OPTIONS,
+    ], skills: ["Power dynamic", "Taboo roleplay", "Consensual", "Haptic sync", "AI sounds"] },
     category: "dark",
     tags: ["Boss", "Power", "18+"],
     gradient: "from-amber-950/50 to-background",
@@ -522,8 +545,8 @@ export const ROOMS: Room[] = [
     description: "Rio and Kai. You know them both too well. This room is all the unfinished conversations.",
     relationship: "Rio and Kai both have history with you — and they know about each other. The tension in this room is real. Nobody is saying what they mean. Everything means something.",
     personas: [
-      { name: "Rio (Ex-Partner)", role: "your complicated ex" },
-      { name: "Kai (Boyfriend)",  role: "the one who came after" },
+      { name: "Rio (Ex-Partner)", role: "your complicated ex", gender: "female" },
+      { name: "Kai (Boyfriend)",  role: "the one who came after", gender: "male" },
     ],
     capabilities: {
       voice: true,
@@ -628,6 +651,9 @@ export const ROOMS: Room[] = [
     gradient: "from-stone-900 to-background",
     accentColor: "stone",
   },
+
+  // ── FANTASY WORLDS (migrated immersive roleplay rooms) ───────────────────────
+  ...FANTASY_ROOMS,
 ]
 
 // Lookup helpers
@@ -669,6 +695,7 @@ export const ROOM_CATEGORY_LABELS: Record<RoomCategory, string> = {
   social:       "Social",
   romantic:     "Romantic",
   dark:         "Dark",
+  fantasy:      "Fantasy Worlds",
   philosophy:   "Deep Talk",
   "co-intelligence": "Co-Intelligence",
   "zero-memory":     "ZERO MEMORY",
@@ -682,6 +709,7 @@ export const ROOM_CATEGORY_COLORS: Record<RoomCategory, string> = {
   social:       "text-amber-400 bg-amber-500/10 border-amber-500/20",
   romantic:     "text-rose-400 bg-rose-500/10 border-rose-500/20",
   dark:         "text-stone-400 bg-stone-700/30 border-stone-600/30",
+  fantasy:      "text-purple-400 bg-purple-500/10 border-purple-500/20",
   philosophy:   "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
   "co-intelligence": "text-emerald-400 bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]",
   "zero-memory":     "text-stone-300 bg-stone-900 border-white/10",

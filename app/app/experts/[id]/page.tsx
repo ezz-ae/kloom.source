@@ -235,7 +235,7 @@ function ExpertContent() {
             {isConnected && isSpeaking && (
               <button onClick={stopAI} className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center"><VolumeX size={16} className="text-amber-400" /></button>
             )}
-            <button onClick={isConnected ? disconnect : connect} disabled={isConnecting}
+            <button onClick={() => (isConnected ? disconnect() : connect())} disabled={isConnecting}
               className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all hover:scale-105 disabled:opacity-50 ${isConnected ? "bg-red-500 hover:bg-red-400" : "bg-amber-500 hover:bg-amber-400"}`}>
               {isConnecting ? <Loader2 size={22} className="text-foreground animate-spin" /> : isConnected ? <PhoneOff size={22} className="text-foreground" /> : <Phone size={22} className="text-foreground" />}
             </button>

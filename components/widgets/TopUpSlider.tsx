@@ -17,7 +17,9 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
   const [usd, setUsd]   = useState(5)
   const unlimited       = isUnlimitedTier(usd)
   const minutes         = usdToMinutes(usd)
-  const busy            = purchaseState !== "idle" && purchaseState !== "error"
+  // "in progress" = signing/confirming/crediting. NOT "done" — otherwise the
+  // success state ("Added!" + check) is absorbed by busy and never renders.
+  const busy            = purchaseState !== "idle" && purchaseState !== "error" && purchaseState !== "done"
 
   const buy = async () => {
     if (unlimited) {

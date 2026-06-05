@@ -76,14 +76,13 @@ export async function POST(req: NextRequest) {
       p_tx_sig: `bloom_dist_${sig}`,
       p_amount_sol: 0,
       p_kind: "purchase",
-    }).catch(() => {})
+    }).then(() => {}, () => {})   // fire-and-forget; Supabase builder is a thenable (no .catch)
 
     // Update bloom_balance column
     await sb
       .from("bloom_credits")
       .upsert({ wallet_address: walletAddress, bloom_balance: amount }, { onConflict: "wallet_address" })
-      .then(() => {})
-      .catch(() => {})
+      .then(() => {}, () => {})
 
     return NextResponse.json({ ok: true, signature: sig, amount, mint: MINT_ADDR })
   } catch (err: unknown) {

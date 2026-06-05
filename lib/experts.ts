@@ -40,7 +40,6 @@ export interface Expert {
   personality?: string
   speakingStyle?: string
   // ── Profile (drives the profile panel + in-conversation controls) ──
-  gender?: "female" | "male" | "nonbinary"  // authoritative for voice (never flips)
   languages?: string[]                       // languages this persona speaks
   level?: string                             // experience framing, e.g. "Master", "Pro"
   skills?: string[]                          // headline capabilities, shown on the profile

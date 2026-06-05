@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
-import { getRoomById, roomInvite, ROOM_CATEGORY_COLORS, ROOM_CATEGORY_LABELS, type RoomPersona } from "@/lib/rooms"
+import { getRoomById, roomInvite, ROOM_CATEGORY_COLORS, ROOM_CATEGORY_LABELS, type RoomPersona, type SeatModel } from "@/lib/rooms"
 import { getCustomRoom } from "@/lib/custom-rooms"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
@@ -27,10 +27,14 @@ import {
   Volume2, VolumeX, UserPlus, Link2, Bot, X as XIcon,
 } from "lucide-react"
 
-const BACKEND_BADGE: Record<string, { label: string; cls: string }> = {
-  claude: { label: "Claude", cls: "bg-orange-500/15 text-orange-300 border-orange-500/25" },
-  gemini: { label: "Gemini", cls: "bg-sky-500/15 text-sky-300 border-sky-500/25" },
-  local:  { label: "Kloom",    cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
+// Keyed on SeatModel so every backend has a badge — a missing key is now a
+// compile error instead of a runtime `.cls` crash.
+const BACKEND_BADGE: Record<SeatModel, { label: string; cls: string }> = {
+  claude:  { label: "Claude",  cls: "bg-orange-500/15 text-orange-300 border-orange-500/25" },
+  gemini:  { label: "Gemini",  cls: "bg-sky-500/15 text-sky-300 border-sky-500/25" },
+  mistral: { label: "Mistral", cls: "bg-rose-500/15 text-rose-300 border-rose-500/25" },
+  dolphin: { label: "Dolphin", cls: "bg-violet-500/15 text-violet-300 border-violet-500/25" },
+  local:   { label: "Kloom",   cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
 }
 
 /** Avatar URL for any room persona — preset photo, or dicebear for workshop seats. */

@@ -11,7 +11,7 @@ import { imageFor } from "@/lib/persona-utils"
 import { ActivitySparkline } from "@/components/ui/sparkline"
 import { Mic, MessageSquare, Zap, ChevronRight, Plus, Trash2, Lock, TrendingUp } from "lucide-react"
 
-const ALL_CATS: Array<"all" | RoomCategory> = ["all", "trading", "workshop", "co-intelligence", "creator", "professional", "social", "romantic", "dark", "philosophy", "zero-memory"]
+const ALL_CATS: Array<"all" | RoomCategory> = ["all", "fantasy", "trading", "workshop", "co-intelligence", "creator", "professional", "social", "romantic", "dark", "philosophy", "zero-memory"]
 
 export default function RoomsPage() {
   const router = useRouter()
@@ -37,7 +37,7 @@ export default function RoomsPage() {
     <div className="min-h-full bg-background text-foreground transition-colors duration-300">
 
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border px-6 lg:px-8 py-5 transition-colors duration-300">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-xl border-b border-border px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-5 transition-colors duration-300">
         <div className="max-w-6xl mx-auto">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>

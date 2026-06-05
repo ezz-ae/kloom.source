@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { mediaDevicesUnavailable } from "@/lib/media"
 
 export function useAudioLevel() {
   const [audioLevel, setAudioLevel] = useState(0)
@@ -12,6 +13,8 @@ export function useAudioLevel() {
 
   const startListening = useCallback(async () => {
     try {
+      const unavailable = mediaDevicesUnavailable()
+      if (unavailable) throw new Error(unavailable)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 

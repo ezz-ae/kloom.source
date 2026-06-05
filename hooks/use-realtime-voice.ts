@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { isSubscribed } from "@/lib/account"
+import { mediaDevicesUnavailable } from "@/lib/media"
+import { SpeechSegmenter } from "@/lib/speech-segmenter"
 
 // Premium = full-unrestricted model tier. Guarded so it's safe if ever called SSR.
 function getPremium(): boolean {
@@ -110,6 +112,7 @@ export function useRealtimeVoice({
   const [error, setError] = useState<string | null>(null)
 
   const recognitionRef = useRef<any>(null)
+  const micStreamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
@@ -513,19 +516,13 @@ export function useRealtimeVoice({
       const isListenOnly = options?.listenOnly || false
 
       if (!isListenOnly) {
-        const SpeechRecognition =
-          (typeof window !== "undefined" &&
-            ((window as any).SpeechRecognition ||
-              (window as any).webkitSpeechRecognition)) ||
-          null
-
-        if (!SpeechRecognition) {
-          throw new Error(
-            "Speech recognition isn't supported in this browser. Try Chrome or Edge."
-          )
+        if (typeof MediaRecorder === "undefined") {
+          throw new Error("Audio recording isn't supported in this browser. Try Chrome, Edge, or Safari.")
         }
 
-        // Ask for mic permission up-front
+        // Open the mic and keep the stream alive — the segmenter records from it.
+        const micUnavailable = mediaDevicesUnavailable()
+        if (micUnavailable) throw new Error(micUnavailable)
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -533,48 +530,29 @@ export function useRealtimeVoice({
             autoGainControl: true,
           },
         })
-        stream.getTracks().forEach((t) => t.stop())
+        micStreamRef.current = stream
 
-        const recognition = new SpeechRecognition()
-        recognition.continuous = true
-        recognition.interimResults = false
-        recognition.lang =
-          LANGUAGE_TO_BCP47[personaRef.current.language] || "en-US"
+        // Accurate server-side transcription (Whisper) instead of the browser's
+        // webkitSpeechRecognition. The segmenter exposes start()/abort()/stop()
+        // so the barge-in & echo-suppression logic below works unchanged.
+        const segmenter = new SpeechSegmenter({
+          stream,
+          onText: (text) => {
+            // Mirror the old onresult guard: ignore anything captured while the
+            // AI is talking (echo / overlap).
+            if (isSpeakingRef.current) return
+            handleUserUtterance(text)
+          },
+          getLanguage: () => {
+            const bcp47 = LANGUAGE_TO_BCP47[personaRef.current.language] || "en-US"
+            return bcp47.split("-")[0] // ISO-639-1 hint for Whisper
+          },
+          onError: (msg) => console.warn("STT:", msg),
+        })
 
-        recognition.onresult = (event: any) => {
-          if (isSpeakingRef.current) return
-          let finalText = ""
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const result = event.results[i]
-            if (result.isFinal) {
-              finalText += result[0].transcript
-            }
-          }
-          if (finalText.trim()) {
-            handleUserUtterance(finalText.trim())
-          }
-        }
-
-        recognition.onerror = (event: any) => {
-          if (event.error === "no-speech" || event.error === "aborted") return
-          console.warn("SpeechRecognition error:", event.error)
-          if (event.error === "not-allowed") {
-            setError("Microphone access denied")
-          }
-        }
-
-        recognition.onend = () => {
-          // Auto-restart if we're still meant to be listening and not speaking.
-          if (shouldListenRef.current && !isSpeakingRef.current) {
-            try {
-              recognition.start()
-            } catch {}
-          }
-        }
-
-        recognitionRef.current = recognition
+        recognitionRef.current = segmenter
         shouldListenRef.current = true
-        recognition.start()
+        segmenter.start()
       } else {
         shouldListenRef.current = false // No mic listening
       }
@@ -603,9 +581,17 @@ export function useRealtimeVoice({
 
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop()
+        // SpeechSegmenter has destroy(); webkitSpeechRecognition only stop().
+        if (typeof recognitionRef.current.destroy === "function") recognitionRef.current.destroy()
+        else recognitionRef.current.stop()
       } catch {}
       recognitionRef.current = null
+    }
+
+    // Release the mic the segmenter was recording from.
+    if (micStreamRef.current) {
+      try { micStreamRef.current.getTracks().forEach((t) => t.stop()) } catch {}
+      micStreamRef.current = null
     }
 
     if (audioElRef.current) {

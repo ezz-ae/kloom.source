@@ -2109,6 +2109,12 @@ function CallScreen({
 
   const handleScreenShare = async () => {
     setMoreOpen(false)
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      showActionToast(typeof window !== "undefined" && !window.isSecureContext
+        ? "🖥️ Screen share needs https:// or localhost"
+        : "🖥️ Screen share isn't supported in this browser")
+      return
+    }
     try {
       // Stop a previous session if it was still alive
       screenShareStreamRef.current?.getTracks().forEach((t) => t.stop())

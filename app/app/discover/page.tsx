@@ -128,22 +128,22 @@ export default function DiscoverPage() {
     <div className="min-h-full bg-background text-foreground">
 
       {/* ── Header ── */}
-      <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur-xl border-b border-slate-800/80 px-6 lg:px-8 py-5">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-xl border-b border-border px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-5">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-cyan-300/80 font-semibold">Explore companions</p>
-              <h1 className="mt-3 text-4xl font-black tracking-tight text-white">Discover the perfect AI partner.</h1>
-              <p className="mt-2 text-sm text-slate-400">{PERSONALITY_PRESETS.length} AI companions and personalities — voice ready, chat ready, context aware.</p>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-amber-400/80 font-semibold">Explore companions</p>
+              <h1 className="mt-2 text-2xl lg:text-3xl font-black tracking-tight">Discover the perfect AI partner.</h1>
+              <p className="mt-1 text-sm text-muted-foreground">{PERSONALITY_PRESETS.length} AI companions and personalities — voice ready, chat ready, context aware.</p>
             </div>
             <div className="relative w-full max-w-sm">
-              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search companions…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-3xl border border-slate-800/80 bg-slate-900/80 py-3 pl-12 pr-4 text-sm text-white placeholder:text-slate-500 focus:border-cyan-400/60 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 transition"
+                className="w-full rounded-3xl border border-border bg-muted/40 py-3 pl-12 pr-4 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-amber-400/50 focus:outline-none focus:ring-2 focus:ring-amber-500/15 transition"
               />
             </div>
           </div>
@@ -155,10 +155,10 @@ export default function DiscoverPage() {
                 <button
                   key={cat}
                   onClick={() => setCategory(cat)}
-                  className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  className={`rounded-full px-4 py-2 text-xs font-semibold border transition ${
                     activeCategory === cat
-                      ? "bg-white text-slate-950 shadow-lg shadow-slate-950/10"
-                      : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white"
+                      ? "bg-foreground text-background border-transparent"
+                      : "bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
                   {cat === "all" ? "All" : info!.label}
@@ -176,7 +176,7 @@ export default function DiscoverPage() {
           <section>
             <div className="flex items-center gap-2 mb-4">
               <Flame size={15} className="text-amber-400" />
-              <h2 className="text-sm font-bold text-white uppercase tracking-widest">Featured companions</h2>
+              <h2 className="text-sm font-bold text-foreground/80 uppercase tracking-widest">Featured companions</h2>
             </div>
             <Carousel opts={{ align: "start", dragFree: true }} className="w-full relative">
               <CarouselContent className="-ml-4">
@@ -187,8 +187,8 @@ export default function DiscoverPage() {
                 ))}
               </CarouselContent>
               <div className="hidden lg:block">
-                <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 rounded-2xl border border-slate-800 bg-slate-900/90 p-3 text-slate-300 hover:bg-slate-800" />
-                <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 rounded-2xl border border-slate-800 bg-slate-900/90 p-3 text-slate-300 hover:bg-slate-800" />
+                <CarouselPrevious className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 rounded-2xl border border-border bg-card/90 p-3 text-foreground/70 hover:bg-muted" />
+                <CarouselNext className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 rounded-2xl border border-border bg-card/90 p-3 text-foreground/70 hover:bg-muted" />
               </div>
             </Carousel>
           </section>

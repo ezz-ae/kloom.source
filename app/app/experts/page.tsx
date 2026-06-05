@@ -40,7 +40,7 @@ function ExpertsContent() {
 
   return (
     <div className="min-h-full bg-background text-foreground transition-colors duration-300">
-      <div className="sticky top-0 z-20 bg-background/90 backdrop-blur-xl border-b border-border px-6 lg:px-8 py-5">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-xl border-b border-border px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-5">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>

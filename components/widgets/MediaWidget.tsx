@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react"
 import { Image as ImageIcon, Video, FileText, X, Upload, Monitor, Camera } from "lucide-react"
+import { mediaDevicesUnavailable } from "@/lib/media"
 
 export interface MediaAttachment {
   id: string
@@ -42,6 +43,10 @@ export function MediaUploader({ onAttach, onScreenShare }: MediaUploaderProps) {
   }
 
   const startScreenShare = async () => {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      alert(mediaDevicesUnavailable() ?? "Screen share isn't supported in this browser.")
+      return
+    }
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { cursor: "always" } as MediaTrackConstraints,

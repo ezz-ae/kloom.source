@@ -27,26 +27,24 @@ export function MobileNav() {
   if (immersive) return null
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-stone-950/95 backdrop-blur-md border-t border-white/8 pb-safe">
-      <div className="flex items-center justify-around px-2 py-2">
+    <nav className="fixed bottom-0 inset-x-0 z-50 lg:hidden px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 pointer-events-none">
+      <div className="glass-strong pointer-events-auto mx-auto max-w-md rounded-[1.75rem] shadow-[0_16px_40px_-12px_rgba(0,0,0,0.7)] flex items-center justify-around px-2 py-2">
         {TABS.map((tab) => {
           const isActive = pathname.startsWith(tab.href)
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-all ${
-                isActive ? "text-white" : "text-white/35 hover:text-white/60"
+              className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                isActive ? "text-amber-300" : "text-white/40 hover:text-white/70"
               }`}
             >
-              <div className={`relative p-1.5 rounded-xl transition-all ${
-                isActive ? "bg-amber-500/20" : ""
+              <div className={`relative p-1.5 rounded-xl transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                isActive ? "bg-amber-500/20 shadow-[0_0_16px_-2px_rgba(251,146,60,0.5)]" : ""
               }`}>
                 <tab.icon size={20} className={isActive ? "text-amber-400" : ""} />
               </div>
-              <span className={`text-[10px] font-medium ${isActive ? "text-amber-300" : ""}`}>
-                {tab.label}
-              </span>
+              <span className="text-[10px] font-semibold">{tab.label}</span>
             </Link>
           )
         })}

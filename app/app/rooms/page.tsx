@@ -34,34 +34,34 @@ export default function RoomsPage() {
   }, [activeCat, char])
 
   return (
-    <div className="min-h-full bg-background text-foreground transition-colors duration-300">
+    <div className="min-h-full text-foreground">
 
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-xl border-b border-border px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-5 transition-colors duration-300">
+      <div className="sticky top-0 z-20 glass-strong px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-5">
         <div className="max-w-6xl mx-auto">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-black tracking-tight">Rooms</h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <h1 className="text-3xl font-black tracking-[-0.02em]">Rooms</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 Join a dynamic — or build your own. Chat free, calls pay-as-you-go.
               </p>
             </div>
             <button onClick={() => router.push("/app/create")}
-              className="shrink-0 flex items-center gap-1.5 bg-foreground text-background font-bold text-sm px-4 py-2 rounded-xl hover:bg-foreground/90 transition-all hover:scale-[1.02]">
+              className="shrink-0 flex items-center gap-1.5 brand-gradient text-stone-950 font-bold text-sm px-4 py-2.5 rounded-full brand-glow hover:scale-[1.03] active:scale-95 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
               <Plus size={15} /> Build a room
             </button>
           </div>
 
           {/* Category filters */}
-          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide snap-x">
             {ALL_CATS.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setActiveCat(cat)}
-                className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                className={`shrink-0 snap-start px-4 py-2 rounded-full text-xs font-bold border transition-[background-color,color,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   activeCat === cat
-                    ? "bg-foreground text-background border-transparent"
-                    : "bg-muted/50 border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "brand-gradient text-stone-950 border-transparent shadow-[0_4px_14px_-3px_rgba(251,146,60,0.5)]"
+                    : "bg-white/[0.04] border-white/[0.08] text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"
                 }`}
               >
                 {cat === "all" ? "All rooms" : ROOM_CATEGORY_LABELS[cat]}
@@ -78,7 +78,7 @@ export default function RoomsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
             {mine.map((room) => (
               <div key={room.id}
-                className={`group relative rounded-3xl overflow-hidden border border-border/50 bg-gradient-to-br ${room.gradient} hover:border-border/80 transition-all hover:scale-[1.01] cursor-pointer p-5`}
+                className={`group relative rounded-3xl overflow-hidden border border-white/[0.07] bg-gradient-to-br ${room.gradient} ring-1 ring-inset ring-white/[0.04] hover:border-amber-400/30 hover:-translate-y-1 hover:shadow-[0_20px_50px_-16px_rgba(0,0,0,0.6)] transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer p-5`}
                 onClick={() => router.push(`/app/rooms/${room.id}`)}>
                 <button onClick={(e) => { e.stopPropagation(); removeMine(room.id) }}
                   className="absolute top-3 right-3 text-muted-foreground/60 hover:text-red-400 z-10"><Trash2 size={15} /></button>
@@ -121,7 +121,7 @@ export default function RoomsPage() {
             return (
               <div
                 key={room.id}
-                className={`group relative rounded-3xl overflow-hidden border border-border/50 bg-gradient-to-br ${room.gradient} hover:border-border/80 transition-all hover:scale-[1.01] cursor-pointer flex flex-col justify-between ${
+                className={`group relative rounded-3xl overflow-hidden border border-white/[0.07] bg-gradient-to-br ${room.gradient} ring-1 ring-inset ring-white/[0.04] hover:border-amber-400/30 hover:shadow-[0_20px_50px_-16px_rgba(0,0,0,0.6),0_0_0_1px_rgba(251,191,36,0.15)] hover:-translate-y-1 transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer flex flex-col justify-between ${
                   isFeatured ? "md:col-span-2 xl:col-span-2 md:row-span-2" : ""
                 }`}
                 onClick={() => router.push(`/app/rooms/${room.id}`)}
@@ -206,13 +206,13 @@ export default function RoomsPage() {
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); router.push(`/app/rooms/${room.id}?mode=chat`) }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-foreground/5 border border-border/50 hover:bg-foreground/10 text-xs font-semibold text-foreground/70 hover:text-foreground transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-xs font-bold text-foreground/70 hover:text-foreground transition-colors duration-200"
                     >
                       <MessageSquare size={12} /> Chat
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); router.push(`/app/rooms/${room.id}?mode=voice`) }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-foreground/10 border border-border hover:bg-foreground/15 text-xs font-semibold text-foreground/80 hover:text-foreground transition-all"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full brand-gradient text-stone-950 hover:scale-[1.03] active:scale-95 text-xs font-bold shadow-[0_4px_14px_-4px_rgba(251,146,60,0.5)] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                     >
                       <Mic size={12} /> Voice
                     </button>

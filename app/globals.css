@@ -130,6 +130,80 @@
   }
 }
 
+/* ── Kloom premium surface system ─────────────────────────────────────────
+   Living amber/rose ambient backdrop + glass + elevation, so every screen
+   sits on a warm, alive surface instead of flat near-black. */
+@keyframes ambient-drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(3%, -2%) scale(1.08); }
+  66%  { transform: translate(-2%, 2%) scale(0.96); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+.app-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.app-ambient::before,
+.app-ambient::after {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.app-ambient::before {
+  width: 46rem; height: 46rem;
+  top: -18rem; left: -10rem;
+  background: radial-gradient(circle, oklch(0.7 0.18 60 / 0.5), transparent 68%);
+  animation: ambient-drift 24s ease-in-out infinite;
+}
+.app-ambient::after {
+  width: 40rem; height: 40rem;
+  bottom: -16rem; right: -8rem;
+  background: radial-gradient(circle, oklch(0.62 0.2 25 / 0.42), transparent 66%);
+  animation: ambient-drift 30s ease-in-out infinite reverse;
+}
+/* third blob via a child element */
+.app-ambient > .blob-3 {
+  position: absolute;
+  width: 32rem; height: 32rem;
+  top: 30%; left: 45%;
+  border-radius: 9999px;
+  filter: blur(100px);
+  opacity: 0.28;
+  background: radial-gradient(circle, oklch(0.6 0.16 300 / 0.4), transparent 70%);
+  animation: ambient-drift 38s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-ambient::before, .app-ambient::after, .app-ambient > .blob-3 { animation: none; }
+}
+
+/* Frosted glass surface — used on the sidebar, sticky headers, the mobile dock. */
+.glass {
+  background: oklch(0.19 0.015 280 / 0.6);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid oklch(1 0 0 / 0.07);
+}
+.glass-strong {
+  background: oklch(0.17 0.014 280 / 0.78);
+  backdrop-filter: blur(28px) saturate(1.5);
+  -webkit-backdrop-filter: blur(28px) saturate(1.5);
+  border: 1px solid oklch(1 0 0 / 0.08);
+}
+
+/* Warm brand gradient — the Kloom amber→orange→rose signature. */
+.brand-gradient { background-image: linear-gradient(135deg, #fbbf24, #f97316 55%, #fb7185); }
+.brand-text {
+  background-image: linear-gradient(135deg, #fcd34d, #fb923c 50%, #fb7185);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.brand-glow { box-shadow: 0 8px 28px -6px oklch(0.7 0.18 50 / 0.55); }
+
 /* Subtle Ken Burns pan/zoom for room backdrop photos. Different presets so each
    slide can be assigned a different motion path and they don't all move alike. */
 @keyframes ken-burns-a {

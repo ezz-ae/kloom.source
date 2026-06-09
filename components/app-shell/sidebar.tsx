@@ -36,10 +36,10 @@ export function Sidebar() {
   const { setVisible: openWalletModal } = useWalletModal()
 
   return (
-    <aside className="flex flex-col h-full w-56 bg-background border-r border-border py-5 px-3 shrink-0">
+    <aside className="glass flex flex-col h-full w-60 border-r border-white/[0.06] py-5 px-3 shrink-0">
       {/* Logo */}
       <Link href="/app/discover" className="flex items-center gap-2.5 px-2 mb-7 group">
-        <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20 group-hover:scale-105 transition-transform p-1.5">
+        <div className="w-9 h-9 rounded-2xl brand-gradient flex items-center justify-center brand-glow group-hover:scale-105 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] p-1.5">
           <img src="/kloom-mark.png" alt="Kloom" className="w-full h-full object-contain" />
         </div>
         <img src="/kloom-wordmark.png" alt="Kloom" className="h-4 object-contain object-left" />
@@ -59,16 +59,20 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-all ${
+              className={`group relative flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition-[background-color,color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                 isActive
-                  ? "bg-accent text-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
+                  ? "bg-amber-500/[0.14] text-foreground shadow-[inset_0_0_0_1px_rgba(251,191,36,0.22)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
               }`}
             >
-              <item.icon size={18} className={`shrink-0 ${isActive ? "text-amber-400" : "text-muted-foreground"}`} />
+              {/* Active rail accent */}
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-full brand-gradient shadow-[0_0_10px_rgba(251,146,60,0.7)]" />
+              )}
+              <item.icon size={18} className={`shrink-0 transition-colors ${isActive ? "text-amber-400" : "text-muted-foreground group-hover:text-foreground/80"}`} />
               <span className="flex-1 truncate">{item.label}</span>
               {item.badge && (
-                <span className={`text-[10px] font-semibold text-white px-2 py-0.5 rounded-full ${item.badgeColor}`}>
+                <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${item.badgeColor}`}>
                   {item.badge}
                 </span>
               )}
@@ -79,12 +83,13 @@ export function Sidebar() {
 
       {/* Bottom section */}
       <div className="mt-4 space-y-3 px-1">
-        <div className="rounded-3xl border border-border bg-card p-4">
-          <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground font-semibold">Credits</div>
-          <div className="mt-2 text-2xl font-black">{balance}</div>
+        <div className="relative rounded-3xl overflow-hidden p-4 border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-orange-500/[0.04] to-transparent">
+          <div className="absolute -top-8 -right-6 w-24 h-24 rounded-full bg-amber-500/20 blur-2xl pointer-events-none" />
+          <div className="relative text-[10px] uppercase tracking-[0.28em] text-amber-200/70 font-bold">Credits</div>
+          <div className="relative mt-1.5 text-3xl font-black tracking-tight">{balance}</div>
           <Link
             href="/app/settings?tab=billing"
-            className="inline-flex items-center gap-2 mt-4 rounded-2xl bg-amber-500 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-stone-950 hover:bg-amber-400 transition-colors"
+            className="relative inline-flex items-center gap-1.5 mt-3.5 rounded-full brand-gradient px-3.5 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-950 brand-glow hover:scale-[1.03] active:scale-95 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
           >
             <Plus size={12} /> Top up
           </Link>
@@ -92,9 +97,9 @@ export function Sidebar() {
 
         <button
           onClick={() => (isWalletConnected ? disconnect() : openWalletModal(true))}
-          className="w-full flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-left transition hover:border-foreground/20"
+          className="w-full flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/15 hover:bg-white/[0.06]"
         >
-          <span className={`w-2.5 h-2.5 rounded-full ${isWalletConnected ? "bg-emerald-400" : "bg-muted-foreground/40"}`} />
+          <span className={`w-2.5 h-2.5 rounded-full ${isWalletConnected ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" : "bg-muted-foreground/40"}`} />
           <span className="flex-1 text-xs font-medium text-muted-foreground truncate">
             {publicKey ? shortenAddress(publicKey.toBase58()) : "Connect wallet"}
           </span>
@@ -105,7 +110,7 @@ export function Sidebar() {
           href="/app/settings"
           className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
             pathname === "/app/settings"
-              ? "bg-accent text-foreground"
+              ? "bg-amber-500/[0.14] text-foreground"
               : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
           }`}
         >

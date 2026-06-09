@@ -13,14 +13,19 @@ import { MobileNav } from "./mobile-nav"
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="h-screen flex bg-background overflow-hidden">
+    <div className="h-screen flex bg-background overflow-hidden relative">
+      {/* Living ambient backdrop — warm amber/rose blobs drifting behind everything */}
+      <div className="app-ambient" aria-hidden>
+        <div className="blob-3" />
+      </div>
+
       {/* Sidebar — desktop only, in flow */}
-      <div className="hidden lg:block shrink-0">
+      <div className="hidden lg:block shrink-0 relative z-10">
         <Sidebar />
       </div>
 
       {/* Content — rendered exactly once */}
-      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto relative">
+      <main className="flex-1 min-w-0 flex flex-col overflow-y-auto relative z-10">
         <div className="flex-1">
           {children}
         </div>

@@ -119,6 +119,15 @@ function stripPhilosophy(text: string, adult = false): string {
   // scaffold labels and markdown, and drop a truncated trailing fragment.
   let clean = stripLeadingLabel(text)
     .replace(/\[(RESPONDING|TYPING|ANSWER|NOTE|SYSTEM)[^\]]*\]/gi, "") // meta-tags only
+  // ALWAYS strip transcript/session/scene meta-markers the model tacks on —
+  // these are never dialogue, even in adult roleplay where real asides stay.
+  // e.g. "(end of user session)", "[end of scene]", "(to be continued)".
+  const META_MARKER = /\s*[([]\s*(end|close|continued|to be continued|fin|scene end|conversation|transcript|response|message|turn|reply)[^)\]]*[)\]]\s*$/gi
+  clean = clean
+    .replace(META_MARKER, "")
+    .replace(/\s*[([]\s*end of [^)\]]*[)\]]/gi, "")   // "(end of …)" anywhere
+    .replace(/\s*[([]\s*(user session|session (over|ended|complete)|scene (over|ends?|ended))[^)\]]*[)\]]/gi, "")
+    .trim()
   if (!adult) {
     clean = clean
       .replace(/\[[^\]]*\]/g, "")       // any bracketed tag

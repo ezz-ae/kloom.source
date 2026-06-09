@@ -17,6 +17,9 @@ export interface SegmenterOptions {
   onText: (text: string) => void
   /** Optional error sink. */
   onError?: (message: string) => void
+  /** Fired when the server STT endpoint is unusable (no key / no model access /
+   *  auth error) so the caller can fall back to browser speech recognition. */
+  onUnavailable?: (reason: string) => void
   /** Optional ISO-639-1 language hint ("en", "ar", …) for Whisper. */
   getLanguage?: () => string | undefined
   /** Silence (ms) after speech that ends an utterance. Default 850. */
@@ -39,7 +42,7 @@ function pickMimeType(): string | undefined {
 }
 
 export class SpeechSegmenter {
-  private opts: Required<Omit<SegmenterOptions, "onError" | "getLanguage">> & Pick<SegmenterOptions, "onError" | "getLanguage">
+  private opts: Required<Omit<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage">> & Pick<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage">
   private ctx: AudioContext | null = null
   private analyser: AnalyserNode | null = null
   private source: MediaStreamAudioSourceNode | null = null
@@ -204,7 +207,14 @@ export class SpeechSegmenter {
       const res = await fetch("/api/stt", { method: "POST", body: form })
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "" }))
-        this.opts.onError?.(error || `Transcription failed (${res.status})`)
+        const msg = error || `Transcription failed (${res.status})`
+        // Auth / missing-model / no-key → server STT is unusable; tell the caller
+        // to switch to browser speech recognition instead of failing silently.
+        const unusable =
+          res.status === 401 || res.status === 403 || res.status === 404 ||
+          res.status === 500 || /model_not_found|does not have access|api key|STT/i.test(msg)
+        if (unusable) this.opts.onUnavailable?.(msg)
+        else this.opts.onError?.(msg)
         return
       }
       const { text } = (await res.json()) as { text?: string }

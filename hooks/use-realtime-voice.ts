@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { isSubscribed } from "@/lib/account"
 import { mediaDevicesUnavailable } from "@/lib/media"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
+import { BrowserSpeechSegmenter, browserSttSupported } from "@/lib/browser-stt"
 
 // Premium = full-unrestricted model tier. Guarded so it's safe if ever called SSR.
 function getPremium(): boolean {
@@ -112,6 +113,7 @@ export function useRealtimeVoice({
   const [error, setError] = useState<string | null>(null)
 
   const recognitionRef = useRef<any>(null)
+  const browserSttFallbackRef = useRef(false)
   const micStreamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -503,6 +505,7 @@ export function useRealtimeVoice({
   const connect = useCallback(async (options?: { listenOnly?: boolean }) => {
     setIsConnecting(true)
     setError(null)
+    browserSttFallbackRef.current = false // fresh session re-tries server STT first
 
     try {
       // Create reusable <audio> element for TTS playback + analysis. Attaching
@@ -537,27 +540,56 @@ export function useRealtimeVoice({
         })
         micStreamRef.current = stream
 
-        // Accurate server-side transcription (Whisper) instead of the browser's
-        // webkitSpeechRecognition. The segmenter exposes start()/abort()/stop()
-        // so the barge-in & echo-suppression logic below works unchanged.
-        const segmenter = new SpeechSegmenter({
-          stream,
-          onText: (text) => {
-            // Mirror the old onresult guard: ignore anything captured while the
-            // AI is talking (echo / overlap).
-            if (isSpeakingRef.current) return
-            handleUserUtterance(text)
-          },
-          getLanguage: () => {
-            const bcp47 = LANGUAGE_TO_BCP47[personaRef.current.language] || "en-US"
-            return bcp47.split("-")[0] // ISO-639-1 hint for Whisper
-          },
-          onError: (msg) => console.warn("STT:", msg),
-        })
+        // Shared handler for a finalized transcript (from either STT engine).
+        const onFinalText = (text: string) => {
+          // Ignore anything captured while the AI is talking (echo / overlap).
+          if (isSpeakingRef.current) return
+          handleUserUtterance(text)
+        }
+        const bcp47 = () => LANGUAGE_TO_BCP47[personaRef.current.language] || "en-US"
 
-        recognitionRef.current = segmenter
+        // Falls back to the browser's native speech recognition (no API key)
+        // when server STT is unusable. Swaps in place, keeping the live session.
+        const startBrowserStt = (reason: string) => {
+          if (browserSttFallbackRef.current) return // already switched
+          browserSttFallbackRef.current = true
+          console.warn("Server STT unavailable — using browser speech recognition:", reason)
+          try { recognitionRef.current?.destroy?.() } catch {}
+          if (!browserSttSupported()) {
+            setError("Voice needs Chrome, Edge, or Safari for the mic. " + reason)
+            return
+          }
+          const br = new BrowserSpeechSegmenter({
+            onText: onFinalText,
+            getLang: bcp47,
+            onError: (m) => setError(m),
+          })
+          recognitionRef.current = br
+          if (shouldListenRef.current) br.start()
+        }
+
         shouldListenRef.current = true
-        segmenter.start()
+
+        // If the deployment has no server STT key (NEXT_PUBLIC_STT_BROWSER=1),
+        // go straight to the browser engine so the FIRST utterance lands too.
+        if (process.env.NEXT_PUBLIC_STT_BROWSER === "1" && browserSttSupported()) {
+          browserSttFallbackRef.current = true
+          const br = new BrowserSpeechSegmenter({ onText: onFinalText, getLang: bcp47, onError: (m) => setError(m) })
+          recognitionRef.current = br
+          br.start()
+        } else {
+          // Accurate server-side transcription (Whisper) when a key is configured;
+          // otherwise auto-fall-back to the browser engine above on first failure.
+          const segmenter = new SpeechSegmenter({
+            stream,
+            onText: onFinalText,
+            getLanguage: () => bcp47().split("-")[0], // ISO-639-1 hint for Whisper
+            onError: (msg) => setError(msg),
+            onUnavailable: startBrowserStt,
+          })
+          recognitionRef.current = segmenter
+          segmenter.start()
+        }
       } else {
         shouldListenRef.current = false // No mic listening
       }

@@ -210,6 +210,11 @@ export function useRealtimeVoice({
       .replace(/\([^)]*\)/g, "")        // (parentheticals — ANY length now)
       .replace(/_[^_]+_/g, "")          // _emphasised actions_
       .replace(/^["'`""''「『]+|["'`""''」』]+$/g, "")
+      // Strip emoji / pictographs — they can't be spoken and the TTS engine
+      // either reads their name aloud or chokes. Voice replies are heard, not read.
+      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}]/gu, "")
+      // Drop stray combining diacritics the model sometimes emits as noise.
+      .replace(/[\u{0300}-\u{036F}]/gu, "")
       .replace(/\s+/g, " ")
       .trim()
     if (!cleaned) return null

@@ -7,7 +7,9 @@ import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { getRoomById, roomInvite, ROOM_CATEGORY_COLORS, ROOM_CATEGORY_LABELS, type RoomPersona, type SeatModel } from "@/lib/rooms"
 import { getCustomRoom, importCustomRoom } from "@/lib/custom-rooms"
 import { roomFromLocationHash, buildInviteUrl } from "@/lib/room-share"
+import { fetchPublishedRoom } from "@/lib/rooms-db"
 import { findTopic, topicScenePrompt } from "@/lib/topics"
+import { CATEGORY_META } from "@/lib/category-meta"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
@@ -103,7 +105,20 @@ function RoomContent() {
         r = shared
       }
     }
-    setRoom(r)
+    if (r) { setRoom(r); setRoomChecked(true); return }
+    // Final fallback: the community directory (published rooms resolve from
+    // anywhere — plain /app/rooms/<id> links work with no payload).
+    if (roomId.startsWith("u-")) {
+      let cancelled = false
+      fetchPublishedRoom(roomId).then((pub) => {
+        if (cancelled) return
+        if (pub) importCustomRoom(pub)
+        setRoom(pub ?? undefined)
+        setRoomChecked(true)
+      })
+      return () => { cancelled = true }
+    }
+    setRoom(undefined)
     setRoomChecked(true)
   }, [roomId, staticRoom])
 
@@ -548,7 +563,7 @@ function RoomContent() {
     : ""
 
   return (
-    <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
+    <div className={`h-screen flex flex-col bg-background bg-gradient-to-br ${CATEGORY_META[room.category]?.gradient ?? ""} text-foreground overflow-hidden`}>
 
       {/* ── Header ── */}
       <div className="shrink-0 h-16 bg-background/80 backdrop-blur-md border-b border-border/20 px-4 flex items-center justify-between gap-3 sticky top-0 z-10 shadow-sm">

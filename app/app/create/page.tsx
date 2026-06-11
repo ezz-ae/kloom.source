@@ -9,6 +9,7 @@
 import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createCustomRoom, getCustomRoom, type BuilderMember, type Gender } from "@/lib/custom-rooms"
+import { publishRoom } from "@/lib/rooms-db"
 import { CATEGORY_META, CATEGORY_ORDER, BADGE_LABELS } from "@/lib/category-meta"
 import { buildInviteUrl } from "@/lib/room-share"
 import { makeSessionId } from "@/lib/room-session"
@@ -58,7 +59,8 @@ export default function CreateRoomPage() {
   const [topic, setTopic] = useState("")
   const [guests, setGuests] = useState<string[]>([])
   const [guestDraft, setGuestDraft] = useState("")
-  const [created, setCreated] = useState<{ roomId: string; sessionId: string } | null>(null)
+  const [publish, setPublish] = useState(true)
+  const [created, setCreated] = useState<{ roomId: string; sessionId: string; published: boolean } | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
   const meta = category ? CATEGORY_META[category] : null
@@ -76,7 +78,7 @@ export default function CreateRoomPage() {
   const patchMember = (idx: number, patch: Partial<WizMember>) =>
     setMembers((prev) => prev.map((m, i) => (i === idx ? { ...m, ...patch } : m)))
 
-  const create = () => {
+  const create = async () => {
     setErr(null)
     if (!category) return
     if (!name.trim()) { setErr("Give your room a name."); return }
@@ -87,7 +89,14 @@ export default function CreateRoomPage() {
       category,
       members: members.map(({ emoji: _e, ...m }) => ({ ...m, name: m.name.trim() })),
     })
-    setCreated({ roomId, sessionId: makeSessionId() })
+    // Publish to the world's directory (best-effort — the portable link works
+    // either way; publishing additionally lists it for everyone).
+    let published = false
+    if (publish) {
+      const room = getCustomRoom(roomId)
+      if (room) published = await publishRoom(room)
+    }
+    setCreated({ roomId, sessionId: makeSessionId(), published })
   }
 
   return (
@@ -237,6 +246,20 @@ export default function CreateRoomPage() {
                 )}
               </div>
             </div>
+
+            {/* Publish toggle */}
+            <button onClick={() => setPublish((p) => !p)}
+              className={`mt-6 w-full flex items-center gap-3 text-left rounded-2xl border p-4 transition-all ${publish ? "border-amber-500/40 bg-amber-500/[0.07]" : "border-border/50 bg-foreground/5"}`}>
+              <span className={`w-10 h-6 rounded-full p-0.5 transition-colors shrink-0 ${publish ? "bg-amber-500" : "bg-foreground/15"}`}>
+                <span className={`block w-5 h-5 rounded-full bg-background transition-transform ${publish ? "translate-x-4" : ""}`} />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-bold">List it in {meta.label}</span>
+                <span className="block text-[11px] text-muted-foreground mt-0.5">
+                  Your room appears in its world for everyone to join. Off = invite-link only.
+                </span>
+              </span>
+            </button>
 
             {err && <p className="mt-5 text-sm text-rose-400 font-semibold">{err}</p>}
 
@@ -610,7 +633,7 @@ function VoiceSheet({ member, currentId, previewing, onPreview, onPick }: {
 // AFTERPARTY — room created, hand out the keys
 // ════════════════════════════════════════════════════════════════════════════
 function InvitePanel({ created, guests }: {
-  created: { roomId: string; sessionId: string }
+  created: { roomId: string; sessionId: string; published: boolean }
   guests: string[]
 }) {
   const router = useRouter()
@@ -620,6 +643,7 @@ function InvitePanel({ created, guests }: {
   if (!room) return null
 
   const mainLink = buildInviteUrl({ room, sessionId: created.sessionId })
+  const worldLabel = CATEGORY_META[room.category]?.label ?? room.category
 
   const copy = async (text: string, key: string) => {
     try {
@@ -635,7 +659,13 @@ function InvitePanel({ created, guests }: {
         <DoorOpen size={34} className="text-stone-950" />
       </div>
       <h1 className="text-4xl font-black tracking-[-0.02em] mb-2">{room.name} is live.</h1>
-      <p className="text-muted-foreground mb-10">The room travels inside the link — anyone who opens it walks straight in.</p>
+      <p className="text-muted-foreground mb-3">The room travels inside the link — anyone who opens it walks straight in.</p>
+      {created.published && (
+        <p className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1.5 rounded-full mb-8">
+          <Check size={12} /> Listed in {worldLabel} — anyone browsing can join
+        </p>
+      )}
+      {!created.published && <span className="block mb-7" />}
 
       <div className="space-y-3 text-left max-w-xl mx-auto">
         <div className="flex items-center gap-2 glass rounded-2xl border border-border/50 p-3">

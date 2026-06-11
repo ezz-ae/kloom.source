@@ -4,8 +4,56 @@
  * (multi-AI chat + voice) as the built-in rooms. Free to create for everyone;
  * only voice calls cost money.
  */
-import type { Room, RoomPersona, RoomCategory } from "@/lib/rooms"
+import type { Room, RoomPersona, RoomCategory, RoomTool } from "@/lib/rooms"
 import { resolveVoiceId } from "@/lib/voices"
+
+// ── World toolkits — every custom room inherits its category's tools ────────
+// Same MCP tool ids the built-in rooms use; the engine's Tools tab lights up
+// for wizard-built rooms exactly like flagship ones.
+const WORLD_TOOLS: Partial<Record<RoomCategory, RoomTool[]>> = {
+  trading: [
+    { id: "kloom_get_crypto_price", label: "Live prices",     icon: "📊" },
+    { id: "kloom_analyze_market",   label: "Market analysis", icon: "📈" },
+    { id: "kloom_financial_calc",   label: "Position calc",   icon: "🧮" },
+    { id: "kloom_web_search",       label: "Web search",      icon: "🔎" },
+  ],
+  workshop: [
+    { id: "kloom_generate_code", label: "Generate code", icon: "💻" },
+    { id: "kloom_build_html",    label: "Build a page",  icon: "🛠️" },
+    { id: "kloom_canva_design",  label: "Design",        icon: "🎨" },
+    { id: "kloom_web_search",    label: "Web search",    icon: "🔎" },
+  ],
+  creator: [
+    { id: "kloom_content_ideas",     label: "Content ideas", icon: "💡" },
+    { id: "kloom_instagram_caption", label: "Captions",      icon: "✍️" },
+    { id: "kloom_generate_hashtags", label: "Hashtags",      icon: "#️⃣" },
+  ],
+  professional: [
+    { id: "kloom_analyze_code", label: "Code review", icon: "🧑‍💻" },
+    { id: "kloom_web_search",   label: "Web search",  icon: "🔎" },
+    { id: "kloom_calculate",    label: "Calculate",   icon: "🧮" },
+  ],
+  philosophy: [
+    { id: "kloom_web_search", label: "Web search", icon: "🔎" },
+  ],
+  "co-intelligence": [
+    { id: "kloom_web_search", label: "Research",  icon: "🔎" },
+    { id: "kloom_calculate",  label: "Calculate", icon: "🧮" },
+  ],
+  fantasy: [
+    { id: "kloom_content_ideas", label: "Story ideas", icon: "✨" },
+  ],
+}
+
+const WORLD_SKILLS: Partial<Record<RoomCategory, string[]>> = {
+  trading:           ["Live data", "Market calls"],
+  workshop:          ["Builds with you", "Multi-AI"],
+  creator:           ["Growth", "Content"],
+  professional:      ["Code review", "Analysis"],
+  philosophy:        ["Deep dives"],
+  "co-intelligence": ["Decision support"],
+  fantasy:           ["Immersive RP"],
+}
 
 const KEY = "kloom_custom_rooms"
 
@@ -123,7 +171,12 @@ export function createCustomRoom(input: {
     description: input.topic || `A custom room with ${input.members.length} characters.`,
     relationship,
     personas,
-    capabilities: { voice: true, chat: true, tools: [], options: [], skills: [] },
+    capabilities: {
+      voice: true, chat: true,
+      tools:   WORLD_TOOLS[input.category]  ?? [],
+      options: [],
+      skills:  WORLD_SKILLS[input.category] ?? ["custom"],
+    },
     category:    input.category,
     tags:        ["custom"],
     gradient:    g.gradient,

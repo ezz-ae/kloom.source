@@ -9,7 +9,8 @@ import { useParams, useRouter } from "next/navigation"
 import { ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
 import { CATEGORY_META, BADGE_LABELS } from "@/lib/category-meta"
 import { getTopics } from "@/lib/topics"
-import { listCustomRooms } from "@/lib/custom-rooms"
+import { listCustomRooms, importCustomRoom } from "@/lib/custom-rooms"
+import { fetchCommunityRooms } from "@/lib/rooms-db"
 import { hasUnrestricted } from "@/lib/account"
 import { imageFor } from "@/lib/persona-utils"
 import { ChevronLeft, Lock, Flame, ArrowRight, Settings } from "lucide-react"
@@ -29,9 +30,19 @@ export default function CategoryPage() {
 
   const [unlocked, setUnlocked] = useState(true)
   const [mine, setMine] = useState<Room[]>([])
+  const [community, setCommunity] = useState<Room[]>([])
   useEffect(() => {
     setUnlocked(hasUnrestricted())
-    setMine(listCustomRooms().filter((r) => r.category === category))
+    const local = listCustomRooms().filter((r) => r.category === category)
+    setMine(local)
+    // Community rooms published to this world (skip ones already local).
+    let cancelled = false
+    fetchCommunityRooms(category).then((rooms) => {
+      if (cancelled) return
+      const localIds = new Set(local.map((r) => r.id))
+      setCommunity(rooms.filter((r) => !localIds.has(r.id)))
+    })
+    return () => { cancelled = true }
   }, [category])
 
   useEffect(() => {
@@ -108,7 +119,20 @@ export default function CategoryPage() {
               </div>
             )}
 
-            {rooms.length === 0 && mine.length === 0 && (
+            {community.length > 0 && (
+              <div className="mt-10">
+                <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Community rooms</h2>
+                <div className="space-y-4">
+                  {community.map((room) => (
+                    <div key={room.id} onClick={() => importCustomRoom(room)}>
+                      <RoomCard room={room} category={category} accentText={meta.text} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {rooms.length === 0 && mine.length === 0 && community.length === 0 && (
               <p className="text-center text-muted-foreground py-16">No rooms in this world yet — be the first to build one.</p>
             )}
           </>

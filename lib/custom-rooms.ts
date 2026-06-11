@@ -16,6 +16,10 @@ export interface BuilderMember {
   gender: Gender
   personality: string      // free text or a preset
   relation: string         // their relationship to the others / the user
+  voiceId?: string         // explicit voice pick from the wizard (catalog or YouTube clone)
+  speakingStyle?: string   // preset speaking style, carried through when picked
+  model?: RoomPersona["model"] // AI seat backend, for multi-model rooms
+  unrestricted?: boolean   // persona starts unrestricted (adult categories)
 }
 
 function read(): Room[] {
@@ -51,6 +55,17 @@ export function getCustomRoom(id: string): Room | undefined {
 }
 export function deleteCustomRoom(id: string) { write(read().filter((r) => r.id !== id)) }
 
+/**
+ * Persist a fully-formed Room (e.g. one that arrived inside an invite link's
+ * `#r=` fragment — see lib/room-share.ts). Idempotent by id.
+ */
+export function importCustomRoom(room: Room) {
+  const all = read()
+  if (all.some((r) => r.id === room.id)) return
+  all.unshift(room)
+  write(all)
+}
+
 // Gender → a voice slot so calls sound right (TTS also resolves by name as fallback).
 const VOICE_BY_GENDER: Record<Gender, RoomPersona["voice"]> = {
   female:    "coral",
@@ -81,14 +96,16 @@ export function createCustomRoom(input: {
     name:          m.name,
     role:          m.relation || "member of the room",
     personality:   `${m.personality}. ${m.gender === "female" ? "She" : m.gender === "male" ? "He" : "They"} ${m.relation ? `relate to the others as: ${m.relation}.` : ""}`.trim(),
-    speakingStyle: "Natural, in-character, present. Talks like a real person, not a bot.",
+    speakingStyle: m.speakingStyle || "Natural, in-character, present. Talks like a real person, not a bot.",
     voice:         VOICE_BY_GENDER[m.gender],
     gender:        m.gender,
-    // Lock in ONE concrete Fish voice now, chosen by the member's explicit gender.
-    // Stored on the persona so every call/note uses the exact same voice — it can
-    // never drift or flip male/female later.
-    voiceId:       resolveVoiceId(m.name, m.gender),
+    // Lock in ONE concrete voice now: wizard's explicit pick wins (catalog or
+    // YouTube clone), else deterministic pool by name+gender. Stored on the
+    // persona so every call uses the exact same voice — it can never drift.
+    voiceId:       m.voiceId?.trim() || resolveVoiceId(m.name, m.gender),
     avatarSeed:    m.name,
+    ...(m.model ? { model: m.model } : {}),
+    ...(m.unrestricted ? { unrestricted: true } : {}),
   }))
 
   // The "relationship" string is injected into the system prompt — it sets the scene.

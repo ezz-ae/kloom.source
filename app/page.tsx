@@ -13,39 +13,39 @@ import {
 const PILLARS = [
   {
     icon: Users,
-    title: "Shared Rooms",
+    title: "Worlds & rooms",
     accent: "text-orange-400 bg-orange-500/10 border-orange-500/20",
-    body: "Invite friends with one link and add AI experts to the chat. Real humans and multiple AIs in the same conversation, in real time.",
-    highlight: "Invite friends",
+    body: "Eleven worlds, each with its own rooms and live topics — the trading floor, fantasy realms, the workshop, after dark. Every door leads somewhere different.",
+    highlight: "11 worlds",
   },
   {
     icon: GraduationCap,
-    title: "Experts",
+    title: "Your cast",
     accent: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    body: `${EXPERTS.length} real specialists — life coach, trading desk, tarot, diet planner, code reviewer, dating coach, and more. Each with genuine depth.`,
-    highlight: `${EXPERTS.length}+ specialists`,
+    body: "Pick characters from the roster or invent your own. Every one speaks with a real voice — and you can clone any voice straight from a YouTube link.",
+    highlight: "Clone any voice",
   },
   {
     icon: Sparkles,
-    title: "Creator Suite",
+    title: "Humans welcome",
     accent: "text-pink-400 bg-pink-500/10 border-pink-500/20",
-    body: "Connect your profile, talk through your goals, and get a personalized 90-day growth plan — plus tools for captions, hashtags, and DMs.",
-    highlight: "Profile planner",
+    body: "One link drops your friends into the same room — voice and chat, live, together with the cast. The room itself travels inside the link.",
+    highlight: "One link",
   },
   {
     icon: Mic,
-    title: "Free to chat",
+    title: "Zero restrictions",
     accent: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    body: "Text chat with any expert or room is completely free, forever. Upgrade to a live voice call whenever you want to actually talk it through.",
-    highlight: "Chat free",
+    body: "Open models, no corporate filters. Rooms that go where other platforms won't — with 18+ worlds gated behind Unrestricted.",
+    highlight: "No filters",
   },
 ]
 
 // ── How it works ──────────────────────────────────────────────────────────────
 const STEPS = [
-  { n: "01", title: "Connect your wallet", body: "Your Solana wallet is your account. No email, no password, no signup form." },
-  { n: "02", title: "Pick a room or expert", body: "Choose a multi-AI room, a specialist expert, or the creator planner — whatever you need today." },
-  { n: "03", title: "Talk, build, ship", body: "Voice or text. The AI uses live tools — prices, code, charts, plans — to actually get work done with you." },
+  { n: "01", title: "Pick a world", body: "Trading floor, fantasy realm, after dark, the workshop — every world has its own rooms, rules and cast." },
+  { n: "02", title: "Build the cast & voices", body: "Choose characters or invent them, give each one a real voice — or clone a voice from any YouTube video." },
+  { n: "03", title: "Open the doors", body: "Send one link and friends walk straight in. Voice or text, live tools, zero restrictions." },
 ]
 
 export default function LandingPage() {
@@ -90,26 +90,26 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-[1.05]">
-            Multi-AI rooms, not just speech-to-text.
+            Every conversation
             <br />
-            <span className="bg-gradient-to-r from-amber-400 via-orange-300 to-emerald-400 bg-clip-text text-transparent">
-              Talk with more than one mind.
+            <span className="bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400 bg-clip-text text-transparent">
+              is a room.
             </span>
           </h1>
 
           <p className="text-lg sm:text-xl text-foreground/60 max-w-xl mx-auto leading-relaxed">
-            <span className="text-foreground">Claude</span>, <span className="text-foreground">Gemini</span>,{' '}
-            <span className="text-foreground">GPT</span> and {EXPERTS.length} expert personas collaborate in the same session.
-            Text is free. Voice is pay-as-you-go. Bring friends, share ideas, and build real outcomes.
+            Build a cast of AI characters with real voices — or clone any voice from YouTube.
+            Drop friends into the same room with one link. Voice and chat, live,
+            across <span className="text-foreground">11 worlds</span> from the trading floor to after dark.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-center pt-2">
-            <Link href="/app/rooms" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-foreground text-background font-bold px-8 py-4 rounded-2xl hover:bg-foreground/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-base">
-              <Play size={16} /> Start free
+            <Link href="/app/create" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-foreground text-background font-bold px-8 py-4 rounded-2xl hover:bg-foreground/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-base">
+              <Play size={16} /> Create a room
             </Link>
-            <a href="#voice" className="w-full sm:w-auto flex items-center justify-center gap-2 border border-white/15 text-foreground/80 font-semibold px-8 py-4 rounded-2xl hover:bg-foreground/5 transition-colors text-base">
-              Explore rooms
-            </a>
+            <Link href="/app/rooms" className="w-full sm:w-auto flex items-center justify-center gap-2 border border-white/15 text-foreground/80 font-semibold px-8 py-4 rounded-2xl hover:bg-foreground/5 transition-colors text-base">
+              See the rooms
+            </Link>
           </div>
           <p className="text-xs text-foreground/35">Real, free & unrestricted · no email · full privacy · pay only for voice</p>
         </div>
@@ -252,11 +252,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Experts showcase — text-forward, grouped by what they do ── */}
+      {/* ── Character roster — every expert is a room character now ── */}
       <section id="experts" className="max-w-5xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">{EXPERTS.length} experts. Real depth.</h2>
-          <p className="text-foreground/50 mt-2">Each one masters a craft — not the same bot in costumes.</p>
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">{EXPERTS.length} characters. Real depth.</h2>
+          <p className="text-foreground/50 mt-2">Each one masters a craft — pick them for your cast or meet them in the rooms.</p>
         </div>
 
         <div className="space-y-10">
@@ -267,14 +267,13 @@ export default function LandingPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4">
                 {EXPERTS.filter((e) => e.group === g).map((e) => (
-                  <Link key={e.id} href={`/app/experts/${e.id}`}
-                    className="group flex items-baseline justify-between gap-4 border-b border-white/[0.04] pb-3 hover:border-white/15 transition-colors">
+                  <div key={e.id}
+                    className="flex items-baseline justify-between gap-4 border-b border-white/[0.04] pb-3">
                     <div className="min-w-0">
-                      <span className="font-bold text-[15px] group-hover:text-amber-300 transition-colors">{e.name}</span>
+                      <span className="font-bold text-[15px]">{e.name}</span>
                       <span className="text-foreground/50 text-sm"> — {e.domain}</span>
                     </div>
-                    <ArrowRight size={14} className="text-foreground/0 group-hover:text-amber-400 transition-colors shrink-0 self-center" />
-                  </Link>
+                  </div>
                 ))}
               </div>
             </div>
@@ -282,8 +281,8 @@ export default function LandingPage() {
         </div>
 
         <div className="text-center mt-12">
-          <Link href="/app/experts" className="inline-flex items-center gap-2 bg-foreground/8 hover:bg-foreground/12 border border-border font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors">
-            Open all {EXPERTS.length} experts <ArrowRight size={15} />
+          <Link href="/app/create" className="inline-flex items-center gap-2 bg-foreground/8 hover:bg-foreground/12 border border-border font-semibold text-sm px-5 py-2.5 rounded-xl transition-colors">
+            Build a room with them <ArrowRight size={15} />
           </Link>
         </div>
       </section>

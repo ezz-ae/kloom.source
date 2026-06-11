@@ -1,232 +1,134 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+/**
+ * Join a Room — the doors. Every category is a world with its own identity;
+ * this page is the hallway. Click a door → that world's rooms and topics.
+ */
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ROOMS, ROOM_CATEGORY_LABELS, ROOM_CATEGORY_COLORS, type RoomCategory, type Room } from "@/lib/rooms"
+import { ROOMS, type Room } from "@/lib/rooms"
+import { CATEGORY_META, CATEGORY_ORDER, BADGE_LABELS } from "@/lib/category-meta"
 import { listCustomRooms, deleteCustomRoom } from "@/lib/custom-rooms"
-import { getCharacter, scoreRoom, type UserCharacter } from "@/lib/character"
 import { hasUnrestricted } from "@/lib/account"
-import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
-import { ActivitySparkline } from "@/components/ui/sparkline"
-import { Mic, MessageSquare, Zap, ChevronRight, Plus, Trash2, Lock, TrendingUp } from "lucide-react"
-
-const ALL_CATS: Array<"all" | RoomCategory> = ["all", "fantasy", "trading", "workshop", "co-intelligence", "creator", "professional", "social", "romantic", "dark", "philosophy", "zero-memory"]
+import { Plus, Lock, ChevronRight, Trash2, DoorOpen } from "lucide-react"
 
 export default function RoomsPage() {
   const router = useRouter()
-  const [activeCat, setActiveCat] = useState<"all" | RoomCategory>("all")
   const [mine, setMine] = useState<Room[]>([])
   const [unlocked, setUnlocked] = useState(true)
-  const [char, setChar] = useState<UserCharacter | null>(null)
-  useEffect(() => { setMine(listCustomRooms()); setUnlocked(hasUnrestricted()); setChar(getCharacter()) }, [])
-  const removeMine = (id: string) => { deleteCustomRoom(id); setMine(listCustomRooms()) }
+  useEffect(() => { setMine(listCustomRooms()); setUnlocked(hasUnrestricted()) }, [])
 
-  // Reorder by the user's character — preferred categories + interests bubble up.
-  // Stable for ties, so without a profile the original curated order is preserved.
-  const filtered = useMemo(() => {
-    const base = activeCat === "all" ? ROOMS : ROOMS.filter((r) => r.category === activeCat)
-    if (!char) return base
-    return base
-      .map((r, i) => ({ r, i, s: scoreRoom(r, char) }))
-      .sort((a, b) => (b.s - a.s) || (a.i - b.i))
-      .map((x) => x.r)
-  }, [activeCat, char])
+  const removeMine = (id: string) => { deleteCustomRoom(id); setMine(listCustomRooms()) }
 
   return (
     <div className="min-h-full text-foreground">
+      <div className="max-w-6xl mx-auto px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+2rem)] pb-28">
 
-      {/* Header */}
-      <div className="sticky top-0 z-20 glass-strong px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+1.25rem)] pb-5">
-        <div className="max-w-6xl mx-auto">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-3xl font-black tracking-[-0.02em]">Rooms</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Join a dynamic — or build your own. Chat free, calls pay-as-you-go.
-              </p>
-            </div>
-            <button onClick={() => router.push("/app/create")}
-              className="shrink-0 flex items-center gap-1.5 brand-gradient text-stone-950 font-bold text-sm px-4 py-2.5 rounded-full brand-glow hover:scale-[1.03] active:scale-95 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
-              <Plus size={15} /> Build a room
-            </button>
+        {/* Header */}
+        <div className="flex items-end justify-between gap-4 mb-10">
+          <div>
+            <h1 className="text-4xl font-black tracking-[-0.02em]">Join a room.</h1>
+            <p className="text-muted-foreground mt-2">{CATEGORY_ORDER.length} worlds. {ROOMS.length} rooms. Pick a door.</p>
           </div>
-
-          {/* Category filters */}
-          <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide snap-x">
-            {ALL_CATS.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCat(cat)}
-                className={`shrink-0 snap-start px-4 py-2 rounded-full text-xs font-bold border transition-[background-color,color,box-shadow,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  activeCat === cat
-                    ? "brand-gradient text-stone-950 border-transparent shadow-[0_4px_14px_-3px_rgba(251,146,60,0.5)]"
-                    : "bg-white/[0.04] border-white/[0.08] text-muted-foreground hover:bg-white/[0.08] hover:text-foreground"
-                }`}
-              >
-                {cat === "all" ? "All rooms" : ROOM_CATEGORY_LABELS[cat]}
-              </button>
-            ))}
-          </div>
+          <button onClick={() => router.push("/app/create")}
+            className="shrink-0 flex items-center gap-1.5 brand-gradient text-stone-950 font-bold text-sm px-4 py-2.5 rounded-full brand-glow hover:scale-[1.03] active:scale-95 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
+            <Plus size={15} /> Create your own
+          </button>
         </div>
-      </div>
 
-      {/* Your rooms (user-built) */}
-      {mine.length > 0 && activeCat === "all" && (
-        <div className="max-w-6xl mx-auto px-6 lg:px-8 pt-6">
-          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground/35 mb-3">Your rooms</div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-            {mine.map((room) => (
-              <div key={room.id}
-                className={`group relative rounded-3xl overflow-hidden border border-white/[0.07] bg-gradient-to-br ${room.gradient} ring-1 ring-inset ring-white/[0.04] hover:border-amber-400/30 hover:-translate-y-1 hover:shadow-[0_20px_50px_-16px_rgba(0,0,0,0.6)] transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer p-5`}
-                onClick={() => router.push(`/app/rooms/${room.id}`)}>
-                <button onClick={(e) => { e.stopPropagation(); removeMine(room.id) }}
-                  className="absolute top-3 right-3 text-muted-foreground/60 hover:text-red-400 z-10"><Trash2 size={15} /></button>
-                <div className="flex -space-x-3 mb-3">
-                  {room.personas.map((p) => (
-                    <img key={p.name} src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(p.avatarSeed ?? p.name)}`}
-                      alt={p.name} className="w-12 h-12 rounded-xl object-cover ring-2 ring-stone-950 bg-stone-800" />
-                  ))}
-                </div>
-                <div className="font-bold">{room.name}</div>
-                <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{room.tagline}</div>
-                <div className="flex items-center gap-2 mt-3 text-[10px] text-muted-foreground">
-                  <span className={`px-1.5 py-0.5 rounded-full border ${ROOM_CATEGORY_COLORS[room.category]}`}>{ROOM_CATEGORY_LABELS[room.category]}</span>
-                  <span>{room.personas.length} members</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Grid */}
-      <div className="max-w-6xl mx-auto px-6 lg:px-8 py-6 pb-24 lg:pb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 auto-rows-max">
-          {filtered.map((room, index) => {
-            // Each seat → an avatar. Human personas get photos; workshop AI
-            // seats (Claude/Gemini) get a bot avatar via their seed.
-            const seats = room.personas.map((rp) => {
-              const preset = PERSONALITY_PRESETS.find((p) => p.name === rp.name)
-              return {
-                name: rp.name,
-                avatar: preset
-                  ? imageFor(preset)
-                  : `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(rp.avatarSeed ?? rp.name)}`,
-              }
-            })
-
-            const isFeatured = index % 5 === 0 && filtered.length > 5;
-
-            return (
-              <div
-                key={room.id}
-                className={`group relative rounded-3xl overflow-hidden border border-white/[0.07] bg-gradient-to-br ${room.gradient} ring-1 ring-inset ring-white/[0.04] hover:border-amber-400/30 hover:shadow-[0_20px_50px_-16px_rgba(0,0,0,0.6),0_0_0_1px_rgba(251,191,36,0.15)] hover:-translate-y-1 transition-[transform,box-shadow,border-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer flex flex-col justify-between ${
-                  isFeatured ? "md:col-span-2 xl:col-span-2 md:row-span-2" : ""
-                }`}
-                onClick={() => router.push(`/app/rooms/${room.id}`)}
-              >
-                {room.category === "dark" && !unlocked && (
-                  <div className="absolute top-3 right-3 z-10 flex items-center gap-1 bg-rose-500/20 border border-rose-500/40 text-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
-                    <Lock size={10} /> 18+ · $10
-                  </div>
-                )}
-                {/* Sparkline for featured */}
-                {isFeatured && (
-                  <div className="absolute bottom-0 left-0 right-0 z-0 opacity-40 pointer-events-none">
-                    <ActivitySparkline height={120} color={room.category === 'trading' ? '#10b981' : room.category === 'romantic' ? '#f43f5e' : '#a78bfa'} />
-                  </div>
-                )}
-                
-                {/* Header Section */}
-                <div className="relative z-10 flex items-end gap-0 p-5 pb-0">
-                  {seats.map((s, i) => (
-                    <div
-                      key={s.name}
-                      className="relative"
-                      style={{ marginLeft: i > 0 ? "-16px" : 0, zIndex: seats.length - i }}
-                    >
-                      <img
-                        src={s.avatar}
-                        alt={s.name}
-                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-stone-950 bg-stone-800"
-                      />
-                    </div>
-                  ))}
-
-                  {/* Online indicator */}
-                  <div className="ml-auto flex items-center gap-1.5 bg-black/30 backdrop-blur-sm border border-border/50 px-2.5 py-1 rounded-full self-start">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[10px] text-foreground/60">Live</span>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className={`relative z-10 p-5 pt-3 flex flex-col flex-1 ${isFeatured ? 'space-y-4' : 'space-y-3'}`}>
-                  {/* Category + name */}
-                  <div>
-                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border ${ROOM_CATEGORY_COLORS[room.category]}`}>
-                      {ROOM_CATEGORY_LABELS[room.category]}
+        {/* Your rooms */}
+        {mine.length > 0 && (
+          <div className="mb-10">
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Your rooms</h2>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
+              {mine.map((r) => (
+                <div key={r.id}
+                  className={`snap-start shrink-0 w-64 rounded-3xl border border-border/50 bg-gradient-to-br ${r.gradient} p-4 group`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                      {CATEGORY_META[r.category]?.label ?? r.category}
                     </span>
-                    <h3 className={`font-black mt-2 leading-tight ${isFeatured ? 'text-2xl' : 'text-lg'}`}>{room.name}</h3>
-                    <p className={`text-muted-foreground italic mt-0.5 ${isFeatured ? 'text-sm' : 'text-xs'}`}>{room.tagline}</p>
+                    <button onClick={() => removeMine(r.id)}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400 transition-all">
+                      <Trash2 size={13} />
+                    </button>
                   </div>
-
-                  {/* Personas list */}
-                  <div className={`text-muted-foreground space-y-0.5 flex-1 ${isFeatured ? 'text-sm' : 'text-xs'}`}>
-                    {room.personas.map((p) => (
-                      <div key={p.name} className="flex items-center gap-1.5">
-                        <span className="w-1 h-1 rounded-full bg-white/25 shrink-0" />
-                        <span className="font-medium text-foreground/60">{p.name}</span>
-                        <span className="text-muted-foreground/60">— {p.role}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Capabilities chips */}
-                  {room.capabilities.tools.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {room.capabilities.tools.slice(0, 3).map((t) => (
-                        <span
-                          key={t.id}
-                          className="flex items-center gap-1 text-[10px] font-semibold bg-foreground/5 border border-border/50 px-2 py-0.5 rounded-full text-muted-foreground"
-                        >
-                          <span>{t.icon}</span>{t.label}
-                        </span>
-                      ))}
-                      {room.capabilities.tools.length > 3 && (
-                        <span className="text-[10px] text-muted-foreground/60 px-1 py-0.5">
-                          +{room.capabilities.tools.length - 3} more
-                        </span>
-                      )}
+                  <div className="font-black text-base truncate">{r.name}</div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex -space-x-1.5">
+                      {r.personas.slice(0, 4).map((p) => {
+                        const img = imageFor({ name: p.name })
+                        return (
+                          <div key={p.name} className="w-7 h-7 rounded-full border-2 border-background bg-foreground/10 overflow-hidden flex items-center justify-center">
+                            {img ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={img} alt={p.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[10px] font-black">{p.name[0]}</span>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/app/rooms/${room.id}?mode=chat`) }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-xs font-bold text-foreground/70 hover:text-foreground transition-colors duration-200"
-                    >
-                      <MessageSquare size={12} /> Chat
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/app/rooms/${room.id}?mode=voice`) }}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-full brand-gradient text-stone-950 hover:scale-[1.03] active:scale-95 text-xs font-bold shadow-[0_4px_14px_-4px_rgba(251,146,60,0.5)] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
-                    >
-                      <Mic size={12} /> Voice
+                    <button onClick={() => router.push(`/app/rooms/${r.id}`)}
+                      className="flex items-center gap-1 text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors">
+                      Enter <ChevronRight size={13} />
                     </button>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-                {/* Arrow */}
-                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ChevronRight size={16} className="text-muted-foreground" />
+        {/* The doors */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {CATEGORY_ORDER.map((c) => {
+            const m = CATEGORY_META[c]
+            const count = ROOMS.filter((r) => r.category === c).length
+            const locked = m.adult && !unlocked
+            const hero = c === "fantasy"
+            return (
+              <button key={c} onClick={() => router.push(`/app/rooms/c/${c}`)}
+                className={`relative text-left rounded-3xl border border-border/40 overflow-hidden bg-gradient-to-br ${m.gradient} p-6 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.02] hover:border-border hover:ring-1 ${m.glow} active:scale-[0.99] ${hero ? "xl:col-span-2 xl:row-span-1" : ""} ${locked ? "opacity-75" : ""}`}>
+                {/* Watermark emoji */}
+                <span className="absolute -right-4 -bottom-6 text-[7rem] opacity-[0.07] select-none pointer-events-none">{m.emoji}</span>
+
+                <div className="flex items-start justify-between">
+                  <span className="text-4xl">{m.emoji}</span>
+                  {locked && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-rose-300 border border-rose-500/30 bg-rose-500/10 px-2 py-1 rounded-full">
+                      <Lock size={10} /> 18+
+                    </span>
+                  )}
                 </div>
-              </div>
+
+                <div className={`mt-4 font-black tracking-tight ${hero ? "text-2xl" : "text-xl"}`}>{m.label}</div>
+                <div className="text-sm text-muted-foreground mt-1 leading-snug max-w-md">{m.tagline}</div>
+
+                <div className="flex items-center gap-2 mt-5 flex-wrap">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${m.text}`}>
+                    {count} room{count === 1 ? "" : "s"}
+                  </span>
+                  {m.badges.map((b) => (
+                    <span key={b} className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border/50 bg-background/40 ${b === "18+" ? "text-rose-300" : "text-muted-foreground"}`}>
+                      {BADGE_LABELS[b]}
+                    </span>
+                  ))}
+                </div>
+              </button>
             )
           })}
         </div>
+
+        {/* Empty-state hint when no custom rooms */}
+        {mine.length === 0 && (
+          <div className="mt-12 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <DoorOpen size={15} />
+            Or build a room of your own — your cast, your voices, your rules.
+          </div>
+        )}
       </div>
     </div>
   )

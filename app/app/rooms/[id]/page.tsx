@@ -5,7 +5,9 @@ import { toast } from "sonner"
 import Link from "next/link"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { getRoomById, roomInvite, ROOM_CATEGORY_COLORS, ROOM_CATEGORY_LABELS, type RoomPersona, type SeatModel } from "@/lib/rooms"
-import { getCustomRoom } from "@/lib/custom-rooms"
+import { getCustomRoom, importCustomRoom } from "@/lib/custom-rooms"
+import { roomFromLocationHash, buildInviteUrl } from "@/lib/room-share"
+import { findTopic, topicScenePrompt } from "@/lib/topics"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
@@ -17,7 +19,7 @@ import { UnrestrictedUpsell } from "@/components/widgets/UnrestrictedUpsell"
 import { SolanaWalletProvider } from "@/components/solana-wallet-provider"
 import { EXPERTS } from "@/lib/experts"
 import {
-  makeSessionId, inviteUrl, resolveHandle, joinSession, colorFor,
+  makeSessionId, resolveHandle, joinSession, colorFor,
   type Participant, type WireMessage,
 } from "@/lib/room-session"
 import "@solana/wallet-adapter-react-ui/styles.css"
@@ -91,7 +93,17 @@ function RoomContent() {
   const [roomChecked, setRoomChecked] = useState(!!staticRoom)
   useEffect(() => {
     if (staticRoom) return
-    setRoom(getCustomRoom(roomId))
+    let r = getCustomRoom(roomId)
+    // Portable room: a custom room arrives INSIDE its invite link (#r= payload).
+    // Decode it, keep a local copy, and the invitee owns the room from now on.
+    if (!r && roomId.startsWith("u-")) {
+      const shared = roomFromLocationHash()
+      if (shared && shared.id === roomId) {
+        importCustomRoom(shared)
+        r = shared
+      }
+    }
+    setRoom(r)
     setRoomChecked(true)
   }, [roomId, staticRoom])
 
@@ -99,6 +111,15 @@ function RoomContent() {
   const [unrestrictedStatus, setUnrestrictedStatus] = useState(true)
   const [unrestrictedChecked, setUnrestrictedChecked]   = useState(false)
   useEffect(() => { setUnrestrictedStatus(hasUnrestricted()); setUnrestrictedChecked(true) }, [])
+
+  // Topic — the scene this room was entered with (?t=<slug>). Seeds the cast's
+  // context so the conversation opens inside that scene.
+  const topicSlug = search.get("t")
+  const topic = room && topicSlug ? findTopic(roomId, room.category, topicSlug) : undefined
+  const sceneRelationship = topic
+    ? [room?.relationship, topicScenePrompt(topic)].filter(Boolean).join(" ")
+    : room?.relationship
+  const [topicBannerHidden, setTopicBannerHidden] = useState(false)
 
   // DM — a private 1:1 with one room member (opens by clicking their avatar).
   const [dmWith, setDmWith]   = useState<string | null>(null)
@@ -297,7 +318,7 @@ function RoomContent() {
       ? {
           persona:      primaryPersona,
           partners:     partnerPersonas.length > 0 ? partnerPersonas : undefined,
-          relationship: room?.relationship,
+          relationship: sceneRelationship,
           roomName:     room?.name,
           onTranscript: (text, speaker, partnerName) => {
             const msg: ChatMessage = {
@@ -366,7 +387,7 @@ function RoomContent() {
             premium: isSubscribed(),
             unrestricted: hasUnrestricted(),
             roomName: room.name,
-            relationship: room.relationship,
+            relationship: sceneRelationship,
             partners: others,
             messages: running.map((m) => ({
               role:    m.role,
@@ -521,6 +542,10 @@ function RoomContent() {
   const invite      = roomInvite(room)
   const canInvite   = invite.mode !== "none"
   const inviteLocked = !!invite.requiresSub && !isSubscribed()
+  // Portable invite: custom rooms travel inside the link (#r=), topics ride along.
+  const shareUrl = sessionId
+    ? buildInviteUrl({ room, sessionId, topic: topic?.slug })
+    : ""
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -613,6 +638,20 @@ function RoomContent() {
         </div>
       </div>
 
+      {/* ── Topic banner — the scene this room opened with ── */}
+      {topic && !topicBannerHidden && (
+        <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-amber-500/[0.08] border-b border-amber-500/15 text-amber-200/90">
+          <Zap size={12} className="text-amber-400 shrink-0" />
+          <span className="text-xs font-semibold truncate">
+            Tonight: {topic.title}
+          </span>
+          <button onClick={() => setTopicBannerHidden(true)}
+            className="ml-auto text-amber-200/50 hover:text-amber-200 transition-colors shrink-0">
+            <XIcon size={13} />
+          </button>
+        </div>
+      )}
+
       {/* ── Invite modal ── */}
       {inviteOpen && sessionId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setInviteOpen(false)}>
@@ -647,10 +686,10 @@ function RoomContent() {
                 </p>
                 <div className="flex items-center gap-2 bg-foreground/5 border border-border/50 rounded-xl px-3 py-2.5 mb-3">
                   <Link2 size={14} className="text-muted-foreground/60 shrink-0" />
-                  <code className="text-xs text-foreground/70 flex-1 truncate">{inviteUrl(roomId, sessionId)}</code>
+                  <code className="text-xs text-foreground/70 flex-1 truncate">{shareUrl}</code>
                 </div>
                 <button
-                  onClick={() => { navigator.clipboard.writeText(inviteUrl(roomId, sessionId)); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000) }}
+                  onClick={() => { navigator.clipboard.writeText(shareUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2000) }}
                   className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-foreground font-bold py-3 rounded-xl transition-all">
                   {linkCopied ? <><Check size={15} /> Copied!</> : <><Copy size={15} /> Copy invite link</>}
                 </button>

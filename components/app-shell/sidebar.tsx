@@ -5,24 +5,20 @@ import { usePathname } from "next/navigation"
 import { useWallet } from "@solana/wallet-adapter-react"
 import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import {
-  Compass,
+  Home,
   Plus,
   Wallet,
   Settings,
-  Users,
-  GraduationCap,
-  Sparkles,
+  DoorOpen,
   User,
 } from "lucide-react"
 import { useSolCredits } from "@/hooks/use-sol-credits"
 
-const NAV = [
-  { label: "Discover",     href: "/app/discover", icon: Compass },
-  { label: "Rooms",        href: "/app/rooms",    icon: Users,         badge: "New", badgeColor: "bg-emerald-500" },
-  { label: "Build a room", href: "/app/create",   icon: Plus },
-  { label: "Experts",      href: "/app/experts",  icon: GraduationCap, badge: "New", badgeColor: "bg-emerald-500" },
-  { label: "Creator Suite",href: "/app/creator",  icon: Sparkles,      badge: "Hot", badgeColor: "bg-rose-500" },
-  { label: "You",          href: "/app/you",      icon: User },
+const NAV: Array<{ label: string; href: string; icon: typeof Home; badge?: string; badgeColor?: string }> = [
+  { label: "Home",          href: "/app",        icon: Home },
+  { label: "Rooms",         href: "/app/rooms",  icon: DoorOpen },
+  { label: "Create a room", href: "/app/create", icon: Plus },
+  { label: "You",           href: "/app/you",    icon: User },
 ]
 
 function shortenAddress(addr: string) {
@@ -38,7 +34,7 @@ export function Sidebar() {
   return (
     <aside className="glass flex flex-col h-full w-60 border-r border-white/[0.06] py-5 px-3 shrink-0">
       {/* Logo */}
-      <Link href="/app/discover" className="flex items-center gap-2.5 px-2 mb-7 group">
+      <Link href="/app" className="flex items-center gap-2.5 px-2 mb-7 group">
         <div className="w-9 h-9 rounded-2xl brand-gradient flex items-center justify-center brand-glow group-hover:scale-105 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] p-1.5">
           <img src="/kloom-mark.png" alt="Kloom" className="w-full h-full object-contain" />
         </div>

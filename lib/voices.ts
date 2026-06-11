@@ -9,14 +9,14 @@ import { FEMALE_PERSONAS, nameHash } from "@/lib/persona-utils"
 
 // Granular Pools: [Gender, Seriousness, Age]
 const POOLS = {
-  female_serious_mature: ["c1e8cb64140a433da027c21ee81f6ed1", "3dea985a29124f079f9099d54134db23"],
-  female_serious_young:  ["bf7d0567a78e403e99c44bde27a36a9e", "a2dbcf12885442a9b68b34d3f1c83699"],
-  female_casual_mature:  ["e51c3314b71241a892387e6804b45c2c", "6d7ebc02cb674c31a68d7e2a88cf9c9a"],
-  female_casual_young:   ["bdd2d13b32614c3e89e05ae5af0b3c6b", "22f095fe9dea45d4a8eaab9997be4d7a", "6282262063c545a7a78a307b9a1b8a2e"],
-  
-  male_serious_mature:   ["9344dc514b6a47dbb296fea1c0b11312", "047c93388dc54d2a9039bc7906a9cd9f"],
+  female_serious_mature: ["c1e8cb64140a433da027c21ee81f6ed1", "3dea985a29124f079f9099d54134db23", "553b2b3665614ff5aac6620eb2962f80", "1b3ba2dfb2224bd2a0344d7f1e8f8d79"],
+  female_serious_young:  ["bf7d0567a78e403e99c44bde27a36a9e", "a2dbcf12885442a9b68b34d3f1c83699", "d0f16d86f51349d59f69a36d25ea64ae", "378e8db799294f2193747f825a471a1d"],
+  female_casual_mature:  ["e51c3314b71241a892387e6804b45c2c", "6d7ebc02cb674c31a68d7e2a88cf9c9a", "eb5d97bf9f0b414d8809c3197266f280", "bfb3a799c9474c28bea76de34c7a4b9a"],
+  female_casual_young:   ["62815b53043c4be8adc565a2c7a27117", "2e064c4c5f4f4523a69e964c09ef996e", "d0d57d627c044da1ba1f2012a3b15a6a"],
+
+  male_serious_mature:   ["9344dc514b6a47dbb296fea1c0b11312", "047c93388dc54d2a9039bc7906a9cd9f", "949309c754a64dd39f98c61e94828471"],
   male_serious_young:    ["6ac384bc5abd45eca19cdb55b340f346", "14c13e72d4644b0dbd2f147df20f6d80"],
-  male_casual_mature:    ["f82cdc6a72b541fa91b008bfdf329748", "da0ffe0ea4894d4c8d98aa08de8291d7"],
+  male_casual_mature:    ["f82cdc6a72b541fa91b008bfdf329748", "da0ffe0ea4894d4c8d98aa08de8291d7", "5ba5e709d5484462bb634052b8432277"],
   male_casual_young:     ["2d88752727554003b2c42af28d2b9d17", "9757c85bfc1147b9851dda6f7f61b68a"],
 }
 

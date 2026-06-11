@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
-import { isSubscribed } from "@/lib/account"
+import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { mediaDevicesUnavailable } from "@/lib/media"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { BrowserSpeechSegmenter, browserSttSupported } from "@/lib/browser-stt"
@@ -323,10 +323,11 @@ export function useRealtimeVoice({
           headers: { "Content-Type": "application/json" },
           signal: abort.signal,
           body: JSON.stringify({
-            mode:    "voice",            // strict word cap, companion prompt in voice mode
-            persona: self,               // includes category for MCP routing
-            premium: getPremium(),       // unlocks the full-unrestricted model tier
-            partners: others.length > 0 ? others : undefined,
+            mode:         "voice",            // strict word cap, companion prompt in voice mode
+            persona:      self,               // includes category for MCP routing
+            premium:      getPremium(),       // unlocks the full-unrestricted model tier
+            unrestricted: hasUnrestricted(),  // bypasses explicit paywall & adds no-refusal note
+            partners:     others.length > 0 ? others : undefined,
             relationship: others.length > 0 ? relationshipRef.current : undefined,
             messages,
           }),

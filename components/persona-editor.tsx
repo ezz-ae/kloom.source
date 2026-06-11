@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import type { Persona } from "@/hooks/use-realtime-voice"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -696,6 +696,78 @@ const LEADER_OPTIONS: { value: Leader; label: string; hint: string }[] = [
   { value: "switch", label: "Switch", hint: "Read the room" },
 ]
 
+// ── YouTube → Fish Audio voice cloner ────────────────────────────────────────
+function YouTubeCloner({
+  personaName,
+  onCloned,
+}: {
+  personaName: string
+  onCloned: (voiceId: string) => void
+}) {
+  const [ytUrl, setYtUrl] = useState("")
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle")
+  const [message, setMessage] = useState("")
+
+  async function handleClone() {
+    if (!ytUrl.trim()) return
+    setStatus("loading")
+    setMessage("Downloading audio & cloning voice…")
+    try {
+      const res = await fetch("/api/voice-clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: ytUrl.trim(), name: personaName || "Cloned Voice" }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.voiceId) {
+        setStatus("error")
+        setMessage(data.error || "Clone failed")
+        return
+      }
+      onCloned(data.voiceId)
+      setStatus("done")
+      setMessage(`Voice cloned! ID: ${data.voiceId}`)
+      setYtUrl("")
+    } catch (err) {
+      setStatus("error")
+      setMessage(err instanceof Error ? err.message : "Network error")
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+      <Label className="text-xs font-medium">Clone voice from YouTube</Label>
+      <div className="flex gap-2">
+        <Input
+          value={ytUrl}
+          onChange={(e) => { setYtUrl(e.target.value); setStatus("idle"); setMessage("") }}
+          placeholder="https://youtube.com/watch?v=..."
+          className="text-xs"
+          disabled={status === "loading"}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={handleClone}
+          disabled={status === "loading" || !ytUrl.trim()}
+          className="shrink-0"
+        >
+          {status === "loading" ? "Cloning…" : "Clone"}
+        </Button>
+      </div>
+      {message && (
+        <p className={`text-xs ${status === "error" ? "text-destructive" : status === "done" ? "text-green-500" : "text-muted-foreground"}`}>
+          {message}
+        </p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Paste any YouTube link — we extract the voice and create a Fish Audio model. Takes ~30s.
+      </p>
+    </div>
+  )
+}
+
 export function PersonaEditor({ persona, onPersonaChange, title }: PersonaEditorProps) {
   const [open, setOpen] = useState(false)
   const [localPersona, setLocalPersona] = useState(persona)
@@ -1060,7 +1132,7 @@ export function PersonaEditor({ persona, onPersonaChange, title }: PersonaEditor
 
           {/* Fish Audio voice ID */}
           <div className="space-y-2">
-            <Label htmlFor="voiceId">Fish voice ID</Label>
+            <Label htmlFor="voiceId">Voice ID</Label>
             <Input
               id="voiceId"
               value={localPersona.voiceId ?? ""}
@@ -1071,11 +1143,15 @@ export function PersonaEditor({ persona, onPersonaChange, title }: PersonaEditor
               className="font-mono text-xs"
             />
             <p className="text-xs text-muted-foreground">
-              Paste a Fish Audio <code className="font-mono">reference_id</code> to use a specific voice
-              for this persona. Leave blank to use the default from{" "}
-              <code className="font-mono">.env.local</code>.
+              Fish Audio <code className="font-mono">reference_id</code>. Leave blank to auto-assign from the voice pool.
             </p>
           </div>
+
+          {/* Clone voice from YouTube */}
+          <YouTubeCloner
+            personaName={localPersona.name}
+            onCloned={(voiceId) => setLocalPersona({ ...localPersona, voiceId })}
+          />
 
           {/* Warmth Slider */}
           <div className="space-y-3">

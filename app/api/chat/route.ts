@@ -1,3 +1,6 @@
+// RunPod vLLM calls can be slow (cold worker spin-up); don't let Vercel kill us early.
+export const maxDuration = 60
+
 interface Persona {
   name: string
   personality: string

@@ -5,6 +5,7 @@
 // Browser STT fallback is handled client-side when NEXT_PUBLIC_STT_BROWSER=1.
 
 export const runtime = "nodejs"
+export const maxDuration = 60
 
 function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms))

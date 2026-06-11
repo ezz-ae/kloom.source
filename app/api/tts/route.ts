@@ -1,5 +1,8 @@
 import { resolveVoiceId, getFallbackVoiceId } from "@/lib/voices"
 
+// CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
+export const maxDuration = 60
+
 export async function POST(request: Request) {
   const { text, voice, voiceId, personaName, gender } = (await request.json()) as {
     text: string

@@ -17,6 +17,9 @@ import { streamLLM, resolveBackend, BACKEND_LABELS, type Backend, type LLMMessag
 import { analyzeVibe } from "@/lib/vibe"
 import { analyzeIntent, refusalFor } from "@/lib/intent"
 
+// RunPod vLLM + MCP roundtrips can be slow on cold workers.
+export const maxDuration = 60
+
 // Default: the MCP server embedded in this same deployment (/api/mcp).
 // MCP_SERVER_URL overrides for an external server.
 const MCP_URL =

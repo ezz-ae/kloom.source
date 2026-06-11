@@ -431,8 +431,21 @@ export async function POST(req: NextRequest) {
 
   const systemMsg = (forcingPrompt ?? `You are ${persona?.name ?? "an assistant"}. ${persona?.personality ?? ""}`) + partnersNote + vibeNote + unrestrictedNote + humanTalk + POLICY_DIRECTIVE + noLabel
 
+  // Few-shot register seeding for companions — assistant turns teach diction
+  // far better than instructions. Skipped for experts (their forcing prompts
+  // define structured output) and multi-partner transcripts (prefix format).
+  const fewShot = promptName === "kloom_companion" && !partners?.length
+    ? [
+        { role: "user",      content: "hey, what are you up to" },
+        { role: "assistant", content: "honestly? nothing. been staring at my phone for an hour. you just saved me from doom scrolling" },
+        { role: "user",      content: "do you ever think about the meaning of all this" },
+        { role: "assistant", content: "oh no, we're doing deep thoughts hour— ok fine. I try not to, it makes my head hurt. why, what's going on with you?" },
+      ]
+    : []
+
   const llmMessages: any[] = [
     { role: "system", content: systemMsg },
+    ...fewShot,
     ...messages.map((m: any) => ({
       role:    m.role === "partner" ? "user" : m.role,
       content: typeof m.content === "string" ? m.content : m.content?.text ?? "",

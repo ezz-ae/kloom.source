@@ -11,12 +11,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { Room, RoomCategory } from "@/lib/rooms"
 import { decodeRoomPayload, encodeRoomPayload } from "@/lib/room-share"
 
-// Publishable (anon) credentials — safe to ship; RLS limits access to
-// public-room reads + inserts.
-const ROOMS_DB_URL =
-  process.env.NEXT_PUBLIC_ROOMS_SUPABASE_URL || "https://zcglezhtadgwbismlaaf.supabase.co"
-const ROOMS_DB_KEY =
-  process.env.NEXT_PUBLIC_ROOMS_SUPABASE_ANON_KEY || "sb_publishable_VU1uIaY8q5_AVCzNzwhY9g_JBsOf47Q"
+// Same Supabase project as the rest of the app (payments, realtime sessions).
+// The anon key is publishable by design; RLS limits access to public-room
+// reads + inserts.
+const ROOMS_DB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
+const ROOMS_DB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 
 let _client: SupabaseClient | null = null
 function db(): SupabaseClient {

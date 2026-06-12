@@ -11,6 +11,7 @@ import { fetchPublishedRoom } from "@/lib/rooms-db"
 import { findTopic, topicScenePrompt } from "@/lib/topics"
 import { CATEGORY_META } from "@/lib/category-meta"
 import { AdultGate } from "@/components/widgets/AdultGate"
+import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
@@ -150,6 +151,8 @@ function RoomContent() {
   const [chatLoading, setChatLoading] = useState(false)
   const [streamText, setStreamText]   = useState("")
   const [optionValues, setOptionValues] = useState<OptionValues>({})
+  const optionValuesRef = useRef<OptionValues>({})
+  optionValuesRef.current = optionValues
   const [toolLoading, setToolLoading]   = useState<string | null>(null)
   const [toolOutput, setToolOutput]     = useState<Record<string, string>>({})
   const [copied, setCopied]             = useState<string | null>(null)
@@ -190,6 +193,18 @@ function RoomContent() {
       .replace(/\[(CHART|CALC|WALLET|TOKEN_WIZARD|PLAYBOOK|CANVA)[^\]]*\]/g, "")
       .replace(/[*_`#>|]/g, "").replace(/\s+/g, " ").trim().slice(0, 600)
     if (!clean) return
+
+    // ── Haptics — pulse the device in sync with the spoken line ──
+    const ov = optionValuesRef.current
+    const hapticOn = ov.haptic_sync === true || Number(ov.vibration ?? 0) > 0
+    if (hapticOn) {
+      pulseForSpeech({
+        intensity: Number(ov.vibration ?? 0) || 5,
+        pattern: String(ov.vibration_pattern ?? "Follow scene"),
+        durationMs: Math.min(8000, 600 + clean.length * 55), // ~speech length
+      })
+    }
+
     fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: clean, voice, personaName, voiceId, gender }) })
       .then((r) => r.ok ? r.blob() : null)
       .then((blob) => {
@@ -322,6 +337,7 @@ function RoomContent() {
   useEffect(() => {
     return () => {
       if (noticeTimeoutRef.current) window.clearTimeout(noticeTimeoutRef.current)
+      stopHaptics()
     }
   }, [])
 
@@ -1034,16 +1050,29 @@ function RoomContent() {
                       </select>
                     )}
                     {opt.type === "slider" && (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min={opt.min} max={opt.max}
-                          value={Number(optionValues[opt.id] ?? opt.defaultValue)}
-                          onChange={(e) => setOptionValues((prev) => ({ ...prev, [opt.id]: Number(e.target.value) }))}
-                          className="flex-1 accent-amber-500"
-                        />
-                        <span className="text-xs text-foreground/60 w-6 text-right">{optionValues[opt.id] ?? opt.defaultValue}</span>
-                      </div>
+                      <>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="range"
+                            min={opt.min} max={opt.max}
+                            value={Number(optionValues[opt.id] ?? opt.defaultValue)}
+                            onChange={(e) => setOptionValues((prev) => ({ ...prev, [opt.id]: Number(e.target.value) }))}
+                            className="flex-1 accent-amber-500"
+                          />
+                          <span className="text-xs text-foreground/60 w-6 text-right">{optionValues[opt.id] ?? opt.defaultValue}</span>
+                        </div>
+                        {opt.id === "vibration" && (
+                          hapticsSupported() ? (
+                            <button
+                              onClick={() => testBuzz(Number(optionValues[opt.id] ?? opt.defaultValue) || 6)}
+                              className="mt-1.5 text-[10px] font-bold text-amber-400 hover:text-amber-300 transition-colors">
+                              Test vibration
+                            </button>
+                          ) : (
+                            <p className="mt-1.5 text-[10px] text-muted-foreground/60">Vibration isn&apos;t supported on this browser (works on Android Chrome).</p>
+                          )
+                        )}
+                      </>
                     )}
                     {opt.type === "text" && (
                       <input

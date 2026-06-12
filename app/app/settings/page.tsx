@@ -10,7 +10,8 @@ import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
 import { PayPalStatusBadge } from "@/components/widgets/PayPalStatusBadge"
 import { hasUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
-import { activatePass } from "@/lib/pricing"
+import { AuthGate } from "@/components/widgets/AuthGate"
+import { completePassPurchase, hydrateEntitlement } from "@/lib/auth"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
   CreditCard, Wallet, Bell, Shield, Trash2,
@@ -94,11 +95,13 @@ function SettingsContent() {
     }
   }, [params, router])
 
-  // Reveal the inline PayPal card form for a plan (no redirect, no PayPal login).
+  // Reveal the inline account + card form for a plan (no wallet, no redirect).
   const handleSubscribe = (planId: string) => {
-    if (!publicKey) { openWalletModal(true); return }
     setPayPlan((p) => (p === planId ? null : planId))
   }
+
+  // Re-sync any pass owned by the signed-in account on load.
+  useEffect(() => { hydrateEntitlement() }, [])
 
   return (
     <div className="min-h-full bg-background text-foreground">
@@ -231,14 +234,20 @@ function SettingsContent() {
 
                       {payPlan === plan.id && (
                         <div className="mt-4 rounded-2xl border border-border/50 bg-foreground/5 p-4">
-                          <PayPalCheckout
-                            walletAddress={publicKey?.toBase58() ?? ""}
-                            price={plan.price}
-                            credits={0}
-                            kind={plan.id}
-                            label={`${plan.name} pass`}
-                            onSuccess={() => { setSubscribed(true); setUnrestricted(true); activatePass(plan.id as "dayuse" | "holyweek" | "super30"); setSubSuccess(true); setPayPlan(null) }}
-                          />
+                          <AuthGate intent="to get this pass">
+                            <PayPalCheckout
+                              walletAddress={publicKey?.toBase58() ?? ""}
+                              price={plan.price}
+                              credits={0}
+                              kind={plan.id}
+                              label={`${plan.name} pass`}
+                              onSuccess={() => {
+                                setSubscribed(true); setUnrestricted(true)
+                                completePassPurchase(plan.id as "dayuse" | "holyweek" | "super30")
+                                setSubSuccess(true); setPayPlan(null)
+                              }}
+                            />
+                          </AuthGate>
                         </div>
                       )}
                     </div>

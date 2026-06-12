@@ -26,8 +26,11 @@ export const LAUNCH_UNLIMITED =
   (process.env.NEXT_PUBLIC_FREE_UNLIMITED ?? "1") !== "0"
 
 // ── unlimited pass ──
+import { hasActivePass } from "@/lib/pricing"
+
 export function hasUnlimited(): boolean {
   if (LAUNCH_UNLIMITED) return true
+  if (hasActivePass()) return true   // Dayuse / Holyweek / Super30 — unlimited voice
   try { return localStorage.getItem(UNLIMITED_KEY) === "1" } catch { return false }
 }
 export function setUnlimited(on: boolean) {

@@ -454,12 +454,12 @@ function SettingsContent() {
       {/* Top-up modal — $1 → $60 unlimited */}
       {topUpOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setTopUpOpen(false)}>
-          <div className="bg-stone-900 border border-border/50 rounded-3xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-stone-900 border border-border/50 rounded-3xl p-6 max-w-sm w-full max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-bold text-lg flex items-center gap-2"><CreditCard size={18} className="text-amber-400" /> Add voice credit</h3>
+              <h3 className="font-bold text-lg flex items-center gap-2"><CreditCard size={18} className="text-amber-400" /> FlexiCalls &amp; passes</h3>
               <button onClick={() => setTopUpOpen(false)} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
             </div>
-            <p className="text-sm text-foreground/50 mb-5">Slide to choose your minutes — or go unlimited at $60.</p>
+            <p className="text-sm text-foreground/50 mb-5">Slide for minutes — or grab a pass and forget the meter.</p>
             <TopUpSlider onDone={() => setTopUpOpen(false)} />
           </div>
         </div>

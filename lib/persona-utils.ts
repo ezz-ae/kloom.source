@@ -33,13 +33,23 @@ const AURAS: Array<[string, string]> = [
   ["#a78bfa", "#f0abfc"], // lavender → orchid
 ]
 
+import { PORTRAIT_SLUGS } from "@/lib/cast-portraits"
+
+/** Same slug rule as the portrait generation pipeline — keep in sync. */
+export function portraitSlug(name: string): string {
+  return name.toLowerCase().replace(/\(.*?\)/g, "").trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+}
+
 /**
- * Identity portrait — deterministic per name. Deep radial aura in one of the
- * curated duotones, soft ring, serif monogram. Returns an SVG data URI usable
- * directly as <img src>.
+ * Character portrait. Real generated portrait when one exists
+ * (/public/cast/<slug>.jpg); otherwise the deterministic identity card —
+ * deep radial aura in a curated duotone, soft ring, serif monogram —
+ * as an SVG data URI. Both work directly as <img src>.
  */
 export function imageFor(persona: { name: string }): string {
   const name = persona.name || "?"
+  const slug = portraitSlug(name)
+  if (PORTRAIT_SLUGS.has(slug)) return `/cast/${slug}.jpg`
   const h = nameHash(name)
   const [c1, c2] = AURAS[h % AURAS.length]
   // Aura position drifts per identity so cards don't look stamped.

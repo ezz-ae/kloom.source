@@ -287,6 +287,9 @@ function getPromptArgs(persona: any, messages: any[], isVoice: boolean, partners
     user_message:   userText,
     mode:           isVoice ? "voice" : "chat",
     unrestricted:   isUnrestrictedPersona(persona) ? "yes" : "",
+    // Room/scene awareness — without these the character has no idea where it is.
+    room_name:      roomName ?? "",
+    relationship:   relationship ?? "",
   }
 }
 

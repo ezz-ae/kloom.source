@@ -585,7 +585,7 @@ function RoomContent() {
       )}
 
       {/* ── Header ── */}
-      <div className="shrink-0 h-16 bg-background/80 backdrop-blur-md border-b border-border/20 px-4 flex items-center justify-between gap-3 sticky top-0 z-10 shadow-sm">
+      <div className="shrink-0 h-16 bg-background/80 backdrop-blur-md border-b border-border/20 px-3 sm:px-4 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-10 shadow-sm mt-[env(safe-area-inset-top)]">
         <Link href="/app/rooms" className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-foreground/5 transition-colors">
           <ChevronLeft size={20} />
         </Link>
@@ -876,7 +876,7 @@ function RoomContent() {
           </div>
 
           {/* Chat input */}
-          <div className="shrink-0 px-4 py-3 border-t border-border/20 bg-background/50 backdrop-blur-sm">
+          <div className="shrink-0 px-3 sm:px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border/20 bg-background/50 backdrop-blur-sm">
             <div className="flex gap-2 items-end max-w-4xl mx-auto">
               <div className="flex-1 bg-foreground/5 border border-border/50 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/50 focus-within:ring-1 focus-within:ring-amber-500/30 transition-all shadow-inner">
                 <textarea

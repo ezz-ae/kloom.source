@@ -92,15 +92,21 @@ export function resolveVoiceId(name?: string, gender?: string, traits?: { seriou
 
   const hash = nameHash(name || gender || "x")
   const isF = gender === "female" || (gender !== "male" && isFemale(name || ""))
-  const isM = gender === "male" || (gender !== "female" && isMale(name || ""))
+
+  // Default: spread across the FULL gender pool (15 female / 10 male) so every
+  // persona gets a distinct-feeling voice. The tiny trait sub-pools (2-4 voices)
+  // collide hard and made everyone sound the same — only use them when a caller
+  // explicitly asks for a seriousness/age character.
+  const fullPool = isF ? GIRLS : GUYS
+  if (!traits?.seriousness && !traits?.age) {
+    return fullPool[hash % fullPool.length]
+  }
 
   const gen = isF ? 'female' : 'male'
   const ser = traits?.seriousness || (isSerious(name || "") ? 'serious' : 'casual')
   const age = traits?.age || (isMature(name || "") ? 'mature' : 'young')
-
   const poolKey = `${gen}_${ser}_${age}` as keyof typeof POOLS
-  const pool = POOLS[poolKey] || (isF ? GIRLS : GUYS)
-
+  const pool = POOLS[poolKey] || fullPool
   return pool[hash % pool.length]
 }
 

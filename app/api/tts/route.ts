@@ -44,7 +44,11 @@ export async function POST(request: Request) {
   }
 
   // Priority: explicit voiceId on the persona → FISH_VOICE_ID env → pool lookup.
-  let referenceId = voiceId?.trim() || resolveReferenceId(voice) || resolveVoiceId(personaName, gender)
+  // Priority: explicit pinned voiceId → gender+name POOL (varied per persona) →
+  // env default as a last resort. The pool MUST come before resolveReferenceId,
+  // or every persona collapses to the single FISH_VOICE_ID and all voices sound
+  // the same.
+  let referenceId = voiceId?.trim() || resolveVoiceId(personaName, gender) || resolveReferenceId(voice)
 
   let fishResponse: Response | null = null
   let lastErrorText = ""

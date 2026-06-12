@@ -1,5 +1,6 @@
 "use client"
 
+import { usePathname } from "next/navigation"
 import { Sidebar } from "./sidebar"
 import { MobileNav } from "./mobile-nav"
 
@@ -12,6 +13,13 @@ import { MobileNav } from "./mobile-nav"
  * per user. Never do that.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  // Immersive routes (a live room, the create wizard, expert sessions) own the
+  // full viewport — no marketing footer eating phone screen under the chat.
+  const immersive =
+    pathname === "/app/create" ||
+    /^\/app\/rooms\/(?!c\/)[^/]+$/.test(pathname) ||
+    /^\/app\/experts\/[^/]+$/.test(pathname)
   return (
     <div className="h-screen flex bg-background overflow-hidden relative">
       {/* Living ambient backdrop — warm amber/rose blobs drifting behind everything */}
@@ -30,7 +38,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
         
-        {/* Global Branding Footer */}
+        {/* Global Branding Footer — hidden on immersive (full-viewport) routes */}
+        {!immersive && (
         <footer className="w-full border-t border-border/20 py-8 px-6 mt-12 bg-background/50 backdrop-blur-sm shrink-0">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
@@ -48,6 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </footer>
+        )}
       </main>
 
       {/* Bottom nav — mobile only, fixed overlay (self-hides on immersive routes) */}

@@ -568,8 +568,8 @@ function RoomContent() {
           <ChevronLeft size={20} />
         </Link>
 
-        {/* Persona avatars — click to DM that member 1:1 */}
-        <div className="flex items-center">
+        {/* Persona avatars — click to DM that member 1:1 (desktop; phones get the name) */}
+        <div className="hidden sm:flex items-center">
           {roomPersonas.map((rp, i) => (
             <button
               key={rp.name}
@@ -589,15 +589,15 @@ function RoomContent() {
 
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate">{room.name}</div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${ROOM_CATEGORY_COLORS[room.category]}`}>
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${ROOM_CATEGORY_COLORS[room.category]}`}>
               {ROOM_CATEGORY_LABELS[room.category]}
             </span>
-            {/* Backend badges — show which AI powers each seat */}
+            {/* Backend badges — desktop only; on phones they overflow the header */}
             {roomPersonas.map((rp) => {
               const b = BACKEND_BADGE[rp.model ?? "local"]
               return (
-                <span key={rp.name} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${b.cls}`}>
+                <span key={rp.name} className={`hidden md:inline-flex shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${b.cls}`}>
                   {rp.name.split(" ")[0]} · {b.label}
                 </span>
               )
@@ -634,19 +634,24 @@ function RoomContent() {
           </button>
         )}
 
-        {/* Panel tabs */}
-        <div className="flex gap-1 bg-foreground/5 rounded-xl p-1 shadow-inner">
-          {(["chat", "voice", "tools"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActivePanel(tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${
-                activePanel === tab ? "bg-amber-500 text-stone-950 shadow-[0_0_10px_rgba(245,158,11,0.3)]" : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab === "tools" && room.capabilities.tools.length > 0 ? `Tools` : tab}
-            </button>
-          ))}
+        {/* Panel tabs — icon-only on phones, labeled on desktop */}
+        <div className="flex gap-1 bg-foreground/5 rounded-xl p-1 shadow-inner shrink-0">
+          {(["chat", "voice", "tools"] as const).map((tab) => {
+            const Icon = tab === "chat" ? MessageSquare : tab === "voice" ? Phone : Zap
+            return (
+              <button
+                key={tab}
+                onClick={() => setActivePanel(tab)}
+                title={tab}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${
+                  activePanel === tab ? "bg-amber-500 text-stone-950 shadow-[0_0_10px_rgba(245,158,11,0.3)]" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon size={14} />
+                <span className="hidden sm:inline">{tab}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 

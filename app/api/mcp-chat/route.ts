@@ -343,6 +343,26 @@ export async function POST(req: NextRequest) {
     })
   }
 
+  // ── Deterministic tool runs (the room's Tools tab) ──────────────────────
+  // "Use the <tool> tool with these settings: {...}" executes the MCP tool
+  // DIRECTLY — never through the model. Roleplay models can't emit native
+  // tool_calls and will hallucinate plausible-looking output instead; real
+  // data or an honest error are the only acceptable answers here.
+  const toolRun = latestUserText.match(/^Use the ([\w-]+) tool with these settings:\s*(\{[\s\S]*?\})\./)
+  if (toolRun) {
+    const [, toolName, argsJson] = toolRun
+    let args: Record<string, unknown> = {}
+    try { args = JSON.parse(argsJson) } catch { /* run with empty args */ }
+    const output = await mcpCallTool(toolName, args)
+    return new Response(output, {
+      headers: {
+        "Content-Type":  "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-MCP-Tools":   toolName,
+      },
+    })
+  }
+
   // ── Inline unlock moment — a free user asks a NON-unrestricted persona for 
   // explicit or high-risk content. Don't deliver it; notice them it's behind Unrestricted ($10).
   if (!unrestricted && !isUnrestrictedPersona(persona) && EXPLICIT_RE.test(latestUserText)) {

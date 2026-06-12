@@ -10,6 +10,7 @@ import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
 import { PayPalStatusBadge } from "@/components/widgets/PayPalStatusBadge"
 import { hasUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
+import { activatePass } from "@/lib/pricing"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
   CreditCard, Wallet, Bell, Shield, Trash2,
@@ -26,31 +27,31 @@ const TABS: Array<{ id: Tab; label: string; icon: typeof CreditCard }> = [
   { id: "preferences", label: "Preferences",       icon: Bell },
 ]
 
-// Chat is free for everyone. Subscriptions unlock the Creator tools only.
+// Chat is free for everyone. Passes unlock unlimited voice + Unrestricted.
 const PLANS = [
   {
-    id: "unrestricted",
-    name: "Unrestricted",
-    price: 10,
+    id: "dayuse",
+    name: "Dayuse",
+    price: 7.93,
+    period: "24h",
+    features: ["Unlimited voice calls", "Unrestricted — no filters (18+)", "1 invitation", "Full access to every world"],
+    highlight: false,
+  },
+  {
+    id: "holyweek",
+    name: "Holyweek",
+    price: 13.32,
+    period: "7 days",
+    features: ["Unlimited voice calls", "Unrestricted — no filters (18+)", "3 invitations", "Full access to every world"],
+    highlight: false,
+  },
+  {
+    id: "super30",
+    name: "Super30",
+    price: 21,
     period: "mo",
-    features: ["Removes every restriction, platform-wide", "Unlocks the full adult category", "Every character & dark red room", "Consensual adult content, no limits (18+)"],
+    features: ["Unlimited voice calls", "Unrestricted — no filters (18+)", "Unlimited invitations", "Full access to every world"],
     highlight: true,
-  },
-  {
-    id: "creator-basic",
-    name: "Creator Basic",
-    price: 39,
-    period: "mo",
-    features: ["Instagram caption + hashtag tools", "Content ideas generator", "4-week content calendar", "Profile growth planner"],
-    highlight: false,
-  },
-  {
-    id: "creator-pro",
-    name: "Creator Pro",
-    price: 99,
-    period: "mo",
-    features: ["Everything in Creator Basic", "OnlyFans DM writer", "PPV captions", "Brand voice trainer", "Priority support"],
-    highlight: false,
   },
 ]
 
@@ -102,22 +103,22 @@ function SettingsContent() {
   return (
     <div className="min-h-full bg-background text-foreground">
       {/* Header */}
-      <div className="border-b border-border/30 px-8 py-6">
+      <div className="border-b border-border/30 px-5 lg:px-8 py-6">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl font-black tracking-tight">Settings</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your account, billing, and preferences</p>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-8 py-6 flex gap-8">
+      <div className="max-w-4xl mx-auto px-5 lg:px-8 py-6 flex flex-col md:flex-row gap-5 md:gap-8 pb-28">
 
-        {/* Sidebar tabs */}
-        <div className="w-48 shrink-0 space-y-1">
+        {/* Tabs — horizontal scroll strip on phones, sidebar on desktop */}
+        <div className="md:w-48 shrink-0 flex md:flex-col gap-1 overflow-x-auto scrollbar-hide -mx-5 px-5 md:mx-0 md:px-0">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => router.push(`/app/settings?tab=${tab.id}`)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
+              className={`shrink-0 md:w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-left whitespace-nowrap ${
                 activeTab === tab.id
                   ? "bg-foreground/10 text-foreground"
                   : "text-foreground/45 hover:text-foreground hover:bg-foreground/5"
@@ -185,9 +186,9 @@ function SettingsContent() {
 
               {/* Subscription plans — Creator tools (optional) */}
               <div>
-                <h3 className="font-bold mb-1">Creator Suite plans</h3>
-                <p className="text-xs text-muted-foreground mb-4">Optional — only if you want the creator tools. Everything else is free.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <h3 className="font-bold mb-1">Full-access passes</h3>
+                <p className="text-xs text-muted-foreground mb-4">Unlimited voice + Unrestricted, time-boxed. Text chat stays free either way.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {PLANS.map((plan) => (
                     <div
                       key={plan.id}
@@ -225,7 +226,7 @@ function SettingsContent() {
                             : "bg-foreground/8 hover:bg-foreground/12 text-foreground"
                         }`}
                       >
-                        {payPlan === plan.id ? "Close" : "Subscribe"}
+                        {payPlan === plan.id ? "Close" : plan.id === "super30" ? "Subscribe" : "Get the pass"}
                       </button>
 
                       {payPlan === plan.id && (
@@ -235,8 +236,8 @@ function SettingsContent() {
                             price={plan.price}
                             credits={0}
                             kind={plan.id}
-                            label={`${plan.name} — 30-day pass`}
-                            onSuccess={() => { setSubscribed(true); if (plan.id === "unrestricted") setUnrestricted(true); setSubSuccess(true); setPayPlan(null) }}
+                            label={`${plan.name} pass`}
+                            onSuccess={() => { setSubscribed(true); setUnrestricted(true); activatePass(plan.id as "dayuse" | "holyweek" | "super30"); setSubSuccess(true); setPayPlan(null) }}
                           />
                         </div>
                       )}

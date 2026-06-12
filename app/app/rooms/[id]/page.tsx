@@ -9,7 +9,8 @@ import { getCustomRoom, importCustomRoom } from "@/lib/custom-rooms"
 import { roomFromLocationHash, buildInviteUrl } from "@/lib/room-share"
 import { fetchPublishedRoom } from "@/lib/rooms-db"
 import { findTopic, topicScenePrompt } from "@/lib/topics"
-import { CATEGORY_META } from "@/lib/category-meta"
+import { CATEGORY_META, isAdultRoom } from "@/lib/category-meta"
+import { adultEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
@@ -521,6 +522,18 @@ function RoomContent() {
       setToolLoading(null)
     }
   }, [room, toolLoading, optionValues])
+  // Adult rooms don't exist on the .io variant — they live on .fun.
+  if (room && !adultEnabled() && isAdultRoom(room)) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
+        <div className="text-center space-y-3 max-w-sm">
+          <p className="text-muted-foreground">This room lives on Kloom.fun.</p>
+          <a href="https://kloom.fun" className="inline-block text-amber-400 text-sm hover:text-amber-300">Open Kloom.fun →</a>
+          <div><button onClick={() => router.push("/app/rooms")} className="text-muted-foreground text-sm hover:text-foreground">← Back to rooms</button></div>
+        </div>
+      </div>
+    )
+  }
   if (!room) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center">

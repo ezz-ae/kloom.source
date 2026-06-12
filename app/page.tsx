@@ -15,8 +15,8 @@ const PILLARS = [
     icon: Users,
     title: "Worlds & rooms",
     accent: "text-orange-400 bg-orange-500/10 border-orange-500/20",
-    body: "Eleven worlds, each with its own rooms and live topics — the trading floor, fantasy realms, the workshop, after dark. Every door leads somewhere different.",
-    highlight: "11 worlds",
+    body: "Distinct worlds, each with its own rooms and live topics — the trading floor, fantasy realms, the workshop, deep talk. Every door leads somewhere different.",
+    highlight: "Many worlds",
   },
   {
     icon: GraduationCap,
@@ -34,10 +34,10 @@ const PILLARS = [
   },
   {
     icon: Mic,
-    title: "Zero restrictions",
+    title: "The best models",
     accent: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    body: "Open models, no corporate filters. Rooms that go where other platforms won't — with 18+ worlds gated behind Unrestricted.",
-    highlight: "No filters",
+    body: "Claude, Gemini and GPT in the same room — brainstorm, critique, and build with multiple top models working together, alongside fast open-weights for live voice.",
+    highlight: "Claude · Gemini · GPT",
   },
 ]
 

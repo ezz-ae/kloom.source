@@ -6,7 +6,7 @@
  */
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ROOMS, type Room } from "@/lib/rooms"
+import { VISIBLE_ROOMS as ROOMS, type Room } from "@/lib/rooms"
 import { CATEGORY_META, CATEGORY_ORDER, BADGE_LABELS } from "@/lib/category-meta"
 import { listCustomRooms, deleteCustomRoom } from "@/lib/custom-rooms"
 import { hasUnrestricted } from "@/lib/account"

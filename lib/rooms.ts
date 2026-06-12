@@ -714,3 +714,9 @@ export const ROOM_CATEGORY_COLORS: Record<RoomCategory, string> = {
   "co-intelligence": "text-emerald-400 bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]",
   "zero-memory":     "text-stone-300 bg-stone-900 border-white/10",
 }
+
+
+// Rooms visible on this deployment variant — adult rooms are stripped on .io.
+import { isAdultRoom as _isAdultRoom } from "@/lib/category-meta"
+import { adultEnabled as _adultEnabled } from "@/lib/variant"
+export const VISIBLE_ROOMS = ROOMS.filter((r) => _adultEnabled() || !_isAdultRoom(r))

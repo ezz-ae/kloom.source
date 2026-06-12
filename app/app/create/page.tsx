@@ -12,7 +12,7 @@ import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createCustomRoom, getCustomRoom, type BuilderMember, type Gender } from "@/lib/custom-rooms"
 import { publishRoom } from "@/lib/rooms-db"
-import { CATEGORY_META } from "@/lib/category-meta"
+import { CATEGORY_META, CATEGORY_ORDER } from "@/lib/category-meta"
 import { buildInviteUrl } from "@/lib/room-share"
 import { makeSessionId } from "@/lib/room-session"
 import { VOICE_CATALOG, resolveVoiceId, voiceLabelFor } from "@/lib/voices"
@@ -68,7 +68,9 @@ export default function CreateRoomPage() {
         body: JSON.stringify({ mode: "suggest", text: idea.trim() }),
       })
       const data = await res.json()
-      setSuggestions(data.suggestions ?? [])
+      // On .io, drop any adult-world suggestion the architect proposes.
+      const visible = new Set(CATEGORY_ORDER)
+      setSuggestions((data.suggestions ?? []).filter((s: Suggestion) => visible.has(s.category)))
     } catch { setSuggestions([]) }
     finally { setSuggesting(false) }
   }

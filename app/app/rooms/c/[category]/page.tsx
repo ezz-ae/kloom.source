@@ -7,7 +7,8 @@
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
-import { CATEGORY_META, BADGE_LABELS } from "@/lib/category-meta"
+import { CATEGORY_META, BADGE_LABELS, isAdultRoom } from "@/lib/category-meta"
+import { adultEnabled } from "@/lib/variant"
 import { getTopics } from "@/lib/topics"
 import { listCustomRooms, importCustomRoom } from "@/lib/custom-rooms"
 import { fetchCommunityRooms } from "@/lib/rooms-db"
@@ -46,10 +47,14 @@ export default function CategoryPage() {
   }, [category])
 
   useEffect(() => {
-    if (!meta) router.replace("/app/rooms")
+    // Unknown world, or an adult world on the .io variant → bounce home.
+    if (!meta || (meta.adult && !adultEnabled())) router.replace("/app/rooms")
   }, [meta, router])
 
-  const rooms = useMemo(() => ROOMS.filter((r) => r.category === category), [category])
+  const rooms = useMemo(
+    () => ROOMS.filter((r) => r.category === category && (adultEnabled() || !isAdultRoom(r))),
+    [category]
+  )
 
   if (!meta) return null
   const gated = meta.adult && !unlocked

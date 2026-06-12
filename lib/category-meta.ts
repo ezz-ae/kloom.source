@@ -5,6 +5,7 @@
  */
 
 import type { RoomCategory } from "@/lib/rooms"
+import { adultEnabled } from "@/lib/variant"
 
 export interface CategoryMeta {
   id: RoomCategory
@@ -125,9 +126,32 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
 }
 
+// Adult worlds (romantic, dark) only appear on the .fun variant; .io is clean.
 export const CATEGORY_ORDER: RoomCategory[] = (Object.values(CATEGORY_META) as CategoryMeta[])
+  .filter((m) => adultEnabled() || !m.adult)
   .sort((a, b) => a.order - b.order)
   .map((m) => m.id)
+
+/** True for worlds that hold sexual / zero-restriction content (.fun only). */
+export function isAdultCategory(c: RoomCategory): boolean {
+  return !!CATEGORY_META[c]?.adult
+}
+
+/**
+ * True for any room with sexual / zero-restriction content — adult category,
+ * an unrestricted persona, or haptic/vibration options. Used to keep these out
+ * of the .io variant entirely (they live on .fun).
+ */
+export function isAdultRoom(room: {
+  category: RoomCategory
+  personas?: Array<{ unrestricted?: boolean }>
+  capabilities?: { options?: Array<{ id: string }> }
+}): boolean {
+  if (isAdultCategory(room.category)) return true
+  if (room.personas?.some((p) => p.unrestricted)) return true
+  if (room.capabilities?.options?.some((o) => o.id === "haptic_sync" || o.id === "vibration")) return true
+  return false
+}
 
 export const BADGE_LABELS: Record<CategoryMeta["badges"][number], string> = {
   "18+": "18+",

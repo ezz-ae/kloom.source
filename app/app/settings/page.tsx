@@ -33,7 +33,7 @@ const PLANS = [
     name: "Dayuse",
     price: 7.93,
     period: "24h",
-    features: ["Unlimited voice calls", "Unrestricted — no filters (18+)", "1 invitation", "Full access to every world"],
+    features: ["Unlimited voice calls", "All premium models — Claude, Gemini, GPT", "1 invitation", "Full access to every world"],
     highlight: false,
   },
   {
@@ -41,7 +41,7 @@ const PLANS = [
     name: "Holyweek",
     price: 13.32,
     period: "7 days",
-    features: ["Unlimited voice calls", "Unrestricted — no filters (18+)", "3 invitations", "Full access to every world"],
+    features: ["Unlimited voice calls", "All premium models — Claude, Gemini, GPT", "3 invitations", "Full access to every world"],
     highlight: false,
   },
   {
@@ -49,7 +49,7 @@ const PLANS = [
     name: "Super30",
     price: 21,
     period: "mo",
-    features: ["Unlimited voice calls", "Unrestricted — no filters (18+)", "Unlimited invitations", "Full access to every world"],
+    features: ["Unlimited voice calls", "All premium models — Claude, Gemini, GPT", "Unlimited invitations", "Full access to every world"],
     highlight: true,
   },
 ]
@@ -180,7 +180,7 @@ function SettingsContent() {
               {/* Subscription plans — Creator tools (optional) */}
               <div>
                 <h3 className="font-bold mb-1">Full-access passes</h3>
-                <p className="text-xs text-muted-foreground mb-4">Unlimited voice + Unrestricted, time-boxed. Text chat stays free either way.</p>
+                <p className="text-xs text-muted-foreground mb-4">Unlimited voice + every premium model, time-boxed. Text chat stays free either way.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {PLANS.map((plan) => (
                     <div

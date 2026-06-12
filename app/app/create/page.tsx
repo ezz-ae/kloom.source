@@ -288,6 +288,36 @@ function CastStep({ category, members, onAdd, onRemove, onContinue }: {
   const [iRelation, setIRelation] = useState("")
   const [iVibes, setIVibes] = useState<string[]>([])
 
+  // Kloomer — instant character from a name or link
+  const [kloomInput, setKloomInput] = useState("")
+  const [kloomBusy, setKloomBusy]   = useState(false)
+  const [kloomMsg, setKloomMsg]     = useState<{ text: string; ok: boolean } | null>(null)
+
+  const kloomIt = async () => {
+    if (!kloomInput.trim() || members.length >= 4) return
+    setKloomBusy(true); setKloomMsg(null)
+    try {
+      const res = await fetch("/api/kloomer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input: kloomInput.trim() }),
+      })
+      const c = await res.json()
+      if (!res.ok || !c.name) { setKloomMsg({ text: c.error || "Couldn't build that one — try again.", ok: false }); return }
+      onAdd({
+        name: c.name, gender: c.gender, personality: c.personality,
+        speakingStyle: c.speakingStyle, relation: c.relation || c.tagline || "member of the room",
+        voiceId: c.voiceId,
+      })
+      setKloomMsg({ text: c.voiceCloned ? `${c.name} added — voice cloned from the link.` : `${c.name} added to the cast.`, ok: true })
+      setKloomInput("")
+    } catch {
+      setKloomMsg({ text: "Network error — try again.", ok: false })
+    } finally {
+      setKloomBusy(false)
+    }
+  }
+
   const invent = () => {
     if (!iName.trim()) return
     const personality = [iPersonality.trim() || "easygoing, real", iVibes.join(", ")].filter(Boolean).join(". Vibe: ")
@@ -354,6 +384,38 @@ function CastStep({ category, members, onAdd, onRemove, onContinue }: {
       )}
 
       {tab === "invent" && (
+        <div className="space-y-4">
+          {/* Kloomer — instant character from a name or link */}
+          <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-br from-amber-500/[0.08] to-rose-500/[0.05] p-5">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles size={15} className="text-amber-400" />
+              <span className="text-sm font-black">Kloomer</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400/70">Instant clone</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">Type a name, a vibe, or paste a link — get a full character in seconds. A YouTube link clones the voice too.</p>
+            <div className="flex gap-2">
+              <input value={kloomInput} onChange={(e) => { setKloomInput(e.target.value); setKloomMsg(null) }}
+                onKeyDown={(e) => { if (e.key === "Enter") kloomIt() }}
+                placeholder="e.g. a ruthless VC · Cleopatra · a youtube link…"
+                disabled={kloomBusy}
+                className="flex-1 bg-background/50 border border-border/50 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-500/50 transition-all" />
+              <button onClick={kloomIt} disabled={kloomBusy || !kloomInput.trim() || members.length >= 4}
+                className="flex items-center gap-1.5 brand-gradient text-stone-950 font-black text-sm px-4 rounded-xl brand-glow hover:scale-[1.02] active:scale-95 transition-transform disabled:opacity-40 disabled:hover:scale-100">
+                {kloomBusy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {kloomBusy ? "Cloning…" : "Kloom it"}
+              </button>
+            </div>
+            {kloomMsg && (
+              <p className={`text-xs mt-2 ${kloomMsg.ok ? "text-emerald-400" : "text-rose-400"}`}>{kloomMsg.text}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-border/40" />
+            <span className="text-[10px] uppercase tracking-widest text-muted-foreground/50 font-bold">or build by hand</span>
+            <div className="flex-1 h-px bg-border/40" />
+          </div>
+
         <div className="rounded-3xl border border-border/50 bg-foreground/5 p-5 space-y-4">
           <input value={iName} onChange={(e) => setIName(e.target.value)} placeholder="Name"
             className="w-full bg-background/50 border border-border/50 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus:border-amber-500/50 transition-all" />
@@ -386,6 +448,7 @@ function CastStep({ category, members, onAdd, onRemove, onContinue }: {
             className="w-full flex items-center justify-center gap-2 bg-foreground text-background font-bold py-3 rounded-xl hover:bg-foreground/90 transition-all disabled:opacity-40">
             <Plus size={15} /> Add to cast
           </button>
+        </div>
         </div>
       )}
 

@@ -222,7 +222,7 @@ function RoomCard({ room, onEnter, onClone, onDelete, owned }: {
       <div className="flex items-center gap-2 mt-3">
         <div className="flex -space-x-1.5">
           {room.personas.slice(0, 4).map((p) => {
-            const img = imageFor({ name: p.name })
+            const img = imageFor({ name: p.name, photoUrl: p.photoUrl })
             return (
               <div key={`${p.name}-${p.role}`} title={p.name} className="w-6 h-6 rounded-full border-2 border-background bg-foreground/10 overflow-hidden flex items-center justify-center">
                 {img ? (
@@ -233,9 +233,14 @@ function RoomCard({ room, onEnter, onClone, onDelete, owned }: {
             )
           })}
         </div>
-        <span className="text-[10px] text-muted-foreground truncate">
+        <span className="text-[10px] text-muted-foreground truncate flex-1">
           {room.personas.map((p) => p.name.split(" ")[0]).slice(0, 3).join(", ")}
         </span>
+        {typeof (room as Room & { _clones?: number })._clones === "number" && (room as Room & { _clones?: number })._clones! > 0 && (
+          <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground shrink-0">
+            <Copy size={10} /> {(room as Room & { _clones?: number })._clones}
+          </span>
+        )}
       </div>
 
       {/* Actions */}

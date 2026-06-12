@@ -46,7 +46,9 @@ export function portraitSlug(name: string): string {
  * deep radial aura in a curated duotone, soft ring, serif monogram —
  * as an SVG data URI. Both work directly as <img src>.
  */
-export function imageFor(persona: { name: string }): string {
+export function imageFor(persona: { name: string; photoUrl?: string }): string {
+  // An explicit generated photo (Supabase Storage url) always wins.
+  if (persona.photoUrl) return persona.photoUrl
   const name = persona.name || "?"
   const slug = portraitSlug(name)
   if (PORTRAIT_SLUGS.has(slug)) return `/cast/${slug}.jpg`

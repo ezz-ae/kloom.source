@@ -7,7 +7,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation"
 import { getRoomById, roomInvite, ROOM_CATEGORY_COLORS, ROOM_CATEGORY_LABELS, type RoomPersona, type SeatModel } from "@/lib/rooms"
 import { getCustomRoom, importCustomRoom } from "@/lib/custom-rooms"
 import { roomFromLocationHash, buildInviteUrl } from "@/lib/room-share"
-import { fetchPublishedRoom } from "@/lib/rooms-db"
+import { fetchPublishedRoom, bumpRoomEntries } from "@/lib/rooms-db"
 import { findTopic, topicScenePrompt } from "@/lib/topics"
 import { CATEGORY_META, isAdultRoom } from "@/lib/category-meta"
 import { adultEnabled } from "@/lib/variant"
@@ -46,7 +46,7 @@ const BACKEND_BADGE: Record<SeatModel, { label: string; cls: string }> = {
 
 /** Avatar for any room persona — the identity-card system, app-wide. */
 function personaAvatar(rp: RoomPersona): string {
-  return imageFor({ name: rp.avatarSeed ?? rp.name })
+  return imageFor({ name: rp.avatarSeed ?? rp.name, photoUrl: rp.photoUrl })
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -219,6 +219,16 @@ function RoomContent() {
   useEffect(() => {
     if (room) setChatMsgs(loadRoomChats(roomId))
   }, [roomId, room])
+
+  // Count this open as an "entry" — the strongest live signal for trending.
+  // Once per mount, community/custom rooms only.
+  const enteredRef = useRef(false)
+  useEffect(() => {
+    if (room && roomId.startsWith("u-") && !enteredRef.current) {
+      enteredRef.current = true
+      bumpRoomEntries(roomId)
+    }
+  }, [room, roomId])
 
   // Establish a session id (from URL or fresh) so there's always a shareable link
   useEffect(() => {

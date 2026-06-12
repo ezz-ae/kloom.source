@@ -104,7 +104,7 @@ export default function HubPage() {
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex -space-x-1.5">
                       {r.personas.slice(0, 4).map((p) => {
-                        const img = imageFor({ name: p.name })
+                        const img = imageFor({ name: p.name, photoUrl: p.photoUrl })
                         return (
                           <div key={p.name} className="w-7 h-7 rounded-full border-2 border-background bg-foreground/10 overflow-hidden flex items-center justify-center">
                             {img ? (

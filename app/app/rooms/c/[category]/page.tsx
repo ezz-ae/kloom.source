@@ -169,7 +169,7 @@ function RoomCard({ room, category, accentText }: { room: Room; category: RoomCa
       <div className="flex items-center gap-2 mt-4 flex-wrap">
         <div className="flex -space-x-1.5">
           {room.personas.slice(0, 4).map((p) => {
-            const img = imageFor({ name: p.name })
+            const img = imageFor({ name: p.name, photoUrl: p.photoUrl })
             return (
               <div key={`${p.name}-${p.role}`} title={p.name}
                 className="w-8 h-8 rounded-full border-2 border-background bg-foreground/10 overflow-hidden flex items-center justify-center">

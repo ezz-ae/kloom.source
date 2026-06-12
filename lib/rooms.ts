@@ -41,6 +41,7 @@ export interface RoomPersona {
   gender: "female" | "male" | "nonbinary"  // authoritative for voice selection
   avatarSeed?: string  // for dicebear fallback avatar
   unrestricted?: boolean // persona starts in unrestricted mode
+  photoUrl?: string    // generated portrait (Supabase Storage url), preferred over the auto avatar
 }
 
 export interface RoomTool {

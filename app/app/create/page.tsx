@@ -258,14 +258,15 @@ export default function CreateRoomPage() {
                 )}
 
                 {/* Kloomer card — bring anyone in */}
-                <KloomerCard onAdd={addMember} disabled={members.length >= 4} />
+                <KloomerCard onAdd={addMember} world={category ?? ""} disabled={members.length >= 4}
+                  onPhoto={(n, u) => setMembers((prev) => prev.map((m) => (m.name === n ? { ...m, photoUrl: u } : m)))} />
 
                 {/* Cast bar */}
                 <div className="sticky bottom-4 mt-8 rounded-2xl border border-border/60 bg-background/80 backdrop-blur-md p-3.5 flex items-center gap-3">
                   <div className="flex -space-x-2 min-w-0">
                     {members.length === 0 && <span className="text-xs text-muted-foreground px-1">Pick at least one character</span>}
                     {members.map((m, i) => {
-                      const img = imageFor({ name: m.name })
+                      const img = imageFor({ name: m.name, photoUrl: m.photoUrl })
                       return (
                         <div key={`${m.name}-${i}`} className="relative group">
                           <div className="w-10 h-10 rounded-full border-2 border-background bg-foreground/10 overflow-hidden flex items-center justify-center">
@@ -370,7 +371,12 @@ export default function CreateRoomPage() {
 // ════════════════════════════════════════════════════════════════════════════
 // Kloomer — bring anyone in from a name, a description, or a link
 // ════════════════════════════════════════════════════════════════════════════
-function KloomerCard({ onAdd, disabled }: { onAdd: (m: WizMember) => void; disabled: boolean }) {
+function KloomerCard({ onAdd, onPhoto, world, disabled }: {
+  onAdd: (m: WizMember) => void
+  onPhoto: (name: string, url: string) => void
+  world: string
+  disabled: boolean
+}) {
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null)
@@ -386,8 +392,19 @@ function KloomerCard({ onAdd, disabled }: { onAdd: (m: WizMember) => void; disab
       const c = await res.json()
       if (!res.ok || !c.name) { setMsg({ text: c.error || "Couldn't build that — try again.", ok: false }); return }
       onAdd({ name: c.name, gender: c.gender, personality: c.personality, speakingStyle: c.speakingStyle, relation: c.relation || c.tagline || "member of the room", voiceId: c.voiceId })
-      setMsg({ text: c.voiceCloned ? `${c.name} added — voice cloned.` : `${c.name} added.`, ok: true })
+      setMsg({ text: c.voiceCloned ? `${c.name} added — generating photo…` : `${c.name} added — generating photo…`, ok: true })
       setInput("")
+      // Generate a real portrait on demand and patch it onto the character.
+      fetch("/api/character-photo", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: c.name, gender: c.gender, world, description: c.personality }),
+      })
+        .then((r) => r.ok ? r.json() : null)
+        .then((p) => {
+          if (p?.url) { onPhoto(c.name, p.url); setMsg({ text: `${c.name} added — photo ready.`, ok: true }) }
+          else setMsg({ text: `${c.name} added.`, ok: true })
+        })
+        .catch(() => setMsg({ text: `${c.name} added.`, ok: true }))
     } catch { setMsg({ text: "Network error — try again.", ok: false }) }
     finally { setBusy(false) }
   }
@@ -462,7 +479,7 @@ function VoicesStep({ members, onPatch, onContinue }: {
         {members.map((m, i) => {
           const vid = effectiveVoiceId(m)
           const label = voiceLabelFor(vid) ?? (m.voiceId ? "Custom clone" : "Auto")
-          const img = imageFor({ name: m.name })
+          const img = imageFor({ name: m.name, photoUrl: m.photoUrl })
           return (
             <div key={`${m.name}-${i}`} className="rounded-2xl border border-border/60 bg-foreground/[0.02] overflow-hidden">
               <div className="flex items-center gap-3 p-3.5">

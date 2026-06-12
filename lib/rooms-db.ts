@@ -97,9 +97,13 @@ export async function fetchCommunityFeed(opts: {
       p_offset: offset,
     })
     if (error || !data) return { rooms: [], nextOffset: null }
-    const rows = data as { room: Room }[]
+    const rows = data as { room: Room; clones?: number }[]
     const rooms = rows
-      .map((r) => decodeRoomPayload(encodeRoomPayload(r.room)))
+      .map((r) => {
+        const room = decodeRoomPayload(encodeRoomPayload(r.room))
+        if (room) (room as Room & { _clones?: number })._clones = r.clones ?? 0
+        return room
+      })
       .filter((r): r is Room => r !== null)
     const nextOffset = rows.length === limit ? offset + limit : null
     return { rooms, nextOffset }
@@ -111,6 +115,11 @@ export async function fetchCommunityFeed(opts: {
 /** Bump a room's clone counter (fire-and-forget) — feeds the trending rank. */
 export async function bumpRoomClones(id: string): Promise<void> {
   try { await db().rpc("bump_room_clones", { p_id: id }) } catch { /* noop */ }
+}
+
+/** Bump a room's entry (open) counter — the strongest live trending signal. */
+export async function bumpRoomEntries(id: string): Promise<void> {
+  try { await db().rpc("bump_room_entries", { p_id: id }) } catch { /* noop */ }
 }
 
 /** Resolve one published room by id (final fallback for invite links). */

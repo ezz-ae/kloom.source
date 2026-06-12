@@ -68,6 +68,7 @@ export interface BuilderMember {
   speakingStyle?: string   // preset speaking style, carried through when picked
   model?: RoomPersona["model"] // AI seat backend, for multi-model rooms
   unrestricted?: boolean   // persona starts unrestricted (adult categories)
+  photoUrl?: string        // generated portrait (Supabase Storage url)
 }
 
 function read(): Room[] {
@@ -168,6 +169,7 @@ export function createCustomRoom(input: {
     // persona so every call uses the exact same voice — it can never drift.
     voiceId:       m.voiceId?.trim() || resolveVoiceId(m.name, m.gender),
     avatarSeed:    m.name,
+    ...(m.photoUrl ? { photoUrl: m.photoUrl } : {}),
     ...(m.model ? { model: m.model } : {}),
     ...(m.unrestricted ? { unrestricted: true } : {}),
   }))

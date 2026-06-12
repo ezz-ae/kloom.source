@@ -71,6 +71,40 @@ export async function fetchCommunityRooms(category: RoomCategory, limit = 24): P
   }
 }
 
+/**
+ * Paginated community feed — built to scale to millions of rooms. Cursor by
+ * created_at (desc) so deep scroll never gets slower. Optional world filter and
+ * name search. Returns the page of rooms plus the next cursor (null = end).
+ */
+export async function fetchCommunityFeed(opts: {
+  category?: RoomCategory | "all"
+  search?: string
+  limit?: number
+  before?: string | null   // created_at cursor
+}): Promise<{ rooms: Room[]; nextCursor: string | null }> {
+  const limit = opts.limit ?? 24
+  try {
+    let q = db()
+      .from("kloom_rooms")
+      .select("room, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit)
+    if (opts.category && opts.category !== "all") q = q.eq("category", opts.category)
+    if (opts.search?.trim()) q = q.ilike("name", `%${opts.search.trim()}%`)
+    if (opts.before) q = q.lt("created_at", opts.before)
+    const { data, error } = await q
+    if (error || !data) return { rooms: [], nextCursor: null }
+    const rows = data as { room: Room; created_at: string }[]
+    const rooms = rows
+      .map((r) => decodeRoomPayload(encodeRoomPayload(r.room)))
+      .filter((r): r is Room => r !== null)
+    const nextCursor = rows.length === limit ? rows[rows.length - 1].created_at : null
+    return { rooms, nextCursor }
+  } catch {
+    return { rooms: [], nextCursor: null }
+  }
+}
+
 /** Resolve one published room by id (final fallback for invite links). */
 export async function fetchPublishedRoom(id: string): Promise<Room | null> {
   try {

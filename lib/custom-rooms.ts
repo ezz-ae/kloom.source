@@ -114,6 +114,22 @@ export function importCustomRoom(room: Room) {
   write(all)
 }
 
+/**
+ * Clone any room into the user's own editable copy. Deep-copies the room with a
+ * fresh `u-` id (so it's theirs to keep, edit, re-share) and persists it.
+ * Returns the new id.
+ */
+export function cloneRoom(room: Room): string {
+  const id = `u-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`
+  const copy: Room = JSON.parse(JSON.stringify(room))
+  copy.id = id
+  copy.tags = Array.from(new Set([...(copy.tags ?? []), "cloned"]))
+  const all = read()
+  all.unshift(copy)
+  write(all)
+  return id
+}
+
 // Gender → a voice slot so calls sound right (TTS also resolves by name as fallback).
 const VOICE_BY_GENDER: Record<Gender, RoomPersona["voice"]> = {
   female:    "coral",

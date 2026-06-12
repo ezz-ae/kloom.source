@@ -355,17 +355,15 @@ function CastStep({ category, members, onAdd, onRemove, onContinue }: {
 
       {tab === "invent" && (
         <div className="rounded-3xl border border-border/50 bg-foreground/5 p-5 space-y-4">
-          <div className="flex gap-3">
-            <input value={iName} onChange={(e) => setIName(e.target.value)} placeholder="Name"
-              className="flex-1 bg-background/50 border border-border/50 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus:border-amber-500/50 transition-all" />
-            <div className="flex gap-1.5">
-              {GENDERS.map((g) => (
-                <button key={g.id} onClick={() => setIGender(g.id)}
-                  className={`text-xs font-semibold px-3 rounded-xl border transition-all ${iGender === g.id ? "border-amber-500/60 bg-amber-500/10 text-amber-400" : "border-border/50 text-muted-foreground hover:text-foreground"}`}>
-                  {g.label}
-                </button>
-              ))}
-            </div>
+          <input value={iName} onChange={(e) => setIName(e.target.value)} placeholder="Name"
+            className="w-full bg-background/50 border border-border/50 rounded-xl px-3.5 py-2.5 text-sm font-semibold focus:outline-none focus:border-amber-500/50 transition-all" />
+          <div className="grid grid-cols-3 gap-1.5">
+            {GENDERS.map((g) => (
+              <button key={g.id} onClick={() => setIGender(g.id)}
+                className={`text-xs font-semibold py-2.5 rounded-xl border transition-all ${iGender === g.id ? "border-amber-500/60 bg-amber-500/10 text-amber-400" : "border-border/50 text-muted-foreground hover:text-foreground"}`}>
+                {g.label}
+              </button>
+            ))}
           </div>
           <textarea value={iPersonality} onChange={(e) => setIPersonality(e.target.value)} rows={2}
             placeholder="Who are they? Personality, edge, energy…"

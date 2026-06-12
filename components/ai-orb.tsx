@@ -17,6 +17,7 @@ import {
 } from "@/components/persona-editor"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { imageFor as sharedImageFor } from "@/lib/persona-utils"
 import {
   Popover,
   PopoverContent,
@@ -149,9 +150,7 @@ function nameHash(s: string): number {
 }
 
 function imageFor(persona: { name: string }): string {
-  const gender = FEMALE_PERSONAS.has(persona.name) ? "women" : "men"
-  const id = nameHash(persona.name) % 96
-  return `https://randomuser.me/api/portraits/${gender}/${id}.jpg`
+  return sharedImageFor(persona)
 }
 
 // ─── Avatar ─────────────────────────────────────────────────────────────────
@@ -889,10 +888,7 @@ function RoomSlide({ room, onJoin, onCallSolo, onOpenProfile, onPreview, preview
   const listeners = useMemo(() => {
     const count = 16 + (nameHash(room.id + "ln-count") % 20) // 16–35
     return Array.from({ length: count }, (_, i) => {
-      const seed = nameHash(room.id + "L" + i)
-      const gender = (seed >>> 8) % 2 === 0 ? "men" : "women"
-      const id = seed % 96
-      return `https://randomuser.me/api/portraits/${gender}/${id}.jpg`
+      return sharedImageFor({ name: room.id + "L" + i })
     })
   }, [room.id])
   const listenersPerRow = 9

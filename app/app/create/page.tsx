@@ -16,28 +16,13 @@ import { makeSessionId } from "@/lib/room-session"
 import { VOICE_CATALOG, resolveVoiceId, voiceLabelFor, VIBE_TAGS } from "@/lib/voices"
 import { hasUnrestricted } from "@/lib/account"
 import { UnrestrictedUpsell } from "@/components/widgets/UnrestrictedUpsell"
-import { PERSONALITY_PRESETS, type PresetCategory } from "@/components/persona-editor"
+import { castFor } from "@/lib/cast"
 import { imageFor } from "@/lib/persona-utils"
 import type { RoomCategory } from "@/lib/rooms"
 import {
   Plus, X, Lock, ChevronLeft, Check, Copy, Link2, Loader2,
   Play, Youtube, Sparkles, ArrowRight, Volume2, UserPlus, DoorOpen,
 } from "lucide-react"
-
-// ── wizard-category → preset roster mapping ──────────────────────────────────
-const PRESETS_FOR: Record<RoomCategory, PresetCategory[]> = {
-  social:            ["friends", "family"],
-  romantic:          ["romantic", "roleplay"],
-  dark:              ["dark", "roleplay"],
-  fantasy:           ["roleplay"],
-  trading:           ["trading"],
-  workshop:          ["professional", "trading"],
-  creator:           ["professional", "friends"],
-  professional:      ["professional"],
-  philosophy:        ["professional", "friends"],
-  "co-intelligence": ["professional"],
-  "zero-memory":     ["friends", "roleplay", "dark"],
-}
 
 const GENDERS: { id: Gender; label: string }[] = [
   { id: "female", label: "Female" }, { id: "male", label: "Male" }, { id: "nonbinary", label: "Non-binary" },
@@ -290,14 +275,11 @@ function CastStep({ category, members, onAdd, onRemove, onContinue }: {
   const [tab, setTab] = useState<"picks" | "invent">("picks")
   const adultOk = hasUnrestricted()
 
-  const roster = useMemo(() => {
-    const cats = new Set(PRESETS_FOR[category])
-    return PERSONALITY_PRESETS.filter((p) => {
-      if (!cats.has(p.category)) return false
-      if (p.category === "dark" && !adultOk) return false
-      return true
-    })
-  }, [category, adultOk])
+  // Every world has its OWN cast — native characters with locked voices.
+  const roster = useMemo(
+    () => castFor(category).filter((p) => !p.adult || adultOk),
+    [category, adultOk]
+  )
 
   // Invent form
   const [iName, setIName] = useState("")
@@ -311,11 +293,6 @@ function CastStep({ category, members, onAdd, onRemove, onContinue }: {
     const personality = [iPersonality.trim() || "easygoing, real", iVibes.join(", ")].filter(Boolean).join(". Vibe: ")
     onAdd({ name: iName.trim(), gender: iGender, personality, relation: iRelation.trim() || "member of the room" })
     setIName(""); setIPersonality(""); setIRelation(""); setIVibes([])
-  }
-
-  const presetGender = (p: (typeof PERSONALITY_PRESETS)[number]): Gender => {
-    const t = `${p.personality} ${p.backstory ?? ""}`
-    return /\bshe\b/i.test(t) ? "female" : /\bhe\b/i.test(t) ? "male" : "nonbinary"
   }
 
   return (
@@ -339,11 +316,13 @@ function CastStep({ category, members, onAdd, onRemove, onContinue }: {
             const picked = members.some((m) => m.name === p.name)
             const img = imageFor({ name: p.name })
             return (
-              <button key={p.name} disabled={picked || members.length >= 4}
+              <button key={p.id} disabled={picked || members.length >= 4}
                 onClick={() => onAdd({
-                  name: p.name, gender: presetGender(p),
-                  personality: p.personality, relation: "member of the room",
+                  name: p.name, gender: p.gender,
+                  personality: p.personality, relation: p.tagline,
                   speakingStyle: p.speakingStyle, emoji: p.emoji,
+                  voiceId: p.voiceId,
+                  ...(p.adult ? { unrestricted: true } : {}),
                 })}
                 className={`text-left rounded-2xl border p-3 transition-all duration-200 ${picked ? "border-amber-500/60 bg-amber-500/10 opacity-60" : "border-border/50 bg-foreground/5 hover:bg-foreground/10 hover:scale-[1.02]"} disabled:cursor-not-allowed`}>
                 <div className="w-full aspect-square rounded-xl bg-background/60 border border-border/40 overflow-hidden mb-2 flex items-center justify-center">
@@ -358,7 +337,13 @@ function CastStep({ category, members, onAdd, onRemove, onContinue }: {
                   <span className="text-sm font-bold truncate">{p.name}</span>
                   {picked && <Check size={13} className="text-amber-400 shrink-0" />}
                 </div>
-                <div className="text-[10px] text-muted-foreground leading-tight mt-0.5 line-clamp-2">{p.personality}</div>
+                <div className="text-[10px] text-muted-foreground leading-tight mt-0.5 line-clamp-2">{p.tagline}</div>
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {p.vibe.slice(0, 2).map((v) => (
+                    <span key={v} className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-border/40 text-muted-foreground/80">{v}</span>
+                  ))}
+                  {p.adult && <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-300">18+</span>}
+                </div>
               </button>
             )
           })}

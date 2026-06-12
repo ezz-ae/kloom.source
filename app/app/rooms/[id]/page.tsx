@@ -41,12 +41,9 @@ const BACKEND_BADGE: Record<SeatModel, { label: string; cls: string }> = {
   local:   { label: "Kloom",   cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
 }
 
-/** Avatar URL for any room persona — preset photo, or dicebear for workshop seats. */
+/** Avatar for any room persona — the identity-card system, app-wide. */
 function personaAvatar(rp: RoomPersona): string {
-  const preset = PERSONALITY_PRESETS.find((p) => p.name === rp.name)
-  if (preset) return imageFor(preset)
-  const seed = rp.avatarSeed ?? rp.name
-  return `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(seed)}`
+  return imageFor({ name: rp.avatarSeed ?? rp.name })
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -532,7 +529,7 @@ function RoomContent() {
           <div className={`rounded-3xl border border-border/50 bg-gradient-to-br ${room.gradient} p-6`}>
             <div className="flex -space-x-3 mb-4">
               {room.personas.map((p) => (
-                <img key={p.name} src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(p.avatarSeed ?? p.name)}`}
+                <img key={p.name} src={imageFor({ name: p.avatarSeed ?? p.name })}
                   alt={p.name} className="w-14 h-14 rounded-2xl object-cover ring-2 ring-stone-950 bg-stone-800" />
               ))}
             </div>
@@ -797,7 +794,7 @@ function RoomContent() {
                       </div>
                     ) : (
                       <div className="relative shrink-0 mt-0.5">
-                        <img src={rp ? personaAvatar(rp) : `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${msg.speaker}`} alt={msg.speaker ?? ""}
+                        <img src={rp ? personaAvatar(rp) : imageFor({ name: msg.speaker ?? "?" })} alt={msg.speaker ?? ""}
                           className="w-8 h-8 rounded-xl object-cover bg-stone-800 border border-border/50 shadow-sm" />
                       </div>
                     )

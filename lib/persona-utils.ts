@@ -1,4 +1,9 @@
-// Shared persona utilities — used by Discover, Chat, and any future pages
+// Shared persona utilities — identity portraits, name hashing, gender hints.
+//
+// Portraits are generated, not fetched: every character gets a deterministic
+// premium "identity card" — a deep duotone aura + elegant monogram — rendered
+// as an inline SVG data URI. Works in any <img src>, no network, no stock
+// photos, perfectly consistent art direction across the whole app.
 
 export const FEMALE_PERSONAS = new Set<string>([
   "Mistress Vale", "Mia (Submissive)", "Aria (Girlfriend)", "Camila (Stepmom)",
@@ -16,20 +21,59 @@ export function nameHash(s: string): number {
   return h
 }
 
+// Curated duotone auras — dark-luxe pairs that sit well on the app's near-black.
+const AURAS: Array<[string, string]> = [
+  ["#f59e0b", "#fb7185"], // amber → rose (brand)
+  ["#8b5cf6", "#6366f1"], // violet → indigo
+  ["#10b981", "#2dd4bf"], // emerald → teal
+  ["#38bdf8", "#3b82f6"], // sky → blue
+  ["#e879f9", "#ec4899"], // fuchsia → pink
+  ["#f43f5e", "#f97316"], // rose → orange
+  ["#facc15", "#f59e0b"], // gold
+  ["#a78bfa", "#f0abfc"], // lavender → orchid
+]
+
+/**
+ * Identity portrait — deterministic per name. Deep radial aura in one of the
+ * curated duotones, soft ring, serif monogram. Returns an SVG data URI usable
+ * directly as <img src>.
+ */
 export function imageFor(persona: { name: string }): string {
-  const gender = FEMALE_PERSONAS.has(persona.name) ? "women" : "men"
-  const id = nameHash(persona.name) % 96
-  return `https://randomuser.me/api/portraits/${gender}/${id}.jpg`
+  const name = persona.name || "?"
+  const h = nameHash(name)
+  const [c1, c2] = AURAS[h % AURAS.length]
+  // Aura position drifts per identity so cards don't look stamped.
+  const cx = 30 + (h % 41)            // 30–70
+  const cy = 26 + ((h >> 3) % 38)     // 26–63
+  const initial = (name.replace(/^The\s+/i, "").trim()[0] || "?").toUpperCase()
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<defs>
+<radialGradient id="a" cx="${cx}%" cy="${cy}%" r="85%">
+<stop offset="0%" stop-color="${c1}" stop-opacity="0.55"/>
+<stop offset="45%" stop-color="${c2}" stop-opacity="0.22"/>
+<stop offset="100%" stop-color="#121017" stop-opacity="1"/>
+</radialGradient>
+<linearGradient id="b" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0%" stop-color="${c1}"/>
+<stop offset="100%" stop-color="${c2}"/>
+</linearGradient>
+</defs>
+<rect width="200" height="200" fill="#121017"/>
+<rect width="200" height="200" fill="url(#a)"/>
+<circle cx="100" cy="100" r="64" fill="none" stroke="url(#b)" stroke-opacity="0.45" stroke-width="1.5"/>
+<circle cx="100" cy="100" r="74" fill="none" stroke="url(#b)" stroke-opacity="0.15" stroke-width="1"/>
+<text x="100" y="124" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="68" font-weight="700" fill="#f5f3f0" fill-opacity="0.92">${initial}</text>
+</svg>`
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 }
 
 /**
- * Avatar for any room seat by name + optional seed. Returns a photo for human
- * personas, a bot avatar for AI seats not in the preset list (Claude, Gemini,
- * invited experts). Pass `bot: true` to force the bot style.
+ * Avatar for any room seat by name. Same identity-card system everywhere —
+ * model-backed seats (Claude/Gemini) get the same treatment so the room
+ * looks coherent. `bot`/`seed` kept for call-site compatibility.
  */
 export function avatarForName(name: string, opts?: { bot?: boolean; seed?: string }): string {
-  if (opts?.bot) {
-    return `https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(opts.seed ?? name)}`
-  }
-  return imageFor({ name })
+  return imageFor({ name: opts?.seed ?? name })
 }

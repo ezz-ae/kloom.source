@@ -7,6 +7,7 @@ import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { listCustomRooms, deleteCustomRoom } from "@/lib/custom-rooms"
 import { ROOM_CATEGORY_LABELS, ROOM_CATEGORY_COLORS, type Room, type RoomCategory } from "@/lib/rooms"
 import { getCharacter, saveCharacter, type UserCharacter } from "@/lib/character"
+import { imageFor } from "@/lib/persona-utils"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
   Wallet, Plus, Sparkles, Infinity as InfinityIcon, Trash2, ArrowRight,
@@ -134,7 +135,7 @@ export default function YouPage() {
                   <button onClick={() => router.push(`/app/rooms/${r.id}`)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                     <div className="flex -space-x-2 shrink-0">
                       {r.personas.slice(0, 3).map((p) => (
-                        <img key={p.name} src={`https://api.dicebear.com/7.x/bottts-neutral/svg?seed=${encodeURIComponent(p.avatarSeed ?? p.name)}`}
+                        <img key={p.name} src={imageFor({ name: p.avatarSeed ?? p.name })}
                           alt={p.name} className="w-8 h-8 rounded-lg ring-2 ring-card bg-stone-800" />
                       ))}
                     </div>

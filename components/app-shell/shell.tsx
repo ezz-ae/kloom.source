@@ -47,10 +47,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="font-bold text-sm tracking-widest uppercase text-foreground/80">KLOOM.AI</span>
             </div>
             <div className="flex items-center gap-6 text-xs text-muted-foreground font-medium">
-              <a href="#" className="hover:text-amber-400 transition-colors">Twitter</a>
-              <a href="#" className="hover:text-amber-400 transition-colors">Discord</a>
-              <a href="#" className="hover:text-amber-400 transition-colors">Terms</a>
-              <a href="#" className="hover:text-amber-400 transition-colors">Privacy</a>
+              <a href="/legal/terms" className="hover:text-amber-400 transition-colors">Terms</a>
+              <a href="/legal/privacy" className="hover:text-amber-400 transition-colors">Privacy</a>
+              <a href="/legal/cookies" className="hover:text-amber-400 transition-colors">Cookies</a>
+              <a href="/legal/payments" className="hover:text-amber-400 transition-colors">Payments</a>
             </div>
             <div className="text-[10px] text-muted-foreground/50">
               © 2026 Kloom.ai. All rights reserved.

@@ -10,6 +10,7 @@ import { roomFromLocationHash, buildInviteUrl } from "@/lib/room-share"
 import { fetchPublishedRoom } from "@/lib/rooms-db"
 import { findTopic, topicScenePrompt } from "@/lib/topics"
 import { CATEGORY_META } from "@/lib/category-meta"
+import { AdultGate } from "@/components/widgets/AdultGate"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
@@ -561,6 +562,11 @@ function RoomContent() {
 
   return (
     <div className={`h-screen flex flex-col bg-background bg-gradient-to-br ${CATEGORY_META[room.category]?.gradient ?? ""} text-foreground overflow-hidden`}>
+
+      {/* ── 18+ assurance — adult worlds only, once per device ── */}
+      {CATEGORY_META[room.category]?.adult && (
+        <AdultGate worldLabel={CATEGORY_META[room.category].label} />
+      )}
 
       {/* ── Header ── */}
       <div className="shrink-0 h-16 bg-background/80 backdrop-blur-md border-b border-border/20 px-4 flex items-center justify-between gap-3 sticky top-0 z-10 shadow-sm">

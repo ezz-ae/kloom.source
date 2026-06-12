@@ -12,21 +12,28 @@ import { VISIBLE_ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
 import { CATEGORY_META, CATEGORY_ORDER, isAdultRoom } from "@/lib/category-meta"
 import { adultEnabled } from "@/lib/variant"
 import { listCustomRooms, deleteCustomRoom, cloneRoom } from "@/lib/custom-rooms"
-import { fetchCommunityFeed } from "@/lib/rooms-db"
+import { fetchCommunityFeed, bumpRoomClones, type FeedSort } from "@/lib/rooms-db"
 import { imageFor } from "@/lib/persona-utils"
-import { Plus, Search, Copy, ArrowRight, Trash2, Loader2, Check } from "lucide-react"
+import { Plus, Search, Copy, ArrowRight, Trash2, Loader2, Check, Flame, Clock, TrendingUp } from "lucide-react"
 
 type Filter = "all" | RoomCategory
+
+const SORTS: { id: FeedSort; label: string; icon: typeof Flame }[] = [
+  { id: "trending",    label: "Trending",    icon: Flame },
+  { id: "newest",      label: "Newest",      icon: Clock },
+  { id: "most_cloned", label: "Most cloned", icon: TrendingUp },
+]
 
 export default function RoomsPage() {
   const router = useRouter()
   const [query, setQuery] = useState("")
   const [debounced, setDebounced] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
+  const [sort, setSort] = useState<FeedSort>("trending")
   const [mine, setMine] = useState<Room[]>([])
 
   const [feed, setFeed] = useState<Room[]>([])
-  const [cursor, setCursor] = useState<string | null>(null)
+  const [offset, setOffset] = useState<number | null>(0)
   const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(true)
   const seen = useRef<Set<string>>(new Set())
@@ -47,19 +54,19 @@ export default function RoomsPage() {
     return true
   })
 
-  // (Re)load the first community page whenever filter or search changes.
+  // (Re)load the first community page whenever filter, search or sort changes.
   const reload = useCallback(async () => {
     setLoading(true)
     seen.current = new Set(curated.map((r) => r.id))
-    const { rooms, nextCursor } = await fetchCommunityFeed({ category: filter, search: debounced, limit: 24 })
+    const { rooms, nextOffset } = await fetchCommunityFeed({ category: filter, search: debounced, sort, limit: 24, offset: 0 })
     const fresh = rooms.filter((r) => !seen.current.has(r.id) && (adultEnabled() || !isAdultRoom(r)))
     fresh.forEach((r) => seen.current.add(r.id))
     setFeed(fresh)
-    setCursor(nextCursor)
-    setHasMore(!!nextCursor)
+    setOffset(nextOffset)
+    setHasMore(nextOffset !== null)
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, debounced])
+  }, [filter, debounced, sort])
 
   useEffect(() => { reload() }, [reload])
 
@@ -70,19 +77,19 @@ export default function RoomsPage() {
     if (!sentinel.current || !hasMore) return
     const el = sentinel.current
     const io = new IntersectionObserver(async (entries) => {
-      if (!entries[0].isIntersecting || loadingMore.current || !cursor) return
+      if (!entries[0].isIntersecting || loadingMore.current || offset === null) return
       loadingMore.current = true
-      const { rooms, nextCursor } = await fetchCommunityFeed({ category: filter, search: debounced, limit: 24, before: cursor })
+      const { rooms, nextOffset } = await fetchCommunityFeed({ category: filter, search: debounced, sort, limit: 24, offset })
       const fresh = rooms.filter((r) => !seen.current.has(r.id) && (adultEnabled() || !isAdultRoom(r)))
       fresh.forEach((r) => seen.current.add(r.id))
       setFeed((prev) => [...prev, ...fresh])
-      setCursor(nextCursor)
-      setHasMore(!!nextCursor)
+      setOffset(nextOffset)
+      setHasMore(nextOffset !== null)
       loadingMore.current = false
     }, { rootMargin: "600px" })
     io.observe(el)
     return () => io.disconnect()
-  }, [cursor, hasMore, filter, debounced])
+  }, [offset, hasMore, filter, debounced, sort])
 
   const all = [...curated, ...feed]
 
@@ -108,6 +115,19 @@ export default function RoomsPage() {
           <input value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search rooms…"
             className="w-full bg-foreground/[0.03] border border-border/60 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:border-foreground/30 transition-colors" />
+        </div>
+
+        {/* Sort tabs */}
+        <div className="flex gap-1 mb-3">
+          {SORTS.map((s) => {
+            const active = sort === s.id
+            return (
+              <button key={s.id} onClick={() => setSort(s.id)}
+                className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all ${active ? "bg-foreground/10 text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                <s.icon size={13} /> {s.label}
+              </button>
+            )
+          })}
         </div>
 
         {/* Filter chips */}
@@ -157,7 +177,7 @@ export default function RoomsPage() {
               {all.map((r) => (
                 <RoomCard key={r.id} room={r}
                   onEnter={() => router.push(`/app/rooms/${r.id}`)}
-                  onClone={() => { const id = cloneRoom(r); router.push(`/app/rooms/${id}`) }} />
+                  onClone={() => { bumpRoomClones(r.id); const id = cloneRoom(r); router.push(`/app/rooms/${id}`) }} />
               ))}
             </div>
             {hasMore && (

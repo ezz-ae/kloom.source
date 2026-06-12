@@ -71,38 +71,46 @@ export async function fetchCommunityRooms(category: RoomCategory, limit = 24): P
   }
 }
 
+export type FeedSort = "trending" | "newest" | "most_cloned"
+
 /**
- * Paginated community feed — built to scale to millions of rooms. Cursor by
- * created_at (desc) so deep scroll never gets slower. Optional world filter and
- * name search. Returns the page of rooms plus the next cursor (null = end).
+ * Ranked, paginated community feed — built to scale. Sorts: trending (clones
+ * decayed by age), newest, most_cloned. Optional world filter + name search.
+ * Returns the page plus the next offset (null = end). Ranking lives in the
+ * community_feed Postgres RPC so trending is computed server-side.
  */
 export async function fetchCommunityFeed(opts: {
   category?: RoomCategory | "all"
   search?: string
+  sort?: FeedSort
   limit?: number
-  before?: string | null   // created_at cursor
-}): Promise<{ rooms: Room[]; nextCursor: string | null }> {
+  offset?: number
+}): Promise<{ rooms: Room[]; nextOffset: number | null }> {
   const limit = opts.limit ?? 24
+  const offset = opts.offset ?? 0
   try {
-    let q = db()
-      .from("kloom_rooms")
-      .select("room, created_at")
-      .order("created_at", { ascending: false })
-      .limit(limit)
-    if (opts.category && opts.category !== "all") q = q.eq("category", opts.category)
-    if (opts.search?.trim()) q = q.ilike("name", `%${opts.search.trim()}%`)
-    if (opts.before) q = q.lt("created_at", opts.before)
-    const { data, error } = await q
-    if (error || !data) return { rooms: [], nextCursor: null }
-    const rows = data as { room: Room; created_at: string }[]
+    const { data, error } = await db().rpc("community_feed", {
+      p_category: opts.category && opts.category !== "all" ? opts.category : null,
+      p_search: opts.search?.trim() || null,
+      p_sort: opts.sort ?? "trending",
+      p_limit: limit,
+      p_offset: offset,
+    })
+    if (error || !data) return { rooms: [], nextOffset: null }
+    const rows = data as { room: Room }[]
     const rooms = rows
       .map((r) => decodeRoomPayload(encodeRoomPayload(r.room)))
       .filter((r): r is Room => r !== null)
-    const nextCursor = rows.length === limit ? rows[rows.length - 1].created_at : null
-    return { rooms, nextCursor }
+    const nextOffset = rows.length === limit ? offset + limit : null
+    return { rooms, nextOffset }
   } catch {
-    return { rooms: [], nextCursor: null }
+    return { rooms: [], nextOffset: null }
   }
+}
+
+/** Bump a room's clone counter (fire-and-forget) — feeds the trending rank. */
+export async function bumpRoomClones(id: string): Promise<void> {
+  try { await db().rpc("bump_room_clones", { p_id: id }) } catch { /* noop */ }
 }
 
 /** Resolve one published room by id (final fallback for invite links). */

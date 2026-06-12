@@ -43,9 +43,9 @@ const PILLARS = [
 
 // ── How it works ──────────────────────────────────────────────────────────────
 const STEPS = [
-  { n: "01", title: "Pick a world", body: "Trading floor, fantasy realm, after dark, the workshop — every world has its own rooms, rules and cast." },
+  { n: "01", title: "Pick a world", body: "Trading floor, fantasy realm, deep talk, the workshop — every world has its own rooms, rules and cast." },
   { n: "02", title: "Build the cast & voices", body: "Choose characters or invent them, give each one a real voice — or clone a voice from any YouTube video." },
-  { n: "03", title: "Open the doors", body: "Send one link and friends walk straight in. Voice or text, live tools, zero restrictions." },
+  { n: "03", title: "Open the doors", body: "Send one link and friends walk straight in. Voice or text, live tools, the best models." },
 ]
 
 export default function LandingPage() {
@@ -86,7 +86,7 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-3xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-2 bg-foreground/5 border border-border rounded-full px-4 py-1.5 text-xs font-medium text-foreground/70">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Claude · Gemini · GPT · 100+ characters · free & unrestricted
+            Claude · Gemini · GPT · 100+ characters · free to chat
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-[1.05]">
@@ -100,7 +100,7 @@ export default function LandingPage() {
           <p className="text-lg sm:text-xl text-foreground/60 max-w-xl mx-auto leading-relaxed">
             Build a cast of AI characters with real voices — or clone any voice from YouTube.
             Drop friends into the same room with one link. Voice and chat, live,
-            across <span className="text-foreground">11 worlds</span> from the trading floor to after dark.
+            across <span className="text-foreground">distinct worlds</span> from the trading floor to deep talk.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-center pt-2">
@@ -111,7 +111,7 @@ export default function LandingPage() {
               See the rooms
             </Link>
           </div>
-          <p className="text-xs text-foreground/35">Real, free & unrestricted · no email · full privacy · pay only for voice</p>
+          <p className="text-xs text-foreground/35">Premium models · no email to chat · full privacy · pay only for voice</p>
         </div>
       </section>
 
@@ -156,9 +156,9 @@ export default function LandingPage() {
         </div>
 
         <p className="text-center text-foreground/60 text-lg leading-relaxed max-w-2xl mx-auto mt-10">
-          Invite your partner or a friend for a next-level multi-character AI voice chat — over{" "}
-          <span className="text-foreground font-semibold">100 different characters</span> across professional,
-          lifestyle, crypto trading, or secret <span className="text-rose-300">dark red rooms</span>.
+          Invite a partner, a co-founder or a friend into a next-level multi-character AI voice room — over{" "}
+          <span className="text-foreground font-semibold">100 different characters</span> across the trading floor,
+          the workshop, deep talk and <span className="text-foreground">community-built worlds</span>.
         </p>
         <div className="flex justify-center mt-7">
           <Link href="/app/rooms" className="inline-flex items-center gap-2 bg-foreground text-background font-bold px-8 py-4 rounded-2xl hover:bg-foreground/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-base">
@@ -287,20 +287,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Real · Free · Unrestricted band ── */}
+      {/* ── Many minds band ── */}
       <section className="max-w-4xl mx-auto px-6 py-20">
-        <div className="rounded-[2rem] border border-border bg-gradient-to-br from-stone-900 via-stone-950 to-rose-950/30 p-10 sm:p-14 text-center">
+        <div className="rounded-[2rem] border border-border bg-gradient-to-br from-stone-900 via-stone-950 to-amber-950/20 p-10 sm:p-14 text-center">
           <div className="inline-flex items-center gap-2 bg-foreground/5 border border-border rounded-full px-3 py-1 text-xs font-bold text-foreground/70 mb-6">
             <EyeOff size={12} /> Full privacy · nothing logged to your name
           </div>
           <h2 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.05]">
-            It's real, free,
+            Many minds,
             <br />
-            <span className="bg-gradient-to-r from-rose-400 via-orange-300 to-amber-400 bg-clip-text text-transparent">and unrestricted.</span>
+            <span className="bg-gradient-to-r from-amber-400 via-orange-300 to-emerald-400 bg-clip-text text-transparent">one room.</span>
           </h2>
           <p className="text-foreground/55 text-lg sm:text-xl mt-6 max-w-xl mx-auto leading-relaxed">
-            A new level of AI freedom — no lectures, no refusals, no hand-holding.
-            Your wallet is your only identity, so what happens here stays yours.
+            Claude, Gemini and GPT think out loud together — and community-built rooms mean
+            the best creations are always one click away. What you build here stays yours.
           </p>
         </div>
       </section>
@@ -355,11 +355,11 @@ export default function LandingPage() {
                 <div className="text-xs text-foreground/50 mt-0.5">First 5 min free · then by the minute · or $60 unlimited</div>
               </div>
             </div>
-            <div className="flex items-start gap-2.5 bg-rose-500/[0.07] border border-rose-500/25 rounded-2xl p-4">
-              <Flame size={16} className="text-rose-400 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2.5 bg-amber-500/[0.07] border border-amber-500/25 rounded-2xl p-4">
+              <Sparkles size={16} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <div className="font-bold text-sm flex items-center gap-1.5">Unrestricted <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30">$10/mo</span></div>
-                <div className="text-xs text-foreground/50 mt-0.5">Removes every restriction platform-wide &amp; unlocks the full adult category · 18+</div>
+                <div className="font-bold text-sm flex items-center gap-1.5">Full access <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30">from $7.93</span></div>
+                <div className="text-xs text-foreground/50 mt-0.5">Unlimited voice + every premium model · day, week or month passes</div>
               </div>
             </div>
           </div>
@@ -385,7 +385,7 @@ export default function LandingPage() {
           <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500" />
           <span className="font-bold text-foreground/50">Kloom</span>
         </div>
-        <p>Multi-AI voice rooms · 11 worlds · zero restrictions</p>
+        <p>Multi-AI voice rooms · Claude · Gemini · GPT · community-built</p>
         <p>© 2026 Kloom</p>
       </footer>
     </div>

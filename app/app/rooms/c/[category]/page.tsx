@@ -41,7 +41,8 @@ export default function CategoryPage() {
     fetchCommunityRooms(category).then((rooms) => {
       if (cancelled) return
       const localIds = new Set(local.map((r) => r.id))
-      setCommunity(rooms.filter((r) => !localIds.has(r.id)))
+      // On .io, never surface an adult community room (they belong to .fun).
+      setCommunity(rooms.filter((r) => !localIds.has(r.id) && (adultEnabled() || !isAdultRoom(r))))
     })
     return () => { cancelled = true }
   }, [category])

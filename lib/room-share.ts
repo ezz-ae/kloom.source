@@ -71,13 +71,16 @@ export function roomFromLocationHash(): Room | null {
  * Built-ins share by id; custom rooms carry themselves in the fragment.
  * Optional topic + guest name personalize the landing.
  */
+export const FUN_ORIGIN = "https://kloom.fun"
+
 export function buildInviteUrl(opts: {
   room: Room
   sessionId: string
   topic?: string      // topic slug
   guestName?: string
+  origin?: string     // force a host (e.g. kloom.fun for adult rooms on .io)
 }): string {
-  const origin = typeof window !== "undefined" ? window.location.origin : ""
+  const origin = opts.origin ?? (typeof window !== "undefined" ? window.location.origin : "")
   const params = new URLSearchParams({ session: opts.sessionId })
   if (opts.topic) params.set("t", opts.topic)
   if (opts.guestName) params.set("name", opts.guestName)

@@ -7,7 +7,7 @@ import './globals.css'
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://untitled-chat-2-eight.vercel.app"
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://kloom.io"
 const TITLE = "Kloom — Every conversation is a room"
 const DESC =
   "Build a cast of AI characters with real voices, or clone any voice from a video. Drop friends into the same room with one link — voice and chat, live, across 11 worlds from the trading floor to after dark."

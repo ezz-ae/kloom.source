@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next"
 import { CATEGORY_ORDER } from "@/lib/category-meta"
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://untitled-chat-2-eight.vercel.app"
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://kloom.io"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages = [

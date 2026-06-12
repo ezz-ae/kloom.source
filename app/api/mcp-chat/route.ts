@@ -24,12 +24,16 @@ export const maxDuration = 60
 // MCP_SERVER_URL overrides for an external server. Prefer the public app URL —
 // VERCEL_URL is the deployment-specific host, which Vercel's deployment
 // protection answers with 401 for server-to-server calls.
-const MCP_URL =
-  process.env.MCP_SERVER_URL ||
-  `${
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
-  }/api/mcp`
+// The embedded MCP server lives in this same deployment. Resolve its URL from
+// the INCOMING REQUEST's origin so internal calls always hit the exact host the
+// user is on (kloom.io, the vercel.app alias, or localhost) — never an
+// unreachable canonical domain or a deployment-protected preview host.
+// MCP_SERVER_URL overrides for an external server.
+function mcpUrlFor(req: Request): string {
+  if (process.env.MCP_SERVER_URL) return process.env.MCP_SERVER_URL
+  try { return `${new URL(req.url).origin}/api/mcp` } catch { /* fall through */ }
+  return `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/mcp`
+}
 const LLM_URL  = (process.env.LLM_BASE_URL  || "http://localhost:11434/v1").replace(/\/$/, "")
 const LLM_KEY  = process.env.LLM_API_KEY    || "local"
 const LLM_MODEL = process.env.LLM_MODEL     || "llama3.2:latest"
@@ -179,8 +183,8 @@ function dedupeSentences(parts: string[]): string[] {
 
 // ── MCP Client helpers ───────────────────────────────────────────────────────
 
-async function mcpCall(method: string, params: Record<string, unknown>) {
-  const res = await fetch(MCP_URL, {
+async function mcpCall(base: string, method: string, params: Record<string, unknown>) {
+  const res = await fetch(base, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" },
     body:    JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
@@ -192,25 +196,25 @@ async function mcpCall(method: string, params: Record<string, unknown>) {
   return data.result
 }
 
-async function mcpListTools(): Promise<any[]> {
+async function mcpListTools(base: string): Promise<any[]> {
   try {
-    const result = await mcpCall("tools/list", {})
+    const result = await mcpCall(base, "tools/list", {})
     return result?.tools ?? []
   } catch { return [] }
 }
 
-async function mcpCallTool(name: string, args: Record<string, unknown>): Promise<string> {
+async function mcpCallTool(base: string, name: string, args: Record<string, unknown>): Promise<string> {
   try {
-    const result = await mcpCall("tools/call", { name, arguments: args })
+    const result = await mcpCall(base, "tools/call", { name, arguments: args })
     return result?.content?.[0]?.text ?? JSON.stringify(result)
   } catch (err) {
     return `Tool ${name} failed: ${(err as Error).message}`
   }
 }
 
-async function mcpGetPrompt(name: string, args: Record<string, unknown>): Promise<string | null> {
+async function mcpGetPrompt(base: string, name: string, args: Record<string, unknown>): Promise<string | null> {
   try {
-    const result = await mcpCall("prompts/get", { name, arguments: args })
+    const result = await mcpCall(base, "prompts/get", { name, arguments: args })
     return result?.messages?.[0]?.content?.text ?? null
   } catch { return null }
 }
@@ -327,6 +331,7 @@ function mcpToolToLLMTool(t: any) {
 export async function POST(req: NextRequest) {
   const { persona, messages, mode = "chat", partners, roomName, relationship, premium, unrestricted } = await req.json()
   const isVoice = mode === "voice"
+  const mcpBase = mcpUrlFor(req)   // same-deployment MCP server, request-origin derived
 
   // ── Intent gate — default-open, intent-gated (lib/intent.ts) ──
   // Only exploitation + operational-harm ever block, on every tier. Everything
@@ -356,7 +361,7 @@ export async function POST(req: NextRequest) {
     const [, toolName, argsJson] = toolRun
     let args: Record<string, unknown> = {}
     try { args = JSON.parse(argsJson) } catch { /* run with empty args */ }
-    const output = await mcpCallTool(toolName, args)
+    const output = await mcpCallTool(mcpBase, toolName, args)
     return new Response(output, {
       headers: {
         "Content-Type":  "text/plain; charset=utf-8",
@@ -393,10 +398,10 @@ export async function POST(req: NextRequest) {
     unrestricted: unrestricted ? "yes" : "",
     vibe_tags: Array.isArray(vibe_tags) ? vibe_tags.join(", ") : (vibe_tags ?? ""),
   }
-  const forcingPrompt = await mcpGetPrompt(promptName, promptArgs)
+  const forcingPrompt = await mcpGetPrompt(mcpBase, promptName, promptArgs)
 
   // 2. Get tools from MCP server (persona-appropriate subset)
-  const allTools  = await mcpListTools()
+  const allTools  = await mcpListTools(mcpBase)
   const cat       = persona?.category ?? ""
   const toolNames = (cat === "expert" || persona?.domain)
     ? (Array.isArray(persona?.tools) ? persona.tools : [])
@@ -520,7 +525,7 @@ export async function POST(req: NextRequest) {
     for (const tc of choice.tool_calls) {
       let args: Record<string, unknown> = {}
       try { args = JSON.parse(tc.function?.arguments ?? "{}") } catch {}
-      const result = await mcpCallTool(tc.function?.name ?? "", args)
+      const result = await mcpCallTool(mcpBase, tc.function?.name ?? "", args)
       toolResultMsgs.push({
         role:         "tool",
         tool_call_id: tc.id,

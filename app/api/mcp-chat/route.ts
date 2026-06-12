@@ -21,12 +21,15 @@ import { analyzeIntent, refusalFor } from "@/lib/intent"
 export const maxDuration = 60
 
 // Default: the MCP server embedded in this same deployment (/api/mcp).
-// MCP_SERVER_URL overrides for an external server.
+// MCP_SERVER_URL overrides for an external server. Prefer the public app URL —
+// VERCEL_URL is the deployment-specific host, which Vercel's deployment
+// protection answers with 401 for server-to-server calls.
 const MCP_URL =
   process.env.MCP_SERVER_URL ||
-  (process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}/api/mcp`
-    : `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/mcp`)
+  `${
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")
+  }/api/mcp`
 const LLM_URL  = (process.env.LLM_BASE_URL  || "http://localhost:11434/v1").replace(/\/$/, "")
 const LLM_KEY  = process.env.LLM_API_KEY    || "local"
 const LLM_MODEL = process.env.LLM_MODEL     || "llama3.2:latest"

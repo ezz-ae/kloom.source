@@ -10,7 +10,7 @@ import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
 import { hasUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
 import { AuthGate } from "@/components/widgets/AuthGate"
-import { completePassPurchase, hydrateEntitlement } from "@/lib/auth"
+import { completePassPurchase, hydrateEntitlement, currentEmail, signOut } from "@/lib/auth"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
   CreditCard, Wallet, Bell, Shield, Trash2,
@@ -21,10 +21,9 @@ import {
 type Tab = "billing" | "wallet" | "account" | "preferences"
 
 const TABS: Array<{ id: Tab; label: string; icon: typeof CreditCard }> = [
-  { id: "billing",     label: "Billing & Credits", icon: CreditCard },
-  { id: "wallet",      label: "Wallet",            icon: Wallet },
-  { id: "account",     label: "Account",           icon: User },
-  { id: "preferences", label: "Preferences",       icon: Bell },
+  { id: "billing",     label: "Billing & Passes", icon: CreditCard },
+  { id: "account",     label: "Account",          icon: User },
+  { id: "preferences", label: "Preferences",      icon: Bell },
 ]
 
 // Chat is free for everyone. Passes unlock unlimited voice + Unrestricted.
@@ -83,6 +82,8 @@ function SettingsContent() {
   const [subSuccess, setSubSuccess] = useState(false)
   const [payPlan, setPayPlan]       = useState<string | null>(null)
   const [topUpOpen, setTopUpOpen]   = useState(false)
+  const [accountEmail, setAccountEmail] = useState<string | null>(null)
+  useEffect(() => { currentEmail().then(setAccountEmail) }, [])
   const unlimited = hasUnlimited()
 
   // Detect return from subscription checkout
@@ -157,7 +158,7 @@ function SettingsContent() {
                       <div className="text-4xl font-black">{balance}<span className="text-lg text-muted-foreground"> min</span></div>
                     )}
                     <div className="text-sm text-foreground/50 mt-1">
-                      {unlimited ? "Unlimited voice calls · active" : "1 credit ≈ 1 minute · first 5 min free · never expires"}
+                      {unlimited ? "Unlimited voice calls · active" : "First 5 minutes free · top up with FlexiCalls below"}
                     </div>
                   </div>
                   {!unlimited && (
@@ -168,13 +169,6 @@ function SettingsContent() {
                   )}
                 </div>
               </div>
-
-              {/* Live SOL price */}
-              {solPrice > 0 && (
-                <div className="text-xs text-muted-foreground/60 -mt-3">
-                  Top up with SOL or card · live rate: 1 SOL ≈ ${solPrice.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-                </div>
-              )}
 
               {/* Subscription success */}
               {subSuccess && (
@@ -232,7 +226,7 @@ function SettingsContent() {
                         <div className="mt-4 rounded-2xl border border-border/50 bg-foreground/5 p-4">
                           <AuthGate intent="to get this pass">
                             <PayPalCheckout
-                              walletAddress={publicKey?.toBase58() ?? ""}
+                              walletAddress=""
                               price={plan.price}
                               credits={0}
                               kind={plan.id}
@@ -256,75 +250,6 @@ function SettingsContent() {
             </>
           )}
 
-          {/* ── Wallet ── */}
-          {activeTab === "wallet" && (
-            <div className="space-y-4">
-              {/* Connection status */}
-              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-1">Solana wallet</div>
-                    {publicKey ? (
-                      <div className="font-mono text-sm text-foreground">{publicKey.toBase58()}</div>
-                    ) : (
-                      <div className="text-sm text-foreground/50">Not connected</div>
-                    )}
-                  </div>
-                  <div className={`w-2.5 h-2.5 rounded-full ${publicKey ? "bg-emerald-400" : "bg-white/20"}`} />
-                </div>
-                <button
-                  onClick={() => publicKey ? disconnect() : openWalletModal(true)}
-                  disabled={connecting}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                    publicKey
-                      ? "bg-foreground/5 border border-border/50 hover:bg-foreground/10 text-foreground"
-                      : "bg-white text-stone-950 hover:bg-white/90"
-                  }`}
-                >
-                  <Wallet size={15} />
-                  {publicKey ? "Disconnect wallet" : connecting ? "Connecting…" : "Connect wallet"}
-                </button>
-              </div>
-
-              {/* $BLOOM token */}
-              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
-                    <Zap size={14} className="text-foreground" />
-                  </div>
-                  <div>
-                    <div className="font-bold text-sm">$BLOOM Token</div>
-                    <div className="text-xs text-muted-foreground">Solana SPL · 6 decimals</div>
-                  </div>
-                </div>
-                {bloomMint ? (
-                  <a
-                    href={`https://explorer.solana.com/address/${bloomMint}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors"
-                  >
-                    <ExternalLink size={11} />
-                    View on Solana Explorer
-                  </a>
-                ) : (
-                  <p className="text-xs text-muted-foreground/60">Token mint not configured yet.</p>
-                )}
-              </div>
-
-              {/* Supported wallets */}
-              <div className="bg-foreground/5 border border-border/50 rounded-2xl p-5">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">Supported wallets</div>
-                {["Phantom", "Solflare", "Backpack"].map((w) => (
-                  <div key={w} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                    <span className="text-sm text-foreground">{w}</span>
-                    <Check size={14} className="text-emerald-400" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* ── Account ── */}
           {activeTab === "account" && (
             <div className="space-y-4">
@@ -334,24 +259,27 @@ function SettingsContent() {
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
                     <User size={20} className="text-foreground" />
                   </div>
-                  <div>
-                    <div className="font-semibold text-sm">
-                      {publicKey ? shortenAddress(publicKey.toBase58()) : "Anonymous"}
-                    </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm truncate">{accountEmail ?? "Anonymous"}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {publicKey ? "Identified by Solana wallet" : "Connect wallet to save account"}
+                      {accountEmail ? "Signed in — your pass follows this account" : "Browse free, no account needed. You make one when you pay."}
                     </div>
                   </div>
                 </div>
+                {accountEmail && (
+                  <button onClick={async () => { await signOut(); setAccountEmail(null) }}
+                    className="mt-4 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors">
+                    Sign out
+                  </button>
+                )}
               </div>
 
               <div className="bg-foreground/5 border border-border/50 rounded-2xl p-6">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">Privacy</div>
                 <div className="space-y-3 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-2"><Shield size={14} className="text-emerald-400" /> No email required</div>
+                  <div className="flex items-center gap-2"><Shield size={14} className="text-emerald-400" /> No account needed to chat — only to pay</div>
                   <div className="flex items-center gap-2"><Shield size={14} className="text-emerald-400" /> No tracking or analytics on conversations</div>
-                  <div className="flex items-center gap-2"><Shield size={14} className="text-emerald-400" /> Wallet address is your only identifier</div>
-                  <div className="flex items-center gap-2"><Globe size={14} className="text-amber-400" /> Credits stored on Solana mainnet</div>
+                  <div className="flex items-center gap-2"><Shield size={14} className="text-emerald-400" /> Conversations live on your device, not our servers</div>
                 </div>
               </div>
 
@@ -449,7 +377,7 @@ function SettingsContent() {
 
               <div className="bg-foreground/5 border border-border/50 rounded-2xl p-5">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">App version</div>
-                <div className="text-sm text-foreground/50">v0.2 · $BLOOM on Solana mainnet</div>
+                <div className="text-sm text-foreground/50">Kloom — voice rooms, zero restrictions</div>
                 <div className="text-xs text-muted-foreground/60 mt-1">Built with Next.js · Supabase · Solana</div>
               </div>
             </div>

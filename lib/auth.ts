@@ -63,6 +63,18 @@ export async function grantPass(passId: Pass["id"]): Promise<boolean> {
   return res.ok
 }
 
+/** Persist purchased FlexiCalls minutes to the account. */
+export async function grantCredits(minutes: number): Promise<boolean> {
+  const token = await accessToken()
+  if (!token) return false
+  const res = await fetch("/api/entitlement", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ kind: "credits", addCredits: Math.round(minutes) }),
+  })
+  return res.ok
+}
+
 /** On load: pull the account's entitlement and activate the pass locally. */
 export async function hydrateEntitlement(): Promise<void> {
   const token = await accessToken()

@@ -2,17 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useWallet } from "@solana/wallet-adapter-react"
-import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import {
   Home,
   Plus,
-  Wallet,
   Settings,
   DoorOpen,
   User,
 } from "lucide-react"
-import { useSolCredits } from "@/hooks/use-sol-credits"
 
 const NAV: Array<{ label: string; href: string; icon: typeof Home; badge?: string; badgeColor?: string }> = [
   { label: "Home",          href: "/app",        icon: Home },
@@ -21,15 +17,8 @@ const NAV: Array<{ label: string; href: string; icon: typeof Home; badge?: strin
   { label: "You",           href: "/app/you",    icon: User },
 ]
 
-function shortenAddress(addr: string) {
-  return addr.slice(0, 4) + "…" + addr.slice(-4)
-}
-
 export function Sidebar() {
   const pathname = usePathname()
-  const { balance, isWalletConnected } = useSolCredits()
-  const { publicKey, disconnect } = useWallet()
-  const { setVisible: openWalletModal } = useWalletModal()
 
   return (
     <aside className="glass flex flex-col h-full w-60 border-r border-white/[0.06] py-5 px-3 shrink-0">
@@ -79,28 +68,16 @@ export function Sidebar() {
 
       {/* Bottom section */}
       <div className="mt-4 space-y-3 px-1">
-        <div className="relative rounded-3xl overflow-hidden p-4 border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-orange-500/[0.04] to-transparent">
+        <Link
+          href="/app/settings?tab=billing"
+          className="relative block rounded-3xl overflow-hidden p-4 border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-orange-500/[0.04] to-transparent group">
           <div className="absolute -top-8 -right-6 w-24 h-24 rounded-full bg-amber-500/20 blur-2xl pointer-events-none" />
-          <div className="relative text-[10px] uppercase tracking-[0.28em] text-amber-200/70 font-bold">Credits</div>
-          <div className="relative mt-1.5 text-3xl font-black tracking-tight">{balance}</div>
-          <Link
-            href="/app/settings?tab=billing"
-            className="relative inline-flex items-center gap-1.5 mt-3.5 rounded-full brand-gradient px-3.5 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-950 brand-glow hover:scale-[1.03] active:scale-95 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          >
-            <Plus size={12} /> Top up
-          </Link>
-        </div>
-
-        <button
-          onClick={() => (isWalletConnected ? disconnect() : openWalletModal(true))}
-          className="w-full flex items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-left transition hover:border-white/15 hover:bg-white/[0.06]"
-        >
-          <span className={`w-2.5 h-2.5 rounded-full ${isWalletConnected ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]" : "bg-muted-foreground/40"}`} />
-          <span className="flex-1 text-xs font-medium text-muted-foreground truncate">
-            {publicKey ? shortenAddress(publicKey.toBase58()) : "Connect wallet"}
+          <div className="relative text-[10px] uppercase tracking-[0.28em] text-amber-200/70 font-bold">Full access</div>
+          <div className="relative mt-1.5 text-lg font-black tracking-tight">Unlimited &amp; unrestricted</div>
+          <span className="relative inline-flex items-center gap-1.5 mt-3 rounded-full brand-gradient px-3.5 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-950 brand-glow group-hover:scale-[1.03] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
+            <Plus size={12} /> Get a pass
           </span>
-          <Wallet size={14} className="text-muted-foreground" />
-        </button>
+        </Link>
 
         <Link
           href="/app/settings"

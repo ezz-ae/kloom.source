@@ -7,20 +7,42 @@ import './globals.css'
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://untitled-chat-2-eight.vercel.app"
+const TITLE = "Kloom — Every conversation is a room"
+const DESC =
+  "Build a cast of AI characters with real voices, or clone any voice from a video. Drop friends into the same room with one link — voice and chat, live, across 11 worlds from the trading floor to after dark."
+
 export const metadata: Metadata = {
-  title: 'Kloom.ai — Live rooms full of minds',
-  description:
-    'Kloom.ai — drop into live rooms where AI personalities talk, debate, flirt, code and plan alongside you. Voice or text. Pay as you go with the $KLOOM token on Solana. No email, no subscription.',
-  generator: 'Kloom.ai',
-  applicationName: 'Kloom.ai',
+  metadataBase: new URL(SITE_URL),
+  title: { default: TITLE, template: "%s · Kloom" },
+  description: DESC,
+  applicationName: "Kloom",
+  generator: "Kloom",
+  keywords: [
+    "AI chat", "AI voice rooms", "AI characters", "voice AI", "character AI",
+    "AI roleplay", "voice cloning", "AI companion", "multiplayer AI",
+    "group AI chat", "Kloom",
+  ],
+  authors: [{ name: "Kloom" }],
+  alternates: { canonical: "/" },
   openGraph: {
-    title: 'Kloom.ai — Live rooms full of minds',
-    description:
-      'Live multi-AI rooms, expert agents you can hire by the minute, and a creator suite. Voice + chat. Pay with SOL or card.',
-    type: 'website',
+    type: "website",
+    siteName: "Kloom",
+    title: TITLE,
+    description: DESC,
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESC,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
   icons: {
-    // Amber-backed Kloom mark — reads on both light and dark backgrounds.
     icon: [
       { url: '/kloom-icon-32.png', sizes: '32x32', type: 'image/png' },
       { url: '/kloom-icon-192.png', sizes: '192x192', type: 'image/png' },

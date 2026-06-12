@@ -1,57 +1,74 @@
 "use client"
 
 /**
- * Pricing panel — FlexiCalls + passes.
- *
- * FlexiCalls: drag the bar, watch minutes and money move. Every extra dollar
- * buys more minutes than the last. When the slider crosses the Dayuse price
- * ($7.93) we suggest the pass — same money, unlimited everything.
+ * Pricing panel — FlexiCalls + passes, paid by card (PayPal) with an email
+ * account. Drag the bar, watch minutes and money move; every extra dollar buys
+ * more minutes than the last. At $7.93 we suggest the Dayuse pass instead.
  */
 import { useState } from "react"
-import { useSolCredits } from "@/hooks/use-sol-credits"
 import {
   FLEXI_MIN_USD, FLEXI_MAX_USD, flexiMinutes, flexiRate,
-  PASSES, DAYPASS_SUGGEST_USD, activatePass, activePass, passTimeLeft, type Pass,
+  PASSES, DAYPASS_SUGGEST_USD, activePass, passTimeLeft, type Pass,
 } from "@/lib/pricing"
 import { setUnlimited } from "@/lib/voice-credits"
-import { Loader2, Check, Infinity as InfinityIcon, Mic, CreditCard, Zap, UserPlus, Crown } from "lucide-react"
+import { setSubscribed, setUnrestricted } from "@/lib/account"
+import { completePassPurchase, grantCredits } from "@/lib/auth"
+import { AuthGate } from "@/components/widgets/AuthGate"
+import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
+import { Check, Infinity as InfinityIcon, Zap, UserPlus, Crown, ChevronLeft } from "lucide-react"
 
-interface TopUpSliderProps {
-  onDone?: () => void
-}
+interface TopUpSliderProps { onDone?: () => void }
 
 export function TopUpSlider({ onDone }: TopUpSliderProps) {
-  const { buySol, usdToSol, purchaseState, purchaseError, isWalletConnected } = useSolCredits()
   const [usd, setUsd] = useState(3)
-  const [buying, setBuying] = useState<string | null>(null)  // "flexi" | pass id
+  const [checkout, setCheckout] = useState<null | { kind: "flexi" } | { kind: "pass"; pass: Pass }>(null)
 
   const minutes  = flexiMinutes(usd)
   const rate     = flexiRate(usd)
   const suggest  = usd >= DAYPASS_SUGGEST_USD
   const current  = activePass()
   const timeLeft = passTimeLeft()
-  const busy     = purchaseState !== "idle" && purchaseState !== "error" && purchaseState !== "done"
 
-  const buyFlexi = async () => {
-    setBuying("flexi")
-    const ok = await buySol(usd, minutes)
-    if (ok) onDone?.()
-  }
-
-  const buyPass = async (pass: Pass) => {
-    setBuying(pass.id)
-    const ok = await buySol(pass.priceUsd, 0)
-    if (ok) {
-      activatePass(pass.id)
-      setUnlimited(true)
-      onDone?.()
-    }
+  // ── Inline checkout (account + card) ──
+  if (checkout) {
+    const price = checkout.kind === "flexi" ? usd : checkout.pass.priceUsd
+    const label = checkout.kind === "flexi" ? `${minutes} FlexiCalls minutes` : `${checkout.pass.name} pass`
+    return (
+      <div className="space-y-4">
+        <button onClick={() => setCheckout(null)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <ChevronLeft size={14} /> Back
+        </button>
+        <div className="rounded-2xl border border-border/50 bg-foreground/5 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-bold">{label}</span>
+            <span className="text-lg font-black">${price.toFixed(2)}</span>
+          </div>
+          <AuthGate intent={checkout.kind === "flexi" ? "to add minutes" : "to get this pass"}>
+            <PayPalCheckout
+              walletAddress=""
+              price={price}
+              credits={checkout.kind === "flexi" ? minutes : 0}
+              kind={checkout.kind === "flexi" ? "credits" : checkout.pass.id}
+              label={label}
+              onSuccess={async () => {
+                if (checkout.kind === "flexi") {
+                  await grantCredits(minutes)
+                } else {
+                  setSubscribed(true); setUnrestricted(true)
+                  setUnlimited(true)
+                  await completePassPurchase(checkout.pass.id)
+                }
+                onDone?.()
+              }}
+            />
+          </AuthGate>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-
-      {/* Active pass badge */}
       {current && timeLeft && (
         <div className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 py-2.5 text-sm font-bold text-emerald-300">
           <Crown size={14} /> {PASSES.find((p) => p.id === current.id)?.name} active · {timeLeft}
@@ -70,45 +87,27 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
           <div className="text-sm text-foreground/50 mt-1">of voice for <span className="text-foreground font-semibold">${usd.toFixed(2)}</span></div>
         </div>
 
-        <input
-          type="range"
-          min={FLEXI_MIN_USD}
-          max={FLEXI_MAX_USD}
-          step={0.25}
-          value={usd}
-          onChange={(e) => setUsd(Number(e.target.value))}
-          className="w-full accent-amber-500"
-        />
+        <input type="range" min={FLEXI_MIN_USD} max={FLEXI_MAX_USD} step={0.25} value={usd}
+          onChange={(e) => setUsd(Number(e.target.value))} className="w-full accent-amber-500" />
         <div className="flex justify-between text-[11px] text-foreground/35 mt-1">
           <span>${FLEXI_MIN_USD} · 12 min</span>
           <span>more $ → more min per $</span>
         </div>
 
-        {/* Day-pass suggestion — appears once the slider crosses $7.93 */}
         {suggest && (
           <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/[0.08] p-3.5 animate-in fade-in duration-300">
             <div className="flex items-center gap-2 text-sm font-bold text-amber-300">
               <Zap size={14} /> Same money, no meter.
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              ${DAYPASS_SUGGEST_USD} is the Dayuse pass — <span className="text-foreground font-semibold">24h unlimited voice, unrestricted, +1 invitation</span>. Grab that instead.
+              ${DAYPASS_SUGGEST_USD} is the Dayuse pass — <span className="text-foreground font-semibold">24h unlimited voice, unrestricted, +1 invitation</span>.
             </p>
           </div>
         )}
 
-        <button onClick={buyFlexi} disabled={busy}
-          className={`mt-3 w-full flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl transition-all text-sm ${
-            purchaseState === "done" && buying === "flexi" ? "bg-emerald-500 text-foreground"
-            : purchaseState === "error" && buying === "flexi" ? "bg-red-500/20 border border-red-500/40 text-red-300"
-            : "bg-foreground/10 border border-border/60 hover:bg-foreground/15 text-foreground hover:scale-[1.01] active:scale-[0.99]"
-          } disabled:opacity-60`}>
-          {busy && buying === "flexi" ? <Loader2 size={15} className="animate-spin" />
-            : purchaseState === "done" && buying === "flexi" ? <Check size={15} />
-            : <Mic size={15} />}
-          {busy && buying === "flexi" ? "Processing…"
-            : purchaseState === "done" && buying === "flexi" ? "Added!"
-            : !isWalletConnected ? "Connect wallet to pay"
-            : `Pay $${usd.toFixed(2)} · ${minutes} min · ${usdToSol(usd).toFixed(3)} SOL`}
+        <button onClick={() => setCheckout({ kind: "flexi" })}
+          className="mt-3 w-full flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl text-sm bg-foreground/10 border border-border/60 hover:bg-foreground/15 text-foreground hover:scale-[1.01] active:scale-[0.99] transition-all">
+          Add {minutes} minutes · ${usd.toFixed(2)}
         </button>
       </div>
 
@@ -118,10 +117,8 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
         <div className="space-y-2.5">
           {PASSES.map((pass) => {
             const isCurrent = current?.id === pass.id
-            const isBuying  = busy && buying === pass.id
-            const bought    = purchaseState === "done" && buying === pass.id
             return (
-              <button key={pass.id} onClick={() => buyPass(pass)} disabled={busy || isCurrent}
+              <button key={pass.id} onClick={() => setCheckout({ kind: "pass", pass })} disabled={isCurrent}
                 className={`w-full text-left rounded-2xl border p-4 transition-all ${
                   isCurrent ? "border-emerald-500/40 bg-emerald-500/[0.07]"
                   : pass.monthly ? "border-amber-500/40 bg-amber-500/[0.07] hover:bg-amber-500/[0.12]"
@@ -131,9 +128,7 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-black text-base">{pass.name}</span>
-                      {pass.monthly && (
-                        <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full brand-gradient text-stone-950">Best value</span>
-                      )}
+                      {pass.monthly && <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full brand-gradient text-stone-950">Best value</span>}
                       {isCurrent && <Check size={14} className="text-emerald-400" />}
                     </div>
                     <div className="text-xs text-muted-foreground mt-0.5">{pass.tagline}</div>
@@ -147,14 +142,8 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    {isBuying ? <Loader2 size={18} className="animate-spin text-muted-foreground" />
-                      : bought ? <Check size={18} className="text-emerald-400" />
-                      : (
-                        <>
-                          <div className="text-xl font-black">${pass.priceUsd}</div>
-                          <div className="text-[10px] text-muted-foreground">{pass.monthly ? "/ month" : pass.durationHours === 24 ? "24 hours" : "7 days"}</div>
-                        </>
-                      )}
+                    <div className="text-xl font-black">${pass.priceUsd}</div>
+                    <div className="text-[10px] text-muted-foreground">{pass.monthly ? "/ month" : pass.durationHours === 24 ? "24 hours" : "7 days"}</div>
                   </div>
                 </div>
               </button>
@@ -163,12 +152,7 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
         </div>
       </div>
 
-      {purchaseError && purchaseState === "error" && (
-        <p className="text-xs text-red-400 text-center">{purchaseError}</p>
-      )}
-      <p className="text-[11px] text-foreground/30 text-center flex items-center justify-center gap-1.5">
-        <CreditCard size={11} /> Card or crypto · FlexiCalls minutes never expire
-      </p>
+      <p className="text-[11px] text-foreground/30 text-center">Card payments · FlexiCalls minutes never expire</p>
     </div>
   )
 }

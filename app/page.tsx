@@ -309,7 +309,7 @@ export default function LandingPage() {
       <section className="max-w-5xl mx-auto px-6 py-20">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {[
-            { icon: Shield, title: "Your wallet is your account", body: "No email, no password, no data to lose. Identity is your Solana key." },
+            { icon: Shield, title: "Private by default", body: "Chat free with no signup. Your conversations live on your device, not our servers." },
             { icon: Zap, title: "Live tools, real output", body: "Charts, prices, code, plans — the AI does the work, not just talk." },
             { icon: Globe, title: "Voice in 50+ languages", body: "Natural real-time calls that interrupt and respond like a person." },
           ].map((f) => (
@@ -385,7 +385,7 @@ export default function LandingPage() {
           <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500" />
           <span className="font-bold text-foreground/50">Kloom</span>
         </div>
-        <p>Multi-AI rooms · {EXPERTS.length} experts · Solana mainnet</p>
+        <p>Multi-AI voice rooms · 11 worlds · zero restrictions</p>
         <p>© 2026 Kloom</p>
       </footer>
     </div>

@@ -7,7 +7,6 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import { useSolCredits } from "@/hooks/use-sol-credits"
 import { TopUpSlider } from "@/components/widgets/TopUpSlider"
 import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
-import { PayPalStatusBadge } from "@/components/widgets/PayPalStatusBadge"
 import { hasUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
 import { AuthGate } from "@/components/widgets/AuthGate"
@@ -183,9 +182,6 @@ function SettingsContent() {
                   <Check size={15} /> Subscription activated — welcome to Pro!
                 </div>
               )}
-
-              {/* PayPal readiness — at a glance */}
-              <PayPalStatusBadge />
 
               {/* Subscription plans — Creator tools (optional) */}
               <div>

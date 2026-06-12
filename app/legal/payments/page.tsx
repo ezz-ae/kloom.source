@@ -15,7 +15,7 @@ export default function PaymentsPage() {
 
       <h2>2. How payment works</h2>
       <ul>
-        <li>Payments are processed by <strong>PayPal</strong> (cards accepted — no PayPal account required where inline card fields are available). We never see or store your card number.</li>
+        <li>Payments are processed by a <strong>PCI-compliant payment processor</strong> (major cards accepted). We never see or store your card number.</li>
         <li>Prices are shown in USD at checkout. Your bank may apply currency conversion.</li>
         <li>Credits are added to your account immediately after the payment is confirmed.</li>
       </ul>

@@ -20,10 +20,10 @@ export default function PrivacyPage() {
 
       <h2>2. What we process on servers</h2>
       <ul>
-        <li><strong>Messages in transit.</strong> To generate replies, your messages are sent to AI models running on infrastructure we rent (RunPod GPU servers). They are processed in memory and not retained as conversation logs by us.</li>
-        <li><strong>Voice.</strong> Speech you send is transcribed in your browser; character replies are synthesized by our text-to-speech providers (Fish Audio). The text of a reply is sent to the provider to generate audio.</li>
-        <li><strong>Published rooms.</strong> If you publish a room to a world directory, its definition (name, characters, description — not your chats) is stored in our database (Supabase) so others can find it.</li>
-        <li><strong>Payments.</strong> Handled by PayPal. We never see or store card numbers. We store only what is needed to credit your account (transaction reference, amount, your wallet/session identifier).</li>
+        <li><strong>Messages in transit.</strong> To generate replies, your messages are sent to AI models running on private GPU infrastructure we operate. They are processed in memory and not retained as conversation logs by us.</li>
+        <li><strong>Voice.</strong> Speech you send is transcribed in your browser; character replies are synthesized by our voice engine. Only the text of a reply is sent to generate audio.</li>
+        <li><strong>Published rooms.</strong> If you publish a room to a world directory, its definition (name, characters, description — not your chats) is stored in our database so others can find it.</li>
+        <li><strong>Payments.</strong> Handled by our payment processor. We never see or store card numbers. We store only what is needed to credit your account (transaction reference, amount, your wallet/session identifier).</li>
       </ul>
 
       <h2>3. What we don&apos;t do</h2>
@@ -33,12 +33,11 @@ export default function PrivacyPage() {
         <li>We don&apos;t require — or want — your real identity.</li>
       </ul>
 
-      <h2>4. Third parties</h2>
+      <h2>4. Infrastructure</h2>
       <p>
-        Infrastructure providers that process data to make Kloom work: Vercel (hosting),
-        RunPod (AI compute), Fish Audio (voice synthesis), Supabase (published rooms, realtime
-        sessions, payment crediting), PayPal (payments), and optionally Twilio (voice-call relay).
-        Each receives only what is technically necessary for its function.
+        Kloom runs on a small set of infrastructure providers — hosting, GPU compute, voice
+        synthesis, database/realtime, payment processing, and call relay. Each receives only what
+        is technically necessary for its function, and none receives your conversation history.
       </p>
 
       <h2>5. Your controls</h2>

@@ -27,8 +27,8 @@ export default function CookiesPage() {
       <h2>2. Strictly necessary cookies</h2>
       <p>
         Our hosting and payment providers may set strictly necessary cookies for security and
-        fraud prevention (for example, PayPal sets cookies during checkout). These are required for
-        the service to function and are controlled by those providers.
+        fraud prevention (for example, during checkout). These are required for the service to
+        function and are controlled by those providers.
       </p>
 
       <h2>3. Managing it</h2>

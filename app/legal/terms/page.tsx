@@ -43,7 +43,7 @@ export default function TermsPage() {
       <h2>4. Your content and rooms</h2>
       <ul>
         <li>Rooms and characters you create remain yours. By publishing a room to a world&apos;s public directory you grant other users the right to join and use a copy of it.</li>
-        <li>Voice cloning (e.g. from a YouTube link) must only use voices you have the right to use — your own voice or voices you have permission for. Cloning a real person&apos;s voice to impersonate, harass, or defraud is prohibited.</li>
+        <li>Voice cloning (e.g. from a video link) must only use voices you have the right to use — your own voice or voices you have permission for. Cloning a real person&apos;s voice to impersonate, harass, or defraud is prohibited.</li>
         <li>We may remove published rooms that break these terms.</li>
       </ul>
 

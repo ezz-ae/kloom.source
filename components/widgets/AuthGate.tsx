@@ -6,7 +6,7 @@
  * in), then renders its children (the checkout) once a session exists.
  */
 import { useState, useEffect } from "react"
-import { signUp, signIn, currentEmail } from "@/lib/auth"
+import { signUp, signIn, currentEmail, requestPasswordReset } from "@/lib/auth"
 import { Loader2, Mail, Lock, Check } from "lucide-react"
 
 export function AuthGate({ children, intent = "to continue" }: { children: React.ReactNode; intent?: string }) {
@@ -17,6 +17,7 @@ export function AuthGate({ children, intent = "to continue" }: { children: React
   const [err, setErr] = useState<string | null>(null)
   const [authedEmail, setAuthedEmail] = useState<string | null>(null)
   const [checked, setChecked] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   useEffect(() => { currentEmail().then((e) => { setAuthedEmail(e); setChecked(true) }) }, [])
 
@@ -76,6 +77,20 @@ export function AuthGate({ children, intent = "to continue" }: { children: React
         className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors">
         {mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}
       </button>
+
+      {mode === "signin" && (
+        <button
+          onClick={async () => {
+            if (!email) { setErr("Enter your email first."); return }
+            const r = await requestPasswordReset(email)
+            setErr(null)
+            setResetSent(r.ok)
+            if (!r.ok) setErr(r.error || "Could not send reset email.")
+          }}
+          className="w-full text-[11px] text-muted-foreground/70 hover:text-foreground transition-colors">
+          {resetSent ? "Reset link sent — check your email." : "Forgot password?"}
+        </button>
+      )}
     </div>
   )
 }

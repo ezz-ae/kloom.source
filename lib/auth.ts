@@ -41,6 +41,23 @@ export async function signOut() {
   await supabase.auth.signOut()
 }
 
+/** Send a password-reset email (Supabase native). Lands on /app/reset. */
+export async function requestPasswordReset(email: string): Promise<AuthResult> {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://www.kloom.io"
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: `${origin}/app/reset`,
+  })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
+/** Set a new password (used on the /app/reset page after the email link). */
+export async function updatePassword(password: string): Promise<AuthResult> {
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) return { ok: false, error: error.message }
+  return { ok: true }
+}
+
 export async function currentEmail(): Promise<string | null> {
   const { data } = await supabase.auth.getUser()
   return data.user?.email ?? null
@@ -64,13 +81,13 @@ export async function grantPass(passId: Pass["id"]): Promise<boolean> {
 }
 
 /** Persist purchased FlexiCalls minutes to the account. */
-export async function grantCredits(minutes: number): Promise<boolean> {
+export async function grantCredits(minutes: number, amountUsd = 0): Promise<boolean> {
   const token = await accessToken()
   if (!token) return false
   const res = await fetch("/api/entitlement", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ kind: "credits", addCredits: Math.round(minutes) }),
+    body: JSON.stringify({ kind: "credits", addCredits: Math.round(minutes), amountUsd }),
   })
   return res.ok
 }

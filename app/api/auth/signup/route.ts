@@ -6,6 +6,7 @@
 // return a soft signal so the UI can switch to "sign in" instead.
 
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
+import { sendWelcome } from "@/lib/email"
 
 export const runtime = "nodejs"
 
@@ -51,6 +52,9 @@ export async function POST(request: Request) {
       user_id: data.user.id, email, credits: 0,
     }, { onConflict: "user_id" })
   }
+
+  // Welcome email (no-op until RESEND_API_KEY is set). Fire-and-forget.
+  sendWelcome(email).catch(() => {})
 
   return Response.json({ ok: true })
 }

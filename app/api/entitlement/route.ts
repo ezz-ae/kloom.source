@@ -4,6 +4,7 @@
 
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { PASSES } from "@/lib/pricing"
+import { sendReceipt } from "@/lib/email"
 
 export const runtime = "nodejs"
 
@@ -38,12 +39,13 @@ export async function POST(request: Request) {
   const user = await userFromToken(token)
   if (!user) return Response.json({ error: "invalid token" }, { status: 401 })
 
-  let kind = "", passId = "", addCredits = 0
+  let kind = "", passId = "", addCredits = 0, amountUsd = 0
   try {
     const body = await request.json()
     kind = String(body.kind || "")
     passId = String(body.passId || "")
     addCredits = Number(body.addCredits || 0)
+    amountUsd = Number(body.amountUsd || 0)
   } catch { return Response.json({ error: "bad request" }, { status: 400 }) }
 
   const admin = getAdminClient()
@@ -64,5 +66,28 @@ export async function POST(request: Request) {
 
   const { error } = await admin.from("kloom_entitlements").upsert(patch, { onConflict: "user_id" })
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Receipt email (no-op until RESEND_API_KEY is set). Fire-and-forget.
+  if (user.email) {
+    if (kind === "pass") {
+      const def = PASSES.find((p) => p.id === passId)!
+      const invites = def.invitations === "unlimited" ? "unlimited invitations" : `${def.invitations} invitation${def.invitations === 1 ? "" : "s"}`
+      sendReceipt({
+        to: user.email,
+        itemName: `${def.name} pass`,
+        amountUsd: def.priceUsd,
+        detail: `Unlimited voice · unrestricted · ${invites}`,
+      }).catch(() => {})
+    } else if (kind === "credits") {
+      const mins = Math.max(0, Math.round(addCredits))
+      sendReceipt({
+        to: user.email,
+        itemName: `${mins} FlexiCalls minutes`,
+        amountUsd: amountUsd,
+        detail: "Voice minutes added — they never expire",
+      }).catch(() => {})
+    }
+  }
+
   return Response.json({ ok: true })
 }

@@ -52,7 +52,7 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
               label={label}
               onSuccess={async () => {
                 if (checkout.kind === "flexi") {
-                  await grantCredits(minutes)
+                  await grantCredits(minutes, usd)
                 } else {
                   setSubscribed(true); setUnrestricted(true)
                   setUnlimited(true)

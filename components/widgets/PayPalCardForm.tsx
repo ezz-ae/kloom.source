@@ -85,9 +85,10 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
           // payment still works.
           if (btnRef.current) {
             const onErr = (e: any) => { const m = String(e?.message || e); setErr(m); onError?.(m) }
-            const cardOnly = paypal.Buttons({ fundingSource: paypal.FUNDING?.CARD, createOrder, onApprove, onError: onErr })
+            // Fixed height so our branded button laid on top lines up pixel-for-pixel.
+            const cardOnly = paypal.Buttons({ fundingSource: paypal.FUNDING?.CARD, style: { height: 48 }, createOrder, onApprove, onError: onErr })
             if (cardOnly?.isEligible?.()) cardOnly.render(btnRef.current)
-            else paypal.Buttons({ createOrder, onApprove, onError: onErr }).render(btnRef.current)
+            else paypal.Buttons({ style: { height: 48 }, createOrder, onApprove, onError: onErr }).render(btnRef.current)
           }
           setStatus("ineligible")
           return
@@ -112,27 +113,44 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
     return <p className="text-xs text-amber-400/80 text-center">Card payments aren’t live yet — set <code>NEXT_PUBLIC_PAYPAL_CLIENT_ID</code>.</p>
   }
 
+  const inline = status !== "ineligible"   // ACDC card fields available
+  // Once card fields are confirmed, the PayPal overlay is hidden. Until then
+  // (loading / ineligible) it stays a sized, opacity-0 layer so PayPal renders
+  // into it correctly and can catch the click.
+  const cardFieldsLive = status === "ready" || status === "paying" || status === "done"
+  const label = status === "loading" ? "Loading…" : status === "paying" ? "Processing…" : status === "done" ? "Paid ✓" : `Pay $${Number(price).toFixed(2)}`
+
   return (
     <div className="space-y-2.5">
-      {status !== "ineligible" && (
+      {/* Inline card fields — only when ACDC is eligible. */}
+      {inline && (
         <>
           <div ref={numberRef} className="h-11 rounded-xl border border-border/50 bg-white/5 px-3.5 flex items-center" />
           <div className="grid grid-cols-2 gap-2.5">
             <div ref={expiryRef} className="h-11 rounded-xl border border-border/50 bg-white/5 px-3.5 flex items-center" />
             <div ref={cvvRef} className="h-11 rounded-xl border border-border/50 bg-white/5 px-3.5 flex items-center" />
           </div>
-          <button
-            onClick={pay}
-            disabled={status === "loading" || status === "paying" || status === "done"}
-            className="w-full h-12 rounded-xl brand-gradient text-stone-950 font-bold text-sm disabled:opacity-50 transition-all hover:scale-[1.01] active:scale-[0.99]"
-          >
-            {status === "loading" ? "Loading…" : status === "paying" ? "Processing…" : status === "done" ? "Paid ✓" : `Pay $${Number(price).toFixed(2)}`}
-          </button>
-          <p className="text-[10px] text-foreground/30 text-center">🔒 Encrypted · your card is never stored</p>
         </>
       )}
-      {/* ACDC fallback target — only fills in if inline card fields aren't available. */}
-      <div ref={btnRef} className={status === "ineligible" ? "" : "hidden"} />
+
+      {/* The Pay button. ALWAYS our own brand button. When ACDC is ineligible,
+          PayPal's real card button is laid transparently on top (opacity 0) to
+          catch the click — so the user only ever sees OUR button, no PayPal
+          branding. When ACDC is eligible, our button submits the card fields. */}
+      <div className="relative">
+        <button
+          onClick={inline ? pay : undefined}
+          disabled={status === "loading" || status === "paying" || status === "done"}
+          className="w-full h-12 rounded-xl brand-gradient text-stone-950 font-bold text-sm disabled:opacity-50 transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center"
+        >
+          {label}
+        </button>
+        {/* PayPal fallback button — invisible, on top, catching the click. Hidden
+            only once the inline card fields are live (then our button submits them). */}
+        <div ref={btnRef} className={cardFieldsLive ? "hidden" : "absolute inset-0 opacity-0 z-10"} />
+      </div>
+
+      <p className="text-[10px] text-foreground/30 text-center">🔒 Encrypted · your card is never stored</p>
       {err && <p className="text-xs text-red-400 text-center">{err}</p>}
     </div>
   )

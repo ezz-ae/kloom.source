@@ -70,13 +70,21 @@ export function backendAvailable(b: Backend): boolean {
   return true // local always available
 }
 
-/** Resolve requested backend, falling back to local if its key is missing. */
+/**
+ * Resolve the requested backend. Each seat runs its OWN API when its key is
+ * present; when it isn't, the seat falls back to Gemini (the house model) so the
+ * room still answers — on .io that means a Claude/GPT seat with no key quietly
+ * runs Gemini instead of dead-ending. On .fun (serverless open weights, no
+ * premium keys) it falls back to local instead.
+ */
 export function resolveBackend(requested?: Backend): Backend {
   if (!requested || requested === "local") return "local"
   // .fun runs serverless open weights only — premium hosted seats become local.
   if (!premiumModelsEnabled() && PREMIUM.includes(requested)) return "local"
   if (requested === "mistral" || requested === "dolphin") return requested
-  return backendAvailable(requested) ? requested : "local"
+  if (backendAvailable(requested)) return requested
+  // No key for this premium seat → house model: Gemini if we have it, else local.
+  return GEMINI_KEY ? "gemini" : "local"
 }
 
 // ── Local (Ollama / OpenAI-compatible) ──────────────────────────────────────
@@ -321,48 +329,21 @@ export async function* streamLLM(
   messages: LLMMessage[],
   opts: LLMOptions = {},
 ): AsyncGenerator<string> {
-  // resolveBackend already downgrades claude/gemini → local when the key is missing.
   const backend = resolveBackend(requested)
 
   if (backend === "local") {
-    try {
-      yield* streamLocal(messages, opts)
-      return
-    } catch (err) {
-      if (OPENAI_KEY) {
-        yield* streamOpenAI(messages, opts)
-        return
-      }
-      throw err
-    }
+    try { yield* streamLocal(messages, opts); return }
+    catch { yield* houseFallback(messages, opts, "local"); return }
   }
-  if (backend === "mistral") {
-    try {
-      yield* streamLocal(messages, { ...opts, localModel: "mistral:latest" })
-      return
-    } catch (err) {
-      if (OPENAI_KEY) {
-        yield* streamOpenAI(messages, opts)
-        return
-      }
-      throw err
-    }
-  }
-  if (backend === "dolphin") {
-    try {
-      yield* streamLocal(messages, { ...opts, localModel: "dolphin-mistral:latest" })
-      return
-    } catch (err) {
-      if (OPENAI_KEY) {
-        yield* streamOpenAI(messages, opts)
-        return
-      }
-      throw err
-    }
+  if (backend === "mistral" || backend === "dolphin") {
+    const localModel = backend === "mistral" ? "mistral:latest" : "dolphin-mistral:latest"
+    try { yield* streamLocal(messages, { ...opts, localModel }); return }
+    catch { yield* houseFallback(messages, opts, backend); return }
   }
 
-  // Claude / Gemini / GPT with an Ollama (local) safety net. We only fall back if
-  // the primary failed BEFORE emitting anything — otherwise we'd duplicate output.
+  // Claude / Gemini / GPT — run the seat's real API. If it fails BEFORE emitting
+  // anything (bad/missing key, rate limit, network), fall back to Gemini so the
+  // room never dead-ends. Mid-stream failures rethrow (don't duplicate output).
   const primary = backend === "claude" ? streamClaude
                 : backend === "gemini" ? streamGemini
                 : streamOpenAI
@@ -373,10 +354,25 @@ export async function* streamLLM(
       yield chunk
     }
   } catch (err) {
-    if (emitted) throw err              // mid-stream failure — don't restart/duplicate
-    // Clean failure (bad key, network, rate limit) → fall back to Ollama.
-    yield* streamLocal(messages, opts)
+    if (emitted) throw err
+    yield* houseFallback(messages, opts, backend)
   }
+}
+
+/**
+ * The house fallback — any seat that can't reach its own API lands here: Gemini
+ * first (the live house model on .io), then GPT, then the default local endpoint.
+ * `failed` is the backend that just errored, so we never retry it and loop.
+ */
+async function* houseFallback(
+  messages: LLMMessage[],
+  opts: LLMOptions,
+  failed?: Backend,
+): AsyncGenerator<string> {
+  if (failed !== "gemini" && GEMINI_KEY) { yield* streamGemini(messages, opts); return }
+  if (failed !== "openai" && OPENAI_KEY) { yield* streamOpenAI(messages, opts); return }
+  if (failed !== "local") { yield* streamLocal(messages, { ...opts, localModel: undefined }); return }
+  throw new Error("no LLM backend available")
 }
 
 export const BACKEND_LABELS: Record<Backend, string> = {

@@ -5,23 +5,26 @@
  * account. Drag the bar, watch minutes and money move; every extra dollar buys
  * more minutes than the last. At $7.93 we suggest the Dayuse pass instead.
  */
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   FLEXI_MIN_USD, FLEXI_MAX_USD, flexiMinutes, flexiRate,
   PASSES, DAYPASS_SUGGEST_USD, activePass, passTimeLeft, type Pass,
 } from "@/lib/pricing"
 import { setUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
-import { completePassPurchase, grantCredits } from "@/lib/auth"
+import { completePassPurchase, grantCredits, currentEmail } from "@/lib/auth"
 import { AuthGate } from "@/components/widgets/AuthGate"
-import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
-import { Check, Infinity as InfinityIcon, Zap, UserPlus, Crown, ChevronLeft } from "lucide-react"
+import { PayPalCardForm } from "@/components/widgets/PayPalCardForm"
+import { Check, Infinity as InfinityIcon, Zap, UserPlus, Crown, ChevronLeft, CreditCard } from "lucide-react"
 
 interface TopUpSliderProps { onDone?: () => void }
 
 export function TopUpSlider({ onDone }: TopUpSliderProps) {
   const [usd, setUsd] = useState(3)
   const [checkout, setCheckout] = useState<null | { kind: "flexi" } | { kind: "pass"; pass: Pass }>(null)
+  const [showCard, setShowCard] = useState(false)  // checkout step 2 — the card screen
+  // Reset to step 1 (the Checkout button) whenever the selected item changes.
+  useEffect(() => { setShowCard(false) }, [checkout])
 
   const minutes  = flexiMinutes(usd)
   const rate     = flexiRate(usd)
@@ -29,13 +32,24 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
   const current  = activePass()
   const timeLeft = passTimeLeft()
 
-  // ── Inline checkout (account + card) ──
+  // ── Inline checkout — step 1: confirm + single Checkout button; step 2: card ──
   if (checkout) {
     const price = checkout.kind === "flexi" ? usd : checkout.pass.priceUsd
     const label = checkout.kind === "flexi" ? `${minutes} FlexiCalls minutes` : `${checkout.pass.name} pass`
+    const onPaid = async () => {
+      if (checkout.kind === "flexi") {
+        await grantCredits(minutes, usd)
+      } else {
+        setSubscribed(true); setUnrestricted(true)
+        setUnlimited(true)
+        await completePassPurchase(checkout.pass.id)
+      }
+      onDone?.()
+    }
     return (
       <div className="space-y-4">
-        <button onClick={() => setCheckout(null)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+        <button onClick={() => (showCard ? setShowCard(false) : setCheckout(null))}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <ChevronLeft size={14} /> Back
         </button>
         <div className="rounded-2xl border border-border/50 bg-foreground/5 p-4">
@@ -44,23 +58,17 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
             <span className="text-lg font-black">${price.toFixed(2)}</span>
           </div>
           <AuthGate intent={checkout.kind === "flexi" ? "to add minutes" : "to get this pass"}>
-            <PayPalCheckout
-              walletAddress=""
-              price={price}
-              credits={checkout.kind === "flexi" ? minutes : 0}
-              kind={checkout.kind === "flexi" ? "credits" : checkout.pass.id}
-              label={label}
-              onSuccess={async () => {
-                if (checkout.kind === "flexi") {
-                  await grantCredits(minutes, usd)
-                } else {
-                  setSubscribed(true); setUnrestricted(true)
-                  setUnlimited(true)
-                  await completePassPurchase(checkout.pass.id)
-                }
-                onDone?.()
-              }}
-            />
+            {!showCard ? (
+              // Step 1 — one button, no provider clutter.
+              <button onClick={() => setShowCard(true)}
+                className="w-full flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl text-sm brand-gradient text-stone-950 brand-glow hover:scale-[1.01] active:scale-[0.99] transition-all">
+                <CreditCard size={15} /> Checkout · ${price.toFixed(2)}
+              </button>
+            ) : (
+              // Step 2 — card details + pay.
+              <CardStep price={price} credits={checkout.kind === "flexi" ? minutes : 0}
+                kind={checkout.kind === "flexi" ? "credits" : checkout.pass.id} label={label} onPaid={onPaid} />
+            )}
           </AuthGate>
         </div>
       </div>
@@ -154,5 +162,27 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
 
       <p className="text-[11px] text-foreground/30 text-center">Card payments · FlexiCalls minutes never expire</p>
     </div>
+  )
+}
+
+/**
+ * Card step — the buyer id (their signed-in email) is the walletAddress packed
+ * into the PayPal order, so create-order never gets the empty wallet that was
+ * causing "missing_params". Rendered only inside AuthGate, so an email exists.
+ */
+function CardStep({ price, credits, kind, label, onPaid }: {
+  price: number; credits: number; kind: string; label: string; onPaid: () => void
+}) {
+  const [email, setEmail] = useState("")
+  useEffect(() => { currentEmail().then((e) => setEmail(e || "")) }, [])
+  return (
+    <PayPalCardForm
+      walletAddress={email || "guest"}
+      price={price}
+      credits={credits}
+      kind={kind}
+      label={label}
+      onSuccess={onPaid}
+    />
   )
 }

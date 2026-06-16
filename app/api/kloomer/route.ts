@@ -43,7 +43,7 @@ const SYNTH_SYSTEM = `You are a character designer. Given a name, description, o
 The JSON shape (all fields required):
 {
   "name": "first name or short stage name, no titles",
-  "gender": "female" | "male" | "nonbinary",
+  "gender": "female" or "male" — pick the one that fits how this character reads and sounds; this drives their VOICE, so commit to one. Only use "nonbinary" if the character is genuinely, intentionally androgynous.",
   "personality": "2-3 rich sentences in second person ('You are...'). Specific, opinionated, alive — quirks, what they care about, how they treat people.",
   "speakingStyle": "1-2 sentences. Concrete: rhythm, slang, verbal tics, energy.",
   "backstory": "2 sentences of lived life that explain who they are.",

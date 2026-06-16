@@ -11,7 +11,7 @@ import { FEMALE_PERSONAS, nameHash } from "@/lib/persona-utils"
 const POOLS = {
   female_serious_mature: ["c1e8cb64140a433da027c21ee81f6ed1", "3dea985a29124f079f9099d54134db23", "553b2b3665614ff5aac6620eb2962f80", "1b3ba2dfb2224bd2a0344d7f1e8f8d79"],
   female_serious_young:  ["bf7d0567a78e403e99c44bde27a36a9e", "a2dbcf12885442a9b68b34d3f1c83699", "d0f16d86f51349d59f69a36d25ea64ae", "378e8db799294f2193747f825a471a1d"],
-  female_casual_mature:  ["e51c3314b71241a892387e6804b45c2c", "6d7ebc02cb674c31a68d7e2a88cf9c9a", "eb5d97bf9f0b414d8809c3197266f280", "bfb3a799c9474c28bea76de34c7a4b9a"],
+  female_casual_mature:  ["e51c3314b71241a892387e6804b45c2c", "6d7ebc02cb674c31a68d7e2a88cf9c9a", "bfb3a799c9474c28bea76de34c7a4b9a"],
   female_casual_young:   ["62815b53043c4be8adc565a2c7a27117", "2e064c4c5f4f4523a69e964c09ef996e", "d0d57d627c044da1ba1f2012a3b15a6a"],
 
   male_serious_mature:   ["9344dc514b6a47dbb296fea1c0b11312", "047c93388dc54d2a9039bc7906a9cd9f", "949309c754a64dd39f98c61e94828471"],
@@ -91,7 +91,17 @@ export function resolveVoiceId(name?: string, gender?: string, traits?: { seriou
   if (name && OVERRIDES[name]) return OVERRIDES[name]
 
   const hash = nameHash(name || gender || "x")
-  const isF = gender === "female" || (gender !== "male" && isFemale(name || ""))
+  // Voice MUST be gendered (Fish voices are female/male). Resolve in priority:
+  // explicit gender → explicit gendered keyword in the name → a STABLE coin-flip
+  // by name hash. The old code defaulted every ambiguous/"nonbinary" persona to
+  // the male pool, so most AI-generated characters (which often come back
+  // "nonbinary") sounded male regardless of who they were.
+  const isF =
+    gender === "female" ? true :
+    gender === "male"   ? false :
+    isFemale(name || "") ? true :
+    isMale(name || "")   ? false :
+    hash % 2 === 0
 
   // Default: spread across the FULL gender pool (15 female / 10 male) so every
   // persona gets a distinct-feeling voice. The tiny trait sub-pools (2-4 voices)
@@ -147,7 +157,6 @@ export const VOICE_CATALOG: VoiceCatalogEntry[] = [
   // Female — casual, mature
   { id: "e51c3314b71241a892387e6804b45c2c", label: "Sienna",  gender: "female", vibe: "Easy, lived-in warmth" },
   { id: "6d7ebc02cb674c31a68d7e2a88cf9c9a", label: "Honey",   gender: "female", vibe: "Soft and inviting" },
-  { id: "eb5d97bf9f0b414d8809c3197266f280", label: "Coco",    gender: "female", vibe: "Playful, knowing" },
   { id: "bfb3a799c9474c28bea76de34c7a4b9a", label: "Pearl",   gender: "female", vibe: "Round, friendly, open" },
   // Female — casual, young
   { id: "62815b53043c4be8adc565a2c7a27117", label: "Luna",    gender: "female", vibe: "Light, sweet, close" },

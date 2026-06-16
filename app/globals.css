@@ -3,6 +3,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Hide the horizontal scrollbar on chip rows / carousels (used app-wide). */
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

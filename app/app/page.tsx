@@ -6,11 +6,13 @@
  */
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { VISIBLE_ROOMS as ROOMS, type Room } from "@/lib/rooms"
 import { CATEGORY_META, CATEGORY_ORDER } from "@/lib/category-meta"
 import { listCustomRooms } from "@/lib/custom-rooms"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
+import { currentEmail, hydrateEntitlement } from "@/lib/auth"
 import { Plus, DoorOpen, ChevronRight, ArrowRight } from "lucide-react"
 
 function greeting(): string {
@@ -26,6 +28,31 @@ export default function HubPage() {
   const [mine, setMine] = useState<Room[]>([])
   const [hello, setHello] = useState("Welcome.")
   useEffect(() => { setMine(listCustomRooms()); setHello(greeting()) }, [])
+
+  // Verify-on-return from Ziina checkout: credit the buyer server-side, then
+  // refresh entitlement so the new minutes/pass show immediately.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("payment") !== "success") {
+      if (params.get("payment") === "cancelled") window.history.replaceState({}, "", "/app")
+      return
+    }
+    ;(async () => {
+      try {
+        const email = await currentEmail()
+        if (email) {
+          await fetch("/api/ziina-verify", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ wallet: email }),
+          })
+          await hydrateEntitlement()
+          toast.success("Payment complete — added to your account.")
+        }
+      } catch { /* webhook will still credit if configured */ }
+      window.history.replaceState({}, "", "/app")
+    })()
+  }, [])
 
   // Tonight's picks — one flagship + one fantasy + the decision engine.
   const tonight = useMemo(() => {

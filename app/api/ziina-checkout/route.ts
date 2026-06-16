@@ -26,10 +26,9 @@ export async function POST(req: NextRequest) {
                 : kind === "subscription" ? (plan || "subscription")
                 : "purchase"
   const origin  = req.nextUrl.origin
-  const isSub   = kind === "subscription" || kind === "unlimited"
-  const success = isSub
-    ? `${origin}/app/settings?tab=billing&subscribed=1`
-    : `${origin}/app?payment=success`
+  // Always return to the hub; the verify-on-return handler there credits both
+  // packs and passes from the intent→wallet mapping. One return path for all.
+  const success = `${origin}/app?payment=success`
 
   try {
     const intent = await createPaymentIntent({

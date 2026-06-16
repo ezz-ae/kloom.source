@@ -79,10 +79,15 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
         cardFieldRef.current = cardField
 
         if (!cardField.isEligible()) {
-          // ACDC not enabled on this account → standard buttons (guest card still works).
+          // Inline ACDC card fields aren't enabled for this account/region (e.g.
+          // UAE). Fall back to a CARD-ONLY button (no yellow PayPal button); if the
+          // card source itself isn't eligible, render the default funding set so
+          // payment still works.
           if (btnRef.current) {
-            paypal.Buttons({ createOrder, onApprove, onError: (e: any) => { const m = String(e?.message || e); setErr(m); onError?.(m) } })
-              .render(btnRef.current)
+            const onErr = (e: any) => { const m = String(e?.message || e); setErr(m); onError?.(m) }
+            const cardOnly = paypal.Buttons({ fundingSource: paypal.FUNDING?.CARD, createOrder, onApprove, onError: onErr })
+            if (cardOnly?.isEligible?.()) cardOnly.render(btnRef.current)
+            else paypal.Buttons({ createOrder, onApprove, onError: onErr }).render(btnRef.current)
           }
           setStatus("ineligible")
           return

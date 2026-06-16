@@ -87,9 +87,9 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
           setStatus("ineligible")
           return
         }
-        if (numberRef.current) cardField.NumberField().render(numberRef.current)
-        if (expiryRef.current) cardField.ExpiryField().render(expiryRef.current)
-        if (cvvRef.current)    cardField.CVVField().render(cvvRef.current)
+        if (numberRef.current) cardField.NumberField({ placeholder: "Card number" }).render(numberRef.current)
+        if (expiryRef.current) cardField.ExpiryField({ placeholder: "MM / YY" }).render(expiryRef.current)
+        if (cvvRef.current)    cardField.CVVField({ placeholder: "CVV" }).render(cvvRef.current)
         setStatus("ready")
       })
       .catch((e) => { const m = String(e?.message || e); setErr(m); setStatus("error") })
@@ -108,34 +108,26 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {status !== "ineligible" && (
         <>
-          <div>
-            <label className="text-[11px] text-foreground/40">Card number</label>
-            <div ref={numberRef} className="mt-1 h-11 rounded-xl border border-border/50 bg-white/5 px-3 flex items-center" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] text-foreground/40">Expiry</label>
-              <div ref={expiryRef} className="mt-1 h-11 rounded-xl border border-border/50 bg-white/5 px-3 flex items-center" />
-            </div>
-            <div>
-              <label className="text-[11px] text-foreground/40">CVV</label>
-              <div ref={cvvRef} className="mt-1 h-11 rounded-xl border border-border/50 bg-white/5 px-3 flex items-center" />
-            </div>
+          <div ref={numberRef} className="h-11 rounded-xl border border-border/50 bg-white/5 px-3.5 flex items-center" />
+          <div className="grid grid-cols-2 gap-2.5">
+            <div ref={expiryRef} className="h-11 rounded-xl border border-border/50 bg-white/5 px-3.5 flex items-center" />
+            <div ref={cvvRef} className="h-11 rounded-xl border border-border/50 bg-white/5 px-3.5 flex items-center" />
           </div>
           <button
             onClick={pay}
             disabled={status === "loading" || status === "paying" || status === "done"}
-            className="w-full h-11 rounded-xl bg-white text-stone-950 font-bold text-sm disabled:opacity-50 transition-all hover:bg-white/90"
+            className="w-full h-12 rounded-xl brand-gradient text-stone-950 font-bold text-sm disabled:opacity-50 transition-all hover:scale-[1.01] active:scale-[0.99]"
           >
             {status === "loading" ? "Loading…" : status === "paying" ? "Processing…" : status === "done" ? "Paid ✓" : `Pay $${Number(price).toFixed(2)}`}
           </button>
-          <p className="text-[10px] text-foreground/30 text-center">🔒 Secured by PayPal · no account needed · we never see your card</p>
+          <p className="text-[10px] text-foreground/30 text-center">🔒 Encrypted · your card is never stored</p>
         </>
       )}
-      <div ref={btnRef} />
+      {/* ACDC fallback target — only fills in if inline card fields aren't available. */}
+      <div ref={btnRef} className={status === "ineligible" ? "" : "hidden"} />
       {err && <p className="text-xs text-red-400 text-center">{err}</p>}
     </div>
   )

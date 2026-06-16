@@ -7,15 +7,15 @@
  */
 import { useState, useEffect } from "react"
 import {
-  FLEXI_MIN_USD, FLEXI_MAX_USD, flexiMinutes, flexiRate,
-  PASSES, DAYPASS_SUGGEST_USD, activePass, passTimeLeft, type Pass,
+  FLEXI_MIN_USD, FLEXI_MAX_USD, flexiMinutes,
+  PASSES, activePass, passTimeLeft, type Pass,
 } from "@/lib/pricing"
 import { setUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
 import { completePassPurchase, grantCredits, currentEmail } from "@/lib/auth"
 import { AuthGate } from "@/components/widgets/AuthGate"
 import { PayPalCardForm } from "@/components/widgets/PayPalCardForm"
-import { Check, Infinity as InfinityIcon, Zap, UserPlus, Crown, ChevronLeft, CreditCard } from "lucide-react"
+import { Check, Crown, ChevronLeft, CreditCard } from "lucide-react"
 
 interface TopUpSliderProps { onDone?: () => void }
 
@@ -27,8 +27,6 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
   useEffect(() => { setShowCard(false) }, [checkout])
 
   const minutes  = flexiMinutes(usd)
-  const rate     = flexiRate(usd)
-  const suggest  = usd >= DAYPASS_SUGGEST_USD
   const current  = activePass()
   const timeLeft = passTimeLeft()
 
@@ -83,84 +81,54 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
         </div>
       )}
 
-      {/* ── FlexiCalls ── */}
+      {/* ── Pay as you go ── */}
       <div>
-        <div className="flex items-baseline justify-between mb-1">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">FlexiCalls</span>
-          <span className="text-[11px] text-emerald-400 font-semibold">{rate} min / $</span>
+        <div className="text-center pt-1 pb-3">
+          <div className="text-6xl font-black tracking-tight">{minutes}<span className="text-2xl text-foreground/40 font-bold"> min</span></div>
+          <div className="text-sm text-foreground/50 mt-1">voice for <span className="text-foreground font-semibold">${usd.toFixed(2)}</span></div>
         </div>
-
-        <div className="text-center py-3">
-          <div className="text-5xl font-black">{minutes}<span className="text-2xl text-foreground/40"> min</span></div>
-          <div className="text-sm text-foreground/50 mt-1">of voice for <span className="text-foreground font-semibold">${usd.toFixed(2)}</span></div>
-        </div>
-
         <input type="range" min={FLEXI_MIN_USD} max={FLEXI_MAX_USD} step={0.25} value={usd}
           onChange={(e) => setUsd(Number(e.target.value))} className="w-full accent-amber-500" />
-        <div className="flex justify-between text-[11px] text-foreground/35 mt-1">
-          <span>${FLEXI_MIN_USD} · 12 min</span>
-          <span>more $ → more min per $</span>
-        </div>
-
-        {suggest && (
-          <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/[0.08] p-3.5 animate-in fade-in duration-300">
-            <div className="flex items-center gap-2 text-sm font-bold text-amber-300">
-              <Zap size={14} /> Same money, no meter.
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              ${DAYPASS_SUGGEST_USD} is the Dayuse pass — <span className="text-foreground font-semibold">24h unlimited voice, unrestricted, +1 invitation</span>.
-            </p>
-          </div>
-        )}
-
         <button onClick={() => setCheckout({ kind: "flexi" })}
-          className="mt-3 w-full flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl text-sm bg-foreground/10 border border-border/60 hover:bg-foreground/15 text-foreground hover:scale-[1.01] active:scale-[0.99] transition-all">
-          Add {minutes} minutes · ${usd.toFixed(2)}
+          className="mt-4 w-full font-bold py-3.5 rounded-2xl text-sm bg-foreground/10 border border-border/60 hover:bg-foreground/15 text-foreground hover:scale-[1.01] active:scale-[0.99] transition-all">
+          Add {minutes} min · ${usd.toFixed(2)}
         </button>
       </div>
 
-      {/* ── Passes ── */}
+      {/* ── Passes ── one shared promise, then just what differs ── */}
       <div>
-        <div className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Full-access passes</div>
-        <div className="space-y-2.5">
+        <div className="flex items-baseline justify-between mb-2.5">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Passes</span>
+          <span className="text-[11px] text-muted-foreground">Unlimited voice · no limits</span>
+        </div>
+        <div className="space-y-2">
           {PASSES.map((pass) => {
             const isCurrent = current?.id === pass.id
+            const duration  = pass.monthly ? "30 days" : pass.durationHours === 24 ? "24 hours" : "7 days"
+            const invites   = pass.invitations === "unlimited" ? "unlimited invites" : `${pass.invitations} invite${pass.invitations === 1 ? "" : "s"}`
             return (
               <button key={pass.id} onClick={() => setCheckout({ kind: "pass", pass })} disabled={isCurrent}
-                className={`w-full text-left rounded-2xl border p-4 transition-all ${
+                className={`w-full text-left rounded-2xl border p-4 flex items-center justify-between gap-3 transition-all ${
                   isCurrent ? "border-emerald-500/40 bg-emerald-500/[0.07]"
                   : pass.monthly ? "border-amber-500/40 bg-amber-500/[0.07] hover:bg-amber-500/[0.12]"
                   : "border-border/50 bg-foreground/5 hover:bg-foreground/10"
                 } disabled:cursor-default`}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-base">{pass.name}</span>
-                      {pass.monthly && <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full brand-gradient text-stone-950">Best value</span>}
-                      {isCurrent && <Check size={14} className="text-emerald-400" />}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{pass.tagline}</div>
-                    <div className="flex items-center gap-3 mt-2 text-[11px] text-foreground/70">
-                      <span className="flex items-center gap-1"><InfinityIcon size={11} /> Unlimited voice</span>
-                      <span className="flex items-center gap-1"><Zap size={11} /> Unrestricted</span>
-                      <span className="flex items-center gap-1">
-                        <UserPlus size={11} />
-                        {pass.invitations === "unlimited" ? "Unlimited invites" : `${pass.invitations} invitation${pass.invitations === 1 ? "" : "s"}`}
-                      </span>
-                    </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-base">{pass.name}</span>
+                    {pass.monthly && <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full brand-gradient text-stone-950">Best value</span>}
+                    {isCurrent && <Check size={14} className="text-emerald-400" />}
                   </div>
-                  <div className="shrink-0 text-right">
-                    <div className="text-xl font-black">${pass.priceUsd}</div>
-                    <div className="text-[10px] text-muted-foreground">{pass.monthly ? "/ month" : pass.durationHours === 24 ? "24 hours" : "7 days"}</div>
-                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{duration} · {invites}</div>
                 </div>
+                <div className="shrink-0 text-xl font-black">${pass.priceUsd}</div>
               </button>
             )
           })}
         </div>
       </div>
 
-      <p className="text-[11px] text-foreground/30 text-center">Card payments · FlexiCalls minutes never expire</p>
+      <p className="text-[11px] text-foreground/30 text-center">Card payments · minutes never expire</p>
     </div>
   )
 }

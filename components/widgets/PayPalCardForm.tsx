@@ -118,7 +118,7 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
   // (loading / ineligible) it stays a sized, opacity-0 layer so PayPal renders
   // into it correctly and can catch the click.
   const cardFieldsLive = status === "ready" || status === "paying" || status === "done"
-  const label = status === "loading" ? "Loading…" : status === "paying" ? "Processing…" : status === "done" ? "Paid ✓" : `Pay $${Number(price).toFixed(2)}`
+  const payLabel = status === "loading" ? "Loading…" : status === "paying" ? "Processing…" : status === "done" ? "Paid ✓" : `Pay $${Number(price).toFixed(2)}`
 
   return (
     <div className="space-y-2.5">
@@ -143,7 +143,7 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
           disabled={status === "loading" || status === "paying" || status === "done"}
           className="w-full h-12 rounded-xl brand-gradient text-stone-950 font-bold text-sm disabled:opacity-50 transition-all hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center"
         >
-          {label}
+          {payLabel}
         </button>
         {/* PayPal fallback button — invisible, on top, catching the click. Hidden
             only once the inline card fields are live (then our button submits them). */}

@@ -10,7 +10,7 @@ import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
 import { hasUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
 import { AuthGate } from "@/components/widgets/AuthGate"
-import { completePassPurchase, hydrateEntitlement, accountMinutes, currentEmail, signOut } from "@/lib/auth"
+import { completePassPurchase, hydrateEntitlement, currentEmail, signOut } from "@/lib/auth"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
   CreditCard, Wallet, Bell, Shield, Trash2,
@@ -64,7 +64,7 @@ function SettingsContent() {
 
   const { publicKey, disconnect, connecting } = useWallet()
   const { setVisible: openWalletModal }        = useWalletModal()
-  const { balance, solPrice }                  = useSolCredits()
+  useSolCredits()  // keeps wallet/premium status in sync (balance shown on the You tab)
   const bloomMint = process.env.NEXT_PUBLIC_BLOOM_MINT
 
   const [notifs, setNotifs]       = useState(true)
@@ -100,9 +100,8 @@ function SettingsContent() {
     setPayPlan((p) => (p === planId ? null : planId))
   }
 
-  // Re-sync the signed-in account's pass + voice-minute balance on load.
-  const [accountMin, setAccountMin] = useState(0)
-  useEffect(() => { hydrateEntitlement().then(() => setAccountMin(accountMinutes())) }, [])
+  // Re-sync any pass owned by the signed-in account on load.
+  useEffect(() => { hydrateEntitlement() }, [])
 
   return (
     <div className="min-h-full bg-background text-foreground">
@@ -140,36 +139,15 @@ function SettingsContent() {
           {/* ── Billing ── */}
           {activeTab === "billing" && (
             <>
-              {/* Free chat banner */}
-              <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-sm font-semibold px-4 py-3 rounded-2xl">
-                <Check size={15} className="shrink-0" />
-                Text chat is free — rooms, experts, and inviting friends. You only pay for live voice calls.
-              </div>
-
-              {/* Voice credits balance */}
-              <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-xs font-semibold text-amber-300 uppercase tracking-widest mb-1">Voice call credits</div>
-                    {unlimited ? (
-                      <div className="flex items-center gap-2 text-4xl font-black text-emerald-400">
-                        <InfinityIcon size={32} /> Unlimited
-                      </div>
-                    ) : (
-                      <div className="text-4xl font-black">{accountMin + balance}<span className="text-lg text-muted-foreground"> min</span></div>
-                    )}
-                    <div className="text-sm text-foreground/50 mt-1">
-                      {unlimited ? "Unlimited voice calls · active" : "First 5 minutes free · top up with FlexiCalls below"}
-                    </div>
-                  </div>
-                  {!unlimited && (
-                    <button onClick={() => setTopUpOpen(true)} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-foreground font-bold px-5 py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] text-sm">
-                      <Plus size={16} />
-                      Top up
-                    </button>
-                  )}
+              {/* Top up voice minutes — balance lives in the You tab */}
+              {!unlimited && (
+                <div className="flex items-center justify-between gap-3 bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5">
+                  <div className="text-sm font-bold">Voice minutes</div>
+                  <button onClick={() => setTopUpOpen(true)} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-foreground font-bold px-5 py-2.5 rounded-xl transition-all text-sm">
+                    <Plus size={16} /> Top up
+                  </button>
                 </div>
-              </div>
+              )}
 
               {/* Subscription success */}
               {subSuccess && (
@@ -181,7 +159,7 @@ function SettingsContent() {
               {/* Subscription plans — Creator tools (optional) */}
               <div>
                 <h3 className="font-bold mb-1">Full-access passes</h3>
-                <p className="text-xs text-muted-foreground mb-4">Unlimited voice + every premium model, time-boxed. Text chat stays free either way.</p>
+                <p className="text-xs text-muted-foreground mb-4">Unlimited voice + every premium model, time-boxed.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {PLANS.map((plan) => (
                     <div

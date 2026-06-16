@@ -3,14 +3,16 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSolCredits } from "@/hooks/use-sol-credits"
-import { isSubscribed, hasUnrestricted } from "@/lib/account"
+import { isSubscribed } from "@/lib/account"
+import { accountMinutes, hydrateEntitlement } from "@/lib/auth"
+import { TopUpSlider } from "@/components/widgets/TopUpSlider"
 import { listCustomRooms, deleteCustomRoom } from "@/lib/custom-rooms"
 import { ROOM_CATEGORY_LABELS, ROOM_CATEGORY_COLORS, type Room, type RoomCategory } from "@/lib/rooms"
 import { getCharacter, saveCharacter, type UserCharacter } from "@/lib/character"
 import { imageFor } from "@/lib/persona-utils"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
-  Wallet, Plus, Sparkles, Infinity as InfinityIcon, Trash2, ArrowRight,
+  Wallet, Plus, Trash2,
   HeartHandshake, Shield, User, Tag, X as XIcon, Check, Users as UsersIcon,
 } from "lucide-react"
 
@@ -42,9 +44,10 @@ function Section({ icon: Icon, title, sub, children }: { icon: typeof User; titl
 
 export default function YouPage() {
   const router = useRouter()
-  const { balance, solPrice } = useSolCredits()
+  const { balance } = useSolCredits()
+  const [accountMin, setAccountMin] = useState(0)
+  const [topUpOpen, setTopUpOpen]   = useState(false)
   const [premium, setPremium]   = useState(false)
-  const [unrest, setUnrest]     = useState(false)
   const [rooms, setRooms]       = useState<Room[]>([])
   const [char, setChar]         = useState<UserCharacter>({ displayName: "", interests: [], vibe: "", preferredCategories: [] })
   const [tagInput, setTagInput] = useState("")
@@ -54,10 +57,10 @@ export default function YouPage() {
 
   useEffect(() => {
     setPremium(isSubscribed())
-    setUnrest(hasUnrestricted())
     setRooms(listCustomRooms())
     setChar(getCharacter())
     setWellnessOn(isWellnessEnabled())
+    hydrateEntitlement().then(() => setAccountMin(accountMinutes()))
   }, [])
 
   const removeRoom = (id: string) => { deleteCustomRoom(id); setRooms(listCustomRooms()) }
@@ -92,28 +95,16 @@ export default function YouPage() {
 
       <div className="max-w-3xl mx-auto px-6 lg:px-8 py-6 pb-28 lg:pb-10 space-y-5">
 
-        {/* ── Billing & credits ── */}
-        <Section icon={Wallet} title="Billing & credits" sub="Voice calls are pay-as-you-go. Chat is free.">
+        {/* ── Voice minutes — the single balance, the single top-up ── */}
+        <Section icon={Wallet} title="Voice minutes" sub="Pay-as-you-go. Top up or grab a pass.">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Credits</div>
-              <div className="text-3xl font-black mt-1">{balance}</div>
-              {solPrice > 0 && <div className="text-[11px] text-muted-foreground mt-0.5">SOL ≈ ${solPrice.toFixed(2)}</div>}
+              <div className="text-3xl font-black">{premium ? "Unlimited" : <>{accountMin + balance}<span className="text-lg text-muted-foreground"> min</span></>}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{premium ? "Pass active" : "First 5 minutes free"}</div>
             </div>
-            <button onClick={() => router.push("/app/settings?tab=billing")}
+            <button onClick={() => setTopUpOpen(true)}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm px-4 py-2.5 rounded-xl transition-all">
               <Plus size={15} /> Top up
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-4">
-            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${premium ? "border-amber-500/30 bg-amber-500/10 text-amber-300" : "border-border bg-muted/40 text-muted-foreground"}`}>
-              <Sparkles size={11} className="inline mr-1" />{premium ? "Premium active" : "Free plan"}
-            </span>
-            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${unrest ? "border-rose-500/30 bg-rose-500/10 text-rose-300" : "border-border bg-muted/40 text-muted-foreground"}`}>
-              <InfinityIcon size={11} className="inline mr-1" />{unrest ? "Unrestricted on" : "Unrestricted off"}
-            </span>
-            <button onClick={() => router.push("/app/settings?tab=billing")} className="text-[11px] font-semibold px-2.5 py-1 rounded-full border border-border bg-muted/40 text-muted-foreground hover:text-foreground transition-colors">
-              Manage plan <ArrowRight size={11} className="inline" />
             </button>
           </div>
         </Section>
@@ -237,6 +228,19 @@ export default function YouPage() {
           </div>
         </Section>
       </div>
+
+      {/* Top up — minutes + passes, all in one place */}
+      {topUpOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-5" onClick={() => setTopUpOpen(false)}>
+          <div className="w-full max-w-md rounded-3xl border border-border/60 bg-background p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-black text-lg">Top up</h3>
+              <button onClick={() => setTopUpOpen(false)} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
+            </div>
+            <TopUpSlider onDone={() => { setTopUpOpen(false); hydrateEntitlement().then(() => setAccountMin(accountMinutes())) }} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

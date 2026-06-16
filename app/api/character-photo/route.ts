@@ -57,7 +57,7 @@ async function genRunpod(prompt: string): Promise<Buffer | null> {
       method: "POST",
       headers: { Authorization: `Bearer ${RP_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ input: { prompt, negative_prompt: NEG, width: 768, height: 1024, num_inference_steps: 30, guidance_scale: 6 } }),
-      signal: AbortSignal.timeout(80000),
+      signal: AbortSignal.timeout(30000),
     })
     if (!res.ok) return null
     const d = await res.json()
@@ -78,7 +78,7 @@ async function genFal(prompt: string): Promise<Buffer | null> {
       method: "POST",
       headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, image_size: "portrait_4_3", num_inference_steps: 28, enable_safety_checker: true }),
-      signal: AbortSignal.timeout(80000),
+      signal: AbortSignal.timeout(30000),
     })
     if (!res.ok) return null
     const d = await res.json()
@@ -91,6 +91,12 @@ async function genFal(prompt: string): Promise<Buffer | null> {
 }
 
 export async function POST(request: Request) {
+  // Fast path when on-demand photo gen is intentionally off (no funded image
+  // provider) — return immediately so the client falls back to the monogram
+  // identity card instead of hanging on a dead endpoint.
+  if (PROVIDER === "none" || (PROVIDER === "runpod" && !RP_KEY) || (PROVIDER === "fal" && !FAL_KEY)) {
+    return Response.json({ error: "image generation disabled", disabled: true }, { status: 503 })
+  }
   if (!hasAdmin()) return Response.json({ error: "storage unavailable" }, { status: 503 })
 
   let name = "", gender = "", world = "", desc = "", slug = ""

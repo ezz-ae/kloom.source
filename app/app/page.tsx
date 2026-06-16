@@ -70,10 +70,6 @@ export default function HubPage() {
           {/* JOIN */}
           <button onClick={() => router.push("/app/rooms")}
             className="group relative text-left rounded-3xl glass-strong border border-border/50 p-8 lg:p-10 min-h-[38vh] flex flex-col justify-between overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.015] hover:border-border active:scale-[0.99]">
-            {/* drifting category emojis */}
-            <div className="absolute inset-0 opacity-[0.05] pointer-events-none select-none text-6xl leading-none p-6 flex flex-wrap gap-6 items-center justify-center">
-              {CATEGORY_ORDER.slice(0, 8).map((c) => <span key={c}>{CATEGORY_META[c].emoji}</span>)}
-            </div>
             <div className="w-12 h-12 rounded-2xl bg-foreground/10 border border-border/40 flex items-center justify-center">
               <DoorOpen size={24} className="text-amber-400" />
             </div>
@@ -96,7 +92,7 @@ export default function HubPage() {
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
               {mine.slice(0, 8).map((r) => (
                 <button key={r.id} onClick={() => router.push(`/app/rooms/${r.id}`)}
-                  className={`snap-start shrink-0 w-60 text-left rounded-3xl border border-border/50 bg-gradient-to-br ${r.gradient} p-4 hover:border-border transition-all duration-200 hover:scale-[1.02]`}>
+                  className="snap-start shrink-0 w-60 text-left rounded-3xl border border-border/50 bg-foreground/[0.02] p-4 hover:border-border hover:bg-foreground/[0.04] transition-all duration-200 hover:scale-[1.02]">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                     {CATEGORY_META[r.category]?.label ?? r.category}
                   </span>
@@ -136,10 +132,9 @@ export default function HubPage() {
                 return (
                   <button key={room.id}
                     onClick={() => router.push(topic ? `/app/rooms/${room.id}?t=${topic.slug}` : `/app/rooms/${room.id}`)}
-                    className={`group text-left rounded-3xl border border-border/40 bg-gradient-to-br ${room.gradient} p-5 hover:border-border transition-all duration-300 hover:scale-[1.01]`}>
+                    className="group text-left rounded-3xl border border-border/40 bg-foreground/[0.02] p-5 hover:border-border hover:bg-foreground/[0.04] transition-all duration-300 hover:scale-[1.01]">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-lg">{meta?.emoji}</span>
-                      <span className={`text-[10px] font-bold uppercase tracking-widest ${meta?.text ?? "text-muted-foreground"}`}>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         {meta?.label ?? room.category}
                       </span>
                     </div>

@@ -7,9 +7,16 @@
  */
 import { useState, useEffect } from "react"
 import { signUp, signIn, currentEmail, requestPasswordReset } from "@/lib/auth"
+import { requiresAccountForPay } from "@/lib/variant"
 import { Loader2, Mail, Lock, Check } from "lucide-react"
 
 export function AuthGate({ children, intent = "to continue" }: { children: React.ReactNode; intent?: string }) {
+  // .fun is anonymous — no account, ever. The gate is a pass-through.
+  if (!requiresAccountForPay()) return <>{children}</>
+  return <AccountGate intent={intent}>{children}</AccountGate>
+}
+
+function AccountGate({ children, intent }: { children: React.ReactNode; intent: string }) {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [mode, setMode] = useState<"signup" | "signin">("signup")

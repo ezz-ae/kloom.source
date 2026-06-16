@@ -6,7 +6,7 @@
  */
 import { useState, useEffect, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
+import { ROOMS, effectiveSeatModel, type Room, type RoomCategory } from "@/lib/rooms"
 import { CATEGORY_META, BADGE_LABELS, isAdultRoom } from "@/lib/category-meta"
 import { adultEnabled } from "@/lib/variant"
 import { getTopics } from "@/lib/topics"
@@ -63,22 +63,18 @@ export default function CategoryPage() {
   return (
     <div className="min-h-full text-foreground">
       {/* Hero in the world's identity */}
-      <div className={`relative overflow-hidden bg-gradient-to-br ${meta.gradient}`}>
-        <span className="absolute -right-8 -bottom-12 text-[14rem] opacity-[0.06] select-none pointer-events-none">{meta.emoji}</span>
+      <div className="relative overflow-hidden bg-foreground/[0.02] border-b border-border/40">
         <div className="max-w-6xl mx-auto px-6 lg:px-8 pt-[calc(env(safe-area-inset-top)+1.5rem)] pb-10">
           <button onClick={() => router.push("/app/rooms")}
             className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm mb-6 transition-colors">
             <ChevronLeft size={16} /> All worlds
           </button>
-          <div className="flex items-center gap-4">
-            <span className="text-5xl">{meta.emoji}</span>
-            <div>
-              <h1 className="text-4xl lg:text-5xl font-black tracking-[-0.02em]">{meta.label}</h1>
-              <p className="text-muted-foreground mt-1">{meta.tagline}</p>
-            </div>
+          <div>
+            <h1 className="text-4xl lg:text-5xl font-black tracking-[-0.02em]">{meta.label}</h1>
+            <p className="text-muted-foreground mt-1">{meta.tagline}</p>
           </div>
           <div className="flex items-center gap-2 mt-5">
-            <span className={`text-[10px] font-bold uppercase tracking-widest ${meta.text}`}>
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               {rooms.length + mine.length} room{rooms.length + mine.length === 1 ? "" : "s"}
             </span>
             {meta.badges.map((b) => (
@@ -153,7 +149,7 @@ function RoomCard({ room, category, accentText }: { room: Room; category: RoomCa
   const topics = getTopics(room.id, category)
 
   return (
-    <div className={`rounded-3xl border border-border/40 bg-gradient-to-br ${room.gradient} p-5 lg:p-6 transition-all duration-300 hover:border-border`}>
+    <div className="rounded-3xl border border-border/40 bg-foreground/[0.02] p-5 lg:p-6 transition-all duration-300 hover:border-border hover:bg-foreground/[0.04]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-xl font-black tracking-tight">{room.name}</h3>
@@ -186,9 +182,9 @@ function RoomCard({ room, category, accentText }: { room: Room; category: RoomCa
         <span className="text-[11px] text-muted-foreground">
           {room.personas.map((p) => p.name.split(" ")[0]).slice(0, 4).join(", ")}
         </span>
-        {room.personas.filter((p) => p.model && p.model !== "local").map((p) => (
+        {room.personas.filter((p) => effectiveSeatModel(p.model) !== "local").map((p) => (
           <span key={`${p.name}-model`} className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-border/50 bg-background/40 text-muted-foreground">
-            {MODEL_BADGE[p.model!] ?? p.model}
+            {MODEL_BADGE[effectiveSeatModel(p.model)] ?? effectiveSeatModel(p.model)}
           </span>
         ))}
         {room.capabilities.skills.slice(0, 3).map((s) => (

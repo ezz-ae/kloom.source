@@ -13,6 +13,9 @@ const standalone = process.env.STANDALONE === "1"
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   ...(standalone ? { output: "standalone", outputFileTracingRoot: projectRoot } : {}),
+  // Separate build dir lets the .fun variant dev server run in parallel with the
+  // .io one (different port + NEXT_DIST_DIR) without clobbering .next.
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   turbopack: {
     root: projectRoot,
   },

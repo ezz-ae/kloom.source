@@ -4,18 +4,19 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { toast } from "sonner"
 import Link from "next/link"
 import { useParams, useSearchParams, useRouter } from "next/navigation"
-import { getRoomById, roomInvite, ROOM_CATEGORY_COLORS, ROOM_CATEGORY_LABELS, type RoomPersona, type SeatModel } from "@/lib/rooms"
+import { getRoomById, roomInvite, ROOM_CATEGORY_LABELS, effectiveSeatModel, type RoomPersona, type SeatModel } from "@/lib/rooms"
 import { getCustomRoom, importCustomRoom } from "@/lib/custom-rooms"
 import { roomFromLocationHash, buildInviteUrl } from "@/lib/room-share"
 import { fetchPublishedRoom, bumpRoomEntries } from "@/lib/rooms-db"
 import { findTopic, topicScenePrompt } from "@/lib/topics"
 import { CATEGORY_META, isAdultRoom } from "@/lib/category-meta"
-import { adultEnabled } from "@/lib/variant"
+import { adultEnabled, memoryEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
+import { TOOL_INPUTS, buildToolArgs, formatToolOutput, isToolError } from "@/lib/room-tool-args"
 import { useRealtimeVoice, type Persona } from "@/hooks/use-realtime-voice"
 import { VIBE_TAGS } from "@/lib/voices"
 import { MessageRenderer } from "@/components/widgets/MessageRenderer"
@@ -68,6 +69,8 @@ interface OptionValues {
 const CHAT_STORAGE = "kloom_room_chats_v1"
 
 function loadRoomChats(roomId: string): ChatMessage[] {
+  // .fun is memoryless by design — nothing is ever persisted or restored.
+  if (!memoryEnabled()) return []
   try {
     const all = JSON.parse(localStorage.getItem(CHAT_STORAGE) ?? "{}")
     return all[roomId] ?? []
@@ -75,6 +78,7 @@ function loadRoomChats(roomId: string): ChatMessage[] {
 }
 
 function saveRoomChats(roomId: string, msgs: ChatMessage[]) {
+  if (!memoryEnabled()) return
   try {
     const all = JSON.parse(localStorage.getItem(CHAT_STORAGE) ?? "{}")
     all[roomId] = msgs.slice(-100)
@@ -156,6 +160,7 @@ function RoomContent() {
   optionValuesRef.current = optionValues
   const [toolLoading, setToolLoading]   = useState<string | null>(null)
   const [toolOutput, setToolOutput]     = useState<Record<string, string>>({})
+  const [toolArgs, setToolArgs]         = useState<Record<string, string>>({})
   const [copied, setCopied]             = useState<string | null>(null)
   const [decisionPrompt, setDecisionPrompt] = useState<string | null>(null)
   const [activeTool, setActiveTool]     = useState<string | null>(null)
@@ -486,10 +491,28 @@ function RoomContent() {
     toast.success("Decision prompt generated")
   }
 
-  // Run a room tool via MCP
+  // Run a room tool via MCP. Each tool's real arguments come from the tool-arg
+  // registry (a crypto price needs a `symbol`, multi-price an array, …) merged
+  // with the one value the user typed; tools not in the registry fall back to
+  // the room's option sliders. Output is always sanitized — a raw MCP/validation
+  // error never reaches the user.
   const runTool = useCallback(async (toolId: string) => {
     if (!room || toolLoading) return
     const toolDef = room.capabilities.tools.find((tool) => tool.id === toolId)
+    const spec    = TOOL_INPUTS[toolId]
+
+    let args: Record<string, unknown>
+    if (spec) {
+      const built = buildToolArgs(toolId, toolArgs[toolId] ?? "")
+      if (built.needsInput) {
+        toast.error(`Add a ${spec.arg.replace(/_/g, " ")} first`)
+        return
+      }
+      args = built.args
+    } else {
+      args = { ...optionValues }   // legacy option-driven tools (decision engine, etc.)
+    }
+
     setToolLoading(toolId)
     try {
       const res = await fetch("/api/mcp-chat", {
@@ -510,7 +533,7 @@ function RoomContent() {
           relationship: room.relationship,
           messages: [{
             role:    "user",
-            content: `Use the ${toolId} tool with these settings: ${JSON.stringify(optionValues)}. The room is \"${room.name}\". Relationship: ${room.relationship || "none"}. Return only the tool output and a concise summary.`,
+            content: `Use the ${toolId} tool with these settings: ${JSON.stringify(args)}. Return only the tool output and a concise summary.`,
           }],
         }),
       })
@@ -522,16 +545,18 @@ function RoomContent() {
         const { done, value } = await reader.read()
         if (done) break
         full += decoder.decode(value, { stream: true })
-        setToolOutput((prev) => ({ ...prev, [toolId]: full }))
       }
-      toast.success(`${toolDef?.label ?? "Tool"} completed`)
+      const clean = formatToolOutput(full, toolDef?.label)
+      setToolOutput((prev) => ({ ...prev, [toolId]: clean }))
+      if (isToolError(full)) toast.error(`${toolDef?.label ?? "Tool"} couldn't run`)
+      else                   toast.success(`${toolDef?.label ?? "Tool"} completed`)
     } catch {
-      setToolOutput((prev) => ({ ...prev, [toolId]: "Tool failed. Check MCP server." }))
+      setToolOutput((prev) => ({ ...prev, [toolId]: "Couldn't reach the tool. Try again in a moment." }))
       toast.error(`${toolDef?.label ?? "Tool"} failed`)
     } finally {
       setToolLoading(null)
     }
-  }, [room, toolLoading, optionValues])
+  }, [room, toolLoading, optionValues, toolArgs])
   // Adult rooms don't exist on the .io variant — they live on .fun.
   if (room && !adultEnabled() && isAdultRoom(room)) {
     return (
@@ -635,12 +660,12 @@ function RoomContent() {
         <div className="flex-1 min-w-0">
           <div className="font-bold text-sm truncate">{room.name}</div>
           <div className="flex items-center gap-2 overflow-hidden">
-            <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${ROOM_CATEGORY_COLORS[room.category]}`}>
+            <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border border-border/60 text-muted-foreground">
               {ROOM_CATEGORY_LABELS[room.category]}
             </span>
             {/* Backend badges — desktop only; on phones they overflow the header */}
             {roomPersonas.map((rp) => {
-              const b = BACKEND_BADGE[rp.model ?? "local"]
+              const b = BACKEND_BADGE[effectiveSeatModel(rp.model)]
               return (
                 <span key={rp.name} className={`hidden md:inline-flex shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${b.cls}`}>
                   {rp.name.split(" ")[0]} · {b.label}
@@ -819,7 +844,7 @@ function RoomContent() {
                   <p className="font-bold">{room.name}</p>
                   <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">{room.tagline}</p>
                 </div>
-                {roomPersonas.some((rp) => rp.model && rp.model !== "local") && (
+                {roomPersonas.some((rp) => effectiveSeatModel(rp.model) !== "local") && (
                   <p className="text-[11px] text-orange-300/70 max-w-xs">
                     Multi-AI room — each reply comes from a different model working together.
                   </p>
@@ -853,9 +878,9 @@ function RoomContent() {
                     {!isMe && msg.speaker && (
                       <div className="flex items-center gap-2 mb-1 ml-1">
                         <span className="text-[11px] font-bold tracking-wide" style={{ color: isOther ? otherColor : "rgba(255,255,255,0.6)" }}>{msg.speaker}</span>
-                        {rp?.model && rp.model !== "local" && (
-                          <span className={`text-[9px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-full border ${BACKEND_BADGE[rp.model].cls} shadow-inner`}>
-                            {BACKEND_BADGE[rp.model].label}
+                        {effectiveSeatModel(rp?.model) !== "local" && (
+                          <span className={`text-[9px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-full border ${BACKEND_BADGE[effectiveSeatModel(rp?.model)].cls} shadow-inner`}>
+                            {BACKEND_BADGE[effectiveSeatModel(rp?.model)].label}
                           </span>
                         )}
                       </div>
@@ -938,7 +963,7 @@ function RoomContent() {
                 const isActiveSpeaker = i === 0
                   ? activeSpeaker === "self"
                   : activeSpeaker === "partner"
-                const b = BACKEND_BADGE[rp.model ?? "local"]
+                const b = BACKEND_BADGE[effectiveSeatModel(rp.model)]
                 return (
                   <div key={rp.name} className="flex flex-col items-center gap-2">
                     <div className={`relative transition-all duration-300 ${isActiveSpeaker ? "scale-110" : "scale-100"}`}>
@@ -961,7 +986,7 @@ function RoomContent() {
                     <div className="text-center mt-1">
                       <div className="text-sm font-black tracking-wide text-foreground">{rp.name.split(" ")[0]}</div>
                       <div className="text-[10px] text-muted-foreground/70 uppercase tracking-widest mt-0.5">{rp.role}</div>
-                      {rp.model && rp.model !== "local" && (
+                      {effectiveSeatModel(rp.model) !== "local" && (
                         <span className={`text-[9px] font-bold px-1 py-px rounded border mt-0.5 inline-block ${b.cls}`}>{b.label}</span>
                       )}
                     </div>
@@ -1165,14 +1190,24 @@ function RoomContent() {
             {room.capabilities.tools.length > 0 && (
               <div className="space-y-3">
                 <div className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">Live tools</div>
-                {room.capabilities.tools.map((tool) => (
+                {room.capabilities.tools.map((tool) => {
+                  const spec = TOOL_INPUTS[tool.id]
+                  return (
                   <div key={tool.id} className="space-y-2">
+                    {spec && (
+                      <input
+                        value={toolArgs[tool.id] ?? ""}
+                        onChange={(e) => setToolArgs((p) => ({ ...p, [tool.id]: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === "Enter") runTool(tool.id) }}
+                        placeholder={spec.placeholder}
+                        className="w-full bg-background/40 border border-border/50 rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none focus:border-foreground/30 transition-colors"
+                      />
+                    )}
                     <button
                       onClick={() => runTool(tool.id)}
                       disabled={toolLoading === tool.id}
                       className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-foreground/5 border border-border/50 hover:bg-foreground/5 transition-colors text-left disabled:opacity-50"
                     >
-                      <span className="text-base">{tool.icon}</span>
                       <span className="text-xs font-semibold text-foreground/80 flex-1">{tool.label}</span>
                       {toolLoading === tool.id
                         ? <Loader2 size={13} className="animate-spin text-muted-foreground" />
@@ -1199,7 +1234,8 @@ function RoomContent() {
                       </div>
                     )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
 

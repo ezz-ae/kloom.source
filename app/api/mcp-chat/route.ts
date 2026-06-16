@@ -506,9 +506,12 @@ export async function POST(req: NextRequest) {
           tool_choice: tools.length > 0 ? "auto" : undefined,
           temperature: 0.8,
           max_tokens:  isVoice ? 60 : 600,
-          frequency_penalty: 0.8,
-          presence_penalty:  0.6,
-          options:           { repeat_penalty: 1.3, repeat_last_n: 256 },
+          // Gemini's OpenAI-compat endpoint 400s on these; only send to Ollama.
+          ...(LLM_URL.includes("generativelanguage.googleapis.com") ? {} : {
+            frequency_penalty: 0.8,
+            presence_penalty:  0.6,
+            options:           { repeat_penalty: 1.3, repeat_last_n: 256 },
+          }),
           stream:      false,
         }),
       })

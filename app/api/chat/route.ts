@@ -70,6 +70,11 @@ export async function POST(request: Request) {
     return { role: m.role as "user" | "assistant" | "system", content: m.content }
   })
 
+  // Gemini's OpenAI-compat endpoint 400s on penalty params — only send them to a
+  // real OpenAI-compatible/Ollama endpoint.
+  const isGeminiCompat = baseUrl.includes("generativelanguage.googleapis.com")
+  const antiRepeat = isGeminiCompat ? {} : { top_p: 0.95, presence_penalty: 0.6, frequency_penalty: 0.4 }
+
   let upstream: Response
   try {
     upstream = await fetch(`${baseUrl}/chat/completions`, {
@@ -86,9 +91,7 @@ export async function POST(request: Request) {
           ...openaiMessages,
         ],
         temperature: 0.95,
-        top_p: 0.95,
-        presence_penalty: 0.6,
-        frequency_penalty: 0.4,
+        ...antiRepeat,
         max_tokens: 180,
         stream: true,
       }),

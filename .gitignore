@@ -38,3 +38,6 @@ node_modules/
 # local tooling config (contains project refs)
 .mcp.json
 .env*.local
+
+# Variant dev build dirs (.fun / .io parallel servers)
+.next-*/

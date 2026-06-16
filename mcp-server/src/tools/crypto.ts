@@ -44,7 +44,10 @@ Returns:
 Errors:
   - "Not found" if symbol is unknown — try get_token_info for lesser-known tokens`,
       inputSchema: {
-        symbol: z.string().min(1).max(20).describe("Coin symbol e.g. BTC, ETH, SOL, or full name"),
+        // Optional with a sensible default so the room's "Live prices" button —
+        // which passes the room's settings, not a ticker — returns data instead
+        // of a validation error when no symbol is given.
+        symbol: z.string().min(1).max(20).default("BTC").describe("Coin symbol e.g. BTC, ETH, SOL, or full name"),
       },
       annotations: { readOnlyHint: true, openWorldHint: true },
     },

@@ -138,7 +138,7 @@ export default function RoomsPage() {
             return (
               <button key={c} onClick={() => setFilter(c)}
                 className={`shrink-0 text-sm font-medium px-3.5 py-1.5 rounded-full border whitespace-nowrap transition-all ${active ? "bg-foreground text-background border-transparent" : "border-border/60 text-muted-foreground hover:text-foreground hover:border-foreground/30"}`}>
-                {c !== "all" && <span className="mr-1">{CATEGORY_META[c].emoji}</span>}{label}
+                {label}
               </button>
             )
           })}
@@ -205,8 +205,8 @@ function RoomCard({ room, onEnter, onClone, onDelete, owned }: {
   return (
     <div className="group rounded-2xl border border-border/60 bg-foreground/[0.02] hover:border-foreground/25 hover:bg-foreground/[0.04] transition-all p-4 flex flex-col">
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-[10px] font-semibold uppercase tracking-wider ${meta?.text ?? "text-muted-foreground"}`}>
-          {meta?.emoji} {meta?.label ?? room.category}
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {meta?.label ?? room.category}
         </span>
         {owned && onDelete && (
           <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400 transition-all"><Trash2 size={13} /></button>

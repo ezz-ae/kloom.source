@@ -719,5 +719,16 @@ export const ROOM_CATEGORY_COLORS: Record<RoomCategory, string> = {
 
 // Rooms visible on this deployment variant — adult rooms are stripped on .io.
 import { isAdultRoom as _isAdultRoom } from "@/lib/category-meta"
-import { adultEnabled as _adultEnabled } from "@/lib/variant"
+import { adultEnabled as _adultEnabled, premiumModelsEnabled as _premiumModelsEnabled } from "@/lib/variant"
 export const VISIBLE_ROOMS = ROOMS.filter((r) => _adultEnabled() || !_isAdultRoom(r))
+
+/**
+ * The model a seat actually runs on this deployment. On .fun (serverless open
+ * weights only) every premium seat collapses to local, so UI badges match what
+ * the router in lib/llm-backends.ts will really execute.
+ */
+export function effectiveSeatModel(model?: SeatModel): SeatModel {
+  if (!model || model === "local") return "local"
+  if (!_premiumModelsEnabled() && (model === "claude" || model === "gemini")) return "local"
+  return model
+}

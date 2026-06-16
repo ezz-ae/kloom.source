@@ -13,7 +13,12 @@
  * the app keeps working even before the user adds Claude/Gemini keys.
  */
 
+import { premiumModelsEnabled } from "./variant"
+
 export type Backend = "local" | "claude" | "gemini" | "openai" | "mistral" | "dolphin"
+
+/** Premium hosted seats — collapse to local on the serverless-only .fun variant. */
+const PREMIUM: Backend[] = ["claude", "gemini", "openai"]
 
 export interface LLMMessage {
   role: "system" | "user" | "assistant"
@@ -68,6 +73,8 @@ export function backendAvailable(b: Backend): boolean {
 /** Resolve requested backend, falling back to local if its key is missing. */
 export function resolveBackend(requested?: Backend): Backend {
   if (!requested || requested === "local") return "local"
+  // .fun runs serverless open weights only — premium hosted seats become local.
+  if (!premiumModelsEnabled() && PREMIUM.includes(requested)) return "local"
   if (requested === "mistral" || requested === "dolphin") return requested
   return backendAvailable(requested) ? requested : "local"
 }
@@ -83,6 +90,17 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   const defModel = useUnc ? UNCENSORED_MODEL : LOCAL_MODEL
   const model = opts.localModel || defModel
   const fallbackModel = opts.localModel && opts.localModel !== defModel ? defModel : undefined
+  // Gemini's OpenAI-compatible endpoint rejects the Ollama anti-repeat params
+  // (frequency_penalty / presence_penalty / repeat_penalty / options) with a 400.
+  // Only send them to a real OpenAI-compatible/Ollama endpoint; Gemini gets the
+  // universally-accepted minimal set.
+  const isGeminiCompat = baseUrl.includes("generativelanguage.googleapis.com")
+  const antiRepeat = isGeminiCompat ? {} : {
+    frequency_penalty: opts.frequencyPenalty ?? 0.8,
+    presence_penalty:  opts.presencePenalty  ?? 0.6,
+    repeat_penalty:    1.3,
+    options:           { repeat_penalty: 1.3, repeat_last_n: 256 },
+  }
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${baseKey}` },
@@ -91,13 +109,7 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
       messages,
       temperature: opts.temperature ?? 0.9,
       max_tokens:  opts.maxTokens   ?? 600,
-      // Kill the local-model "repeat the same sentence" degeneration. Both the
-      // OpenAI-compat penalties and Ollama's native repeat penalties are sent so
-      // it works whichever the runtime honors.
-      frequency_penalty: opts.frequencyPenalty ?? 0.8,
-      presence_penalty:  opts.presencePenalty  ?? 0.6,
-      repeat_penalty:    1.3,
-      options:           { repeat_penalty: 1.3, repeat_last_n: 256 },
+      ...antiRepeat,
       stream:      true,
     }),
   })

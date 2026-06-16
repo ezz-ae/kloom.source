@@ -92,7 +92,16 @@ export async function grantCredits(minutes: number, amountUsd = 0): Promise<bool
   return res.ok
 }
 
-/** On load: pull the account's entitlement and activate the pass locally. */
+const CREDITS_KEY = "kloom_account_minutes"
+
+/** Synchronous read of the account's voice-minute balance (mirrored from the
+ *  server by hydrateEntitlement). The UI reads this for the balance display. */
+export function accountMinutes(): number {
+  try { return parseInt(localStorage.getItem(CREDITS_KEY) ?? "0", 10) || 0 } catch { return 0 }
+}
+
+/** On load / after purchase: pull the account's entitlement, activate the pass
+ *  locally, and mirror the minute balance for synchronous reads. */
 export async function hydrateEntitlement(): Promise<void> {
   const token = await accessToken()
   if (!token) return
@@ -107,6 +116,7 @@ export async function hydrateEntitlement(): Promise<void> {
         localStorage.setItem("kloom_pass", JSON.stringify({ id: entitlement.pass_id, expiresAt: Date.now() + remainingMs }))
       } catch { /* ignore */ }
     }
+    try { localStorage.setItem(CREDITS_KEY, String(Math.max(0, Math.round(entitlement?.credits ?? 0)))) } catch { /* ignore */ }
   } catch { /* offline — local state stands */ }
 }
 

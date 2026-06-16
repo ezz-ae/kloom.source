@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 })
   }
 
-  const txnKind = kind === "unlimited" ? "unlimited"
-                : kind === "subscription" ? (plan || "subscription")
-                : "purchase"
+  // Store the kind VERBATIM ("credits" or a pass id like "dayuse") so the
+  // verify-on-return handler knows exactly what to grant to the account.
+  const txnKind = (typeof kind === "string" && kind.trim()) ? kind.trim() : "credits"
   const origin  = req.nextUrl.origin
   // Always return to the hub; the verify-on-return handler there credits both
   // packs and passes from the intent→wallet mapping. One return path for all.

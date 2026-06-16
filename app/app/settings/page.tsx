@@ -10,7 +10,7 @@ import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
 import { hasUnlimited } from "@/lib/voice-credits"
 import { setSubscribed, setUnrestricted } from "@/lib/account"
 import { AuthGate } from "@/components/widgets/AuthGate"
-import { completePassPurchase, hydrateEntitlement, currentEmail, signOut } from "@/lib/auth"
+import { completePassPurchase, hydrateEntitlement, accountMinutes, currentEmail, signOut } from "@/lib/auth"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
   CreditCard, Wallet, Bell, Shield, Trash2,
@@ -100,8 +100,9 @@ function SettingsContent() {
     setPayPlan((p) => (p === planId ? null : planId))
   }
 
-  // Re-sync any pass owned by the signed-in account on load.
-  useEffect(() => { hydrateEntitlement() }, [])
+  // Re-sync the signed-in account's pass + voice-minute balance on load.
+  const [accountMin, setAccountMin] = useState(0)
+  useEffect(() => { hydrateEntitlement().then(() => setAccountMin(accountMinutes())) }, [])
 
   return (
     <div className="min-h-full bg-background text-foreground">
@@ -155,7 +156,7 @@ function SettingsContent() {
                         <InfinityIcon size={32} /> Unlimited
                       </div>
                     ) : (
-                      <div className="text-4xl font-black">{balance}<span className="text-lg text-muted-foreground"> min</span></div>
+                      <div className="text-4xl font-black">{accountMin + balance}<span className="text-lg text-muted-foreground"> min</span></div>
                     )}
                     <div className="text-sm text-foreground/50 mt-1">
                       {unlimited ? "Unlimited voice calls · active" : "First 5 minutes free · top up with FlexiCalls below"}

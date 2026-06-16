@@ -12,7 +12,7 @@ import { CATEGORY_META, CATEGORY_ORDER } from "@/lib/category-meta"
 import { listCustomRooms } from "@/lib/custom-rooms"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
-import { currentEmail, hydrateEntitlement } from "@/lib/auth"
+import { currentEmail, hydrateEntitlement, grantCredits, completePassPurchase } from "@/lib/auth"
 import { Plus, DoorOpen, ChevronRight, ArrowRight } from "lucide-react"
 
 function greeting(): string {
@@ -42,14 +42,21 @@ export default function HubPage() {
       try {
         const email = await currentEmail()
         if (email) {
-          await fetch("/api/ziina-verify", {
+          // Server confirms the payment(s) from Ziina and returns what to grant.
+          const res = await fetch("/api/ziina-verify", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ wallet: email }),
           })
+          const { grants } = await res.json().catch(() => ({ grants: [] }))
+          let applied = false
+          for (const g of grants ?? []) {
+            if (g.kind === "credits" && g.credits > 0) { await grantCredits(g.credits); applied = true }
+            else if (g.kind && g.kind !== "credits") { await completePassPurchase(g.kind); applied = true }
+          }
           await hydrateEntitlement()
-          toast.success("Payment complete — added to your account.")
+          if (applied) toast.success("Payment complete — added to your account.")
         }
-      } catch { /* webhook will still credit if configured */ }
+      } catch { /* leave the URL clean regardless */ }
       window.history.replaceState({}, "", "/app")
     })()
   }, [])

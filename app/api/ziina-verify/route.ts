@@ -1,15 +1,18 @@
 /**
  * POST /api/ziina-verify   Body: { wallet }
  *
- * Verify-on-return for the Ziina hosted checkout. When the buyer lands back on
- * the app after paying, the client calls this with their wallet (email). We find
- * their recent PENDING intents and hand each id to the webhook handler, which
- * re-fetches the authoritative status from Ziina and credits idempotently. This
- * means crediting works WITHOUT a webhook configured in the Ziina dashboard — and
- * if one IS configured, the shared idempotency guard prevents double-crediting.
+ * Verify-on-return for Ziina. Finds the buyer's PENDING intents, confirms each is
+ * "completed" straight from Ziina (authoritative — the client can't fake it), and
+ * ATOMICALLY claims it (pending → completed). It returns the grants the client
+ * should apply to its account (credits / pass) via the authed /api/entitlement
+ * route — so the purchase lands in kloom_entitlements, the store the UI reads.
+ * The atomic claim is the idempotency guard: a refresh can't double-grant.
  */
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
+import { getPaymentIntent } from "@/lib/ziina"
+
+export const runtime = "nodejs"
 
 export async function POST(req: NextRequest) {
   if (!hasAdmin()) return NextResponse.json({ ok: false, error: "admin_unconfigured" }, { status: 503 })
@@ -17,29 +20,31 @@ export async function POST(req: NextRequest) {
   if (!wallet) return NextResponse.json({ ok: false, error: "missing_wallet" }, { status: 400 })
 
   const sb = getAdminClient()
-  // Most recent still-pending intents for this buyer (a completed payment whose
-  // webhook hasn't fired yet will still read "pending" in our table).
   const { data: rows } = await sb
     .from("ziina_payments")
-    .select("id")
+    .select("id,credits,kind")
     .eq("wallet", wallet)
     .eq("status", "pending")
     .order("created_at", { ascending: false })
-    .limit(5)
+    .limit(8)
 
-  let credited = 0
+  const grants: { credits: number; kind: string }[] = []
   for (const row of rows ?? []) {
     try {
-      // Reuse the webhook's authoritative verify + idempotent credit.
-      const res = await fetch(`${req.nextUrl.origin}/api/ziina-webhook`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: row.id }),
-      })
-      const j = await res.json().catch(() => ({}))
-      if (j?.ok && typeof j.credits === "number") credited += j.credits
-    } catch { /* try the next one */ }
+      const intent = await getPaymentIntent(row.id)
+      if (intent?.status !== "completed") continue
+      // Atomic claim: only the first verify to flip pending→completed grants.
+      const { data: claimed } = await sb
+        .from("ziina_payments")
+        .update({ status: "completed", updated_at: new Date().toISOString() })
+        .eq("id", row.id)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle()
+      if (!claimed) continue
+      grants.push({ credits: Number(row.credits) || 0, kind: String(row.kind || "credits") })
+    } catch { /* skip this one, try the next */ }
   }
 
-  return NextResponse.json({ ok: true, credited })
+  return NextResponse.json({ ok: true, grants })
 }

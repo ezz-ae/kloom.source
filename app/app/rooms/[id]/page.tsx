@@ -14,6 +14,7 @@ import { adultEnabled, memoryEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
+import { hydrateEntitlement } from "@/lib/auth"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
 import { TOOL_INPUTS, buildToolArgs, formatToolOutput, isToolError } from "@/lib/room-tool-args"
@@ -21,6 +22,7 @@ import { useRealtimeVoice, type Persona } from "@/hooks/use-realtime-voice"
 import { VIBE_TAGS } from "@/lib/voices"
 import { MessageRenderer } from "@/components/widgets/MessageRenderer"
 import { GroupVoice } from "@/components/widgets/GroupVoice"
+import { TopUpSlider } from "@/components/widgets/TopUpSlider"
 import { UnrestrictedUpsell } from "@/components/widgets/UnrestrictedUpsell"
 import { SolanaWalletProvider } from "@/components/solana-wallet-provider"
 import { EXPERTS } from "@/lib/experts"
@@ -357,8 +359,12 @@ function RoomContent() {
     }
   }, [])
 
+  // Sync the account's voice-minute balance so the meter/gate start accurate.
+  useEffect(() => { hydrateEntitlement() }, [])
+
   const { isConnected, isConnecting, isSpeaking, activeSpeaker, error,
-          connect, disconnect, stopAI, submitText } = useRealtimeVoice(
+          connect, disconnect, stopAI, submitText,
+          outOfMinutes, minutesLeft, dismissOutOfMinutes } = useRealtimeVoice(
     primaryPersona
       ? {
           persona:      primaryPersona,
@@ -1067,6 +1073,20 @@ function RoomContent() {
             )}
           </div>
         </div>
+
+        {/* Out of voice minutes → top up (the call has been ended by the meter). */}
+        {outOfMinutes && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-5" onClick={dismissOutOfMinutes}>
+            <div className="w-full max-w-md rounded-3xl border border-border/60 bg-background p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="font-black text-lg">Out of voice minutes</h3>
+                <button onClick={dismissOutOfMinutes} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">Top up to keep the call going — text chat stays free.</p>
+              <TopUpSlider onDone={dismissOutOfMinutes} />
+            </div>
+          </div>
+        )}
 
         {/* TOOLS PANEL */}
         <div className={`flex flex-col bg-background/50 ${

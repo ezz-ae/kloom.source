@@ -100,6 +100,31 @@ export function accountMinutes(): number {
   try { return parseInt(localStorage.getItem(CREDITS_KEY) ?? "0", 10) || 0 } catch { return 0 }
 }
 
+/** Optimistically set the local minute balance (kept in sync as voice is metered). */
+export function setAccountMinutes(n: number) {
+  try { localStorage.setItem(CREDITS_KEY, String(Math.max(0, Math.round(n)))) } catch { /* ignore */ }
+}
+
+/** Deduct consumed voice minutes from the account, server-authoritative. Returns
+ *  the new server balance (or null if not signed in / failed). */
+export async function spendMinutes(minutes: number): Promise<number | null> {
+  const n = Math.max(0, Math.round(minutes))
+  if (n <= 0) return accountMinutes()
+  const token = await accessToken()
+  if (!token) return null
+  try {
+    const res = await fetch("/api/entitlement", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ kind: "spend", spendCredits: n }),
+    })
+    if (!res.ok) return null
+    const { credits } = await res.json()
+    if (typeof credits === "number") { setAccountMinutes(credits); return credits }
+  } catch { /* ignore */ }
+  return null
+}
+
 /** On load / after purchase: pull the account's entitlement, activate the pass
  *  locally, and mirror the minute balance for synchronous reads. */
 export async function hydrateEntitlement(): Promise<void> {

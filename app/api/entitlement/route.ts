@@ -39,13 +39,14 @@ export async function POST(request: Request) {
   const user = await userFromToken(token)
   if (!user) return Response.json({ error: "invalid token" }, { status: 401 })
 
-  let kind = "", passId = "", addCredits = 0, amountUsd = 0
+  let kind = "", passId = "", addCredits = 0, amountUsd = 0, spendCredits = 0
   try {
     const body = await request.json()
     kind = String(body.kind || "")
     passId = String(body.passId || "")
     addCredits = Number(body.addCredits || 0)
     amountUsd = Number(body.amountUsd || 0)
+    spendCredits = Number(body.spendCredits || 0)
   } catch { return Response.json({ error: "bad request" }, { status: 400 }) }
 
   const admin = getAdminClient()
@@ -60,6 +61,13 @@ export async function POST(request: Request) {
     patch.expires_at = new Date(Date.now() + def.durationHours * 3600_000).toISOString()
   } else if (kind === "credits") {
     patch.credits = (existing?.credits ?? 0) + Math.max(0, Math.round(addCredits))
+  } else if (kind === "spend") {
+    // Voice metering: deduct minutes as they're consumed; never below zero.
+    const after = Math.max(0, (existing?.credits ?? 0) - Math.max(0, Math.round(spendCredits)))
+    patch.credits = after
+    const { error: sErr } = await admin.from("kloom_entitlements").upsert(patch, { onConflict: "user_id" })
+    if (sErr) return Response.json({ error: sErr.message }, { status: 500 })
+    return Response.json({ ok: true, credits: after })
   } else {
     return Response.json({ error: "unknown kind" }, { status: 400 })
   }

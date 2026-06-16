@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
+import { consumeVoice, voiceAvailable, hasUnlimited, getFreeRemainingSec } from "@/lib/voice-credits"
+import { accountMinutes, setAccountMinutes, spendMinutes } from "@/lib/auth"
 import { mediaDevicesUnavailable } from "@/lib/media"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { BrowserSpeechSegmenter, browserSttSupported } from "@/lib/browser-stt"
@@ -111,6 +113,13 @@ export function useRealtimeVoice({
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [activeSpeaker, setActiveSpeaker] = useState<"self" | "partner" | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // ── Voice metering ── minutes deplete while a call is connected (unless the
+  // user has an unlimited pass / launch mode). Free pool first, then paid account
+  // minutes; the call ends when both run out.
+  const [outOfMinutes, setOutOfMinutes] = useState(false)
+  const [minutesLeft, setMinutesLeft] = useState(0)
+  const meterBalanceRef = useRef(0)   // live account-minute balance during a call
 
   const recognitionRef = useRef<any>(null)
   const browserSttFallbackRef = useRef(false)
@@ -508,6 +517,17 @@ export function useRealtimeVoice({
     setError(null)
     browserSttFallbackRef.current = false // fresh session re-tries server STT first
 
+    // Metering gate — no minutes (free or paid) and no unlimited pass → don't
+    // start; the room surfaces `outOfMinutes` and offers a top-up.
+    if (!voiceAvailable(accountMinutes())) {
+      setOutOfMinutes(true)
+      setIsConnecting(false)
+      return
+    }
+    setOutOfMinutes(false)
+    meterBalanceRef.current = accountMinutes()
+    setMinutesLeft(accountMinutes() + Math.ceil(getFreeRemainingSec() / 60))
+
     try {
       // Create reusable <audio> element for TTS playback + analysis. Attaching
       // it to the DOM avoids a Chromium bug where a detached element's second
@@ -660,6 +680,31 @@ export function useRealtimeVoice({
     }
   }, [disconnect])
 
+  // ── Meter loop ── while connected (and not on an unlimited pass), account for
+  // voice every few seconds: eat the free pool first, then paid account minutes,
+  // ending the call the moment both run dry.
+  useEffect(() => {
+    if (!isConnected || hasUnlimited()) return
+    const TICK = 10 // seconds accounted per tick
+    const id = setInterval(() => {
+      const r = consumeVoice(TICK, meterBalanceRef.current)
+      if (r.blocked) {
+        setOutOfMinutes(true)
+        disconnect()
+        return
+      }
+      if (r.creditsToDeduct > 0) {
+        meterBalanceRef.current = Math.max(0, meterBalanceRef.current - r.creditsToDeduct)
+        setAccountMinutes(meterBalanceRef.current)        // optimistic local
+        spendMinutes(r.creditsToDeduct).then((bal) => {   // server-authoritative
+          if (typeof bal === "number") meterBalanceRef.current = bal
+        })
+      }
+      setMinutesLeft(meterBalanceRef.current + Math.ceil(getFreeRemainingSec() / 60))
+    }, TICK * 1000)
+    return () => clearInterval(id)
+  }, [isConnected, disconnect])
+
   return {
     isConnected,
     isConnecting,
@@ -668,6 +713,10 @@ export function useRealtimeVoice({
     error,
     connect,
     disconnect,
+    /** Voice metering — minutes deplete while connected. */
+    outOfMinutes,
+    minutesLeft,
+    dismissOutOfMinutes: () => setOutOfMinutes(false),
     /** Stop the AI mid-sentence (barge-in from UI button). */
     stopAI,
     /** Inject text as a user message (same path as a spoken transcript). */

@@ -69,6 +69,44 @@ export const metadata: Metadata = {
   },
 }
 
+// Rich results: Organization + WebSite (with a sitelinks search box) +
+// SoftwareApplication. One JSON-LD graph, emitted on every page.
+const JSON_LD = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: NAME,
+      url: SITE_URL,
+      logo: `${SITE_URL}/kloom-icon-512.png`,
+      description: DESC,
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: NAME,
+      description: DESC,
+      publisher: { "@id": `${SITE_URL}/#organization` },
+      potentialAction: {
+        "@type": "SearchAction",
+        target: { "@type": "EntryPoint", urlTemplate: `${SITE_URL}/app/rooms?q={search_term_string}` },
+        "query-input": "required name=search_term_string",
+      },
+    },
+    {
+      "@type": "SoftwareApplication",
+      name: NAME,
+      url: SITE_URL,
+      applicationCategory: "CommunicationApplication",
+      operatingSystem: "Web, iOS, Android",
+      description: DESC,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "USD", description: "Free to chat — pay only for live voice." },
+    },
+  ],
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -77,6 +115,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`bg-background dark ${geist.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
         {children}
         <Toaster theme="system" richColors position="bottom-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}

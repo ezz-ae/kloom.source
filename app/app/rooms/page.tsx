@@ -41,6 +41,12 @@ export default function RoomsPage() {
 
   useEffect(() => { setMine(listCustomRooms()) }, [])
 
+  // Seed the search from ?q= (the sitelinks search box / shared search links).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q")
+    if (q) setQuery(q)
+  }, [])
+
   // Debounce search input.
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 300)

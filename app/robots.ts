@@ -7,8 +7,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: "/",
-        // The app + API are behind interaction; keep crawlers on the public marketing + legal surface.
+        // Index the marketing + legal surface and the world (category) landing
+        // pages; keep the API and individual (infinite, user-built) room URLs out.
+        allow: ["/", "/app/rooms/c/"],
         disallow: ["/api/", "/app/rooms/"],
       },
     ],

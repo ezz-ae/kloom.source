@@ -24,6 +24,10 @@ export const isFun = () => VARIANT === "fun"
 export const isIo  = () => VARIANT === "io"
 export const isMe  = () => VARIANT === "me"
 
+/** Is the unrestricted (.fun) experience deployed & ready to link to from .io?
+ *  Off until kloom.fun is live, so the "no-limits" tap stays hidden until then. */
+export const funLive = () => process.env.NEXT_PUBLIC_FUN_LIVE === "1"
+
 /** Adult / sexual / zero-restriction content only exists on .fun. */
 export const adultEnabled = () => VARIANT === "fun"
 

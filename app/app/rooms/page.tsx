@@ -10,7 +10,8 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { VISIBLE_ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
 import { CATEGORY_META, CATEGORY_ORDER, isAdultRoom } from "@/lib/category-meta"
-import { adultEnabled } from "@/lib/variant"
+import { adultEnabled, isIo, funLive } from "@/lib/variant"
+import { funHandoffUrl } from "@/lib/sso"
 import { listCustomRooms, deleteCustomRoom, cloneRoom } from "@/lib/custom-rooms"
 import { fetchCommunityFeed, bumpRoomClones, type FeedSort } from "@/lib/rooms-db"
 import { getTopics } from "@/lib/topics"
@@ -116,6 +117,10 @@ export default function RoomsPage() {
           </button>
         </div>
 
+        {/* The "no-limits" tap → kloom.fun, carrying the session so credits follow.
+            Only on .io, and only once .fun is actually live. */}
+        <FunTap />
+
         {/* Search */}
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
@@ -200,6 +205,28 @@ export default function RoomsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+/** The "no-limits" tap — funnels .io users to the uncensored .fun experience,
+ *  carrying their session so the same account + credits work there. Hidden until
+ *  .fun is live (NEXT_PUBLIC_FUN_LIVE=1). */
+function FunTap() {
+  if (!isIo() || !funLive()) return null
+  const go = async () => { window.location.href = await funHandoffUrl("/app/rooms") }
+  return (
+    <button onClick={go}
+      className="group w-full mb-5 flex items-center gap-3 rounded-2xl border border-rose-500/30 bg-gradient-to-r from-rose-500/10 via-fuchsia-500/[0.06] to-transparent px-4 py-3.5 text-left hover:border-rose-500/50 transition-all">
+      <span className="text-xl">🔓</span>
+      <div className="flex-1 min-w-0">
+        <div className="font-bold text-sm">
+          No-limits mode
+          <span className="ml-1.5 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">18+</span>
+        </div>
+        <div className="text-xs text-muted-foreground">Uncensored rooms on Kloom.fun — your account &amp; credits come with you.</div>
+      </div>
+      <ArrowRight size={16} className="text-rose-300 group-hover:translate-x-0.5 transition-transform shrink-0" />
+    </button>
   )
 }
 

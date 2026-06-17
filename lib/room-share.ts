@@ -71,7 +71,9 @@ export function roomFromLocationHash(): Room | null {
  * Built-ins share by id; custom rooms carry themselves in the fragment.
  * Optional topic + guest name personalize the landing.
  */
-export const FUN_ORIGIN = "https://kloom.fun"
+// Where the unrestricted (.fun) experience lives. Env-overridable so local dev
+// can point at the .fun dev server (e.g. http://localhost:3002).
+export const FUN_ORIGIN = (process.env.NEXT_PUBLIC_FUN_ORIGIN || "https://kloom.fun").replace(/\/$/, "")
 
 export function buildInviteUrl(opts: {
   room: Room

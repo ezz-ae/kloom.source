@@ -14,6 +14,8 @@ import { adultEnabled, memoryEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
+import { passCoversVoice } from "@/lib/voice-credits"
+import { hasActivePass } from "@/lib/pricing"
 import { hydrateEntitlement } from "@/lib/auth"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
@@ -1074,15 +1076,19 @@ function RoomContent() {
           </div>
         </div>
 
-        {/* Out of voice minutes → top up (the call has been ended by the meter). */}
+        {/* Out of voice minutes → top up. A pass holder who's hit the daily
+            fair-use cap gets distinct copy (it resets at midnight); everyone
+            else gets the standard top-up. The call was ended by the meter. */}
         {outOfMinutes && (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-5" onClick={dismissOutOfMinutes}>
             <div className="w-full max-w-md rounded-3xl border border-border/60 bg-background p-6" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-1">
-                <h3 className="font-black text-lg">Out of voice minutes</h3>
+                <h3 className="font-black text-lg">{hasActivePass() && !passCoversVoice() ? "Daily voice limit reached" : "Out of voice minutes"}</h3>
                 <button onClick={dismissOutOfMinutes} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">Top up to keep the call going — text chat stays free.</p>
+              <p className="text-sm text-muted-foreground mb-4">{hasActivePass() && !passCoversVoice()
+                ? "You've used today's voice on your pass — it resets at midnight. Top up to keep going now."
+                : "Top up to keep the call going — text chat stays free."}</p>
               <TopUpSlider onDone={dismissOutOfMinutes} />
             </div>
           </div>

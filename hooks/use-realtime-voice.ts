@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
-import { consumeVoice, voiceAvailable, hasUnlimited, getFreeRemainingSec } from "@/lib/voice-credits"
+import { consumeVoice, voiceAvailable, LAUNCH_UNLIMITED, getFreeRemainingSec } from "@/lib/voice-credits"
 import { accountMinutes, setAccountMinutes, spendMinutes } from "@/lib/auth"
 import { mediaDevicesUnavailable } from "@/lib/media"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
@@ -680,11 +680,13 @@ export function useRealtimeVoice({
     }
   }, [disconnect])
 
-  // ── Meter loop ── while connected (and not on an unlimited pass), account for
-  // voice every few seconds: eat the free pool first, then paid account minutes,
-  // ending the call the moment both run dry.
+  // ── Meter loop ── while connected (and billing is live), account for voice
+  // every few seconds via consumeVoice: a pass covers it free up to the daily
+  // fair-use cap, then it eats the free pool, then paid account minutes, ending
+  // the call the moment all run dry. Only launch mode (everything free) skips it
+  // entirely — pass holders MUST run it so their daily fair-use is tracked.
   useEffect(() => {
-    if (!isConnected || hasUnlimited()) return
+    if (!isConnected || LAUNCH_UNLIMITED) return
     const TICK = 10 // seconds accounted per tick
     const id = setInterval(() => {
       const r = consumeVoice(TICK, meterBalanceRef.current)

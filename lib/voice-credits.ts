@@ -1,22 +1,28 @@
 /**
- * Voice economy. The AI sells its voice — text is free, voice (calls + AI voice
- * notes) draws from a shared allowance:
- *   1. First 5 minutes free (one-time, tracked locally).
- *   2. After that, pay-as-you-go credits ($0.10/min → $1 = 10 min).
- *   3. At the top of the slider ($60) it's UNLIMITED calls — a flat pass.
+ * Voice economy — how voice MINUTES are consumed.
  *
- * Slider: $1 → $60. Everything below $60 buys minutes; $60 unlocks unlimited.
+ * Dollars become minutes in lib/pricing.ts (FlexiCalls slider + passes), which
+ * is the single source of truth for pricing — this file never reasons in
+ * dollars, only in seconds/minutes already bought. Text is free; voice (calls +
+ * AI voice notes) draws from a shared allowance:
+ *   1. First 5 minutes free (one-time, tracked locally).
+ *   2. After that, FlexiCalls minutes bought via the slider (1 credit = 1 min).
+ *   3. A pass = unlimited voice within a generous daily fair-use cap
+ *      (PASS_DAILY_CAP_MIN), so one heavy day can't burn unbounded COGS.
  */
 
-export const FREE_SECONDS    = 300          // 5 free minutes of voice
-export const USD_PER_MINUTE  = 0.10         // $1 = 10 minutes
-export const MIN_TOPUP_USD   = 1
-export const MAX_TOPUP_USD   = 60           // $60 = unlimited
-export const UNLIMITED_USD   = 60
+export const FREE_SECONDS = 300             // 5 free minutes of voice (one-time)
+
+// Passes are "unlimited" voice, but only within a generous daily fair-use cap so
+// a single outlier can't burn unbounded LLM+TTS cost against a flat pass price.
+// 240 min/day = 4h — well beyond any normal use; resets at local midnight.
+export const PASS_DAILY_CAP_MIN = 240
+const PASS_DAILY_CAP_SEC = PASS_DAILY_CAP_MIN * 60
 
 const FREE_USED_KEY  = "kloom_voice_free_used_sec"
 const PAID_USED_KEY  = "kloom_voice_paid_used_sec"   // sub-minute rollover for notes
 const UNLIMITED_KEY  = "kloom_voice_unlimited"
+const PASS_DAY_KEY   = "kloom_pass_day_used"          // { day, sec } — pass fair-use
 
 // ── LAUNCH MODE — everything unlimited until billing is finished ──
 // While true, ALL voice is free/unlimited for everyone (no free-pool cap, no
@@ -36,13 +42,38 @@ export function hasUnlimited(): boolean {
 export function setUnlimited(on: boolean) {
   try { on ? localStorage.setItem(UNLIMITED_KEY, "1") : localStorage.removeItem(UNLIMITED_KEY) } catch {}
 }
-/** Is this slider value the unlimited tier? */
-export const isUnlimitedTier = (usd: number) => usd >= UNLIMITED_USD
 
-// ── conversions ──
-export const usdToMinutes = (usd: number) => Math.round(usd / USD_PER_MINUTE)
-export const minutesToUsd = (min: number) => min * USD_PER_MINUTE
-export const usdToCredits = (usd: number) => usdToMinutes(usd) // 1 credit = 1 min
+/** Holds an unlimited entitlement (a pass, or the local unlimited flag) — the
+ *  thing the daily fair-use cap applies to. Deliberately EXCLUDES launch mode,
+ *  which is the pre-billing "everything free" state and is uncapped by design. */
+function hasPassUnlimited(): boolean {
+  if (hasActivePass()) return true
+  try { return localStorage.getItem(UNLIMITED_KEY) === "1" } catch { return false }
+}
+
+// ── pass daily fair-use tracking (resets at local midnight) ──
+function passDayUsedSec(): number {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PASS_DAY_KEY) || "null")
+    if (!raw || raw.day !== new Date().toDateString()) return 0
+    return Math.max(0, Number(raw.sec) || 0)
+  } catch { return 0 }
+}
+function addPassDaySec(sec: number) {
+  const total = passDayUsedSec() + Math.max(0, Math.round(sec))
+  try { localStorage.setItem(PASS_DAY_KEY, JSON.stringify({ day: new Date().toDateString(), sec: total })) } catch {}
+}
+
+/** Does the current pass still cover voice today (i.e. under the daily cap)? */
+export function passCoversVoice(): boolean {
+  return hasPassUnlimited() && passDayUsedSec() < PASS_DAILY_CAP_SEC
+}
+/** Minutes of pass voice left today (Infinity in launch mode, 0 without a pass). */
+export function passMinutesLeftToday(): number {
+  if (LAUNCH_UNLIMITED) return Infinity
+  if (!hasPassUnlimited()) return 0
+  return Math.max(0, PASS_DAILY_CAP_MIN - Math.floor(passDayUsedSec() / 60))
+}
 
 // ── free-pool tracking (localStorage) ──
 export function getFreeUsedSec(): number {
@@ -75,10 +106,21 @@ export interface ConsumeResult {
  * credits to deduct (caller does the actual spend) and whether it was allowed.
  */
 export function consumeVoice(seconds: number, paidCredits: number): ConsumeResult {
-  // Unlimited pass — never deducts.
-  if (hasUnlimited()) return { ok: true, creditsToDeduct: 0 }
+  // Launch mode — everything free, no metering, no cap.
+  if (LAUNCH_UNLIMITED) return { ok: true, creditsToDeduct: 0 }
 
   let remaining = Math.max(0, Math.round(seconds))
+  if (remaining === 0) return { ok: true, creditsToDeduct: 0 }
+
+  // Pass — covers voice for free up to the daily fair-use cap; anything beyond
+  // the cap falls through to the free/paid pools below, so a single outlier day
+  // can't burn unbounded COGS against a flat pass price.
+  if (hasPassUnlimited()) {
+    const passLeft = Math.max(0, PASS_DAILY_CAP_SEC - passDayUsedSec())
+    const fromPass = Math.min(passLeft, remaining)
+    if (fromPass > 0) { addPassDaySec(fromPass); remaining -= fromPass }
+    if (remaining === 0) return { ok: true, creditsToDeduct: 0 }
+  }
 
   // 1) free pool
   const freeLeft = getFreeRemainingSec()
@@ -97,7 +139,12 @@ export function consumeVoice(seconds: number, paidCredits: number): ConsumeResul
   return { ok: true, creditsToDeduct }
 }
 
-/** Can the user start any voice right now? */
+/** Can the user start any voice right now? Cap-aware: a pass only counts while
+ *  it still covers voice today (under the daily fair-use cap), so a capped-out
+ *  pass holder is blocked at the START gate — not mid-call — and can't reconnect
+ *  to bleed COGS past the cap. */
 export function voiceAvailable(paidCredits: number): boolean {
-  return hasUnlimited() || getFreeRemainingSec() > 0 || paidCredits * 60 - getPaidUsedSec() > 0
+  if (LAUNCH_UNLIMITED) return true
+  if (passCoversVoice()) return true
+  return getFreeRemainingSec() > 0 || paidCredits * 60 - getPaidUsedSec() > 0
 }

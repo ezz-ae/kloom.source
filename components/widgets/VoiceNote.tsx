@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
-import { consumeVoice, voiceAvailable, getFreeRemainingSec, hasUnlimited } from "@/lib/voice-credits"
+import { consumeVoice, voiceAvailable, getFreeRemainingSec, passCoversVoice } from "@/lib/voice-credits"
 import { Play, Pause, Loader2, Lock } from "lucide-react"
 
 interface VoiceNoteProps {
@@ -88,8 +88,9 @@ export function VoiceNote({ text, voice = "sage", personaName, paidCredits, onSp
         ))}
       </span>
       {blocked ? "Add credit"
-        // Only nudge free minutes when the user has NO paid credit (and isn't unlimited).
-        : (!hasUnlimited() && paidCredits <= 0 && freeLeft > 0)
+        // Nudge free minutes only when the user has NO paid credit and isn't
+        // covered by a pass today (a capped pass holder is back on free/paid).
+        : (!passCoversVoice() && paidCredits <= 0 && freeLeft > 0)
           ? `Voice note · ${Math.ceil(freeLeft / 60)}m free left`
           : "Voice note"}
     </button>

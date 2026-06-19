@@ -28,6 +28,9 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
   const [busy, setBusy] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const [listening, setListening] = useState(false)
+  const [sttOk, setSttOk] = useState(false)
+  const recRef = useRef<{ stop: () => void; start: () => void } | null>(null)
 
   const speak = async (text: string) => {
     try {
@@ -45,8 +48,8 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
   useEffect(() => { speak(cluster.lines[0]) }, []) // greet on open
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
 
-  const send = async () => {
-    const text = input.trim()
+  const send = async (override?: string) => {
+    const text = (override ?? input).trim()
     if (!text || busy) return
     setInput("")
     const next = [...msgs, { who: "you" as const, text }]
@@ -74,6 +77,28 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
     } finally {
       setBusy(false)
     }
+  }
+
+  // Voice-first: talk to the host with the browser's speech recognition.
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>
+    setSttOk(typeof window !== "undefined" && !!(w.SpeechRecognition || w.webkitSpeechRecognition))
+  }, [])
+
+  const toggleMic = () => {
+    if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false); return }
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const w = window as any
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
+    if (!SR) return
+    const rec = new SR()
+    rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1
+    rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setListening(false); if (t) send(t) }
+    rec.onerror = () => setListening(false)
+    rec.onend = () => setListening(false)
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+    recRef.current = rec
+    try { rec.start(); setListening(true) } catch { setListening(false) }
   }
 
   return (
@@ -105,7 +130,10 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
             placeholder={`say something to ${cluster.host.toLowerCase()}…`}
             style={{ flex: 1, fontSize: 14, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", outline: "none" }}
           />
-          <button onClick={send} disabled={busy} style={{ fontSize: 14, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>send</button>
+          {sttOk && (
+            <button onClick={toggleMic} aria-label="talk to the host" style={{ fontSize: 13, color: listening ? "#06201a" : "#dfeaf2", background: listening ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>{listening ? "listening" : "talk"}</button>
+          )}
+          <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>send</button>
         </div>
         <div style={{ marginTop: 9, fontSize: 11, color: "#7f93a5", textAlign: "center" }}>
           cam unlocks only here — and only if you both say yes · <span style={{ opacity: 0.55 }}>ask for cam (both must agree)</span>

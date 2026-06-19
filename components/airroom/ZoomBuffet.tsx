@@ -88,7 +88,7 @@ export function ZoomBuffet() {
               <button onClick={() => setLevel(level - 1)} style={{ fontSize: 13, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 12, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>← zoom out</button>
             )}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: 3 }}>airroom</div>
+              <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: 3 }}>airraw</div>
               <div style={{ fontSize: 11, color: "#9fb2c4", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 it&apos;s the now · {crumb}
                 {presence.total > 0 && <span style={{ color: "#7fd6c0" }}> · {presence.total} live{presence.here > 1 ? ` · ${presence.here} right here` : ""}</span>}

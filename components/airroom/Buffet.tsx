@@ -43,7 +43,7 @@ export function Buffet() {
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "linear-gradient(180deg,#06070e 60%,rgba(6,7,14,.85))", padding: "20px 18px 14px", borderBottom: ".5px solid rgba(255,255,255,.06)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: 4 }}>airroom</div>
+            <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: 4 }}>airraw</div>
             <div style={{ fontSize: 12, color: "#9fb2c4", marginTop: 2 }}>it&apos;s the now · {CHARACTERS.length} here · pick anyone</div>
           </div>
           <a href="/floor" style={{ fontSize: 12, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 20, padding: "7px 13px", textDecoration: "none", whiteSpace: "nowrap" }}>walk the floor →</a>

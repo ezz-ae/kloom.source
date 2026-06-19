@@ -201,7 +201,7 @@ export default function FloorPage() {
       {/* top bar */}
       <div style={{ position: "absolute", top: 20, left: 24, right: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", pointerEvents: "none" }}>
         <div>
-          <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: 4, color: "#eaf2f8" }}>airroom</div>
+          <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: 4, color: "#eaf2f8" }}>airraw</div>
           <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, marginTop: 2 }}>it&apos;s the now · {tempLabel(f)}</div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", pointerEvents: "auto" }}>

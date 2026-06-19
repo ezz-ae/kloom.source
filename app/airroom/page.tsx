@@ -1,6 +1,6 @@
-import { Buffet } from "@/components/airroom/Buffet"
+import { ZoomBuffet } from "@/components/airroom/ZoomBuffet"
 
-// AIRROOM — the buffet landing (the open spread of characters you pick from).
+// AIRROOM — the deep-zoom buffet: 20 worlds → ~1,000 rooms → 100,000 voices.
 export default function AirroomPage() {
-  return <Buffet />
+  return <ZoomBuffet />
 }

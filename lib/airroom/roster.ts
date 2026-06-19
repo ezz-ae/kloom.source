@@ -141,3 +141,26 @@ export function buildCharacters(): Cluster[] {
   return out.sort((a, b) => a.f - b.f)
 }
 export const CHARACTERS: Cluster[] = buildCharacters()
+
+/**
+ * Mint ONE character on demand at a given temperature (for the deep-zoom buffet,
+ * where the "100,000" are generated lazily — only the one you actually open is
+ * built). Deterministic per seed, so the same dot always opens the same person.
+ */
+export function makeCharacter(seed: number, f: number): Cluster {
+  const r = rng((seed * 2654435761) >>> 0)
+  const A =
+    ARCH.find((a) => f >= a.band[0] && f <= a.band[1]) ||
+    ARCH.reduce((best, a) => {
+      const d = Math.min(Math.abs(f - a.band[0]), Math.abs(f - a.band[1]))
+      const bd = Math.min(Math.abs(f - best.band[0]), Math.abs(f - best.band[1]))
+      return d < bd ? a : best
+    })
+  const isF = A.lean === "f" ? true : A.lean === "m" ? false : r() < 0.5
+  const pool = isF ? NAMES_F : NAMES_M
+  const host = pool[Math.floor(r() * pool.length)]
+  const h: Heat = f < 0.4 ? "w" : f < 0.72 ? "m" : "f"
+  const start = Math.floor(r() * A.lines.length)
+  const lines = [0, 1, 2].map((k) => A.lines[(start + k) % A.lines.length])
+  return { f, n: 1, h, archetype: A.key, name: A.names[Math.floor(r() * A.names.length)], vibe: A.vibe + (f >= 0.72 ? " · 18+" : ""), host, gender: isF ? "female" : "male", lines }
+}

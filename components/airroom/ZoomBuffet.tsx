@@ -11,6 +11,7 @@ import { useEffect, useState } from "react"
 import { freshCharacter, type Cluster } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
+import { usePresence } from "@/lib/airroom/presence"
 
 const WORLDS = [
   "The Quiet Wing", "The Reading Room", "The Lab", "Founders' Floor", "The War Room",
@@ -41,6 +42,10 @@ export function ZoomBuffet() {
 
   useEffect(() => { try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ } }, [])
 
+  // live presence — where you are in the universe, and who else is here right now
+  const loc = group !== null ? `g-${world}-${room}` : level === 0 ? "buffet" : level === 1 ? `w-${world}` : `w-${world}-r-${room}`
+  const presence = usePresence(loc)
+
   const worldF = (i: number) => (i + 0.5) / WORLDS.length
   const roomF = (w: number, rm: number) => clamp01(worldF(w) + (frac(w * 131 + rm * 7) - 0.5) * 0.12)
   const voiceF = (w: number, rm: number, v: number) => clamp01(roomF(w, rm) + (frac(w * 9311 + rm * 131 + v) - 0.5) * 0.1)
@@ -63,7 +68,10 @@ export function ZoomBuffet() {
             )}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: 3 }}>airroom</div>
-              <div style={{ fontSize: 11, color: "#9fb2c4", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>it&apos;s the now · {crumb}</div>
+              <div style={{ fontSize: 11, color: "#9fb2c4", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                it&apos;s the now · {crumb}
+                {presence.total > 0 && <span style={{ color: "#7fd6c0" }}> · {presence.total} live{presence.here > 1 ? ` · ${presence.here} right here` : ""}</span>}
+              </div>
             </div>
           </div>
           <a href="/floor" style={{ fontSize: 12, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 20, padding: "6px 12px", textDecoration: "none", whiteSpace: "nowrap" }}>walk the floor →</a>

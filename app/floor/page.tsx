@@ -38,6 +38,8 @@ export default function FloorPage() {
   const [entered, setEntered] = useState(false)
   const [soundOn, setSoundOn] = useState(false)
   const [spoken, setSpoken] = useState("")
+  const [verified, setVerified] = useState(false)   // 18+ confirmed (to descend past the fire line)
+  const [showGate, setShowGate] = useState(false)
   const dragRef = useRef<{ y: number; d: number } | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const speakTok = useRef(0)
@@ -52,9 +54,18 @@ export default function FloorPage() {
     return () => window.removeEventListener("resize", measure)
   }, [])
 
+  // Remember a prior 18+ confirmation (read client-side to avoid hydration drift).
+  useEffect(() => {
+    try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ }
+  }, [])
+
   const move = useCallback((d: number) => {
-    setDepth((_) => Math.max(0, Math.min(maxDepth, d)))
-  }, [maxDepth])
+    // Until 18+ is confirmed, the floor won't let you scroll past the fire line.
+    const gateDepth = Math.max(0, GATE_F * (FLOOR_H - 220) + 110 - vh / 2)
+    const cap = verified ? maxDepth : Math.min(maxDepth, gateDepth)
+    if (!verified && d > cap + 6) setShowGate(true)
+    setDepth(Math.max(0, Math.min(cap, d)))
+  }, [maxDepth, vh, verified])
 
   // Proximity: which cluster is nearest screen-center, and per-cluster brightness.
   const { active, lit } = useMemo(() => {
@@ -233,6 +244,21 @@ export default function FloorPage() {
 
       {entered && (
         <AirBubble cluster={a} tempLabel={tempLabel(f)} onClose={() => setEntered(false)} />
+      )}
+
+      {showGate && !verified && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(20,6,4,.88)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26, zIndex: 30 }}>
+          <div style={{ maxWidth: 340, textAlign: "center", color: "#fbeae3" }}>
+            <div style={{ fontSize: 12, letterSpacing: 1, color: "#ff9c73" }}>you&apos;re at the line</div>
+            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>it gets adult below here</div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#e7c3b6" }}>the fire floor is flirty, late-night, 18+. nothing explicit — but grown. you only go down if you&apos;re old enough.</div>
+            <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
+              <button onClick={() => { setVerified(true); setShowGate(false); try { localStorage.setItem("airroom_18", "1") } catch { /* */ } }} style={{ fontSize: 14, fontWeight: 500, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>i&apos;m 18 or older — take me down</button>
+              <button onClick={() => setShowGate(false)} style={{ fontSize: 14, color: "#e7c3b6", background: "transparent", border: ".5px solid rgba(255,160,120,.3)", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>keep me up here</button>
+            </div>
+            <div style={{ marginTop: 12, fontSize: 11, color: "#a87a68" }}>by continuing you confirm you&apos;re 18+ · real age check comes at launch</div>
+          </div>
+        </div>
       )}
 
       <audio ref={audioRef} style={{ display: "none" }} />

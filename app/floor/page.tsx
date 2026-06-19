@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ROSTER, ROSTER_COUNT, type Heat } from "@/lib/airroom/roster"
+import { AirBubble } from "@/components/airroom/AirBubble"
 
 // The floor's cast — ~240 characters in ~37 clusters, generated deterministically
 // from the archetypes and sorted along water→fire (see lib/airroom/roster.ts).
@@ -76,7 +77,7 @@ export default function FloorPage() {
   // governor): on settling near a group, its host speaks its lines via /api/tts;
   // moving to a new group cancels the old voice and starts the new one.
   useEffect(() => {
-    if (!soundOn) return
+    if (!soundOn || entered) return   // pause the floor's overhear while aired off
     const tok = ++speakTok.current
     const c = CLUSTERS[active]
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -110,7 +111,7 @@ export default function FloorPage() {
       }
     })()
     return () => { speakTok.current++; try { audioRef.current?.pause() } catch {} }
-  }, [active, soundOn])
+  }, [active, soundOn, entered])
 
   // input handlers
   const onWheel = (e: React.WheelEvent) => move(depth + e.deltaY)
@@ -231,14 +232,7 @@ export default function FloorPage() {
       </div>
 
       {entered && (
-        <div onClick={() => setEntered(false)} style={{ position: "absolute", inset: 0, background: "rgba(3,5,10,.78)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, zIndex: 20 }}>
-          <div style={{ maxWidth: 360, textAlign: "center", color: "#eef4f8" }}>
-            <div style={{ fontSize: 13, color: "#9fb2c4", letterSpacing: 1 }}>you aired off into</div>
-            <div style={{ fontSize: 22, fontWeight: 500, margin: "6px 0 10px" }}>{a.name}</div>
-            <div style={{ fontSize: 14, color: "#b9c7d4", lineHeight: 1.6 }}>the floor falls away. just you and a few, close-mic&apos;d, at {tempLabel(f)}. voice can become cam — only here, only if you both say yes.</div>
-            <div style={{ marginTop: 16, fontSize: 12, color: "#7f93a5" }}>tap to go back to the floor</div>
-          </div>
-        </div>
+        <AirBubble cluster={a} tempLabel={tempLabel(f)} onClose={() => setEntered(false)} />
       )}
 
       <audio ref={audioRef} style={{ display: "none" }} />

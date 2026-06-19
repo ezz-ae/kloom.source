@@ -7,11 +7,13 @@
  * the felt population, and a real character is minted the instant you open one
  * (lib/airroom/roster.makeCharacter). Cool→hot temperature runs through every level.
  */
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { freshCharacter, type Cluster } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { usePresence } from "@/lib/airroom/presence"
+import { avatarBg, avatarGlow } from "@/lib/airroom/avatar"
+import { startAmbience, setAmbienceDepth, stopAmbience } from "@/lib/airroom/ambience"
 
 const WORLDS = [
   "The Quiet Wing", "The Reading Room", "The Lab", "Founders' Floor", "The War Room",
@@ -39,12 +41,31 @@ export function ZoomBuffet() {
   const [verified, setVerified] = useState(false)
   const [pending, setPending] = useState<Cluster | null>(null)
   const [group, setGroup] = useState<{ seed: number; f: number } | null>(null)
+  const [voicesCount, setVoicesCount] = useState(VOICES_SHOWN)
+  const audioOn = useRef(false)
 
   useEffect(() => { try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ } }, [])
 
   // live presence — where you are in the universe, and who else is here right now
   const loc = group ? `g-${group.seed}` : level === 0 ? "buffet" : level === 1 ? `w-${world}` : `w-${world}-r-${room}`
   const presence = usePresence(loc)
+
+  // ambience — the universe is never silent. Muffled & layered when zoomed out,
+  // brighter as you go deeper, and it drops away inside a real room so the live
+  // voices come through clear.
+  const depth = (active || group) ? 2 : level
+  useEffect(() => { setAmbienceDepth(depth) }, [depth])
+  useEffect(() => () => stopAmbience(), [])
+  const wake = () => { if (!audioOn.current) { audioOn.current = true; startAmbience(); setAmbienceDepth(depth) } }
+
+  // infinity — the voices never run out; the field keeps growing as you scroll
+  useEffect(() => { setVoicesCount(VOICES_SHOWN) }, [level, world, room])
+  useEffect(() => {
+    if (level !== 2) return
+    const onScroll = () => { if (window.innerHeight + window.scrollY > document.body.offsetHeight - 700) setVoicesCount((c) => Math.min(c + 240, 2400)) }
+    window.addEventListener("scroll", onScroll)
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [level])
 
   const worldF = (i: number) => (i + 0.5) / WORLDS.length
   const roomF = (w: number, rm: number) => clamp01(worldF(w) + (frac(w * 131 + rm * 7) - 0.5) * 0.12)
@@ -56,10 +77,10 @@ export function ZoomBuffet() {
     const c = pending; setPending(null); if (c) setActive(c)
   }
 
-  const crumb = level === 0 ? "20 worlds" : level === 1 ? `${WORLDS[world]} · ~1,000 rooms` : "100,000 voices · tap one"
+  const crumb = level === 0 ? "20 worlds" : level === 1 ? `${WORLDS[world]} · ~1,000 rooms` : "∞ voices · tap one"
 
   return (
-    <div style={{ minHeight: "100vh", background: "#06070e", color: "#eef4f8" }}>
+    <div onPointerDown={wake} style={{ minHeight: "100vh", background: "#06070e", color: "#eef4f8" }}>
       <div style={{ position: "sticky", top: 0, zIndex: 5, background: "linear-gradient(180deg,#06070e 55%,rgba(6,7,14,.85))", padding: "18px 18px 12px", borderBottom: ".5px solid rgba(255,255,255,.06)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -120,12 +141,12 @@ export function ZoomBuffet() {
             <button onClick={() => setGroup({ seed: world * 100003 + room, f: roomF(world, room) })} style={{ fontSize: 13, fontWeight: 500, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "11px 18px", cursor: "pointer" }}>step into the room — a few of them, together →</button>
             <div style={{ fontSize: 11, color: "#7f93a5", marginTop: 8 }}>…or tap a single voice for a 1:1</div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 16, alignContent: "flex-start" }}>
-            {Array.from({ length: VOICES_SHOWN }).map((_, v) => {
-              const f = voiceF(world, room, v); const col = colorFor(f)
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, padding: 16, alignContent: "flex-start" }}>
+            {Array.from({ length: voicesCount }).map((_, v) => {
+              const f = voiceF(world, room, v)
               const seed = (world * 100003 + room) * 100003 + v
               return (
-                <button key={v} onClick={() => openVoice(freshCharacter(f))} aria-label="a voice" style={{ width: 20, height: 20, borderRadius: "50%", background: col, opacity: 0.5 + frac(seed) * 0.5, border: "none", cursor: "pointer", boxShadow: `0 0 4px ${col}` }} />
+                <button key={v} onClick={() => openVoice(freshCharacter(f))} aria-label="a voice" style={{ width: 32, height: 32, borderRadius: "50%", background: avatarBg(seed, f), border: "1px solid rgba(255,255,255,.14)", cursor: "pointer", boxShadow: `0 0 6px ${avatarGlow(f)}55` }} />
               )
             })}
           </div>

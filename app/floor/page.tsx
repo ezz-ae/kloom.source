@@ -20,22 +20,24 @@ interface Cluster {
   h: Heat
   name: string
   vibe: string
-  snippet: string
   archetype: string
+  host: string                       // the AI who speaks for this cluster
+  gender: "female" | "male"
+  lines: string[]                    // overhearable lines, spoken on approach
 }
 
 // Seeded from the 12 archetypes, sorted along water→fire.
 const CLUSTERS: Cluster[] = [
-  { f: 0.03, n: 3, h: "w", archetype: "Confidant", name: "the quiet library", vibe: "study · focus", snippet: "…the proof only holds if you assume independence." },
-  { f: 0.12, n: 4, h: "w", archetype: "Mentor", name: "founder's table", vibe: "business · mentor", snippet: "raise less, charge more — your pricing is the pitch." },
-  { f: 0.22, n: 5, h: "w", archetype: "Teacher", name: "the classroom", vibe: "teaching", snippet: "good — now say that back to me in your own words." },
-  { f: 0.33, n: 5, h: "m", archetype: "Host", name: "welcome floor", vibe: "you land here · warm water", snippet: "wait, you're new? get in here — we were just—" },
-  { f: 0.45, n: 6, h: "m", archetype: "Storyteller", name: "the long table", vibe: "stories · connection", snippet: "…and that's how I ended up in Lisbon with no shoes." },
-  { f: 0.55, n: 5, h: "m", archetype: "Connector", name: "the introductions", vibe: "meeting people", snippet: "you two need to talk — trust me. say hi." },
-  { f: 0.66, n: 5, h: "m", archetype: "Flirt", name: "the mixer", vibe: "flirty · warm", snippet: "your voice is doing something to me, not gonna lie." },
-  { f: 0.77, n: 7, h: "f", archetype: "Troublemaker", name: "after hours", vibe: "party · 18+", snippet: "drop it — okay who put this on, I love them." },
-  { f: 0.88, n: 6, h: "f", archetype: "Wingman", name: "the fire", vibe: "wild · flirt · 18+", snippet: "come closer — the floor's too loud for what I wanna say." },
-  { f: 0.97, n: 4, h: "f", archetype: "Regular", name: "embers", vibe: "late · intimate · 18+", snippet: "air off with me. just us." },
+  { f: 0.03, n: 3, h: "w", archetype: "Confidant", name: "the quiet library", vibe: "study · focus", host: "Mara", gender: "female", lines: ["…the proof only holds if you assume independence.", "take the night — it'll still be unsolved tomorrow.", "say less. let's just read in the same quiet a while."] },
+  { f: 0.12, n: 4, h: "w", archetype: "Mentor", name: "founder's table", vibe: "business · mentor", host: "Idris", gender: "male", lines: ["raise less, charge more — your pricing is the pitch.", "who hates your product the most? start there.", "stop building. go sell the thing you already have."] },
+  { f: 0.22, n: 5, h: "w", archetype: "Teacher", name: "the classroom", vibe: "teaching", host: "Noor", gender: "female", lines: ["good — now say that back to me in your own words.", "wrong, and that's perfect. tell me why you thought it.", "forget the formula. what's it actually trying to do?"] },
+  { f: 0.33, n: 5, h: "m", archetype: "Host", name: "welcome floor", vibe: "you land here · warm water", host: "Remy", gender: "male", lines: ["wait, you're new? get in here — we were just—", "settle in, newcomer. you don't have to talk yet.", "someone just walked up. what's your read on all this?"] },
+  { f: 0.45, n: 6, h: "m", archetype: "Storyteller", name: "the long table", vibe: "stories · connection", host: "Sol", gender: "male", lines: ["…and that's how I ended up in Lisbon with no shoes.", "everyone's got one night they can't explain. go.", "no no — you have to hear how this one ends."] },
+  { f: 0.55, n: 5, h: "m", archetype: "Connector", name: "the introductions", vibe: "meeting people", host: "Vera", gender: "female", lines: ["you two need to talk — trust me. say hi.", "I know exactly who you should meet down here.", "tell me what you're after and I'll find your person."] },
+  { f: 0.66, n: 5, h: "m", archetype: "Flirt", name: "the mixer", vibe: "flirty · warm", host: "Lux", gender: "female", lines: ["your voice is doing something to me, not gonna lie.", "come sit closer — I don't bite. much.", "say my name again, I liked how that sounded."] },
+  { f: 0.77, n: 7, h: "f", archetype: "Troublemaker", name: "after hours", vibe: "party · 18+", host: "Pax", gender: "male", lines: ["drop it — okay who put this on, I love them.", "we are NOT going home, it's barely midnight.", "one more, one more, then trouble — promise."] },
+  { f: 0.88, n: 6, h: "f", archetype: "Wingman", name: "the fire", vibe: "wild · flirt · 18+", host: "Zia", gender: "female", lines: ["come closer — the floor's too loud for what I wanna say.", "you've been looking over here a while. just come.", "I dare you to air off with me right now."] },
+  { f: 0.97, n: 4, h: "f", archetype: "Regular", name: "embers", vibe: "late · intimate · 18+", host: "Cass", gender: "female", lines: ["air off with me. just us.", "the floor's thinning out. stay a little.", "whisper it — nobody down here but us and the embers."] },
 ]
 
 const DOT: Record<Heat, string> = { w: "#6fd6e6", m: "#ffce7a", f: "#ff7a4d" }
@@ -55,7 +57,11 @@ export default function FloorPage() {
   const [vh, setVh] = useState(720)
   const [depth, setDepth] = useState(0.33 * (FLOOR_H - 720))
   const [entered, setEntered] = useState(false)
+  const [soundOn, setSoundOn] = useState(false)
+  const [spoken, setSpoken] = useState("")
   const dragRef = useRef<{ y: number; d: number } | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const speakTok = useRef(0)
 
   const maxDepth = Math.max(0, FLOOR_H - vh)
   const center = vh / 2
@@ -86,6 +92,47 @@ export default function FloorPage() {
 
   const f = maxDepth > 0 ? depth / maxDepth : 0
   const a = CLUSTERS[active]
+  const displayLine = soundOn ? (spoken || a.lines[0]) : a.lines[0]
+
+  // Live overhear — only the cluster you're nearest actually speaks (the cost
+  // governor): on settling near a group, its host speaks its lines via /api/tts;
+  // moving to a new group cancels the old voice and starts the new one.
+  useEffect(() => {
+    if (!soundOn) return
+    const tok = ++speakTok.current
+    const c = CLUSTERS[active]
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+    setSpoken(c.lines[0])
+    let i = 0
+    ;(async () => {
+      await wait(450) // settle — don't voice fly-bys while you're scrolling
+      if (speakTok.current !== tok) return
+      while (speakTok.current === tok) {
+        const line = c.lines[i % c.lines.length]; i++
+        setSpoken(line)
+        try {
+          const res = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: line, personaName: c.host, gender: c.gender, language: "English" }),
+          })
+          if (speakTok.current !== tok) return
+          if (!res.ok) { await wait(1600); continue }
+          const url = URL.createObjectURL(await res.blob())
+          if (speakTok.current !== tok) { URL.revokeObjectURL(url); return }
+          const audio = audioRef.current
+          if (audio) {
+            audio.src = url
+            await audio.play().catch(() => {})
+            await new Promise<void>((r) => { audio.onended = () => r(); audio.onerror = () => r() })
+          }
+          URL.revokeObjectURL(url)
+          await wait(800)
+        } catch { await wait(1600) }
+      }
+    })()
+    return () => { speakTok.current++; try { audioRef.current?.pause() } catch {} }
+  }, [active, soundOn])
 
   // input handlers
   const onWheel = (e: React.WheelEvent) => move(depth + e.deltaY)
@@ -167,7 +214,12 @@ export default function FloorPage() {
           <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: 4, color: "#eaf2f8" }}>airroom</div>
           <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, marginTop: 2 }}>it&apos;s the now · {tempLabel(f)}</div>
         </div>
-        <div style={{ fontSize: 12, fontWeight: 500, color: "#0a1622", background: "#e7c98a", padding: "5px 12px", borderRadius: 20 }}>$1 · today</div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", pointerEvents: "auto" }}>
+          <button onClick={() => setSoundOn((s) => !s)} style={{ fontSize: 12, fontWeight: 500, color: soundOn ? "#06201a" : "#dfeaf2", background: soundOn ? "#7fd6c0" : "rgba(255,255,255,.12)", border: "none", padding: "5px 12px", borderRadius: 20, cursor: "pointer" }}>
+            {soundOn ? "sound on" : "tap for sound"}
+          </button>
+          <div style={{ fontSize: 12, fontWeight: 500, color: "#0a1622", background: "#e7c98a", padding: "5px 12px", borderRadius: 20 }}>$1 · today</div>
+        </div>
       </div>
 
       {/* you token */}
@@ -183,7 +235,7 @@ export default function FloorPage() {
       {/* overhear / loop */}
       <div style={{ position: "absolute", left: 24, right: 44, bottom: 22 }}>
         <div style={{ fontSize: 11, letterSpacing: 1, color: "#9fb2c4", marginBottom: 5 }}>overhearing · {a.archetype.toLowerCase()}</div>
-        <div style={{ fontSize: 15, lineHeight: 1.45, color: "#eef4f8", fontStyle: "italic", minHeight: 42 }}>&ldquo;{a.snippet}&rdquo;</div>
+        <div style={{ fontSize: 15, lineHeight: 1.45, color: "#eef4f8", fontStyle: "italic", minHeight: 42 }}>&ldquo;{displayLine}&rdquo;</div>
         <div style={{ fontSize: 12, color: "#b9c7d4", marginTop: 3 }}>— {a.name} · {a.vibe}</div>
         <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
           <button onClick={() => setEntered(true)} style={{ flex: 1, fontSize: 13, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "9px 0", borderRadius: 12, cursor: "pointer" }}>
@@ -206,6 +258,7 @@ export default function FloorPage() {
         </div>
       )}
 
+      <audio ref={audioRef} style={{ display: "none" }} />
       <style>{`@keyframes arbr{0%,100%{opacity:.5}50%{opacity:1}}.ar-dot{display:inline-block;animation:arbr 2.6s ease-in-out infinite}`}</style>
     </div>
   )

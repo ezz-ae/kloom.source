@@ -38,12 +38,12 @@ export function ZoomBuffet() {
   const [active, setActive] = useState<Cluster | null>(null)
   const [verified, setVerified] = useState(false)
   const [pending, setPending] = useState<Cluster | null>(null)
-  const [group, setGroup] = useState<number | null>(null)
+  const [group, setGroup] = useState<{ seed: number; f: number } | null>(null)
 
   useEffect(() => { try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ } }, [])
 
   // live presence — where you are in the universe, and who else is here right now
-  const loc = group !== null ? `g-${world}-${room}` : level === 0 ? "buffet" : level === 1 ? `w-${world}` : `w-${world}-r-${room}`
+  const loc = group ? `g-${group.seed}` : level === 0 ? "buffet" : level === 1 ? `w-${world}` : `w-${world}-r-${room}`
   const presence = usePresence(loc)
 
   const worldF = (i: number) => (i + 0.5) / WORLDS.length
@@ -117,7 +117,7 @@ export function ZoomBuffet() {
       {level === 2 && (
         <div key={`l2-${world}-${room}`} className="zb-in">
           <div style={{ padding: "16px 16px 0", textAlign: "center" }}>
-            <button onClick={() => setGroup(roomF(world, room))} style={{ fontSize: 13, fontWeight: 500, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "11px 18px", cursor: "pointer" }}>step into the room — a few of them, together →</button>
+            <button onClick={() => setGroup({ seed: world * 100003 + room, f: roomF(world, room) })} style={{ fontSize: 13, fontWeight: 500, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "11px 18px", cursor: "pointer" }}>step into the room — a few of them, together →</button>
             <div style={{ fontSize: 11, color: "#7f93a5", marginTop: 8 }}>…or tap a single voice for a 1:1</div>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 16, alignContent: "flex-start" }}>
@@ -134,7 +134,7 @@ export function ZoomBuffet() {
 
       {active && <AirBubble cluster={active} tempLabel={tempLabelFor(active.f)} onClose={() => setActive(null)} />}
 
-      {group !== null && <GroupRoom f={group} tempLabel={tempLabelFor(group)} onClose={() => setGroup(null)} />}
+      {group && <GroupRoom seed={group.seed} f={group.f} tempLabel={tempLabelFor(group.f)} onClose={() => setGroup(null)} />}
 
       {pending && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,4,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26, zIndex: 30 }}>

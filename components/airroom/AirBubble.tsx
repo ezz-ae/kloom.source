@@ -38,8 +38,11 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
   const busyRef = useRef(false)
   const hostSpeakingRef = useRef(false)
   const onceRecRef = useRef<any>(null)
+  const hfRef = useRef(false)
+  const clickTimer = useRef<any>(null)
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
+  useEffect(() => { hfRef.current = handsFree }, [handsFree])
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
   useEffect(() => { const w = window as any; setSttOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, [])
 
@@ -107,6 +110,21 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
     try { rec.start(); setListening(true) } catch { setListening(false) }
   }
 
+  // One button, two gestures: single tap = talk once · double tap = hands-free
+  // (mic stays open). Single tap while live turns it back off.
+  const onTalk = () => {
+    if (clickTimer.current) {
+      clearTimeout(clickTimer.current); clickTimer.current = null
+      setHandsFree((h) => !h)
+      return
+    }
+    clickTimer.current = setTimeout(() => {
+      clickTimer.current = null
+      if (hfRef.current) setHandsFree(false)
+      else talkOnce()
+    }, 240)
+  }
+
   // hands-free: keep the mic open and auto-send each finished utterance.
   useEffect(() => {
     if (!handsFree) return
@@ -153,13 +171,8 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
 
       <div style={{ padding: "10px 18px 18px" }}>
         {sttOk && (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 }}>
-            <span style={{ fontSize: 11, color: handsFree ? "#7fd6c0" : "#7f93a5" }}>
-              {handsFree ? "live — just talk, the mic's open" : "tap talk to speak once, or go hands-free →"}
-            </span>
-            <button onClick={() => setHandsFree((h) => !h)} style={{ fontSize: 12, fontWeight: 500, color: handsFree ? "#06201a" : "#dfeaf2", background: handsFree ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 20, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
-              {handsFree ? "hands-free on" : "hands-free"}
-            </button>
+          <div style={{ fontSize: 11, color: handsFree ? "#7fd6c0" : "#7f93a5", marginBottom: 9, textAlign: "center" }}>
+            {handsFree ? "live — mic's open, just talk · tap talk to stop" : "tap talk to speak once · double-tap to keep the mic open"}
           </div>
         )}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -170,8 +183,8 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
             placeholder={handsFree ? "…or type" : `say something to ${cluster.host.toLowerCase()}…`}
             style={{ flex: 1, fontSize: 14, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", outline: "none" }}
           />
-          {sttOk && !handsFree && (
-            <button onClick={talkOnce} aria-label="talk to the host" style={{ fontSize: 13, color: listening ? "#06201a" : "#dfeaf2", background: listening ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>{listening ? "listening" : "talk"}</button>
+          {sttOk && (
+            <button onClick={onTalk} aria-label="talk — tap to speak once, double-tap for hands-free" style={{ fontSize: 13, fontWeight: handsFree ? 500 : 400, color: (handsFree || listening) ? "#06201a" : "#dfeaf2", background: handsFree ? "#7fd6c0" : listening ? "#bfe9d8" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>{handsFree ? "live" : listening ? "listening" : "talk"}</button>
           )}
           <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>send</button>
         </div>

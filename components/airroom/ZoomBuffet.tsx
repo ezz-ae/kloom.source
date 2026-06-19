@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react"
 import { freshCharacter, type Cluster } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
+import { GroupRoom } from "@/components/airroom/GroupRoom"
 
 const WORLDS = [
   "The Quiet Wing", "The Reading Room", "The Lab", "Founders' Floor", "The War Room",
@@ -36,6 +37,7 @@ export function ZoomBuffet() {
   const [active, setActive] = useState<Cluster | null>(null)
   const [verified, setVerified] = useState(false)
   const [pending, setPending] = useState<Cluster | null>(null)
+  const [group, setGroup] = useState<number | null>(null)
 
   useEffect(() => { try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ } }, [])
 
@@ -103,20 +105,28 @@ export function ZoomBuffet() {
         </div>
       )}
 
-      {/* LEVEL 2 — 100,000 voices (a dense field; mint one on tap) */}
+      {/* LEVEL 2 — step into the room (group), or tap a single voice (1:1) */}
       {level === 2 && (
-        <div key={`l2-${world}-${room}`} className="zb-in" style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 16, alignContent: "flex-start" }}>
-          {Array.from({ length: VOICES_SHOWN }).map((_, v) => {
-            const f = voiceF(world, room, v); const col = colorFor(f)
-            const seed = (world * 100003 + room) * 100003 + v
-            return (
-              <button key={v} onClick={() => openVoice(freshCharacter(f))} aria-label="a voice" style={{ width: 20, height: 20, borderRadius: "50%", background: col, opacity: 0.5 + frac(seed) * 0.5, border: "none", cursor: "pointer", boxShadow: `0 0 4px ${col}` }} />
-            )
-          })}
+        <div key={`l2-${world}-${room}`} className="zb-in">
+          <div style={{ padding: "16px 16px 0", textAlign: "center" }}>
+            <button onClick={() => setGroup(roomF(world, room))} style={{ fontSize: 13, fontWeight: 500, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "11px 18px", cursor: "pointer" }}>step into the room — a few of them, together →</button>
+            <div style={{ fontSize: 11, color: "#7f93a5", marginTop: 8 }}>…or tap a single voice for a 1:1</div>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: 16, alignContent: "flex-start" }}>
+            {Array.from({ length: VOICES_SHOWN }).map((_, v) => {
+              const f = voiceF(world, room, v); const col = colorFor(f)
+              const seed = (world * 100003 + room) * 100003 + v
+              return (
+                <button key={v} onClick={() => openVoice(freshCharacter(f))} aria-label="a voice" style={{ width: 20, height: 20, borderRadius: "50%", background: col, opacity: 0.5 + frac(seed) * 0.5, border: "none", cursor: "pointer", boxShadow: `0 0 4px ${col}` }} />
+              )
+            })}
+          </div>
         </div>
       )}
 
       {active && <AirBubble cluster={active} tempLabel={tempLabelFor(active.f)} onClose={() => setActive(null)} />}
+
+      {group !== null && <GroupRoom f={group} tempLabel={tempLabelFor(group)} onClose={() => setGroup(null)} />}
 
       {pending && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,4,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26, zIndex: 30 }}>

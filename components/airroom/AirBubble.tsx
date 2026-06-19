@@ -1,11 +1,12 @@
 "use client"
 
 /**
- * AIRROOM — the air-off bubble. You pulled out of the floor into a private
- * one-on-one with a cluster's host. Real exchange: the host greets you aloud,
- * you reply, it answers in voice (reuses /api/chat + /api/tts). Cam is framed
- * but gated — it only unlocks here, and only by mutual yes (human↔human cam
- * lands when real people are on the floor; for now this is you ↔ the host).
+ * AIRROOM — the air-off bubble. A private 1:1 with a cluster's host: it greets
+ * aloud, you reply, it answers in voice (/api/chat + /api/tts). Two ways to talk:
+ *   • push-to-talk ("talk") — tap, say one thing, it sends.
+ *   • hands-free ("live")   — keep the mic open; just talk and each line sends,
+ *                             no pressing. Ignores its own voice while it speaks.
+ * Cam is framed but gated — only here, only by mutual yes.
  */
 import { useEffect, useRef, useState } from "react"
 import type { Cluster } from "@/lib/airroom/roster"
@@ -22,15 +23,25 @@ function personaFor(c: Cluster) {
   }
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; tempLabel: string; onClose: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>([{ who: "host", text: cluster.lines[0] }])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
+  const [sttOk, setSttOk] = useState(false)
+  const [listening, setListening] = useState(false)   // push-to-talk active
+  const [handsFree, setHandsFree] = useState(false)    // continuous mode
+
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
-  const [listening, setListening] = useState(false)
-  const [sttOk, setSttOk] = useState(false)
-  const recRef = useRef<{ stop: () => void; start: () => void } | null>(null)
+  const msgsRef = useRef(msgs)
+  const busyRef = useRef(false)
+  const hostSpeakingRef = useRef(false)
+  const onceRecRef = useRef<any>(null)
+
+  useEffect(() => { msgsRef.current = msgs }, [msgs])
+  useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
+  useEffect(() => { const w = window as any; setSttOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, [])
 
   const speak = async (text: string) => {
     try {
@@ -41,65 +52,84 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
       if (!res.ok) return
       const url = URL.createObjectURL(await res.blob())
       const a = audioRef.current
-      if (a) { a.src = url; await a.play().catch(() => {}) }
-    } catch { /* ignore */ }
+      if (a) {
+        hostSpeakingRef.current = true            // don't transcribe the host's own voice
+        a.onended = () => { hostSpeakingRef.current = false }
+        a.src = url
+        await a.play().catch(() => { hostSpeakingRef.current = false })
+      }
+    } catch { hostSpeakingRef.current = false }
   }
 
   useEffect(() => { speak(cluster.lines[0]) }, []) // greet on open
-  useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
 
   const send = async (override?: string) => {
     const text = (override ?? input).trim()
-    if (!text || busy) return
+    if (!text || busyRef.current) return
     setInput("")
-    const next = [...msgs, { who: "you" as const, text }]
-    setMsgs(next)
-    setBusy(true)
+    busyRef.current = true; setBusy(true)
+    const next: Msg[] = [...msgsRef.current, { who: "you", text }]
+    msgsRef.current = next; setMsgs(next)
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          persona: personaFor(cluster),
-          messages: next.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })),
-        }),
+        body: JSON.stringify({ persona: personaFor(cluster), messages: next.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
       let full = ""
       if (res.ok && res.body) {
-        const reader = res.body.getReader()
-        const dec = new TextDecoder()
+        const reader = res.body.getReader(); const dec = new TextDecoder()
         for (;;) { const { done, value } = await reader.read(); if (done) break; full += dec.decode(value) }
       }
       full = full.trim() || "…"
-      setMsgs((m) => [...m, { who: "host", text: full }])
+      const after: Msg[] = [...next, { who: "host", text: full }]
+      msgsRef.current = after; setMsgs(after)
       speak(full)
     } catch {
-      setMsgs((m) => [...m, { who: "host", text: "…you cut out for a second. say that again?" }])
+      const after: Msg[] = [...next, { who: "host", text: "…you cut out for a second. say that again?" }]
+      msgsRef.current = after; setMsgs(after)
     } finally {
-      setBusy(false)
+      busyRef.current = false; setBusy(false)
     }
   }
 
-  // Voice-first: talk to the host with the browser's speech recognition.
-  useEffect(() => {
-    const w = window as unknown as Record<string, unknown>
-    setSttOk(typeof window !== "undefined" && !!(w.SpeechRecognition || w.webkitSpeechRecognition))
-  }, [])
-
-  const toggleMic = () => {
-    if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false); return }
-    /* eslint-disable @typescript-eslint/no-explicit-any */
+  // push-to-talk: one utterance, then sends.
+  const talkOnce = () => {
+    if (listening) { try { onceRecRef.current?.stop() } catch { /* */ } setListening(false); return }
     const w = window as any
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     if (!SR) return
     const rec = new SR()
-    rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1
+    rec.lang = "en-US"; rec.interimResults = false; rec.continuous = false
     rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setListening(false); if (t) send(t) }
     rec.onerror = () => setListening(false)
     rec.onend = () => setListening(false)
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-    recRef.current = rec
+    onceRecRef.current = rec
     try { rec.start(); setListening(true) } catch { setListening(false) }
   }
+
+  // hands-free: keep the mic open and auto-send each finished utterance.
+  useEffect(() => {
+    if (!handsFree) return
+    const w = window as any
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
+    if (!SR) { setHandsFree(false); return }
+    try { onceRecRef.current?.stop() } catch { /* */ }
+    setListening(false)
+    let stopped = false
+    const rec = new SR()
+    rec.lang = "en-US"; rec.interimResults = false; rec.continuous = true
+    rec.onresult = (e: any) => {
+      const r = e.results?.[e.results.length - 1]
+      if (!r || !r.isFinal) return
+      const t = r[0]?.transcript?.trim()
+      if (t && !hostSpeakingRef.current && !busyRef.current) send(t)
+    }
+    rec.onerror = (ev: any) => { if (ev?.error === "not-allowed" || ev?.error === "service-not-allowed") setHandsFree(false) }
+    rec.onend = () => { if (!stopped) { try { rec.start() } catch { /* */ } } }
+    try { rec.start() } catch { /* */ }
+    return () => { stopped = true; try { rec.stop() } catch { /* */ } }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handsFree])
 
   return (
     <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,10,.86)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20 }}>
@@ -122,16 +152,26 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
       </div>
 
       <div style={{ padding: "10px 18px 18px" }}>
+        {sttOk && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 9 }}>
+            <span style={{ fontSize: 11, color: handsFree ? "#7fd6c0" : "#7f93a5" }}>
+              {handsFree ? "live — just talk, the mic's open" : "tap talk to speak once, or go hands-free →"}
+            </span>
+            <button onClick={() => setHandsFree((h) => !h)} style={{ fontSize: 12, fontWeight: 500, color: handsFree ? "#06201a" : "#dfeaf2", background: handsFree ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 20, padding: "5px 12px", cursor: "pointer", whiteSpace: "nowrap" }}>
+              {handsFree ? "hands-free on" : "hands-free"}
+            </button>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") send() }}
-            placeholder={`say something to ${cluster.host.toLowerCase()}…`}
+            placeholder={handsFree ? "…or type" : `say something to ${cluster.host.toLowerCase()}…`}
             style={{ flex: 1, fontSize: 14, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", outline: "none" }}
           />
-          {sttOk && (
-            <button onClick={toggleMic} aria-label="talk to the host" style={{ fontSize: 13, color: listening ? "#06201a" : "#dfeaf2", background: listening ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>{listening ? "listening" : "talk"}</button>
+          {sttOk && !handsFree && (
+            <button onClick={talkOnce} aria-label="talk to the host" style={{ fontSize: 13, color: listening ? "#06201a" : "#dfeaf2", background: listening ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>{listening ? "listening" : "talk"}</button>
           )}
           <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>send</button>
         </div>

@@ -25,6 +25,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // On the AIRRAW deployment (AIRRAW_HOME=1) the root opens the universe; other
+  // builds (kloom) keep their own homepage. The old /airroom path redirects on all.
+  async rewrites() {
+    return { beforeFiles: process.env.AIRRAW_HOME === "1" ? [{ source: "/", destination: "/airraw" }] : [] }
+  },
+  async redirects() {
+    return [{ source: "/airroom", destination: "/airraw", permanent: false }]
+  },
 }
 
 export default nextConfig

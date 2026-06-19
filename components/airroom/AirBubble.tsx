@@ -31,6 +31,7 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
   const [sttOk, setSttOk] = useState(false)
   const [listening, setListening] = useState(false)   // push-to-talk active
   const [handsFree, setHandsFree] = useState(false)    // continuous mode
+  const [revealed, setRevealed] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -50,7 +51,7 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: "English" }),
+        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: "English", voiceId: cluster.voiceId }),
       })
       if (!res.ok) return
       const url = URL.createObjectURL(await res.blob())
@@ -188,7 +189,14 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
           )}
           <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>send</button>
         </div>
-        <div style={{ marginTop: 9, fontSize: 11, color: "#7f93a5", textAlign: "center" }}>
+        <div style={{ marginTop: 9, textAlign: "center" }}>
+          {revealed ? (
+            <span style={{ fontSize: 11, color: "#9fb2c4" }}>{cluster.host} is AI — born the second you opened them. (when real people are on the floor, you won&apos;t always be able to tell.)</span>
+          ) : (
+            <button onClick={() => setRevealed(true)} style={{ fontSize: 11, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>are they human?</button>
+          )}
+        </div>
+        <div style={{ marginTop: 7, fontSize: 11, color: "#7f93a5", textAlign: "center" }}>
           cam unlocks only here — and only if you both say yes · <span style={{ opacity: 0.55 }}>ask for cam (both must agree)</span>
         </div>
       </div>

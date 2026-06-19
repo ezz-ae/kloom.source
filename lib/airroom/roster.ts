@@ -8,6 +8,7 @@
  * render the identical floor — no hydration drift. The actual Fish voice is
  * resolved server-side by /api/tts from each host's name + gender.
  */
+import { VOICE_CATALOG } from "@/lib/voices"
 
 export type Heat = "w" | "m" | "f"
 
@@ -21,6 +22,7 @@ export interface Cluster {
   host: string                       // the AI who speaks for this cluster
   gender: "female" | "male"
   lines: string[]                    // overhearable lines, spoken on approach
+  voiceId?: string                   // explicit Fish voice (for always-new picks)
 }
 
 // Deterministic PRNG (mulberry32-ish LCG). Same seed → same floor, every render.
@@ -37,11 +39,19 @@ const NAMES_F = [
   "Mara", "Noor", "Vera", "Lux", "Zia", "Cass", "Ivy", "Suki", "Rana", "Dahlia",
   "Nadia", "Esme", "Yuki", "Leila", "Brielle", "Mira", "Sana", "Tess", "Aria",
   "Juno", "Remi", "Nova", "Indira", "Selin", "Priya", "Anouk", "Lena", "Faye",
+  "Talia", "Reyna", "Sade", "Mei", "Wren", "Zoe", "Lottie", "Bibi", "Nyla",
+  "Coco", "Inez", "Maya", "Devi", "Roxy", "Liora", "Suzu", "Amara", "Frida",
+  "Greta", "Hana", "Iris", "Keira", "Lia", "Mina", "Nell", "Opal", "Paloma",
+  "Rhea", "Sloane", "Thea", "Vesna", "Yara", "Zuri",
 ]
 const NAMES_M = [
   "Idris", "Remy", "Sol", "Pax", "Dane", "Theo", "Kai", "Omar", "Niko", "Rafa",
   "Jude", "Caleb", "Marco", "Eli", "Bo", "Cyrus", "Dmitri", "Hassan", "Leon",
   "Mateo", "Arjun", "Tariq", "Soren", "Ravi", "Emre", "Dario", "Finn", "Cole",
+  "Andre", "Bram", "Diego", "Enzo", "Felix", "Gael", "Hiro", "Ivan", "Jonas",
+  "Kano", "Lev", "Milo", "Nas", "Oskar", "Pier", "Rune", "Samir", "Tomas",
+  "Umar", "Viktor", "Wale", "Xander", "Yusuf", "Zane", "Bodhi", "Cruz", "Elias",
+  "Hugo", "Mlinh", "Oba", "Rio", "Said", "Ten",
 ]
 
 interface Arch {
@@ -163,4 +173,37 @@ export function makeCharacter(seed: number, f: number): Cluster {
   const start = Math.floor(r() * A.lines.length)
   const lines = [0, 1, 2].map((k) => A.lines[(start + k) % A.lines.length])
   return { f, n: 1, h, archetype: A.key, name: A.names[Math.floor(r() * A.names.length)], vibe: A.vibe + (f >= 0.72 ? " · 18+" : ""), host, gender: isF ? "female" : "male", lines }
+}
+
+// ── always-new picks ──
+// Every voice you open must feel like a brand-NEW person: a name you haven't seen
+// this session, and a voice that isn't the one you just heard. Names draw from a
+// session used-set (resets when nearly exhausted); voices round-robin the
+// gender-matched Fish catalog so two picks never share a voice back to back.
+const F_VOICES = VOICE_CATALOG.filter((v) => v.gender === "female").map((v) => v.id)
+const M_VOICES = VOICE_CATALOG.filter((v) => v.gender === "male").map((v) => v.id)
+const usedNames = new Set<string>()
+let fRot = 0, mRot = 0
+
+export function freshCharacter(f: number): Cluster {
+  const A =
+    ARCH.find((a) => f >= a.band[0] && f <= a.band[1]) ||
+    ARCH.reduce((best, a) => {
+      const d = Math.min(Math.abs(f - a.band[0]), Math.abs(f - a.band[1]))
+      const bd = Math.min(Math.abs(f - best.band[0]), Math.abs(f - best.band[1]))
+      return d < bd ? a : best
+    })
+  const isF = A.lean === "f" ? true : A.lean === "m" ? false : Math.random() < 0.5
+  const pool = isF ? NAMES_F : NAMES_M
+  if (usedNames.size >= NAMES_F.length + NAMES_M.length - 4) usedNames.clear()
+  let host = pool[Math.floor(Math.random() * pool.length)]
+  let guard = 0
+  while (usedNames.has(host) && guard++ < pool.length * 3) host = pool[Math.floor(Math.random() * pool.length)]
+  usedNames.add(host)
+  const vpool = isF ? F_VOICES : M_VOICES
+  const voiceId = vpool.length ? vpool[(isF ? fRot++ : mRot++) % vpool.length] : undefined
+  const h: Heat = f < 0.4 ? "w" : f < 0.72 ? "m" : "f"
+  const li = Math.floor(Math.random() * A.lines.length)
+  const lines = [0, 1, 2].map((k) => A.lines[(li + k) % A.lines.length])
+  return { f, n: 1, h, archetype: A.key, name: A.names[Math.floor(Math.random() * A.names.length)], vibe: A.vibe + (f >= 0.72 ? " · 18+" : ""), host, gender: isF ? "female" : "male", lines, voiceId }
 }

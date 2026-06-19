@@ -117,3 +117,27 @@ export function buildRoster(): Cluster[] {
 
 export const ROSTER: Cluster[] = buildRoster()
 export const ROSTER_COUNT = ROSTER.reduce((s, c) => s + c.n, 0)
+
+// Flat buffet of individual, distinctly-named characters for the landing grid —
+// the "open buffet" you graze and pick from. Cluster-shaped so AirBubble takes
+// one directly. Sorted water→fire.
+export function buildCharacters(): Cluster[] {
+  const r = rng(90909)
+  const out: Cluster[] = []
+  let fi = 0, mi = 0
+  for (const A of ARCH) {
+    const count = 5
+    for (let c = 0; c < count; c++) {
+      const t = (c + 0.5) / count
+      const f = clamp01(A.band[0] + t * (A.band[1] - A.band[0]) + (r() - 0.5) * 0.04)
+      const isF = A.lean === "f" ? true : A.lean === "m" ? false : r() < 0.5
+      const host = isF ? NAMES_F[fi++ % NAMES_F.length] : NAMES_M[mi++ % NAMES_M.length]
+      const h: Heat = f < 0.4 ? "w" : f < 0.72 ? "m" : "f"
+      const start = Math.floor(r() * A.lines.length)
+      const lines = [0, 1, 2].map((k) => A.lines[(start + k) % A.lines.length])
+      out.push({ f, n: 1, h, archetype: A.key, name: A.names[c % A.names.length], vibe: A.vibe + (f >= 0.72 ? " · 18+" : ""), host, gender: isF ? "female" : "male", lines })
+    }
+  }
+  return out.sort((a, b) => a.f - b.f)
+}
+export const CHARACTERS: Cluster[] = buildCharacters()

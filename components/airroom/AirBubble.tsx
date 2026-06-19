@@ -150,7 +150,7 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
   }, [handsFree])
 
   return (
-    <div style={{ position: "absolute", inset: 0, background: "rgba(3,5,10,.86)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(3,5,10,.86)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20 }}>
       <div style={{ padding: "18px 22px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>aired off · just you two</div>

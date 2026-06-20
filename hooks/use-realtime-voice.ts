@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { consumeVoice, voiceAvailable, LAUNCH_UNLIMITED, getFreeRemainingSec } from "@/lib/voice-credits"
+import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { accountMinutes, setAccountMinutes, spendMinutes } from "@/lib/auth"
 import { mediaDevicesUnavailable } from "@/lib/media"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
@@ -74,23 +75,8 @@ interface TranscriptEntry {
 }
 
 // Map persona.language to a BCP-47 tag for the browser SpeechRecognition API.
-const LANGUAGE_TO_BCP47: Record<string, string> = {
-  English: "en-US",
-  Spanish: "es-ES",
-  French: "fr-FR",
-  German: "de-DE",
-  Italian: "it-IT",
-  Portuguese: "pt-PT",
-  Japanese: "ja-JP",
-  Korean: "ko-KR",
-  Chinese: "zh-CN",
-  Arabic: "ar-SA",
-  Hindi: "hi-IN",
-  Russian: "ru-RU",
-  Dutch: "nl-NL",
-  Turkish: "tr-TR",
-  Polish: "pl-PL",
-}
+// LANGUAGE_TO_BCP47 now lives in lib/languages.ts (single source of truth,
+// shared with STT, the TTS voice lookup, and the browser-locale auto-detector).
 
 export function useRealtimeVoice({
   persona,
@@ -242,6 +228,7 @@ export function useRealtimeVoice({
           voiceId: speakerPersona.voiceId,
           personaName: speakerPersona.name,
           gender: (speakerPersona as any).gender,
+          language: speakerPersona.language,
         }),
       })
       if (!response.ok) {

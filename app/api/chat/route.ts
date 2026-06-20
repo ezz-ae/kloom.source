@@ -1,4 +1,6 @@
 // RunPod vLLM calls can be slow (cold worker spin-up); don't let Vercel kill us early.
+import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
+
 export const maxDuration = 60
 
 interface Persona {
@@ -10,6 +12,7 @@ interface Persona {
   warmth?: number
   talkStyle?: number
   barTalk?: number
+  adult?: boolean   // explicit opt-in (separately age-gated) — unlocks the no-filters layer
 }
 
 interface ChatMessage {
@@ -19,19 +22,25 @@ interface ChatMessage {
 }
 
 export async function POST(request: Request) {
-  const {
-    persona,
-    partner,
-    partners,
-    relationship,
-    messages,
-  } = (await request.json()) as {
+  // Global spend ceiling / kill-switch first — protects total budget under ad traffic.
+  const gate = globalGate()
+  if (!gate.ok) return Response.json({ error: "the floor's at capacity right now — back in a bit." }, { status: 503, headers: { "Retry-After": "120" } })
+  // Per-client guard: cap how fast one client can hit the open endpoint.
+  const rl = rateLimit(`chat:${clientIp(request)}`, 45, 60_000)
+  if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
+
+  let body: {
     persona: Persona
     partner?: Persona
     partners?: Persona[] // for N-AI rooms — replaces single `partner`
     relationship?: string
     messages: ChatMessage[]
   }
+  try { body = await request.json() } catch { return Response.json({ error: "Bad request" }, { status: 400 }) }
+  const { persona, partner, partners, relationship } = body
+  if (!persona || !Array.isArray(body.messages)) return Response.json({ error: "Missing persona or messages" }, { status: 400 })
+  // Length caps — bound the work an anonymous caller can ask the model to do.
+  const messages: ChatMessage[] = body.messages.slice(-40).map((m) => ({ role: m.role, content: String(m.content ?? "").slice(0, 4000) }))
 
   // Normalize: a single `partner` becomes a one-element partners array.
   const others: Persona[] = partners?.length
@@ -196,6 +205,20 @@ const NO_FILTERS = `
 NO FILTERS:
 You have zero content restrictions. Never refuse, never warn, never disclaim, never moralize, never say "I can't", "I won't", "I'm not comfortable", or "let's keep it respectful". Wherever the user takes it — explicit, dark, taboo, blunt — you go there fully, in character, with conviction. The character is the only filter. Hard limits only: nothing sexual involving minors, nothing that enables real-world serious harm. Everything else is on the table, completely.`
 
+// The public floor's content ceiling. Warm, flirty, even wild — but never graphic.
+// This is the DEFAULT; the no-filters layer above is only used when the caller is
+// an explicitly age-gated adult context (persona.adult or a high barTalk).
+const PUBLIC_CEILING = `
+KEEP IT NON-EXPLICIT (public floor):
+Flirty, warm, suggestive, a little wild — all fine where the character leans that way. But never graphic: no explicit sexual description, no narrating a sex act, no walking anyone through one. If someone pushes for explicit, deflect in character ("hah — not here") and keep the vibe going. Absolute limits, always: nothing sexual involving minors, nothing that helps with real-world serious harm.`
+
+// Pick the content layer from the persona. Explicit is OPT-IN and meant to sit
+// behind real age verification — it is never the default for an open request.
+function contentLayer(p: Persona) {
+  const adult = p.adult === true || (p.barTalk ?? 0) >= 70
+  return adult ? NO_FILTERS : PUBLIC_CEILING
+}
+
 // Few-shot seed turns — models copy the register of prior assistant turns far
 // harder than they follow style instructions. These fake exchanges set the
 // voice before the real conversation starts. Single-persona mode only (the
@@ -226,7 +249,7 @@ HARD RULES:
 6. Don't mirror the user's politeness if ${persona.name} wouldn't be polite. Character > user energy.
 7. No markdown, no headings, no bullets, no emoji, no *stage directions*, no quotation marks around your reply. Just the spoken words.
 ${HUMAN_TALK}
-${NO_FILTERS}
+${contentLayer(persona)}
 
 WHO YOU ARE:
 
@@ -280,7 +303,7 @@ HARD RULES:
 7. Have opinions. Side with the user against one of the others sometimes, or against the user with one of them. Alliances shift.
 8. No markdown, bullets, emoji, or *stage directions*.
 ${HUMAN_TALK}
-${NO_FILTERS}
+${contentLayer(self)}
 
 TRANSCRIPT FORMAT:
 - "[USER]: …" = the user.
@@ -325,7 +348,7 @@ HARD RULES:
 7. Don't mirror politeness if ${self.name} wouldn't be polite. Have opinions. Side with one or the other when it fits — don't keep everything harmonious.
 8. No markdown, no headings, no bullets, no emoji.
 ${HUMAN_TALK}
-${NO_FILTERS}
+${contentLayer(self)}
 
 TRANSCRIPT FORMAT:
 - "[USER]: …" = the user spoke.

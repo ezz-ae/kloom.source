@@ -16,6 +16,7 @@ import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/h
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { passCoversVoice } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
+import { detectLanguage } from "@/lib/languages"
 import { hydrateEntitlement } from "@/lib/auth"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
@@ -195,7 +196,7 @@ function RoomContent() {
   // ── Speak AI replies aloud during a group voice call ──
   const aiVoiceOnRef = useRef(false)
   const aiAudioRef   = useRef<HTMLAudioElement | null>(null)
-  const speakAi = useCallback((text: string, voice: string, personaName?: string, voiceId?: string, gender?: string) => {
+  const speakAi = useCallback((text: string, voice: string, personaName?: string, voiceId?: string, gender?: string, language?: string) => {
     if (!aiVoiceOnRef.current) return
     // Strip widget markers + markdown so TTS reads only spoken words
     const clean = text
@@ -215,7 +216,7 @@ function RoomContent() {
       })
     }
 
-    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: clean, voice, personaName, voiceId, gender }) })
+    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: clean, voice, personaName, voiceId, gender, language }) })
       .then((r) => r.ok ? r.blob() : null)
       .then((blob) => {
         if (!blob) return
@@ -273,7 +274,7 @@ function RoomContent() {
         // Speak AI replies that arrived from another participant's turn
         if (m.kind === "ai") {
           const seat = [...(room?.personas ?? []), ...extraAI].find((p) => p.name === m.handle)
-          speakAi(m.content, (seat as any)?.voice ?? "sage", m.handle, (seat as any)?.voiceId, (seat as any)?.gender)
+          speakAi(m.content, (seat as any)?.voice ?? "sage", m.handle, (seat as any)?.voiceId, (seat as any)?.gender, (seat as any)?.language)
         }
       },
       onPresence: setParticipants,
@@ -307,7 +308,10 @@ function RoomContent() {
       speakingStyle: rp.speakingStyle  ?? preset?.speakingStyle ?? "",
       backstory:     preset?.backstory ?? "",
       voice:         rp.voice          ?? preset?.voice         ?? "echo",
-      language:      "English",
+      // Honor a character's explicit language; otherwise open in the visitor's
+      // own language (browser locale) instead of forcing English — the biggest
+      // conversion lever for non-English traffic. Presets omit language.
+      language:      (rp as any).language ?? detectLanguage(),
       warmth:        preset?.defaultWarmth   ?? 60,
       talkStyle:     preset?.defaultTalkStyle ?? 55,
       category:      (rp as any).category ?? room?.category ?? preset?.category,
@@ -390,7 +394,7 @@ function RoomContent() {
           listenOnly: search.get("listen") === "1",
           disabledPartners: disabledAI,
         }
-      : { persona: { name: "", personality: "", speakingStyle: "", backstory: "", voice: "echo", language: "English", warmth: 50, talkStyle: 50 } }
+      : { persona: { name: "", personality: "", speakingStyle: "", backstory: "", voice: "echo", language: detectLanguage(), warmth: 50, talkStyle: 50 } }
   )
 
   // Text chat — EVERY persona in the room responds in turn, each on its own
@@ -475,7 +479,7 @@ function RoomContent() {
         // Share this AI reply with everyone else in the session
         broadcastRef.current?.({ id: aiMsg.id, kind: "ai", handle: speaker.name, content: aiMsg.content, ts: aiMsg.ts })
         // Speak it aloud locally if group voice is active
-        speakAi(aiMsg.content, speaker.voice ?? "sage", speaker.name, (speaker as any).voiceId, (speaker as any).gender)
+        speakAi(aiMsg.content, speaker.voice ?? "sage", speaker.name, (speaker as any).voiceId, (speaker as any).gender, (speaker as any).language)
 
         // Single-persona rooms: only one turn. Multi-AI rooms: all respond.
         if (voicePersonas.length === 1) break

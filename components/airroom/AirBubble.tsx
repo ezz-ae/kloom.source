@@ -24,7 +24,7 @@ function personaFor(c: Cluster) {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; tempLabel: string; onClose: () => void }) {
+export function AirBubble({ cluster, tempLabel, onClose, onTalked }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>([{ who: "host", text: cluster.lines[0] }])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
@@ -32,6 +32,7 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
   const [listening, setListening] = useState(false)   // push-to-talk active
   const [handsFree, setHandsFree] = useState(false)    // continuous mode
   const [revealed, setRevealed] = useState(false)
+  const [trouble, setTrouble] = useState(false)     // backend unreachable — show retry, don't fake a reply
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -41,6 +42,7 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
   const onceRecRef = useRef<any>(null)
   const hfRef = useRef(false)
   const clickTimer = useRef<any>(null)
+  const talkedRef = useRef(false)   // fire onTalked once, on the first thing the user says
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
@@ -67,34 +69,43 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
 
   useEffect(() => { speak(cluster.lines[0]) }, []) // greet on open
 
-  const send = async (override?: string) => {
-    const text = (override ?? input).trim()
-    if (!text || busyRef.current) return
-    setInput("")
-    busyRef.current = true; setBusy(true)
-    const next: Msg[] = [...msgsRef.current, { who: "you", text }]
-    msgsRef.current = next; setMsgs(next)
+  // Ask for the next reply using whatever's currently in the transcript. Both
+  // send() and retry() go through here, so a retry never re-adds the user's line.
+  const requestReply = async () => {
+    busyRef.current = true; setBusy(true); setTrouble(false)
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ persona: personaFor(cluster), messages: next.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
+        body: JSON.stringify({ persona: personaFor(cluster), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
+      if (!res.ok) { setTrouble(true); return } // surfaced, not swallowed — the user's line stays, retry is offered
       let full = ""
-      if (res.ok && res.body) {
+      if (res.body) {
         const reader = res.body.getReader(); const dec = new TextDecoder()
         for (;;) { const { done, value } = await reader.read(); if (done) break; full += dec.decode(value) }
       }
-      full = full.trim() || "…"
-      const after: Msg[] = [...next, { who: "host", text: full }]
+      full = full.trim() || cluster.lines[1] || cluster.lines[0] // empty-but-ok: a soft in-character beat, never a bare "…"
+      const after: Msg[] = [...msgsRef.current, { who: "host", text: full }]
       msgsRef.current = after; setMsgs(after)
       speak(full)
     } catch {
-      const after: Msg[] = [...next, { who: "host", text: "…you cut out for a second. say that again?" }]
-      msgsRef.current = after; setMsgs(after)
+      setTrouble(true) // network drop — show retry rather than fabricating a reply
     } finally {
       busyRef.current = false; setBusy(false)
     }
   }
+
+  const send = async (override?: string) => {
+    const text = (override ?? input).trim()
+    if (!text || busyRef.current) return
+    setInput("")
+    if (!talkedRef.current) { talkedRef.current = true; onTalked?.() }   // the aha — they actually spoke
+    const next: Msg[] = [...msgsRef.current, { who: "you", text }]
+    msgsRef.current = next; setMsgs(next)
+    await requestReply()
+  }
+
+  const retry = () => { if (!busyRef.current) requestReply() }
 
   // push-to-talk: one utterance, then sends.
   const talkOnce = () => {
@@ -151,14 +162,14 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
   }, [handsFree])
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(3,5,10,.86)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20 }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(6,9,16,.74)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", display: "flex", flexDirection: "column", zIndex: 20 }}>
       <div style={{ padding: "18px 22px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>aired off · just you two</div>
           <div style={{ fontSize: 19, fontWeight: 500, color: "#eef4f8" }}>{cluster.host} · {cluster.name}</div>
           <div style={{ fontSize: 11, color: "#7f93a5" }}>{tempLabel}</div>
         </div>
-        <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer" }}>back to floor</button>
+        <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer" }}>← leave</button>
       </div>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "8px 22px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -171,6 +182,11 @@ export function AirBubble({ cluster, tempLabel, onClose }: { cluster: Cluster; t
       </div>
 
       <div style={{ padding: "10px 18px 18px" }}>
+        {trouble && (
+          <div onClick={retry} role="button" tabIndex={0} style={{ fontSize: 12, color: "#ffd0bf", background: "rgba(239,122,77,.14)", border: ".5px solid rgba(239,122,77,.4)", borderRadius: 12, padding: "9px 12px", marginBottom: 9, textAlign: "center", cursor: "pointer" }}>
+            couldn&apos;t reach the voice — tap to retry
+          </div>
+        )}
         {sttOk && (
           <div style={{ fontSize: 11, color: handsFree ? "#7fd6c0" : "#7f93a5", marginBottom: 9, textAlign: "center" }}>
             {handsFree ? "live — mic's open, just talk · tap talk to stop" : "tap talk to speak once · double-tap to keep the mic open"}

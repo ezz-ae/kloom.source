@@ -21,6 +21,18 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
 const rid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 
+// Deterministic turn selection: every client picks the SAME responders for a given
+// human line (hashed from its id), so the cast that answers can never diverge
+// between participants — and a sender who drops can be safely taken over.
+const hashStr = (s: string) => { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) } return h >>> 0 }
+function pickResponders(msgId: string, n: number): number[] {
+  if (n <= 1) return [0]
+  if (n === 2) { const a = hashStr(msgId) % 2; return [a, (a + 1) % 2] }
+  const a = hashStr(msgId) % n
+  const b = (a + 1 + (hashStr(msgId + "b") % (n - 1))) % n
+  return [a, b]
+}
+
 export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: number; tempLabel: string; onClose: () => void }) {
   // Deterministic cast — same three for everyone who enters this room.
   const [members] = useState<Cluster[]>(() => [
@@ -40,8 +52,11 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
 
   const linesRef = useRef<WireMessage[]>([])
   const busyRef = useRef(false)
-  const turnRef = useRef(0)
   const seen = useRef<Set<string>>(new Set())
+  const aiByHuman = useRef<Set<string>>(new Set())      // human-line ids that already got an AI reply
+  const drivenRef = useRef<Set<string>>(new Set())       // human-line ids this client has driven
+  const driveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const humansRef = useRef<Participant[]>([])
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const recRef = useRef<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -65,6 +80,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
   const push = (m: WireMessage) => {
     if (seen.current.has(m.id)) return
     seen.current.add(m.id)
+    // AI lines are id'd `ai-<humanLineId>-<idx>` — record that this human line got
+    // an answer, so a backup driver knows not to step in.
+    if (m.kind === "ai" && m.id.startsWith("ai-")) { const hp = m.id.split("-")[1]; if (hp) aiByHuman.current.add(hp) }
     const next = [...linesRef.current, m]; linesRef.current = next; setLines(next)
   }
 
@@ -74,9 +92,14 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
       onMessage: (m) => {
         const already = seen.current.has(m.id)
         push(m)
-        if (!already && m.kind === "ai") { const mem = members.find((x) => x.host === m.handle); if (mem) speak(m.content, mem) }
+        if (already) return
+        if (m.kind === "ai") {
+          const mem = members.find((x) => x.host === m.handle); if (mem) speak(m.content, mem)
+        } else if (m.kind === "human" && m.handle !== handle) {
+          armBackup(m) // someone else sent — stand by to drive the AI turn if they drop
+        }
       },
-      onPresence: (people) => setHumans(people),
+      onPresence: (people) => { setHumans(people); humansRef.current = people },
     })
     bcastRef.current = sess.broadcast
     // arrive mid-conversation: one member greets. The cast is deterministic, so
@@ -85,11 +108,13 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
     const g = members[0]
     const greet: WireMessage = { id: `greet-${seed}`, kind: "ai", handle: g.host, content: g.lines[0], ts: Date.now() }
     push(greet); speak(greet.content, g)
-    return () => { try { sess.leave() } catch { /* */ } }
+    return () => { driveTimers.current.forEach((t) => clearTimeout(t)); driveTimers.current.clear(); try { sess.leave() } catch { /* */ } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const respond = async (mem: Cluster) => {
+  const respond = async (mem: Cluster, humanMsgId: string, idx: number) => {
+    const id = `ai-${humanMsgId}-${idx}`
+    if (seen.current.has(id)) return // a peer driver already produced this exact line
     const others = members.filter((x) => x.host !== mem.host).map((x) => x.host).join(", ")
     const persona = {
       name: mem.host,
@@ -104,22 +129,49 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, messages: msgs }) })
       if (res.ok && res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }
     } catch { /* */ }
-    full = full.trim(); if (!full) return
-    const aiMsg: WireMessage = { id: rid(), kind: "ai", handle: mem.host, content: full, ts: Date.now() }
+    full = full.trim()
+    if (!full) full = mem.lines[1] || mem.lines[0] || "…still here." // backend hiccup: stay in character, never dead air
+    if (seen.current.has(id)) return // a peer's copy may have landed while we were waiting
+    const aiMsg: WireMessage = { id, kind: "ai", handle: mem.host, content: full, ts: Date.now() }
     push(aiMsg); bcastRef.current?.(aiMsg)
     await speak(full, mem)
   }
 
-  const send = async (override?: string) => {
+  // Run the AI turn for one human line: the same two members on every client,
+  // sequentially so they take turns and the TTS doesn't collide.
+  const drive = async (humanMsgId: string) => {
+    if (drivenRef.current.has(humanMsgId)) return
+    drivenRef.current.add(humanMsgId)
+    busyRef.current = true; setBusy(true)
+    try {
+      for (const i of pickResponders(humanMsgId, members.length)) {
+        const mem = members[i]; if (mem) await respond(mem, humanMsgId, i)
+      }
+    } finally { busyRef.current = false; setBusy(false) }
+  }
+
+  // If the human who sent a line drops before the AI answers, a present peer takes
+  // over — staggered by handle rank so we don't all pile on, and only if no reply
+  // has shown up yet. This is what keeps the room from going silent on a leaver.
+  const armBackup = (humanMsg: WireMessage) => {
+    if (drivenRef.current.has(humanMsg.id) || driveTimers.current.has(humanMsg.id)) return
+    const ranks = humansRef.current.map((h) => h.handle).sort()
+    const rank = Math.max(0, ranks.indexOf(handle))
+    const t = setTimeout(() => {
+      driveTimers.current.delete(humanMsg.id)
+      if (aiByHuman.current.has(humanMsg.id)) return // sender (or an earlier peer) already handled it
+      drive(humanMsg.id)
+    }, 5000 + rank * 2500)
+    driveTimers.current.set(humanMsg.id, t)
+  }
+
+  const send = (override?: string) => {
     const text = (override ?? input).trim()
     if (!text || busyRef.current) return
-    setInput(""); busyRef.current = true; setBusy(true)
+    setInput("")
     const mine: WireMessage = { id: rid(), kind: "human", handle, content: text, ts: Date.now() }
     push(mine); bcastRef.current?.(mine)
-    try {
-      const n = members.length; const s = turnRef.current; turnRef.current = (s + 2) % n
-      for (const mem of [members[s % n], members[(s + 1) % n]]) { if (mem) await respond(mem) }
-    } finally { busyRef.current = false; setBusy(false) }
+    drive(mine.id) // the sender drives immediately; peers stand by as backups
   }
 
   const talkOnce = () => {
@@ -157,7 +209,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
           </div>
           <div style={{ fontSize: 11, color: "#7f93a5", marginTop: 3 }}>{tempLabel}</div>
         </div>
-        <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer" }}>back to floor</button>
+        <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer" }}>← leave</button>
       </div>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "8px 22px", display: "flex", flexDirection: "column", gap: 9 }}>

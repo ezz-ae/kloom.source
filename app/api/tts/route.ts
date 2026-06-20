@@ -1,33 +1,50 @@
-import { resolveVoiceId, getFallbackVoiceId } from "@/lib/voices"
+import { resolveVoiceId, getFallbackVoiceId, voiceForLanguage } from "@/lib/voices"
+import { isoForLanguage } from "@/lib/languages"
+import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
 
 export async function POST(request: Request) {
-  const { text, voice, voiceId, personaName, gender } = (await request.json()) as {
+  // Global spend ceiling / kill-switch first — protects total budget under ad traffic.
+  const gate = globalGate()
+  if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
+  // Per-client guard on the open TTS endpoint.
+  const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
+  if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
+
+  const { text, voice, voiceId, personaName, gender, language } = (await request.json()) as {
     text: string
     voice?: string
     voiceId?: string
     personaName?: string
     gender?: string
+    language?: string
   }
 
   if (!text || typeof text !== "string") {
     return Response.json({ error: "Missing text" }, { status: 400 })
   }
+  // A spoken line is short; cap it so a huge payload can't be forwarded to (and
+  // billed by) the TTS provider.
+  const ttsText = text.slice(0, 1000)
 
   // ── CosyVoice3 (RunPod serverless) — primary TTS ──────────────────────────
   // High-quality, natural-sounding TTS. Runs first when the endpoint is configured.
   // Falls through to fish.audio on any failure.
   const cvEndpoint = process.env.COSYVOICE_ENDPOINT_ID
   const rpKey      = process.env.RUNPOD_API_KEY
-  if (cvEndpoint && rpKey) {
+  // CosyVoice only ships English speakers, so route English here and let every
+  // other language fall through to Fish's multilingual model (which also honors
+  // a curated voiceForLanguage). Without this gate, a configured CosyVoice would
+  // speak non-English text with an English voice and never reach the Fish chain.
+  if (cvEndpoint && rpKey && isoForLanguage(language) === "en") {
     // Pick speaker by gender: female → English Female, male → English Male.
     const speaker = gender === "male"
       ? (process.env.COSYVOICE_SPEAKER_MALE   || "English Male")
       : (process.env.COSYVOICE_SPEAKER_FEMALE || "English Female")
 
-    const wav = await cosyvoiceTTS(text, cvEndpoint, rpKey, speaker)
+    const wav = await cosyvoiceTTS(ttsText, cvEndpoint, rpKey, speaker)
     if (wav) {
       return new Response(wav, {
         status: 200,
@@ -48,7 +65,10 @@ export async function POST(request: Request) {
   // env default as a last resort. The pool MUST come before resolveReferenceId,
   // or every persona collapses to the single FISH_VOICE_ID and all voices sound
   // the same.
-  let referenceId = voiceId?.trim() || resolveVoiceId(personaName, gender) || resolveReferenceId(voice)
+  // Priority: explicit pinned voice → a curated language-native voice (non-EN)
+  // → the gender/name pool → env default. The language-native step only fires
+  // when FISH_VOICE_<ISO> is configured for that language (see voiceForLanguage).
+  let referenceId = voiceId?.trim() || voiceForLanguage(language, gender) || resolveVoiceId(personaName, gender) || resolveReferenceId(voice)
 
   let fishResponse: Response | null = null
   let lastErrorText = ""
@@ -59,7 +79,7 @@ export async function POST(request: Request) {
     }
 
     const body = JSON.stringify({
-      text,
+      text: ttsText,
       reference_id: referenceId,
       format: "mp3",
       mp3_bitrate: 128,

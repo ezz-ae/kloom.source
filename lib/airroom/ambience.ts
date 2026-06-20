@@ -14,6 +14,8 @@ let ctx: AudioContext | null = null
 let master: GainNode | null = null
 let filter: BiquadFilterNode | null = null
 let started = false
+let curGain = 0.16   // the depth-mapped target gain — what we return to when un-muted
+let muted = false    // fully silenced while you're inside a call (1:1 air-off or a room)
 
 export function startAmbience() {
   if (started) return
@@ -41,23 +43,19 @@ export function startAmbience() {
 }
 
 export function setAmbienceDepth(depth: number) {
-  if (!ctx || !master || !filter) return
-  const t = ctx.currentTime
+  curGain = depth <= 0 ? 0.16 : depth === 1 ? 0.12 : 0.045   // muffled out → quietest deep in
   const cutoff = depth <= 0 ? 360 : depth === 1 ? 850 : 1500   // muffled out → brighter in
-  const gain = depth <= 0 ? 0.16 : depth === 1 ? 0.12 : 0.045   // fade at room level so voices are clear
-  filter.frequency.linearRampToValueAtTime(cutoff, t + 0.7)
-  master.gain.linearRampToValueAtTime(gain, t + 0.7)
+  if (!ctx || !master || !filter) return
+  filter.frequency.linearRampToValueAtTime(cutoff, ctx.currentTime + 0.7)
+  if (!muted) master.gain.linearRampToValueAtTime(curGain, ctx.currentTime + 0.7)
 }
 
-/** tiny shimmer on hover — you brush past a cluster and the air shifts */
-export function brush() {
+// Inside a call the background bed has no business playing. Fully fade it out, and
+// bring it back to the current zoom depth the moment you step out of the call.
+export function setAmbienceMuted(m: boolean) {
+  muted = m
   if (!ctx || !master) return
-  const t = ctx.currentTime
-  const g = master.gain.value
-  master.gain.cancelScheduledValues(t)
-  master.gain.setValueAtTime(g, t)
-  master.gain.linearRampToValueAtTime(Math.min(0.22, g + 0.05), t + 0.08)
-  master.gain.linearRampToValueAtTime(g, t + 0.45)
+  master.gain.linearRampToValueAtTime(m ? 0 : curGain, ctx.currentTime + 0.35)
 }
 
 export function stopAmbience() {
@@ -67,5 +65,5 @@ export function stopAmbience() {
     const c = ctx
     setTimeout(() => { try { c.close() } catch { /* */ } }, 600)
   } catch { /* */ }
-  ctx = null; master = null; filter = null; started = false
+  ctx = null; master = null; filter = null; started = false; muted = false; curGain = 0.16
 }

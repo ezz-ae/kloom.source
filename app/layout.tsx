@@ -3,6 +3,7 @@ import localFont from 'next/font/local'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { isFun, SITE } from '@/lib/variant'
+import { PixelScripts } from '@/components/airroom/PixelScripts'
 import './globals.css'
 
 // Self-hosted Geist (variable woff2) — no build-time Google Fonts fetch, so the
@@ -119,6 +120,7 @@ export default function RootLayout({
         {children}
         <Toaster theme="system" richColors position="bottom-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
+        <PixelScripts />
       </body>
     </html>
   )

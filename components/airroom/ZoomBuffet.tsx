@@ -7,19 +7,22 @@
  * the felt population, and a real character is minted the instant you open one
  * (lib/airroom/roster.makeCharacter). Cool→hot temperature runs through every level.
  */
-import { useEffect, useRef, useState } from "react"
-import { freshCharacter, type Cluster } from "@/lib/airroom/roster"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { usePresence } from "@/lib/airroom/presence"
 import { avatarBg, avatarGlow } from "@/lib/airroom/avatar"
-import { startAmbience, setAmbienceDepth, stopAmbience } from "@/lib/airroom/ambience"
+import { startAmbience, setAmbienceDepth, setAmbienceMuted, stopAmbience } from "@/lib/airroom/ambience"
+import { track } from "@/lib/airraw/track"
 
+// SFW worlds only — the fire/After-Dark tier is removed so the ad-reachable
+// universe stays ad-approvable (the adult tier returns behind real age gating).
 const WORLDS = [
   "The Quiet Wing", "The Reading Room", "The Lab", "Founders' Floor", "The War Room",
   "The Classroom", "The Dojo", "The Practice Hall", "The Welcome Floor", "The Commons",
   "The Long Tables", "The Firepit", "The Mixer", "Six Degrees", "The Regulars",
-  "Eye Contact", "The Slow Dance", "After Dark", "The Fire", "The Deep End",
+  "Eye Contact", "The Slow Dance",
 ]
 const ROOMS_SHOWN = 140
 const VOICES_SHOWN = 360
@@ -33,6 +36,12 @@ function tempLabelFor(f: number) {
   if (f < 0.6) return "warm · social"; if (f < 0.78) return "amber · loud"; return "fire · wild"
 }
 
+// Pure, stable temperature math (module scope so memoized orb grids don't bust).
+// Scaled into the SFW band (max ~0.56) so no voice ever lands in the fire/18+ tier.
+const worldF = (i: number) => ((i + 0.5) / WORLDS.length) * 0.58
+const roomF = (w: number, rm: number) => clamp01(worldF(w) + (frac(w * 131 + rm * 7) - 0.5) * 0.12)
+const voiceF = (w: number, rm: number, v: number) => clamp01(roomF(w, rm) + (frac(w * 9311 + rm * 131 + v) - 0.5) * 0.1)
+
 export function ZoomBuffet() {
   const [level, setLevel] = useState(0)
   const [world, setWorld] = useState(0)
@@ -45,6 +54,7 @@ export function ZoomBuffet() {
   const audioOn = useRef(false)
 
   useEffect(() => { try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ } }, [])
+  useEffect(() => { track("airraw_land", { surface: "universe" }) }, [])
 
   // live presence — where you are in the universe, and who else is here right now
   const loc = group ? `g-${group.seed}` : level === 0 ? "buffet" : level === 1 ? `w-${world}` : `w-${world}-r-${room}`
@@ -53,31 +63,49 @@ export function ZoomBuffet() {
   // ambience — the universe is never silent. Muffled & layered when zoomed out,
   // brighter as you go deeper, and it drops away inside a real room so the live
   // voices come through clear.
-  const depth = (active || group) ? 2 : level
-  useEffect(() => { setAmbienceDepth(depth) }, [depth])
+  // The bed follows your zoom depth while you BROWSE — but a call (a 1:1 air-off or
+  // a room) is not a browse: it goes fully silent so the voices are clean, then
+  // fades back to the floor when you step out.
+  const inCall = !!(active || group)
+  useEffect(() => { setAmbienceDepth(level) }, [level])
+  useEffect(() => { setAmbienceMuted(inCall) }, [inCall])
   useEffect(() => () => stopAmbience(), [])
-  const wake = () => { if (!audioOn.current) { audioOn.current = true; startAmbience(); setAmbienceDepth(depth) } }
+  const wake = () => { if (!audioOn.current) { audioOn.current = true; startAmbience(); setAmbienceDepth(level); setAmbienceMuted(inCall) } }
 
   // infinity — the voices never run out; the field keeps growing as you scroll
   useEffect(() => { setVoicesCount(VOICES_SHOWN) }, [level, world, room])
   useEffect(() => {
     if (level !== 2) return
-    const onScroll = () => { if (window.innerHeight + window.scrollY > document.body.offsetHeight - 700) setVoicesCount((c) => Math.min(c + 240, 2400)) }
-    window.addEventListener("scroll", onScroll)
-    return () => window.removeEventListener("scroll", onScroll)
+    let raf = 0
+    const onScroll = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        if (window.innerHeight + window.scrollY > document.body.offsetHeight - 700) setVoicesCount((c) => Math.min(c + 240, 2400))
+      })
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => { window.removeEventListener("scroll", onScroll); if (raf) cancelAnimationFrame(raf) }
   }, [level])
 
-  const worldF = (i: number) => (i + 0.5) / WORLDS.length
-  const roomF = (w: number, rm: number) => clamp01(worldF(w) + (frac(w * 131 + rm * 7) - 0.5) * 0.12)
-  const voiceF = (w: number, rm: number, v: number) => clamp01(roomF(w, rm) + (frac(w * 9311 + rm * 131 + v) - 0.5) * 0.1)
-
-  const openVoice = (c: Cluster) => { if (c.h === "f" && !verified) setPending(c); else setActive(c) }
+  const openVoice = useCallback((c: Cluster) => { if (c.h === "f" && !verified) setPending(c); else setActive(c) }, [verified])
   const confirm18 = () => {
     setVerified(true); try { localStorage.setItem("airroom_18", "1") } catch { /* */ }
     const c = pending; setPending(null); if (c) setActive(c)
   }
 
   const crumb = level === 0 ? "20 worlds" : level === 1 ? `${WORLDS[world]} · ~1,000 rooms` : "∞ voices · tap one"
+
+  // The deep-zoom field, memoized so the frequent presence ticks don't rebuild
+  // the up-to-2,400 orbs — only world/room/voicesCount (or the gate) do. Each orb
+  // opens the SAME seeded character its face was drawn from (avatarBg(seed,f)).
+  const voiceOrbs = useMemo(() => Array.from({ length: voicesCount }).map((_, v) => {
+    const f = voiceF(world, room, v)
+    const seed = (world * 100003 + room) * 100003 + v
+    return (
+      <button key={v} onClick={() => openVoice(makeCharacter(seed, f))} aria-label="a voice" style={{ width: 32, height: 32, borderRadius: "50%", background: avatarBg(seed, f), border: "1px solid rgba(255,255,255,.14)", cursor: "pointer", boxShadow: `0 0 6px ${avatarGlow(f)}55` }} />
+    )
+  }), [world, room, voicesCount, openVoice])
 
   return (
     <div onPointerDown={wake} style={{ minHeight: "100vh", background: "#06070e", color: "#eef4f8" }}>
@@ -95,7 +123,7 @@ export function ZoomBuffet() {
               </div>
             </div>
           </div>
-          <a href="/floor" style={{ fontSize: 12, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 20, padding: "6px 12px", textDecoration: "none", whiteSpace: "nowrap" }}>walk the floor →</a>
+          <a href="/airraw" style={{ fontSize: 12, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 20, padding: "6px 12px", textDecoration: "none", whiteSpace: "nowrap" }}>← lobby</a>
         </div>
       </div>
 
@@ -142,18 +170,12 @@ export function ZoomBuffet() {
             <div style={{ fontSize: 11, color: "#7f93a5", marginTop: 8 }}>…or tap a single voice for a 1:1</div>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7, padding: 16, alignContent: "flex-start" }}>
-            {Array.from({ length: voicesCount }).map((_, v) => {
-              const f = voiceF(world, room, v)
-              const seed = (world * 100003 + room) * 100003 + v
-              return (
-                <button key={v} onClick={() => openVoice(freshCharacter(f))} aria-label="a voice" style={{ width: 32, height: 32, borderRadius: "50%", background: avatarBg(seed, f), border: "1px solid rgba(255,255,255,.14)", cursor: "pointer", boxShadow: `0 0 6px ${avatarGlow(f)}55` }} />
-              )
-            })}
+            {voiceOrbs}
           </div>
         </div>
       )}
 
-      {active && <AirBubble cluster={active} tempLabel={tempLabelFor(active.f)} onClose={() => setActive(null)} />}
+      {active && <AirBubble cluster={active} tempLabel={tempLabelFor(active.f)} onClose={() => setActive(null)} onTalked={() => track("airraw_talk", { surface: "universe" })} />}
 
       {group && <GroupRoom seed={group.seed} f={group.f} tempLabel={tempLabelFor(group.f)} onClose={() => setGroup(null)} />}
 

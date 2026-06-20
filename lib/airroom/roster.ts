@@ -128,34 +128,16 @@ export function buildRoster(): Cluster[] {
 export const ROSTER: Cluster[] = buildRoster()
 export const ROSTER_COUNT = ROSTER.reduce((s, c) => s + c.n, 0)
 
-// Flat buffet of individual, distinctly-named characters for the landing grid —
-// the "open buffet" you graze and pick from. Cluster-shaped so AirBubble takes
-// one directly. Sorted water→fire.
-export function buildCharacters(): Cluster[] {
-  const r = rng(90909)
-  const out: Cluster[] = []
-  let fi = 0, mi = 0
-  for (const A of ARCH) {
-    const count = 5
-    for (let c = 0; c < count; c++) {
-      const t = (c + 0.5) / count
-      const f = clamp01(A.band[0] + t * (A.band[1] - A.band[0]) + (r() - 0.5) * 0.04)
-      const isF = A.lean === "f" ? true : A.lean === "m" ? false : r() < 0.5
-      const host = isF ? NAMES_F[fi++ % NAMES_F.length] : NAMES_M[mi++ % NAMES_M.length]
-      const h: Heat = f < 0.4 ? "w" : f < 0.72 ? "m" : "f"
-      const start = Math.floor(r() * A.lines.length)
-      const lines = [0, 1, 2].map((k) => A.lines[(start + k) % A.lines.length])
-      out.push({ f, n: 1, h, archetype: A.key, name: A.names[c % A.names.length], vibe: A.vibe + (f >= 0.72 ? " · 18+" : ""), host, gender: isF ? "female" : "male", lines })
-    }
-  }
-  return out.sort((a, b) => a.f - b.f)
-}
-export const CHARACTERS: Cluster[] = buildCharacters()
+// Gender-matched Fish voice pools. makeCharacter draws one deterministically, so
+// the orb you tap and the voice you hear agree and adjacent dots sound distinct.
+const F_VOICES = VOICE_CATALOG.filter((v) => v.gender === "female").map((v) => v.id)
+const M_VOICES = VOICE_CATALOG.filter((v) => v.gender === "male").map((v) => v.id)
 
 /**
  * Mint ONE character on demand at a given temperature (for the deep-zoom buffet,
  * where the "100,000" are generated lazily — only the one you actually open is
- * built). Deterministic per seed, so the same dot always opens the same person.
+ * built). Deterministic per seed, so the same dot always opens the same person
+ * — same name, same voice, same lines — every time you tap it.
  */
 export function makeCharacter(seed: number, f: number): Cluster {
   const r = rng((seed * 2654435761) >>> 0)
@@ -172,38 +154,11 @@ export function makeCharacter(seed: number, f: number): Cluster {
   const h: Heat = f < 0.4 ? "w" : f < 0.72 ? "m" : "f"
   const start = Math.floor(r() * A.lines.length)
   const lines = [0, 1, 2].map((k) => A.lines[(start + k) % A.lines.length])
-  return { f, n: 1, h, archetype: A.key, name: A.names[Math.floor(r() * A.names.length)], vibe: A.vibe + (f >= 0.72 ? " · 18+" : ""), host, gender: isF ? "female" : "male", lines }
-}
-
-// ── always-new picks ──
-// Every voice you open must feel like a brand-NEW person: a name you haven't seen
-// this session, and a voice that isn't the one you just heard. Names draw from a
-// session used-set (resets when nearly exhausted); voices round-robin the
-// gender-matched Fish catalog so two picks never share a voice back to back.
-const F_VOICES = VOICE_CATALOG.filter((v) => v.gender === "female").map((v) => v.id)
-const M_VOICES = VOICE_CATALOG.filter((v) => v.gender === "male").map((v) => v.id)
-const usedNames = new Set<string>()
-let fRot = 0, mRot = 0
-
-export function freshCharacter(f: number): Cluster {
-  const A =
-    ARCH.find((a) => f >= a.band[0] && f <= a.band[1]) ||
-    ARCH.reduce((best, a) => {
-      const d = Math.min(Math.abs(f - a.band[0]), Math.abs(f - a.band[1]))
-      const bd = Math.min(Math.abs(f - best.band[0]), Math.abs(f - best.band[1]))
-      return d < bd ? a : best
-    })
-  const isF = A.lean === "f" ? true : A.lean === "m" ? false : Math.random() < 0.5
-  const pool = isF ? NAMES_F : NAMES_M
-  if (usedNames.size >= NAMES_F.length + NAMES_M.length - 4) usedNames.clear()
-  let host = pool[Math.floor(Math.random() * pool.length)]
-  let guard = 0
-  while (usedNames.has(host) && guard++ < pool.length * 3) host = pool[Math.floor(Math.random() * pool.length)]
-  usedNames.add(host)
+  const name = A.names[Math.floor(r() * A.names.length)]
+  // Seeded voice so the orb you tap and the voice you hear agree, and adjacent
+  // dots sound like different people. Same seed → same voice, every time.
   const vpool = isF ? F_VOICES : M_VOICES
-  const voiceId = vpool.length ? vpool[(isF ? fRot++ : mRot++) % vpool.length] : undefined
-  const h: Heat = f < 0.4 ? "w" : f < 0.72 ? "m" : "f"
-  const li = Math.floor(Math.random() * A.lines.length)
-  const lines = [0, 1, 2].map((k) => A.lines[(li + k) % A.lines.length])
-  return { f, n: 1, h, archetype: A.key, name: A.names[Math.floor(Math.random() * A.names.length)], vibe: A.vibe + (f >= 0.72 ? " · 18+" : ""), host, gender: isF ? "female" : "male", lines, voiceId }
+  const voiceId = vpool.length ? vpool[Math.floor(r() * vpool.length)] : undefined
+  return { f, n: 1, h, archetype: A.key, name, vibe: A.vibe + (f >= 0.72 ? " · 18+" : ""), host, gender: isF ? "female" : "male", lines, voiceId }
 }
+

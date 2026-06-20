@@ -1,16 +1,17 @@
 import type { MetadataRoute } from "next"
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.kloom.io"
+const AIRRAW = process.env.AIRRAW_HOME === "1"
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || (AIRRAW ? "https://airraw.com" : "https://www.kloom.io")
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       {
         userAgent: "*",
-        // Index the marketing + legal surface and the world (category) landing
-        // pages; keep the API and individual (infinite, user-built) room URLs out.
-        allow: ["/", "/app/rooms/c/"],
-        disallow: ["/api/", "/app/rooms/"],
+        // On the AIRRAW host, index the landing + universe + legal; keep API and
+        // the (legacy Kloom) app surface out. Otherwise the Kloom rules.
+        allow: AIRRAW ? ["/", "/universe", "/airraw"] : ["/", "/app/rooms/c/"],
+        disallow: AIRRAW ? ["/api/", "/app/"] : ["/api/", "/app/rooms/"],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

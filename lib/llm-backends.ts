@@ -98,17 +98,26 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   const defModel = useUnc ? UNCENSORED_MODEL : LOCAL_MODEL
   const model = opts.localModel || defModel
   const fallbackModel = opts.localModel && opts.localModel !== defModel ? defModel : undefined
-  // Gemini's OpenAI-compatible endpoint rejects the Ollama anti-repeat params
-  // (frequency_penalty / presence_penalty / repeat_penalty / options) with a 400.
-  // Only send them to a real OpenAI-compatible/Ollama endpoint; Gemini gets the
-  // universally-accepted minimal set.
+  // Anti-repeat params differ by endpoint:
+  //  • Gemini's OpenAI-compat endpoint rejects ALL penalty params (400) → send none.
+  //  • Ollama / self-hosted takes the full set incl. its repeat_penalty/options extras.
+  //  • Hosted OpenAI-compat (Together, OpenAI, …) takes the STANDARD penalties only;
+  //    repeat_penalty/options are Ollama-only fields a strict provider can 400 on.
   const isGeminiCompat = baseUrl.includes("generativelanguage.googleapis.com")
-  const antiRepeat = isGeminiCompat ? {} : {
-    frequency_penalty: opts.frequencyPenalty ?? 0.8,
-    presence_penalty:  opts.presencePenalty  ?? 0.6,
-    repeat_penalty:    1.3,
-    options:           { repeat_penalty: 1.3, repeat_last_n: 256 },
-  }
+  const isOllama = /localhost|127\.0\.0\.1|:11434/.test(baseUrl)
+  const antiRepeat = isGeminiCompat
+    ? {}
+    : isOllama
+      ? {
+          frequency_penalty: opts.frequencyPenalty ?? 0.8,
+          presence_penalty:  opts.presencePenalty  ?? 0.6,
+          repeat_penalty:    1.3,
+          options:           { repeat_penalty: 1.3, repeat_last_n: 256 },
+        }
+      : {
+          frequency_penalty: opts.frequencyPenalty ?? 0.8,
+          presence_penalty:  opts.presencePenalty  ?? 0.6,
+        }
   const res = await fetch(`${baseUrl}/chat/completions`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${baseKey}` },

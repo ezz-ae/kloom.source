@@ -6,6 +6,7 @@
  */
 
 import { FEMALE_PERSONAS, nameHash } from "@/lib/persona-utils"
+import { isoForLanguage } from "@/lib/languages"
 
 // Granular Pools: [Gender, Seriousness, Age]
 const POOLS = {
@@ -118,6 +119,31 @@ export function resolveVoiceId(name?: string, gender?: string, traits?: { seriou
   const poolKey = `${gen}_${ser}_${age}` as keyof typeof POOLS
   const pool = POOLS[poolKey] || fullPool
   return pool[hash % pool.length]
+}
+
+/**
+ * A language-native reference voice for non-English speech, when one is curated
+ * for the deployment. Fish's model is multilingual, but a native reference voice
+ * sounds far better for Arabic / CJK / etc. than an English-cloned one.
+ *
+ * Pulled from env so we never bake in real-person / celebrity clones (the top
+ * Fish voices per language are mostly public figures — a likeness landmine).
+ * Curate clean voices and set:  FISH_VOICE_<ISO>[_<GENDER>]
+ *   e.g.  FISH_VOICE_AR_FEMALE, FISH_VOICE_ES, FISH_VOICE_PT_MALE
+ * Returns undefined for English or when nothing is configured — the caller then
+ * falls back to the normal gender pool (Fish still renders the target language).
+ */
+export function voiceForLanguage(language?: string, gender?: string): string | undefined {
+  const iso = isoForLanguage(language)
+  if (!iso || iso === "en") return undefined
+  const g = gender === "male" ? "MALE" : gender === "female" ? "FEMALE" : ""
+  const keys = [g && `FISH_VOICE_${iso.toUpperCase()}_${g}`, `FISH_VOICE_${iso.toUpperCase()}`]
+  for (const key of keys) {
+    if (!key) continue
+    const v = process.env[key]
+    if (v && v.trim()) return v.trim()
+  }
+  return undefined
 }
 
 /**

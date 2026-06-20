@@ -1,9 +1,18 @@
 import type { MetadataRoute } from "next"
 import { CATEGORY_ORDER } from "@/lib/category-meta"
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://www.kloom.io"
+const AIRRAW = process.env.AIRRAW_HOME === "1"
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || (AIRRAW ? "https://airraw.com" : "https://www.kloom.io")
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  if (AIRRAW) {
+    return ["", "/universe", "/airraw/privacy", "/airraw/terms"].map((p) => ({
+      url: `${SITE_URL}${p}`,
+      changeFrequency: "weekly" as const,
+      priority: p === "" ? 1 : 0.6,
+    }))
+  }
+
   const staticPages = [
     "", "/app", "/app/rooms", "/app/create",
     "/legal/terms", "/legal/privacy", "/legal/cookies", "/legal/payments",

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation"
 import { Sidebar } from "./sidebar"
 import { MobileNav } from "./mobile-nav"
+import { SITE } from "@/lib/variant"
 
 /**
  * Single-render shell. Children are rendered ONCE — the sidebar (desktop) and
@@ -44,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <img src="/kloom-icon-192.png" alt="Kloom" className="w-6 h-6 rounded-md" />
-              <span className="font-bold text-sm tracking-widest uppercase text-foreground/80">KLOOM.AI</span>
+              <span className="font-bold text-sm tracking-widest uppercase text-foreground/80">{SITE.domain.toUpperCase()}</span>
             </div>
             <div className="flex items-center gap-6 text-xs text-muted-foreground font-medium">
               <a href="/legal/terms" className="hover:text-amber-400 transition-colors">Terms</a>
@@ -53,7 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <a href="/legal/payments" className="hover:text-amber-400 transition-colors">Payments</a>
             </div>
             <div className="text-[10px] text-muted-foreground/50">
-              © 2026 Kloom.ai. All rights reserved.
+              © 2026 {SITE.domain.charAt(0).toUpperCase() + SITE.domain.slice(1)}. All rights reserved.
             </div>
           </div>
         </footer>

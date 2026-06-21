@@ -21,6 +21,11 @@ export async function POST(req: NextRequest) {
   if (!walletAddress || !price || price <= 0) {
     return NextResponse.json({ error: "missing_params" }, { status: 400 })
   }
+  // The wallet key MUST be a real account email — never a shared 'guest' key that
+  // two buyers could collide on (a grant could then land on the wrong account).
+  if (!String(walletAddress).includes("@")) {
+    return NextResponse.json({ error: "auth_required" }, { status: 401 })
+  }
 
   // Store the kind VERBATIM ("credits" or a pass id like "dayuse") so the
   // verify-on-return handler knows exactly what to grant to the account.

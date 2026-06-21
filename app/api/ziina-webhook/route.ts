@@ -96,8 +96,12 @@ export async function POST(req: NextRequest) {
       }, { onConflict: "wallet" })
     }
 
-    await sb.from("ziina_payments").update({ status: "completed", updated_at: new Date().toISOString() }).eq("id", intentId)
-    console.log(`ziina-webhook: completed ${intentId} → ${credits} credits, kind=${kind}, ${wallet}`)
+    // NOTE: we intentionally do NOT claim the ziina_payments row here (status stays
+    // 'pending'). The authoritative grant into kloom_entitlements (the store the
+    // voice paywall actually reads) happens via the authed reconcile — ziina-verify,
+    // run on the payment return AND on every app open — which atomically claims the
+    // row. Claiming it here would strand tab-close buyers (charged, nothing granted).
+    console.log(`ziina-webhook: confirmed ${intentId} (kind=${kind}, ${wallet}) — grant deferred to authed reconcile`)
     return NextResponse.json({ ok: true, credits, kind, wallet })
   } catch (e) {
     console.error("ziina-webhook: handler error", e)

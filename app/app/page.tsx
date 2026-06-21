@@ -13,7 +13,7 @@ import { listCustomRooms } from "@/lib/custom-rooms"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
 import { currentEmail, hydrateEntitlement, grantCredits, completePassPurchase } from "@/lib/auth"
-import { PASSES } from "@/lib/pricing"
+import { PASSES, usdForMinutes } from "@/lib/pricing"
 import { setUnrestricted } from "@/lib/account"
 import { track } from "@/lib/track"
 import { Plus, DoorOpen, ChevronRight, ArrowRight } from "lucide-react"
@@ -37,15 +37,15 @@ export default function HubPage() {
   useEffect(() => {
     if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
-    if (params.get("payment") !== "success") {
-      if (params.get("payment") === "cancelled") window.history.replaceState({}, "", "/app")
-      return
-    }
+    const status = params.get("payment")
+    if (status === "cancelled" || status === "failed") { window.history.replaceState({}, "", "/app"); return }
     ;(async () => {
       try {
         const email = await currentEmail()
         if (email) {
-          // Server confirms the payment(s) from Ziina and returns what to grant.
+          // Reconcile ANY completed-but-unclaimed Ziina payment for this account —
+          // runs on the success return AND on every app open, so a buyer who paid
+          // then closed the tab before the redirect still gets granted next visit.
           const res = await fetch("/api/ziina-verify", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ wallet: email }),
@@ -55,7 +55,7 @@ export default function HubPage() {
           for (const g of grants ?? []) {
             if (g.kind === "credits" && g.credits > 0) {
               await grantCredits(g.credits); applied = true
-              try { track("purchase", { value: typeof g.usd === "number" ? g.usd : 0, currency: "USD", method: "ziina", kind: "credits" }) } catch { /* */ }
+              try { track("purchase", { value: usdForMinutes(g.credits), currency: "USD", method: "ziina", kind: "credits" }) } catch { /* */ }
             } else if (g.kind === "unrestricted") {
               setUnrestricted(true); applied = true
               try { track("purchase", { value: 10, currency: "USD", method: "ziina", kind: "unrestricted" }) } catch { /* */ }
@@ -68,7 +68,7 @@ export default function HubPage() {
           if (applied) toast.success("Payment complete — added to your account.")
         }
       } catch { /* leave the URL clean regardless */ }
-      window.history.replaceState({}, "", "/app")
+      if (status === "success") window.history.replaceState({}, "", "/app")
     })()
   }, [])
 

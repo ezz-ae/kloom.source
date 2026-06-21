@@ -643,7 +643,7 @@ function RoomContent() {
     : ""
 
   return (
-    <div className={`h-screen flex flex-col bg-background bg-gradient-to-br ${CATEGORY_META[room.category]?.gradient ?? ""} text-foreground overflow-hidden`}>
+    <div className={`h-[100dvh] flex flex-col bg-background bg-gradient-to-br ${CATEGORY_META[room.category]?.gradient ?? ""} text-foreground overflow-hidden`}>
 
       {/* ── 18+ assurance — adult worlds only, once per device ── */}
       {CATEGORY_META[room.category]?.adult && (

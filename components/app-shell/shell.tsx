@@ -22,7 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     /^\/app\/rooms\/(?!c\/)[^/]+$/.test(pathname) ||
     /^\/app\/experts\/[^/]+$/.test(pathname)
   return (
-    <div className="h-screen flex bg-background overflow-hidden relative">
+    <div className="h-[100dvh] flex bg-background overflow-hidden relative">
       {/* Living ambient backdrop — warm amber/rose blobs drifting behind everything */}
       <div className="app-ambient" aria-hidden>
         <div className="blob-3" />

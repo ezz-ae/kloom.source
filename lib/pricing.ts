@@ -43,6 +43,17 @@ export function flexiRate(usd: number): number {
   return Math.round((flexiMinutes(usd) / usd) * 10) / 10
 }
 
+/** Inverse of flexiMinutes — the USD that bought ~this many minutes. Used to
+ *  report the purchase VALUE of credit packs to ad pixels (ROAS / value bidding),
+ *  since the grant only carries minutes, not the dollar amount. */
+export function usdForMinutes(minutes: number): number {
+  if (minutes <= 0) return 0
+  for (let usd = FLEXI_MIN_USD; usd <= FLEXI_MAX_USD; usd += 0.25) {
+    if (flexiMinutes(usd) >= minutes) return Math.round(usd * 100) / 100
+  }
+  return FLEXI_MAX_USD
+}
+
 // ── Passes ──────────────────────────────────────────────────────────────────
 
 export interface Pass {

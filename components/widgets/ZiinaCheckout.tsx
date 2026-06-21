@@ -19,7 +19,11 @@ export function ZiinaCheckout({ price, credits = 0, kind, label }: {
   const go = async () => {
     setBusy(true); setErr(null)
     try {
-      const email = (await currentEmail()) || "guest"
+      // Never check out under a shared 'guest' key — two buyers would collide and a
+      // grant could land on the wrong account. The paid path is behind AuthGate, so
+      // an email should always be present here.
+      const email = await currentEmail()
+      if (!email || !email.includes("@")) { setErr("Please sign in to pay."); setBusy(false); return }
       const res = await fetch("/api/ziina-checkout", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ walletAddress: email, price, credits, kind, label }),

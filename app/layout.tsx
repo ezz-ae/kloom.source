@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
@@ -83,6 +83,15 @@ export const metadata: Metadata = {
 
 // Rich results. On AIRRAW, a clean WebSite/Organization for airraw.com (no Kloom
 // search action, logo, or software-offer). On Kloom, the full graph.
+// Mobile: cover the notch so safe-area insets resolve, and let dvh-based layouts
+// account for the browser toolbar (the call/send buttons were hiding under it).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#06070e",
+}
+
 const JSON_LD = AIRRAW ? {
   "@context": "https://schema.org",
   "@graph": [

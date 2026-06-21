@@ -1,18 +1,18 @@
 "use client"
 
 /**
- * Pricing panel — FlexiCalls + passes, paid by card (PayPal) with an email
- * account. Drag the bar, watch minutes and money move; every extra dollar buys
- * more minutes than the last. At $7.93 we suggest the Dayuse pass instead.
+ * Pricing panel — FlexiCalls + passes, paid by card via Ziina (hosted checkout)
+ * with an email account. Drag the bar, watch minutes and money move; every extra
+ * dollar buys more minutes than the last. At $7.93 we suggest the Dayuse pass.
  */
 import { useState } from "react"
 import {
   FLEXI_MIN_USD, FLEXI_MAX_USD, flexiMinutes,
   PASSES, activePass, passTimeLeft, type Pass,
 } from "@/lib/pricing"
-import { currentEmail } from "@/lib/auth"
 import { AuthGate } from "@/components/widgets/AuthGate"
-import { Check, Crown, ChevronLeft, CreditCard } from "lucide-react"
+import { ZiinaCheckout } from "@/components/widgets/ZiinaCheckout"
+import { Check, Crown, ChevronLeft } from "lucide-react"
 
 interface TopUpSliderProps { onDone?: () => void }
 
@@ -104,46 +104,6 @@ export function TopUpSlider({ onDone }: TopUpSliderProps) {
       </div>
 
       <p className="text-[11px] text-foreground/30 text-center">Card payments · minutes never expire</p>
-    </div>
-  )
-}
-
-/**
- * Ziina checkout — one tap opens Ziina's clean hosted card page (card number ·
- * expiry · CVV · pay, no PayPal, no account). The buyer's email is the wallet id
- * stored in the intent mapping; crediting happens server-side on return
- * (/api/ziina-verify) so we never grant client-side before money clears.
- */
-function ZiinaCheckout({ price, credits, kind, label }: {
-  price: number; credits: number; kind: string; label: string
-}) {
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  const go = async () => {
-    setBusy(true); setErr(null)
-    try {
-      const email = (await currentEmail()) || "guest"
-      const res = await fetch("/api/ziina-checkout", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress: email, price, credits, kind, label }),
-      })
-      const j = await res.json()
-      if (!res.ok || !j.url) throw new Error(j.error || "Could not start checkout")
-      window.location.href = j.url   // → Ziina hosted card page
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Could not start checkout"); setBusy(false)
-    }
-  }
-
-  return (
-    <div className="space-y-2.5">
-      <button onClick={go} disabled={busy}
-        className="w-full flex items-center justify-center gap-2 font-bold py-3.5 rounded-2xl text-sm brand-gradient text-stone-950 brand-glow disabled:opacity-60 hover:scale-[1.01] active:scale-[0.99] transition-all">
-        <CreditCard size={15} /> {busy ? "Opening secure checkout…" : `Pay $${price.toFixed(2)} by card`}
-      </button>
-      <p className="text-[10px] text-foreground/30 text-center">🔒 Secure card checkout · no account needed</p>
-      {err && <p className="text-xs text-red-400 text-center">{err}</p>}
     </div>
   )
 }

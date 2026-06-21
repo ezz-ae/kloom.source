@@ -3,14 +3,14 @@
 /**
  * In-context upsell for the $10/mo "Unrestricted" tier — full no-restriction mode
  * across the whole platform. Shown on 18+ experts and dark/red rooms when the user
- * doesn't already hold it. Expands inline to the embedded PayPal card form (no
- * PayPal login). Renders nothing if the user is already unrestricted (incl. during
- * the launch-unlimited build phase).
+ * doesn't already hold it. Expands inline to Ziina's hosted card checkout.
+ * Renders nothing if the user is already unrestricted (incl. during the
+ * launch-unlimited build phase).
  */
 import { useState, useEffect } from "react"
-import { useWallet } from "@solana/wallet-adapter-react"
-import { hasUnrestricted, setUnrestricted } from "@/lib/account"
-import { PayPalCheckout } from "./PayPalCheckout"
+import { hasUnrestricted } from "@/lib/account"
+import { AuthGate } from "@/components/widgets/AuthGate"
+import { ZiinaCheckout } from "@/components/widgets/ZiinaCheckout"
 import { Flame, Check, X } from "lucide-react"
 
 const PERKS = [
@@ -20,13 +20,11 @@ const PERKS = [
 ]
 
 export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
-  const { publicKey } = useWallet()
   const [owned, setOwned] = useState(true) // assume owned until checked (no flash)
   const [open, setOpen]   = useState(false)
-  const [done, setDone]   = useState(false)
 
   useEffect(() => { setOwned(hasUnrestricted()) }, [])
-  if (owned || done) return null
+  if (owned) return null
 
   return (
     <div className="rounded-2xl border border-rose-500/25 bg-gradient-to-br from-rose-950/40 to-stone-950 p-4">
@@ -63,21 +61,10 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
               </li>
             ))}
           </ul>
-          {publicKey ? (
-            <PayPalCheckout
-              walletAddress={publicKey.toBase58()}
-              price={10}
-              credits={0}
-              kind="unrestricted"
-              label="Unrestricted — 30-day pass"
-              onSuccess={() => { setUnrestricted(true); setDone(true) }}
-            />
-          ) : (
-            <p className="text-xs text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2">
-              Connect your Solana wallet first — it's your account ID for the pass.
-            </p>
-          )}
-          <p className="text-[10px] text-foreground/30 text-center mt-3">Pay by card · no PayPal account needed · cancel anytime</p>
+          <AuthGate intent="to unlock unrestricted">
+            <ZiinaCheckout price={10} kind="unrestricted" label="Unrestricted — 30-day pass" />
+          </AuthGate>
+          <p className="text-[10px] text-foreground/30 text-center mt-3">Pay by card · cancel anytime</p>
         </div>
       )}
     </div>

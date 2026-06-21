@@ -6,11 +6,10 @@ import { useWallet } from "@solana/wallet-adapter-react"
 import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import { useSolCredits } from "@/hooks/use-sol-credits"
 import { TopUpSlider } from "@/components/widgets/TopUpSlider"
-import { PayPalCheckout } from "@/components/widgets/PayPalCheckout"
+import { ZiinaCheckout } from "@/components/widgets/ZiinaCheckout"
 import { hasUnlimited } from "@/lib/voice-credits"
-import { setSubscribed, setUnrestricted } from "@/lib/account"
 import { AuthGate } from "@/components/widgets/AuthGate"
-import { completePassPurchase, hydrateEntitlement, currentEmail, signOut } from "@/lib/auth"
+import { hydrateEntitlement, currentEmail, signOut } from "@/lib/auth"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
   CreditCard, Wallet, Bell, Shield, Trash2,
@@ -204,17 +203,10 @@ function SettingsContent() {
                       {payPlan === plan.id && (
                         <div className="mt-4 rounded-2xl border border-border/50 bg-foreground/5 p-4">
                           <AuthGate intent="to get this pass">
-                            <PayPalCheckout
-                              walletAddress=""
+                            <ZiinaCheckout
                               price={plan.price}
-                              credits={0}
                               kind={plan.id}
                               label={`${plan.name} pass`}
-                              onSuccess={() => {
-                                setSubscribed(true); setUnrestricted(true)
-                                completePassPurchase(plan.id as "dayuse" | "holyweek" | "super30")
-                                setSubSuccess(true); setPayPlan(null)
-                              }}
                             />
                           </AuthGate>
                         </div>
@@ -223,7 +215,7 @@ function SettingsContent() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground/60 text-center mt-4">
-                  Powered by PayPal · pay by card, no PayPal account needed
+                  Powered by Ziina · pay by card, no account needed
                 </p>
               </div>
             </>

@@ -21,14 +21,21 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || `https://${SITE.domain}`
-const NAME = SITE.name
-const TITLE = isFun()
-  ? "Kloom.fun — No rules. No signup. Just fun."
-  : "Kloom — Every conversation is a room"
-const DESC = isFun()
-  ? "Anonymous AI voice rooms — no signup, no memory, no limits. Build a cast of AI characters with real voices and jump straight in."
-  : "Multi-AI voice rooms with Claude, Gemini and GPT. Build a cast of AI characters with real voices, or clone any voice from a video, and drop friends into the same room with one link — voice and chat, live, across worlds from the trading floor to deep talk."
+// AIRRAW deploy is a distinct brand at the head level (server-only env, so no
+// hydration concern). Everything below falls back to Kloom when AIRRAW_HOME unset.
+const AIRRAW = process.env.AIRRAW_HOME === "1"
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || `https://${AIRRAW ? "airraw.com" : SITE.domain}`
+const NAME = AIRRAW ? "AIRRAW" : SITE.name
+const TITLE = AIRRAW
+  ? "AIRRAW — tap a face, talk right now"
+  : isFun()
+    ? "Kloom.fun — No rules. No signup. Just fun."
+    : "Kloom — Every conversation is a room"
+const DESC = AIRRAW
+  ? "A live voice lounge full of characters. Tap anyone and talk out loud — in a real voice, right now. Some are AI, real people drift in, and you can't always tell. It's the now."
+  : isFun()
+    ? "Anonymous AI voice rooms — no signup, no memory, no limits. Build a cast of AI characters with real voices and jump straight in."
+    : "Multi-AI voice rooms with Claude, Gemini and GPT. Build a cast of AI characters with real voices, or clone any voice from a video, and drop friends into the same room with one link — voice and chat, live, across worlds from the trading floor to deep talk."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -36,12 +43,14 @@ export const metadata: Metadata = {
   description: DESC,
   applicationName: NAME,
   generator: NAME,
-  keywords: [
-    "AI chat", "AI voice rooms", "AI characters", "voice AI", "character AI",
-    "AI roleplay", "voice cloning", "AI companion", "multiplayer AI",
-    "group AI chat", "Kloom",
-  ],
-  authors: [{ name: "Kloom" }],
+  keywords: AIRRAW
+    ? ["live voice chat", "AI voice", "talk to AI", "voice lounge", "AI characters", "voice AI", "AIRRAW", "it's the now"]
+    : [
+        "AI chat", "AI voice rooms", "AI characters", "voice AI", "character AI",
+        "AI roleplay", "voice cloning", "AI companion", "multiplayer AI",
+        "group AI chat", "Kloom",
+      ],
+  authors: [{ name: NAME }],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -60,7 +69,9 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
-  icons: {
+  // Airraw has no Kloom-branded favicon, so omit icons there (falls back to the
+  // default) rather than serving a Kloom icon on airraw.com.
+  icons: AIRRAW ? undefined : {
     icon: [
       { url: '/kloom-icon-32.png', sizes: '32x32', type: 'image/png' },
       { url: '/kloom-icon-192.png', sizes: '192x192', type: 'image/png' },
@@ -70,9 +81,15 @@ export const metadata: Metadata = {
   },
 }
 
-// Rich results: Organization + WebSite (with a sitelinks search box) +
-// SoftwareApplication. One JSON-LD graph, emitted on every page.
-const JSON_LD = {
+// Rich results. On AIRRAW, a clean WebSite/Organization for airraw.com (no Kloom
+// search action, logo, or software-offer). On Kloom, the full graph.
+const JSON_LD = AIRRAW ? {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "Organization", "@id": `${SITE_URL}/#organization`, name: NAME, url: SITE_URL, description: DESC },
+    { "@type": "WebSite", "@id": `${SITE_URL}/#website`, url: SITE_URL, name: NAME, description: DESC, publisher: { "@id": `${SITE_URL}/#organization` } },
+  ],
+} : {
   "@context": "https://schema.org",
   "@graph": [
     {

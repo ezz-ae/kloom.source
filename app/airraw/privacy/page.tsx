@@ -25,6 +25,9 @@ export default function Privacy() {
       <h2 style={h2}>What we don&apos;t do</h2>
       <p>We don&apos;t sell your data. We don&apos;t share your email except with the tools we use to send you mail.</p>
 
+      <h2 style={h2}>Your rights</h2>
+      <p>Wherever you live, you can ask us what we hold about you, correct it, or delete it — email us and we&apos;ll handle it. If we run ad pixels (Meta, TikTok, Google), they may set cookies to measure ads; you can opt out via your browser settings or each platform&apos;s ad-preferences page. We don&apos;t knowingly collect anything from anyone under 18.</p>
+
       <h2 style={h2}>Contact</h2>
       <p>Questions or deletion requests: <a href="mailto:hello@airraw.com" style={{ color: "#7fd6c0" }}>hello@airraw.com</a>.</p>
     </div>

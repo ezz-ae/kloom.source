@@ -16,6 +16,7 @@ import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/h
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { passCoversVoice } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
+import { track } from "@/lib/track"
 import { detectLanguage } from "@/lib/languages"
 import { hydrateEntitlement } from "@/lib/auth"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
@@ -401,6 +402,11 @@ function RoomContent() {
   // backend (Claude / Gemini / local). They see each other's replies and build
   // on them, like a real group working session.
   const [activeResponder, setActiveResponder] = useState<string | null>(null)
+
+  // Paid-traffic funnel events (page-level only — never conversation content):
+  // they started the free voice, and they hit the pay wall.
+  useEffect(() => { if (isConnected) track("start_voice", { room: room?.name || roomId }) }, [isConnected]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (outOfMinutes) track("paywall_view", { room: room?.name || roomId }) }, [outOfMinutes]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendChat = useCallback(async () => {
     const text = input.trim()

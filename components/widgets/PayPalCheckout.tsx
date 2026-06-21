@@ -13,6 +13,7 @@
  */
 import { useEffect, useRef, useState } from "react"
 import { createPayPalV6Instance, paypalClientId } from "@/lib/paypal-sdk"
+import { track } from "@/lib/track"
 import { Loader2, Check } from "lucide-react"
 
 interface Props {
@@ -59,6 +60,8 @@ export function PayPalCheckout({ walletAddress, price, credits, kind, label, onS
     const j = await res.json()
     if (!res.ok || !j.ok) throw new Error(j.error || "payment_not_completed")
     setStatus("done")
+    // The conversion that matters for ROAS — value-based so ad platforms can bid.
+    try { track("purchase", { value: data.current.price, currency: "USD", method: "paypal", kind: data.current.kind || "topup" }) } catch { /* */ }
     data.current.onSuccess(j)
   }
 

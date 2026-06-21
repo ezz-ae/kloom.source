@@ -13,6 +13,8 @@ import { listCustomRooms } from "@/lib/custom-rooms"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
 import { currentEmail, hydrateEntitlement, grantCredits, completePassPurchase } from "@/lib/auth"
+import { PASSES } from "@/lib/pricing"
+import { track } from "@/lib/track"
 import { Plus, DoorOpen, ChevronRight, ArrowRight } from "lucide-react"
 
 function greeting(): string {
@@ -50,8 +52,13 @@ export default function HubPage() {
           const { grants } = await res.json().catch(() => ({ grants: [] }))
           let applied = false
           for (const g of grants ?? []) {
-            if (g.kind === "credits" && g.credits > 0) { await grantCredits(g.credits); applied = true }
-            else if (g.kind && g.kind !== "credits") { await completePassPurchase(g.kind); applied = true }
+            if (g.kind === "credits" && g.credits > 0) {
+              await grantCredits(g.credits); applied = true
+              try { track("purchase", { value: typeof g.usd === "number" ? g.usd : 0, currency: "USD", method: "ziina", kind: "credits" }) } catch { /* */ }
+            } else if (g.kind && g.kind !== "credits") {
+              await completePassPurchase(g.kind); applied = true
+              try { track("purchase", { value: PASSES.find((x) => x.id === g.kind)?.priceUsd ?? 0, currency: "USD", method: "ziina", kind: g.kind }) } catch { /* */ }
+            }
           }
           await hydrateEntitlement()
           if (applied) toast.success("Payment complete — added to your account.")

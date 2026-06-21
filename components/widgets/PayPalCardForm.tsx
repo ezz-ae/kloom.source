@@ -13,6 +13,7 @@
  */
 import { useEffect, useRef, useState, useCallback } from "react"
 import { loadPayPalSdk, paypalClientId } from "@/lib/paypal-sdk"
+import { track } from "@/lib/track"
 
 const CLIENT_ID = paypalClientId()
 
@@ -63,6 +64,7 @@ export function PayPalCardForm({ walletAddress, price, credits, kind, label, onS
     const j = await res.json()
     if (!res.ok || !j.ok) throw new Error(j.error || "capture_failed")
     setStatus("done")
+    try { track("purchase", { value: dataRef.current.price, currency: "USD", method: "card", kind: dataRef.current.kind || "topup" }) } catch { /* */ }
     onSuccess(j)
   }, [onSuccess])
 

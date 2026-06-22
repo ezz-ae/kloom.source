@@ -8,6 +8,7 @@
  */
 import { useState } from "react"
 import { currentEmail } from "@/lib/auth"
+import { track } from "@/lib/track"
 import { CreditCard } from "lucide-react"
 
 export function ZiinaCheckout({ price, credits = 0, kind, label }: {
@@ -30,6 +31,10 @@ export function ZiinaCheckout({ price, credits = 0, kind, label }: {
       })
       const j = await res.json()
       if (!res.ok || !j.url) throw new Error(j.error || "Could not start checkout")
+      // Mid-funnel signal: they committed to pay and we're handing off to Ziina.
+      // Carries the USD value so Meta can value-optimize on InitiateCheckout while
+      // Purchase volume is still too thin to optimize on directly.
+      try { track("initiate_checkout", { value: price, currency: "USD", method: "ziina", kind }) } catch { /* never block the redirect */ }
       window.location.href = j.url   // → Ziina hosted card page
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not start checkout"); setBusy(false)

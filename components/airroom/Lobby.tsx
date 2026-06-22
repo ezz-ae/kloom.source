@@ -13,6 +13,7 @@
 import { useMemo, useEffect, useRef, useState } from "react"
 import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { avatarBg, avatarGlow } from "@/lib/airroom/avatar"
+import { imageFor } from "@/lib/persona-utils"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { CaptureWall } from "@/components/airroom/CaptureWall"
 import { usePresence } from "@/lib/airroom/presence"
@@ -71,7 +72,11 @@ export function Lobby() {
         <span
           className="orb"
           style={{ width: size, height: size, background: avatarBg(seed, f), ["--glow" as string]: glow, animationDelay: `${bdelay}s`, transform: isHover ? "scale(1.12)" : undefined } as React.CSSProperties}
-        />
+        >
+          {/* Real face on top of the gradient (which stays as the load/fallback). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="orb-img" src={imageFor({ name: c.host })} alt="" loading="lazy" />
+        </span>
         <span className="orb-name" style={{ color: nameColor(f) }}>{c.host}</span>
         <span className="orb-line" style={{ opacity: isHover ? 1 : 0.62, maxHeight: isHover ? 60 : 32 }}>&ldquo;{c.lines[0]}&rdquo;</span>
       </button>
@@ -133,7 +138,8 @@ export function Lobby() {
         @media (min-width: 720px) { .field { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 18px 10px; max-width: 1100px; margin: 0 auto; } }
         .orb-cell { background: none; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 10px 6px 14px; color: inherit; animation: floaty 6s ease-in-out infinite; }
         @keyframes floaty { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
-        .orb { border-radius: 50%; border: 1px solid rgba(255,255,255,.16); box-shadow: 0 0 14px var(--glow), inset 0 0 6px rgba(255,255,255,.12); animation: breathe 4.5s ease-in-out infinite; transition: transform .25s ease; }
+        .orb { border-radius: 50%; border: 1px solid rgba(255,255,255,.16); box-shadow: 0 0 14px var(--glow), inset 0 0 6px rgba(255,255,255,.12); animation: breathe 4.5s ease-in-out infinite; transition: transform .25s ease; overflow: hidden; }
+        .orb-img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 50%; }
         @keyframes breathe { 0%,100% { box-shadow: 0 0 12px var(--glow), inset 0 0 6px rgba(255,255,255,.1); filter: brightness(1) } 50% { box-shadow: 0 0 30px var(--glow), inset 0 0 8px rgba(255,255,255,.18); filter: brightness(1.12) } }
         .orb-name { font-size: 14px; font-weight: 600; }
         .orb-line { font-size: 11.5px; font-style: italic; color: #aebccb; line-height: 1.35; text-align: center; max-width: 16ch; overflow: hidden; transition: opacity .25s ease, max-height .25s ease; }

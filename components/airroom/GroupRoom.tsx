@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react"
 import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
+import { imageFor } from "@/lib/persona-utils"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
@@ -198,7 +199,10 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
           <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
             {members.map((m, i) => (
               <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500, color: "#eef4f8" }}>
-                <span style={{ width: 20, height: 20, borderRadius: "50%", background: avatarBg(seed * 7 + i + 1, m.f), boxShadow: `0 0 6px ${dot(m.f)}66`, border: "1px solid rgba(255,255,255,.15)" }} />{m.host}
+                <span style={{ width: 20, height: 20, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed * 7 + i + 1, m.f), boxShadow: `0 0 6px ${dot(m.f)}66`, border: "1px solid rgba(255,255,255,.15)", display: "inline-block" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageFor({ name: m.host })} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                </span>{m.host}
               </span>
             ))}
             {realOthers.map((h) => (

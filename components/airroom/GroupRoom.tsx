@@ -34,13 +34,14 @@ function pickResponders(msgId: string, n: number): number[] {
   return [a, b]
 }
 
-export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: number; tempLabel: string; onClose: () => void }) {
-  // Deterministic cast — same three for everyone who enters this room.
-  const [members] = useState<Cluster[]>(() => [
-    makeCharacter(seed * 7 + 1, clamp01(f - 0.03)),
-    makeCharacter(seed * 7 + 2, f),
-    makeCharacter(seed * 7 + 3, clamp01(f + 0.03)),
-  ])
+export function GroupRoom({ seed, f, tempLabel, onClose, count = 3 }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number }) {
+  // Deterministic cast of N — the same crowd for everyone who enters this room.
+  // The zoom level chose N (a 60-voice floor or a 4-voice booth); members spread
+  // across a small temperature band around the room so the room has texture.
+  const [members] = useState<Cluster[]>(() => {
+    const n = Math.max(1, Math.min(120, Math.round(count)))
+    return Array.from({ length: n }, (_, i) => makeCharacter(seed * 7 + i + 1, clamp01(f + ((i / n) - 0.5) * 0.08)))
+  })
   const handle = useRef(resolveHandle()).current
 
   const [lines, setLines] = useState<WireMessage[]>([])
@@ -196,8 +197,8 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
           <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>
             you stepped into a room · {members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""}
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-            {members.map((m, i) => (
+          <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", maxHeight: 64, overflow: "hidden" }}>
+            {members.slice(0, 12).map((m, i) => (
               <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500, color: "#eef4f8" }}>
                 <span style={{ width: 20, height: 20, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed * 7 + i + 1, m.f), boxShadow: `0 0 6px ${dot(m.f)}66`, border: "1px solid rgba(255,255,255,.15)", display: "inline-block" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -205,6 +206,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
                 </span>{m.host}
               </span>
             ))}
+            {members.length > 12 && (
+              <span style={{ display: "inline-flex", alignItems: "center", fontSize: 13, fontWeight: 500, color: "#9fb2c4", background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "2px 9px" }}>+{members.length - 12} more</span>
+            )}
             {realOthers.map((h) => (
               <span key={h.handle} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 500, color: h.color }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: h.color }} />{h.handle}
@@ -238,7 +242,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose }: { seed: number; f: nu
         </div>
         <div style={{ marginTop: 9, textAlign: "center" }}>
           {revealed
-            ? <span style={{ fontSize: 11, color: "#9fb2c4" }}>{members.map((m) => m.host).join(", ")} are AI · {realOthers.length > 0 ? `${realOthers.map((h) => h.handle).join(", ")} ${realOthers.length === 1 ? "is" : "are"} a real person` : "the only human here right now is you — when someone real wanders in, they'll appear above, and you won't always know which is which"}</span>
+            ? <span style={{ fontSize: 11, color: "#9fb2c4" }}>{members.slice(0, 6).map((m) => m.host).join(", ")}{members.length > 6 ? ` and ${members.length - 6} more` : ""} are AI · {realOthers.length > 0 ? `${realOthers.map((h) => h.handle).join(", ")} ${realOthers.length === 1 ? "is" : "are"} a real person` : "the only human here right now is you — when someone real wanders in, they'll appear above, and you won't always know which is which"}</span>
             : <button onClick={() => setRevealed(true)} style={{ fontSize: 11, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>who in here is human?</button>}
         </div>
       </div>

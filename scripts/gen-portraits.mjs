@@ -9,8 +9,15 @@
 import fs from "fs"
 import path from "path"
 
-const KEY = process.env.TOGETHER_API_KEY
-if (!KEY) { console.error("set TOGETHER_API_KEY"); process.exit(1) }
+// Provider: fal.ai (FLUX-dev/pro, top quality) when FAL_KEY is set, else Together
+// (FLUX-schnell, free/fast). FORCE=1 regenerates even slugs that already exist
+// (use it to re-shoot the whole cast at fal quality).
+const FAL = process.env.FAL_KEY
+const TKEY = process.env.TOGETHER_API_KEY
+const FAL_MODEL = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"
+const FORCE = process.env.FORCE === "1"
+if (!FAL && !TKEY) { console.error("set FAL_KEY (best) or TOGETHER_API_KEY"); process.exit(1) }
+console.log("provider:", FAL ? `fal · ${FAL_MODEL}` : "together · FLUX.1-schnell", FORCE ? "· FORCE" : "")
 
 const ROOT = process.cwd()
 const CAST = path.join(ROOT, "public", "cast")
@@ -48,33 +55,42 @@ const gw = (g) => g === "female" ? "strikingly beautiful young woman with captiv
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function gen({ n, g }) {
-  const s = slug(n)
-  const out = path.join(CAST, `${s}.jpg`)
-  if (fs.existsSync(out)) return { s, skip: true }
-  const style = STYLES[hash(n) % STYLES.length]
-  const prompt = `${BASE}, ${style}, portrait of a ${gw(g)} named ${n}. negative: ${NEG}`
-  // The free FLUX-schnell tier is rate-limited; retry 429s with backoff.
+async function imageUrl(prompt) {
+  if (FAL) {
+    const r = await fetch(`https://fal.run/${FAL_MODEL}`, {
+      method: "POST", headers: { Authorization: `Key ${FAL}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, image_size: "portrait_4_3", num_inference_steps: 30, enable_safety_checker: true }),
+    })
+    if (!r.ok) return { err: `${r.status} ${(await r.text()).slice(0, 80)}` }
+    const d = await r.json(); const url = d?.images?.[0]?.url; return url ? { url } : { err: "no url" }
+  }
   for (let attempt = 0; attempt < 6; attempt++) {
     const r = await fetch("https://api.together.xyz/v1/images/generations", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" },
+      method: "POST", headers: { Authorization: `Bearer ${TKEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "black-forest-labs/FLUX.1-schnell", prompt, width: 768, height: 1024, steps: 4, n: 1 }),
     })
     if (r.status === 429) { await sleep((Number(r.headers.get("retry-after")) || (3 * (attempt + 1))) * 1000); continue }
-    if (!r.ok) return { s, err: `${r.status} ${(await r.text()).slice(0, 80)}` }
-    const d = await r.json()
-    const url = d?.data?.[0]?.url
-    if (!url) return { s, err: "no url" }
-    const img = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } })
-    if (!img.ok) return { s, err: `dl ${img.status}` }
-    const buf = Buffer.from(await img.arrayBuffer())
-    if (buf.length < 8000) return { s, err: "tiny" }
-    fs.writeFileSync(out, buf)
-    await sleep(400)   // gentle pacing between successful calls
-    return { s, ok: buf.length }
+    if (!r.ok) return { err: `${r.status} ${(await r.text()).slice(0, 80)}` }
+    const d = await r.json(); const url = d?.data?.[0]?.url; return url ? { url } : { err: "no url" }
   }
-  return { s, err: "429 retries exhausted" }
+  return { err: "429 retries exhausted" }
+}
+
+async function gen({ n, g }) {
+  const s = slug(n)
+  const out = path.join(CAST, `${s}.jpg`)
+  if (fs.existsSync(out) && !FORCE) return { s, skip: true }
+  const style = STYLES[hash(n) % STYLES.length]
+  const prompt = `${BASE}, ${style}, portrait of a ${gw(g)} named ${n}. negative: ${NEG}`
+  const res = await imageUrl(prompt)
+  if (res.err) return { s, err: res.err }
+  const img = await fetch(res.url, { headers: { "User-Agent": "Mozilla/5.0" } })
+  if (!img.ok) return { s, err: `dl ${img.status}` }
+  const buf = Buffer.from(await img.arrayBuffer())
+  if (buf.length < 8000) return { s, err: "tiny" }
+  fs.writeFileSync(out, buf)
+  await sleep(FAL ? 120 : 400)
+  return { s, ok: buf.length }
 }
 
 let i = 0, done = 0, made = 0, skip = 0

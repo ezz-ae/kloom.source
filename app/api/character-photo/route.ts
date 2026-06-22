@@ -78,12 +78,15 @@ async function genRunpod(prompt: string): Promise<Buffer | null> {
 
 async function genFal(prompt: string): Promise<Buffer | null> {
   if (!FAL_KEY) return null
+  // Default to FLUX.1-dev (photoreal, top quality). Set FAL_IMAGE_MODEL to
+  // "fal-ai/flux-pro/v1.1" for the very strongest tier.
+  const model = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"
   try {
-    const res = await fetch("https://fal.run/fal-ai/flux/dev", {
+    const res = await fetch(`https://fal.run/${model}`, {
       method: "POST",
       headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, image_size: "portrait_4_3", num_inference_steps: 28, enable_safety_checker: true }),
-      signal: AbortSignal.timeout(30000),
+      body: JSON.stringify({ prompt, image_size: "portrait_4_3", num_inference_steps: 30, enable_safety_checker: true }),
+      signal: AbortSignal.timeout(45000),
     })
     if (!res.ok) return null
     const d = await res.json()

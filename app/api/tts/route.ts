@@ -29,6 +29,18 @@ export async function POST(request: Request) {
   // billed by) the TTS provider.
   const ttsText = text.slice(0, 1000)
 
+  // ── ElevenLabs — premium natural TTS (tier 0) ─────────────────────────────
+  // The most natural voice available; runs first when ELEVENLABS_API_KEY is set,
+  // and falls through to CosyVoice → Fish on any failure. The voice is picked
+  // deterministically per persona from a preset pool, so adjacent characters
+  // still sound like different people (the planet's "many close voices").
+  const elKey = process.env.ELEVENLABS_API_KEY
+  if (elKey) {
+    const el = await elevenTTS(ttsText, elKey, personaName, gender)
+    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } })
+    // fall through to CosyVoice / Fish
+  }
+
   // ── CosyVoice3 (RunPod serverless) — primary TTS ──────────────────────────
   // High-quality, natural-sounding TTS. Runs first when the endpoint is configured.
   // Falls through to fish.audio on any failure.
@@ -137,6 +149,35 @@ function resolveReferenceId(voice?: string): string | undefined {
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+// ── ElevenLabs (premium natural TTS) ─────────────────────────────────────────
+// Preset voice pools (public default voices, available to every account). One is
+// chosen per persona by name hash so neighbours sound distinct; override the whole
+// pick with ELEVENLABS_VOICE_MALE / ELEVENLABS_VOICE_FEMALE.
+const EL_FEMALE = ["21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "MF3mGyEYCl7XYWbV9V6O", "jsCqWAovK2LkecY7zXl4", "pFZP5JQG7iQjIQuC4Bku"]
+const EL_MALE   = ["pNInz6obpgDQGcFmaJgB", "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG", "yoZ06aMxZJJ28mfd3POQ", "onwK4e9ZLuTAKqWW03F9"]
+function elVoiceFor(name?: string, gender?: string): string {
+  const env = gender === "male" ? process.env.ELEVENLABS_VOICE_MALE : process.env.ELEVENLABS_VOICE_FEMALE
+  if (env) return env
+  const pool = gender === "male" ? EL_MALE : EL_FEMALE
+  let h = 0; const s = name || "x"; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return pool[h % pool.length]
+}
+async function elevenTTS(text: string, key: string, name?: string, gender?: string): Promise<ArrayBuffer | null> {
+  try {
+    const voice = elVoiceFor(name, gender)
+    const model = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2"
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
+      method: "POST",
+      headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
+      body: JSON.stringify({ text, model_id: model, voice_settings: { stability: 0.4, similarity_boost: 0.85, style: 0.35, use_speaker_boost: true } }),
+      signal: AbortSignal.timeout(30000),
+    })
+    if (!res.ok) { console.error("elevenlabs", res.status, (await res.text()).slice(0, 200)); return null }
+    const buf = await res.arrayBuffer()
+    return buf.byteLength > 0 ? buf : null
+  } catch (e) { console.error("elevenlabs threw", e instanceof Error ? e.message : String(e)); return null }
 }
 
 // CosyVoice3 RunPod serverless endpoint.

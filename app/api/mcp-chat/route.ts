@@ -18,6 +18,7 @@ import { analyzeVibe } from "@/lib/vibe"
 import { analyzeIntent, refusalFor } from "@/lib/intent"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { adultEnabled } from "@/lib/variant"
+import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 
 // RunPod vLLM + MCP roundtrips can be slow on cold workers.
 export const maxDuration = 60
@@ -369,6 +370,14 @@ function mcpToolToLLMTool(t: any) {
 // ── Main handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Global spend ceiling / kill-switch first — protects total AI budget under
+  // traffic (this is the main room-chat endpoint; on the free .fun build it would
+  // otherwise be an uncapped cost + abuse vector).
+  const gate = globalGate()
+  if (!gate.ok) return new Response("the floor's at capacity right now — back in a bit.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8", "Retry-After": "120" } })
+  const rl = rateLimit(`mcpchat:${clientIp(req)}`, 45, 60_000)
+  if (!rl.ok) return new Response("Slow down a sec.", { status: 429, headers: { "Content-Type": "text/plain; charset=utf-8", "Retry-After": String(rl.retryAfter) } })
+
   const { persona, messages, mode = "chat", partners, roomName, relationship, premium, unrestricted } = await req.json()
   const isVoice = mode === "voice"
   const mcpBase = mcpUrlFor(req)   // same-deployment MCP server, request-origin derived

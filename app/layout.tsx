@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { isFun, SITE } from '@/lib/variant'
 import { PixelScripts } from '@/components/airroom/PixelScripts'
+import { FunAgeGate } from '@/components/FunAgeGate'
 import './globals.css'
 
 // Self-hosted Geist (variable woff2) — no build-time Google Fonts fetch, so the
@@ -149,6 +150,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
         {children}
+        <FunAgeGate />
         <Toaster theme="system" richColors position="bottom-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
         <PixelScripts />

@@ -88,6 +88,22 @@ export function Planet() {
     return { x: CX + Math.cos(cang) * cr, y: CY + Math.sin(cang) * cr }
   }), [])
 
+  // A dense "ocean" of dim voices fills the whole disc so the now reads as a full,
+  // glowing, populated planet from orbit — the continents are just the brighter
+  // concentrations within it. Ambient texture only: these never resolve into faces
+  // or open; they're the felt millions that give the planet its mass.
+  const ambient = useMemo(() => {
+    const out: { x: number; y: number; hue: number; ph: number; dr: number }[] = []
+    for (let i = 0; i < 1300; i++) {
+      const a = rnd(i * 1.7 + 3) * 6.283, rr = Math.sqrt(rnd(i * 2.3 + 1)) * PR * 0.98
+      const x = CX + Math.cos(a) * rr, y = CY + Math.sin(a) * rr
+      let bh = 200, bd = 1e9
+      for (let c = 0; c < CONTINENTS.length; c++) { const d = Math.hypot(conCentres[c].x - x, conCentres[c].y - y); if (d < bd) { bd = d; bh = CONTINENTS[c].h } }
+      out.push({ x, y, hue: bh + (rnd(i * 3 + 7) * 30 - 15), ph: rnd(i + 5) * 6.28, dr: rnd(i + 2) * 0.4 + 0.2 })
+    }
+    return out
+  }, [conCentres])
+
   // ── proximity voice — the nearest face murmurs, like leaning toward someone ──
   const speakTok = useRef(0)
   const speak = useCallback(async (node: Node) => {
@@ -208,6 +224,19 @@ export function Planet() {
           if (cam.s < 13) { ctx.fillStyle = `hsla(${co.h},60%,80%,.85)`; ctx.font = `500 ${12 * DPR}px ${FF}`; ctx.textAlign = "center"; ctx.fillText(co.adult ? co.n + " · 18+" : co.n, cp[0], cp[1] - crs - 6 * DPR); ctx.textAlign = "left" }
         }
       }
+      // ambient ocean — the planet's mass: dim, faceless, never interactive
+      for (const n of ambient) {
+        const dx = Math.sin(t * 0.3 + n.ph) * n.dr * 0.0006, dy = Math.cos(t * 0.27 + n.ph) * n.dr * 0.0006
+        const s = w2s(n.x + dx, n.y + dy)
+        if (s[0] < -20 || s[1] < -20 || s[0] > W + 20 || s[1] > H + 20) continue
+        let bright = 1
+        if (fromSpace) { const dd = Math.hypot(n.x - CX, n.y - CY) / PR; bright = 1 - Math.min(1, dd * dd) * 0.6 }
+        ctx.globalAlpha = Math.max(0.1, bright * 0.5)
+        ctx.fillStyle = `hsl(${n.hue},58%,${Math.round(50 + bright * 8)}%)`
+        ctx.beginPath(); ctx.arc(s[0], s[1], Math.max(0.5, cam.s * vm() * 0.0026), 0, 6.283); ctx.fill()
+      }
+      ctx.globalAlpha = 1
+
       let best = 1e9, act: Node | null = null
       for (const n of nodes) {
         const dx = Math.sin(t * 0.4 + n.ph) * n.dr * 0.0008, dy = Math.cos(t * 0.31 + n.ph) * n.dr * 0.0008
@@ -244,7 +273,7 @@ export function Planet() {
       }
       const co = act ? CONTINENTS[act.c] : CONTINENTS[0]
       let crumb: string, altl: string, hear: string
-      if (cam.s < 3.2) { crumb = "from orbit · the whole now"; altl = "orbit"; hear = `the hum of the whole now · ${nodes.length} voices` }
+      if (cam.s < 3.2) { crumb = "from orbit · the whole now"; altl = "orbit"; hear = "the hum of the whole now · thousands of voices" }
       else if (cam.s < 11) { crumb = `${co.n} · a region of the now`; altl = "atmosphere"; hear = `drifting over ${co.n} — ${co.v}` }
       else if (cam.s < 24) { crumb = `${co.n} · room ${(act ? act.ci : 0) + 1}`; altl = "rooftops"; hear = `a room in ${co.n} · many close voices` }
       else { crumb = `${co.n} · room ${(act ? act.ci : 0) + 1} · one voice`; altl = "street"; hear = act ? `hearing · ${act.char.host} — “${act.char.lines[0]}” · tap to talk` : "lean closer" }
@@ -258,7 +287,7 @@ export function Planet() {
       speakTok.current++
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, conCentres, speak, openVoice])
+  }, [nodes, ambient, conCentres, speak, openVoice])
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>

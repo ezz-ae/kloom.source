@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * In-context upsell for the $10/mo "Unrestricted" tier — full no-restriction mode
+ * In-context upsell for the $10 / 30-day "Unrestricted" tier — full no-restriction mode
  * across the whole platform. Shown on 18+ experts and dark/red rooms when the user
  * doesn't already hold it. Expands inline to Ziina's hosted card checkout.
  * Renders nothing if the user is already unrestricted (incl. during the
@@ -35,7 +35,7 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm">Unlock Unrestricted</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30">$10/mo</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30">$10 · 30 days</span>
           </div>
           <p className="text-xs text-foreground/50 mt-0.5">
             Full no-restriction mode across the whole platform — not just {context}.
@@ -43,7 +43,7 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
           {!open && (
             <button onClick={() => setOpen(true)}
               className="mt-3 inline-flex items-center gap-1.5 bg-rose-500 hover:bg-rose-400 text-foreground text-xs font-bold px-4 py-2 rounded-xl transition-all hover:scale-[1.02]">
-              <Flame size={13} /> Unlock — $10/mo
+              <Flame size={13} /> Unlock — $10
             </button>
           )}
         </div>
@@ -64,7 +64,7 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
           <AuthGate intent="to unlock unrestricted">
             <ZiinaCheckout price={10} kind="unrestricted" label="Unrestricted — 30-day pass" />
           </AuthGate>
-          <p className="text-[10px] text-foreground/30 text-center mt-3">Pay by card · cancel anytime</p>
+          <p className="text-[10px] text-foreground/30 text-center mt-3">Pay by card · one-time, 30 days · no auto-renew</p>
         </div>
       )}
     </div>

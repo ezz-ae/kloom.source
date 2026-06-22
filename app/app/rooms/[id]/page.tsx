@@ -18,7 +18,7 @@ import { passCoversVoice } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
 import { track } from "@/lib/track"
 import { detectLanguage } from "@/lib/languages"
-import { hydrateEntitlement } from "@/lib/auth"
+import { hydrateEntitlement, authHeader } from "@/lib/auth"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
 import { TOOL_INPUTS, buildToolArgs, formatToolOutput, isToolError } from "@/lib/room-tool-args"
@@ -352,7 +352,7 @@ function RoomContent() {
     setDmMsgs(next); setDmInput(""); setDmLoading(true); setDmStream("")
     try {
       const res = await fetch("/api/mcp-chat", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) },
         body: JSON.stringify({ mode: "chat", persona: member, premium: isSubscribed(), unrestricted: hasUnrestricted(), messages: next }),
       })
       const reader = res.body!.getReader(); const dec = new TextDecoder(); let full = ""
@@ -448,12 +448,12 @@ function RoomContent() {
 
         const res = await fetch("/api/mcp-chat", {
           method:  "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(await authHeader()) },
           signal:  abortRef.current.signal,
           body:    JSON.stringify({
             mode:    "chat",
-            persona: { 
-              ...speaker, 
+            persona: {
+              ...speaker,
               category: room.category,
               adult: optionValues.restriction_mode === true ? "yes" : (speaker as any).adult,
               vibe_tags: vibeEdits[speaker.name] || []

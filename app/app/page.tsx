@@ -12,7 +12,7 @@ import { CATEGORY_META, CATEGORY_ORDER } from "@/lib/category-meta"
 import { listCustomRooms } from "@/lib/custom-rooms"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
-import { currentEmail, hydrateEntitlement } from "@/lib/auth"
+import { hydrateEntitlement, accessToken } from "@/lib/auth"
 import { PASSES, usdForMinutes } from "@/lib/pricing"
 import { setUnrestricted } from "@/lib/account"
 import { track } from "@/lib/track"
@@ -41,14 +41,17 @@ export default function HubPage() {
     if (status === "cancelled" || status === "failed") { window.history.replaceState({}, "", "/app"); return }
     ;(async () => {
       try {
-        const email = await currentEmail()
-        if (email) {
+        const token = await accessToken()
+        if (token) {
           // Reconcile ANY completed-but-unclaimed Ziina payment for this account —
           // runs on the success return AND on every app open, so a buyer who paid
           // then closed the tab before the redirect still gets granted next visit.
+          // Identity is the access token (server resolves the account from it) —
+          // the body carries nothing spoofable.
           const res = await fetch("/api/ziina-verify", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ wallet: email }),
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({}),
           })
           const { grants } = await res.json().catch(() => ({ grants: [] }))
           let applied = false

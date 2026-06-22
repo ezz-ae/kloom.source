@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { consumeVoice, voiceAvailable, LAUNCH_UNLIMITED, getFreeRemainingSec } from "@/lib/voice-credits"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
-import { accountMinutes, setAccountMinutes, spendMinutes } from "@/lib/auth"
+import { accountMinutes, setAccountMinutes, spendMinutes, authHeader } from "@/lib/auth"
 import { mediaDevicesUnavailable } from "@/lib/media"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { BrowserSpeechSegmenter, browserSttSupported } from "@/lib/browser-stt"
@@ -316,7 +316,7 @@ export function useRealtimeVoice({
       try {
         response = await fetch("/api/mcp-chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(await authHeader()) },
           signal: abort.signal,
           body: JSON.stringify({
             mode:         "voice",            // strict word cap, companion prompt in voice mode

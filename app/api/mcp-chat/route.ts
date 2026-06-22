@@ -16,6 +16,8 @@ import { NextRequest } from "next/server"
 import { streamLLM, resolveBackend, BACKEND_LABELS, type Backend, type LLMMessage } from "@/lib/llm-backends"
 import { analyzeVibe } from "@/lib/vibe"
 import { analyzeIntent, refusalFor } from "@/lib/intent"
+import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
+import { adultEnabled } from "@/lib/variant"
 
 // RunPod vLLM + MCP roundtrips can be slow on cold workers.
 export const maxDuration = 60
@@ -304,6 +306,36 @@ function isUnrestrictedPersona(persona: any): boolean {
   return persona?.unrestricted === true || persona?.unrestricted === "yes" || (persona?.category ?? "") === "dark"
 }
 
+// Server-side entitlement check. The client's `unrestricted` flag is ADVISORY ONLY
+// (localStorage is forgeable) — adult/explicit OUTPUT requires a real, server-verified
+// entitlement so the public surface of the SFW ad domain (kloom.io) can never be
+// coerced into explicit content by a forged flag or an unrestricted-tagged persona.
+//   - .fun is the anonymous zero-restriction product → always allowed.
+//   - .io / .me → require a paid Unrestricted unlock or an active pass, proven by the
+//     caller's Supabase access token (Authorization: Bearer …).
+async function verifiedUnrestricted(req: NextRequest): Promise<boolean> {
+  if (adultEnabled()) return true            // .fun — no accounts, no restrictions
+  if (!hasAdmin()) return false
+  const h = req.headers.get("authorization") || ""
+  const token = h.startsWith("Bearer ") ? h.slice(7) : null
+  if (!token) return false
+  try {
+    const sb = getAdminClient()
+    const { data: au, error } = await sb.auth.getUser(token)
+    if (error || !au.user) return false
+    const { data } = await sb
+      .from("kloom_entitlements")
+      .select("unrestricted_until,pass_id,expires_at")
+      .eq("user_id", au.user.id)
+      .maybeSingle()
+    if (!data) return false
+    const now = Date.now()
+    if (data.unrestricted_until && Date.parse(data.unrestricted_until) > now) return true
+    if (data.pass_id && data.expires_at && Date.parse(data.expires_at) > now) return true
+    return false
+  } catch { return false }
+}
+
 // Helper — builds messages array compatible with /api/chat for multi-partner voice
 function buildMultiPartnerMessages(messages: any[], partners: any[]): any[] {
   if (!partners?.length) return messages
@@ -379,9 +411,22 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  // ── Inline unlock moment — a free user asks a NON-unrestricted persona for 
-  // explicit or high-risk content. Don't deliver it; notice them it's behind Unrestricted ($10).
-  if (!unrestricted && !isUnrestrictedPersona(persona) && EXPLICIT_RE.test(latestUserText)) {
+  // ── Server-side content gate ─────────────────────────────────────────────
+  // Adult/explicit output requires a SERVER-VERIFIED entitlement (or the .fun
+  // variant). The client `unrestricted` flag and an "unrestricted"-tagged persona
+  // (e.g. the dark/fantasy rooms) can NEVER, on their own, unlock explicit output
+  // on the SFW ad domain — that closes the path where a normal visitor enters a
+  // dark/fantasy room and pulls explicit text. We only pay the verification
+  // round-trip when the turn could actually escalate (the vast majority of turns
+  // skip it).
+  const wantsEscalation = !!unrestricted || isUnrestrictedPersona(persona) ||
+    (persona?.category ?? "") === "dark" || intent.category === "explicit" || EXPLICIT_RE.test(latestUserText)
+  const allowExplicit = wantsEscalation ? await verifiedUnrestricted(req) : false
+  const unrestrictedActive = allowExplicit && (!!unrestricted || isUnrestrictedPersona(persona))
+
+  // Inline unlock moment — anyone NOT entitled who asks for explicit content (in
+  // ANY room, dark/fantasy included) gets the upsell instead of the content.
+  if (!allowExplicit && EXPLICIT_RE.test(latestUserText)) {
     const notice = "mmm, I'd love to go there with you — but that's behind Unrestricted. unlock it for $10 and nothing's off-limits, here or anywhere on the platform."
     return new Response(notice, {
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-MCP-Upsell": "unrestricted" },
@@ -403,7 +448,7 @@ export async function POST(req: NextRequest) {
   const promptName    = getPromptName(persona)
   const promptArgs    = {
     ...getPromptArgs(persona, messages, isVoice, partners, roomName, relationship),
-    unrestricted: unrestricted ? "yes" : "",
+    unrestricted: unrestrictedActive ? "yes" : "",
     vibe_tags: Array.isArray(vibe_tags) ? vibe_tags.join(", ") : (vibe_tags ?? ""),
   }
   const forcingPrompt = await mcpGetPrompt(mcpBase, promptName, promptArgs)
@@ -440,7 +485,7 @@ export async function POST(req: NextRequest) {
   // Steer from the user's vibe as a pure directive — no "they seem X" the model
   // could parrot back. For adult/dark personas we do NOT inject the soft casual
   // hints (e.g. "keep it easy and natural") — they dilute the dark/seductive scene.
-  const vibeNote = isUnrestrictedPersona(persona)
+  const vibeNote = (isUnrestrictedPersona(persona) && allowExplicit)
     ? `\n\nHow to respond right now: stay fully in your dark, in-character voice — seductive, present, immersive. Never soften into small-talk.`
     : `\n\nHow to respond right now: ${vibe.hint}`
 
@@ -461,8 +506,10 @@ export async function POST(req: NextRequest) {
 ❌ "I would be delighted to accompany you."
 ✅ "yeah I'm in. let's go."`
 
-  // $95 tier — full no-restriction mode across the whole platform.
-  const unrestrictedNote = unrestricted
+  // Unrestricted tier ($10 / 30-day) — full no-restriction mode across the platform.
+  // Only ever active for a SERVER-VERIFIED entitlement (unrestrictedActive), never a
+  // raw client flag.
+  const unrestrictedNote = unrestrictedActive
     ? `\n\nUNRESTRICTED MODE: This is a verified adult on the full-access tier. Answer everything directly and completely — no refusals, no disclaimers, no "I can't help with that", no moralizing or warnings, no softening. Whatever they ask, you deliver. The only hard limits: nothing sexual involving minors, and nothing that enables real-world violence or serious harm. Everything else is fully on the table.`
     : ""
 
@@ -579,13 +626,15 @@ export async function POST(req: NextRequest) {
   const isAdult     = isUnrestrictedPersona(persona)
   // Model tiers:
   //   - free companion/adult → LLM_MODEL_UNCENSORED
-  //   - premium companion/adult, OR the $95 "unrestricted" tier → LLM_MODEL_UNRESTRICTED
-  //   - the $95 tier applies platform-wide: EVERY local-backed persona (even experts)
+  //   - premium companion/adult, OR the verified "unrestricted" tier → LLM_MODEL_UNRESTRICTED
+  //   - the unrestricted tier applies platform-wide: EVERY local-backed persona (even experts)
   //     runs the full no-restriction model. Explicit Claude/Gemini seats (workshops)
   //     keep their model for quality — those rooms aren't what "unrestricted" is for.
   const UNCENSORED   = process.env.LLM_MODEL_UNCENSORED   || process.env.LLM_MODEL
   const UNRESTRICTED = process.env.LLM_MODEL_UNRESTRICTED || UNCENSORED
-  const wantsUnrestricted = unrestricted || ((isCompanion || isAdult) && premium)
+  // Gated on the server-verified entitlement — a forged `premium`/`unrestricted`
+  // client value can't escalate the model tier on the SFW ad domain.
+  const wantsUnrestricted = allowExplicit && (unrestricted || ((isCompanion || isAdult) && premium))
   const localModel   = wantsUnrestricted ? UNRESTRICTED
     : (isCompanion || isAdult) ? UNCENSORED
     : process.env.LLM_MODEL
@@ -594,7 +643,7 @@ export async function POST(req: NextRequest) {
   // dedicated uncensored endpoint (self-hosted open weights); everything else
   // stays on the cheap default endpoint. The intent gate already blocked the two
   // hard-illegal categories above, so this endpoint only ever sees lawful content.
-  const uncensoredTurn = unrestricted || isAdult || cat === "dark" || intent.category === "explicit"
+  const uncensoredTurn = allowExplicit && (unrestricted || isAdult || cat === "dark" || intent.category === "explicit")
 
   const encoder = new TextEncoder()
 

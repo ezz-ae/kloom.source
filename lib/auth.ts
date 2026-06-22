@@ -63,9 +63,20 @@ export async function currentEmail(): Promise<string | null> {
   return data.user?.email ?? null
 }
 
-async function accessToken(): Promise<string | null> {
+/** The signed-in user's Supabase access token (or null). Exported so server calls
+ *  that must verify identity (reconcile, content gate) can present a real token —
+ *  never a spoofable email/body field. */
+export async function accessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession()
   return data.session?.access_token ?? null
+}
+
+/** Bearer auth header for the signed-in user (empty object if not signed in).
+ *  Spread into fetch headers so the server can verify a real entitlement — the
+ *  Unrestricted content gate honors a purchase ONLY when a real token is present. */
+export async function authHeader(): Promise<Record<string, string>> {
+  const t = await accessToken()
+  return t ? { Authorization: `Bearer ${t}` } : {}
 }
 
 /** Persist a purchased pass to the account (server-side, service role). */

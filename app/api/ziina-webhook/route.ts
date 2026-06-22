@@ -59,50 +59,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, skipped: `status=${intent?.status}` })
     }
 
-    // Look up our mapping (who paid, for what).
-    const { data: row } = await sb.from("ziina_payments").select("*").eq("id", intentId).maybeSingle()
+    // Look up our mapping (who paid, for what) — just to confirm it's a real intent.
+    const { data: row } = await sb.from("ziina_payments").select("status,wallet,kind").eq("id", intentId).maybeSingle()
     if (!row)                       return NextResponse.json({ ok: false, error: "unknown_intent" })
     if (row.status === "completed") return NextResponse.json({ ok: true, skipped: "already_processed" })
 
-    const wallet  = row.wallet as string
-    const credits = Number(row.credits) || 0
-    const kind    = String(row.kind || "purchase")
-
-    // 1) Credit packs → balance (idempotent via tx_sig).
-    if (credits > 0) {
-      const { data, error } = await sb.rpc("credit_wallet", {
-        p_wallet: wallet, p_credits: credits,
-        p_tx_sig: `ziina_${intentId}`, p_amount_sol: 0, p_kind: "purchase",
-      })
-      if (error) { console.error("ziina-webhook: credit error", error); return NextResponse.json({ error: error.message }, { status: 500 }) }
-      if (data?.error !== "duplicate_tx") {
-        fetch(`${req.nextUrl.origin}/api/distribute-bloom`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ walletAddress: wallet, amount: credits }),
-        }).catch(() => {})
-      }
-    }
-
-    // 2) Unlimited pass or premium plan → subscription row (Ziina is one-time, so a
-    //    plan is a 30-day pass).
-    if (kind === "unlimited" || (kind !== "purchase" && credits === 0) || kind.startsWith("chat-") || kind.startsWith("creator-")) {
-      const plan      = kind === "unlimited" ? "voice-unlimited" : kind
-      const renewsAt  = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      await sb.from("bloom_subscriptions").upsert({
-        wallet, plan, status: "active",
-        ls_subscription_id: `ziina_${intentId}`,
-        renews_at: kind === "unlimited" ? null : renewsAt,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "wallet" })
-    }
-
-    // NOTE: we intentionally do NOT claim the ziina_payments row here (status stays
-    // 'pending'). The authoritative grant into kloom_entitlements (the store the
-    // voice paywall actually reads) happens via the authed reconcile — ziina-verify,
-    // run on the payment return AND on every app open — which atomically claims the
-    // row. Claiming it here would strand tab-close buyers (charged, nothing granted).
-    console.log(`ziina-webhook: confirmed ${intentId} (kind=${kind}, ${wallet}) — grant deferred to authed reconcile`)
-    return NextResponse.json({ ok: true, credits, kind, wallet })
+    // The webhook does NOT grant. The authoritative grant into kloom_entitlements
+    // (the only store the app reads) happens via the authed reconcile — ziina-verify,
+    // which resolves the buyer from their access token and claim+grants ATOMICALLY in
+    // a single transaction, seeding the entitlement row if missing. It runs on the
+    // payment-success return AND on every app open, so a buyer who paid is granted the
+    // moment they're back in the app. Granting here would either need an unauthenticated
+    // email→user lookup or write to a store nothing reads — both removed. We only log.
+    console.log(`ziina-webhook: confirmed ${intentId} (kind=${row.kind}, ${row.wallet}) — grant deferred to authed reconcile`)
+    return NextResponse.json({ ok: true, kind: row.kind, wallet: row.wallet })
   } catch (e) {
     console.error("ziina-webhook: handler error", e)
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })

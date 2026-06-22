@@ -10,6 +10,7 @@
  */
 import { useEffect, useRef, useState } from "react"
 import type { Cluster } from "@/lib/airroom/roster"
+import { SpeechSegmenter } from "@/lib/speech-segmenter"
 
 interface Msg { who: "host" | "you"; text: string }
 
@@ -40,6 +41,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked }: { cluster: 
   const busyRef = useRef(false)
   const hostSpeakingRef = useRef(false)
   const onceRecRef = useRef<any>(null)
+  const segRef = useRef<SpeechSegmenter | null>(null)   // hands-free recorder (iOS-proof)
   const hfRef = useRef(false)
   const clickTimer = useRef<any>(null)
   const talkedRef = useRef(false)   // fire onTalked once, on the first thing the user says
@@ -60,9 +62,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked }: { cluster: 
       const a = audioRef.current
       if (a) {
         hostSpeakingRef.current = true            // don't transcribe the host's own voice
-        a.onended = () => { hostSpeakingRef.current = false }
+        try { segRef.current?.abort() } catch { /* */ }   // pause the live mic while the host speaks (no echo loop)
+        const resume = () => { hostSpeakingRef.current = false; if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } } }
+        a.onended = resume
         a.src = url
-        await a.play().catch(() => { hostSpeakingRef.current = false })
+        await a.play().catch(resume)              // play blocked → don't strand the mic paused
       }
     } catch { hostSpeakingRef.current = false }
   }
@@ -137,27 +141,65 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked }: { cluster: 
     }, 240)
   }
 
-  // hands-free: keep the mic open and auto-send each finished utterance.
+  // hands-free: keep the mic open and auto-send each finished utterance. Primary
+  // path is MediaRecorder + server Whisper (SpeechSegmenter) — it stays live across
+  // many turns, INCLUDING on iOS Safari, where the browser's continuous
+  // webkitSpeechRecognition dies after one utterance and can't auto-restart without
+  // a fresh user gesture (the "live but only one message" bug). Browser SR is kept
+  // only as a fallback when MediaRecorder/STT is unavailable.
   useEffect(() => {
     if (!handsFree) return
-    const w = window as any
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) { setHandsFree(false); return }
     try { onceRecRef.current?.stop() } catch { /* */ }
     setListening(false)
+
+    let cancelled = false
+    let seg: SpeechSegmenter | null = null
+    let stream: MediaStream | null = null
+    let fallbackRec: any = null
     let stopped = false
-    const rec = new SR()
-    rec.lang = "en-US"; rec.interimResults = false; rec.continuous = true
-    rec.onresult = (e: any) => {
-      const r = e.results?.[e.results.length - 1]
-      if (!r || !r.isFinal) return
-      const t = r[0]?.transcript?.trim()
-      if (t && !hostSpeakingRef.current && !busyRef.current) send(t)
+
+    const startBrowserFallback = () => {
+      const w = window as any
+      const SR = w.SpeechRecognition || w.webkitSpeechRecognition
+      if (!SR) { setHandsFree(false); return }
+      const rec = new SR()
+      rec.lang = "en-US"; rec.interimResults = false; rec.continuous = true
+      rec.onresult = (e: any) => {
+        const r = e.results?.[e.results.length - 1]
+        if (!r || !r.isFinal) return
+        const t = r[0]?.transcript?.trim()
+        if (t && !hostSpeakingRef.current && !busyRef.current) send(t)
+      }
+      rec.onerror = (ev: any) => { if (ev?.error === "not-allowed" || ev?.error === "service-not-allowed") setHandsFree(false) }
+      rec.onend = () => { if (!stopped) { try { rec.start() } catch { /* */ } } }
+      fallbackRec = rec
+      try { rec.start() } catch { /* */ }
     }
-    rec.onerror = (ev: any) => { if (ev?.error === "not-allowed" || ev?.error === "service-not-allowed") setHandsFree(false) }
-    rec.onend = () => { if (!stopped) { try { rec.start() } catch { /* */ } } }
-    try { rec.start() } catch { /* */ }
-    return () => { stopped = true; try { rec.stop() } catch { /* */ } }
+
+    ;(async () => {
+      const canRecord = typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia
+      if (!canRecord) { startBrowserFallback(); return }
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      } catch { setHandsFree(false); return }   // mic denied
+      if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
+      seg = new SpeechSegmenter({
+        stream,
+        onText: (t) => { if (!hostSpeakingRef.current && !busyRef.current) send(t) },
+        // No STT key / model access → fall back to the browser recognizer.
+        onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!cancelled) startBrowserFallback() },
+      })
+      segRef.current = seg
+      seg.start()
+    })()
+
+    return () => {
+      cancelled = true; stopped = true
+      try { seg?.destroy() } catch { /* */ }
+      segRef.current = null
+      try { stream?.getTracks().forEach((t) => t.stop()) } catch { /* */ }
+      try { fallbackRec?.stop() } catch { /* */ }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handsFree])
 

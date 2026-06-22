@@ -30,7 +30,12 @@ export const maxDuration = 60
 // unreachable canonical domain or a deployment-protected preview host.
 // MCP_SERVER_URL overrides for an external server.
 function mcpUrlFor(req: Request): string {
-  if (process.env.MCP_SERVER_URL) return process.env.MCP_SERVER_URL
+  const override = process.env.MCP_SERVER_URL
+  // Ignore a localhost override in a deployed (Vercel) env — a copied .env default
+  // would otherwise send every tool call to a dead localhost. Use the request's own
+  // origin (the embedded /api/mcp server ships on the same deployment).
+  const isLocalOverride = override && /localhost|127\.0\.0\.1/.test(override)
+  if (override && !(isLocalOverride && process.env.VERCEL === "1")) return override
   try { return `${new URL(req.url).origin}/api/mcp` } catch { /* fall through */ }
   return `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/mcp`
 }

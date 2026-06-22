@@ -150,14 +150,47 @@ export function voiceForLanguage(language?: string, gender?: string): string | u
  * Premium failover: if a specific voice ID is failing, the API can call this
  * to get a sibling voice from the same pool.
  */
-export function getFallbackVoiceId(currentId: string): string {
+export function getFallbackVoiceId(currentId: string, gender?: string): string {
   // Find which pool it belongs to and return the next one
   const pools = Object.values(POOLS)
   for (const pool of pools) {
     const idx = pool.indexOf(currentId)
     if (idx !== -1) return pool[(idx + 1) % pool.length]
   }
-  return GIRLS[0]
+  // Unknown id (a cloned / custom / language-native voice): keep the SPEAKER'S
+  // gender — never silently leak a male persona to a female voice on retry.
+  return gender === "male" ? GUYS[0] : GIRLS[0]
+}
+
+/**
+ * Per-ROOM voice assignment with collision avoidance. Resolving each persona
+ * independently is a birthday collision (15 female / 10 male voices), so a cast
+ * of 3+ same-gender characters can end up sounding identical. This walks the cast
+ * in order, honors any explicit/cloned voiceId, and otherwise probes forward
+ * within the SAME gender pool until it finds a voice not already taken in the room
+ * (only reusing once the gender pool is exhausted). Returns a voiceId per seat,
+ * index-aligned to `seats`.
+ */
+export function resolveRoomVoices(seats: { name?: string; gender?: string; voiceId?: string }[]): string[] {
+  const taken = new Set<string>()
+  const out: string[] = new Array(seats.length).fill("")
+  // Pass 1 — honor explicit voiceIds (catalog picks, YouTube clones) and reserve them.
+  seats.forEach((s, i) => { if (s.voiceId) { out[i] = s.voiceId; taken.add(s.voiceId) } })
+  // Pass 2 — assign the rest, probing forward in-gender to avoid repeats.
+  seats.forEach((s, i) => {
+    if (out[i]) return
+    const base = resolveVoiceId(s.name, s.gender)
+    if (!base) return
+    const pool = GUYS.includes(base) ? GUYS : GIRLS
+    const start = Math.max(0, pool.indexOf(base))
+    let chosen = base
+    for (let k = 0; k < pool.length; k++) {
+      const cand = pool[(start + k) % pool.length]
+      if (!taken.has(cand)) { chosen = cand; break }
+    }
+    out[i] = chosen; taken.add(chosen)
+  })
+  return out
 }
 
 // ── Curated voice catalog — human names for the create-wizard voice picker ──

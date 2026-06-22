@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
   for (let attempt = 1; attempt <= 4; attempt++) {
     if (attempt === 3 && referenceId) {
-      referenceId = getFallbackVoiceId(referenceId)
+      referenceId = getFallbackVoiceId(referenceId, gender)
     }
 
     const body = JSON.stringify({

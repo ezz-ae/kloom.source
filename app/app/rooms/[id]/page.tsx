@@ -23,7 +23,7 @@ import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
 import { TOOL_INPUTS, buildToolArgs, formatToolOutput, isToolError } from "@/lib/room-tool-args"
 import { useRealtimeVoice, type Persona } from "@/hooks/use-realtime-voice"
-import { VIBE_TAGS } from "@/lib/voices"
+import { VIBE_TAGS, resolveRoomVoices } from "@/lib/voices"
 import { MessageRenderer } from "@/components/widgets/MessageRenderer"
 import { GroupVoice } from "@/components/widgets/GroupVoice"
 import { TopUpSlider } from "@/components/widgets/TopUpSlider"
@@ -301,34 +301,45 @@ function RoomContent() {
 
   // Build voice/chat personas — from PERSONALITY_PRESETS, OR from inline definition
   // (workshop seats like Claude/Gemini and invited experts aren't in the preset list).
-  const voicePersonas = allRoomPersonas.map((rp) => {
-    const preset = PERSONALITY_PRESETS.find((p) => p.name === rp.name)
-    const vp: Persona = {
-      name:          rp.name,
-      personality:   rp.personality   ?? preset?.personality   ?? "",
-      speakingStyle: rp.speakingStyle  ?? preset?.speakingStyle ?? "",
-      backstory:     preset?.backstory ?? "",
-      voice:         rp.voice          ?? preset?.voice         ?? "echo",
-      // Honor a character's explicit language; otherwise open in the visitor's
-      // own language (browser locale) instead of forcing English — the biggest
-      // conversion lever for non-English traffic. Presets omit language.
-      language:      (rp as any).language ?? detectLanguage(),
-      warmth:        preset?.defaultWarmth   ?? 60,
-      talkStyle:     preset?.defaultTalkStyle ?? 55,
-      category:      (rp as any).category ?? room?.category ?? preset?.category,
-      model:         rp.model          ?? "local",
-      gender:        rp.gender         ?? preset?.gender        ?? "female",
-      adult:         optionValues.restriction_mode === true ? "yes" : ((rp as any).adult ?? (preset as any)?.adult),
-      vibe_tags:     vibeEdits[rp.name] ?? [],
-      ...( (rp as any).domain ? {
-        // expert-style invited seat: pass expert fields through for kloom_expert
-        domain: (rp as any).domain, expertise: (rp as any).expertise,
-        outputFormat: (rp as any).outputFormat, forbidden: (rp as any).forbidden,
-        tools: (rp as any).tools,
-      } : {}),
-    } as Persona
-    return vp
-  })
+  const voicePersonas: Persona[] = (() => {
+    const built = allRoomPersonas.map((rp) => {
+      const preset = PERSONALITY_PRESETS.find((p) => p.name === rp.name)
+      const vp: Persona = {
+        name:          rp.name,
+        personality:   rp.personality   ?? preset?.personality   ?? "",
+        speakingStyle: rp.speakingStyle  ?? preset?.speakingStyle ?? "",
+        backstory:     preset?.backstory ?? "",
+        voice:         rp.voice          ?? preset?.voice         ?? "echo",
+        // Honor a character's explicit language; otherwise open in the visitor's
+        // own language (browser locale) instead of forcing English — the biggest
+        // conversion lever for non-English traffic. Presets omit language.
+        language:      (rp as any).language ?? detectLanguage(),
+        warmth:        preset?.defaultWarmth   ?? 60,
+        talkStyle:     preset?.defaultTalkStyle ?? 55,
+        category:      (rp as any).category ?? room?.category ?? preset?.category,
+        model:         rp.model          ?? "local",
+        gender:        rp.gender         ?? preset?.gender        ?? "female",
+        adult:         optionValues.restriction_mode === true ? "yes" : ((rp as any).adult ?? (preset as any)?.adult),
+        vibe_tags:     vibeEdits[rp.name] ?? [],
+        ...( (rp as any).domain ? {
+          // expert-style invited seat: pass expert fields through for kloom_expert
+          domain: (rp as any).domain, expertise: (rp as any).expertise,
+          outputFormat: (rp as any).outputFormat, forbidden: (rp as any).forbidden,
+          tools: (rp as any).tools,
+        } : {}),
+      } as Persona
+      // Honor an explicitly-picked catalog voice or a YouTube-cloned voice.
+      const explicit = (rp as any).voiceId ?? (preset as any)?.voiceId
+      if (explicit) (vp as any).voiceId = explicit
+      return vp
+    })
+    // Distinct voice per seat: pins explicit/cloned voices, then assigns the rest
+    // with in-gender collision avoidance so no two characters in the room share a
+    // voice — and stamps the result so /api/tts gets an explicit voiceId per seat.
+    const ids = resolveRoomVoices(built.map((p) => ({ name: p.name, gender: (p as any).gender, voiceId: (p as any).voiceId })))
+    built.forEach((p, i) => { if (ids[i]) (p as any).voiceId = ids[i] })
+    return built
+  })()
 
   const primaryPersona  = voicePersonas[0]
   const partnerPersonas = voicePersonas.slice(1)

@@ -19,6 +19,11 @@ const PROVIDER = (process.env.IMAGE_PROVIDER || "runpod").toLowerCase()
 const RP_KEY   = process.env.RUNPOD_API_KEY || ""
 const RP_IMG   = process.env.RUNPOD_IMAGE_ENDPOINT_ID || "6cpprak5lw3tjt" // SDXL we deployed
 const FAL_KEY  = process.env.FAL_KEY || ""
+// Together AI hosts FLUX.1 — the simplest "real model" path since TOGETHER_API_KEY
+// is already configured. FLUX.1-schnell-Free is free + fast (4 steps).
+const TOGETHER_KEY   = process.env.TOGETHER_API_KEY || ""
+const TOGETHER_MODEL = process.env.TOGETHER_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell-Free"
+const TOGETHER_STEPS = Number(process.env.TOGETHER_IMAGE_STEPS || (TOGETHER_MODEL.includes("schnell") ? "4" : "28"))
 
 const WORLD_STYLE: Record<string, string> = {
   fantasy:        "fantasy film still, elaborate costume, ethereal violet practical lighting, cinematic",
@@ -90,11 +95,34 @@ async function genFal(prompt: string): Promise<Buffer | null> {
   } catch { return null }
 }
 
+// Together AI → FLUX.1. Returns image bytes (or null).
+async function genTogether(prompt: string): Promise<Buffer | null> {
+  if (!TOGETHER_KEY) return null
+  try {
+    const res = await fetch("https://api.together.xyz/v1/images/generations", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOGETHER_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: TOGETHER_MODEL, prompt, width: 768, height: 1024, steps: TOGETHER_STEPS, n: 1, response_format: "b64_json" }),
+      signal: AbortSignal.timeout(45000),
+    })
+    if (!res.ok) return null
+    const d = await res.json()
+    const b64: string = d?.data?.[0]?.b64_json || ""
+    if (b64) return Buffer.from(b64, "base64")
+    const url: string = d?.data?.[0]?.url || ""
+    if (url) { const img = await fetch(url, { signal: AbortSignal.timeout(20000) }); if (img.ok) return Buffer.from(await img.arrayBuffer()) }
+    return null
+  } catch { return null }
+}
+
 export async function POST(request: Request) {
   // Fast path when on-demand photo gen is intentionally off (no funded image
   // provider) — return immediately so the client falls back to the monogram
   // identity card instead of hanging on a dead endpoint.
-  if (PROVIDER === "none" || (PROVIDER === "runpod" && !RP_KEY) || (PROVIDER === "fal" && !FAL_KEY)) {
+  if (PROVIDER === "none"
+      || (PROVIDER === "runpod" && !RP_KEY)
+      || (PROVIDER === "fal" && !FAL_KEY)
+      || (PROVIDER === "together" && !TOGETHER_KEY)) {
     return Response.json({ error: "image generation disabled", disabled: true }, { status: 503 })
   }
   if (!hasAdmin()) return Response.json({ error: "storage unavailable" }, { status: 503 })
@@ -111,7 +139,9 @@ export async function POST(request: Request) {
   if (!name) return Response.json({ error: "name required" }, { status: 400 })
 
   const prompt = buildPrompt(name, gender, world, desc)
-  const bytes = PROVIDER === "fal" ? await genFal(prompt) : await genRunpod(prompt)
+  const bytes = PROVIDER === "together" ? await genTogether(prompt)
+              : PROVIDER === "fal"      ? await genFal(prompt)
+              :                           await genRunpod(prompt)
   if (!bytes || bytes.length < 8000) {
     return Response.json({ error: "generation failed", provider: PROVIDER }, { status: 502 })
   }

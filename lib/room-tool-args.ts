@@ -43,8 +43,8 @@ export const TOOL_INPUTS: Record<string, ToolInput> = {
   kloom_analyze_token_chart:{ arg: "address",    placeholder: "Token contract address…" },
   kloom_generate_code:      { arg: "task",       placeholder: "Describe what to build…" },
   kloom_build_html:         { arg: "description",placeholder: "Describe the page…" },
-  kloom_get_strategy:       { arg: "goal",       placeholder: "Your goal…", fixed: { domain: "general" } },
-  kloom_canva_design:       { arg: "content",    placeholder: "What's the design for…", fixed: { type: "social post" } },
+  kloom_get_strategy:       { arg: "goal",       placeholder: "Your goal…", fixed: { domain: "business" } },
+  kloom_canva_design:       { arg: "content",    placeholder: "What's the design for…", fixed: { type: "instagram-post" } },
   kloom_create_wallet:      { arg: "purpose",    placeholder: "Label (optional)", default: "trading" },
   kloom_build_connector:    { arg: "action",     placeholder: "e.g. Stripe → Slack on new payment", fixed: { from_service: "service A", to_service: "service B" } },
 }

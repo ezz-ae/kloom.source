@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Lobby } from "@/components/airroom/Lobby"
+import { Planet } from "@/components/airroom/Planet"
 
 export const metadata: Metadata = {
   title: { absolute: "AIRRAW — tap a face, talk right now" },
@@ -16,7 +16,8 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "AIRRAW — tap a face, talk right now", description: "Tap any face and talk out loud, in a real voice, right now." },
 }
 
-// AIRRAW — the lobby / ad landing: the open buffet of faces, one tap to talk.
+// AIRRAW — the descent: from orbit, the now is a planet of voices; fall in,
+// through the moods and rooms, down to a single face you can talk to.
 export default function AirrawPage() {
-  return <Lobby />
+  return <Planet />
 }

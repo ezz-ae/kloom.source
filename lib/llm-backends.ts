@@ -118,18 +118,34 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
           frequency_penalty: opts.frequencyPenalty ?? 0.8,
           presence_penalty:  opts.presencePenalty  ?? 0.6,
         }
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${baseKey}` },
-    body:    JSON.stringify({
-      model,
-      messages,
-      temperature: opts.temperature ?? 0.9,
-      max_tokens:  opts.maxTokens   ?? 600,
-      ...antiRepeat,
-      stream:      true,
-    }),
-  })
+  // Reasoning models (MiniMax-M3, DeepSeek-R1, QwQ…) spend tokens "thinking"
+  // BEFORE the answer; a low max_tokens gets entirely eaten by reasoning and
+  // returns EMPTY content (blank voice replies). Give them headroom so the real
+  // reply still lands. Only `content` deltas are streamed below, so the
+  // chain-of-thought never reaches the user.
+  const reasoningHeadroom = /minimax-?m3|deepseek-?r1|\bqwq\b/i.test(model) ? 384 : 0
+  const maxTokens = (opts.maxTokens ?? 600) + reasoningHeadroom
+
+  let res: Response
+  try {
+    res = await fetch(`${baseUrl}/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${baseKey}` },
+      body:    JSON.stringify({
+        model,
+        messages,
+        temperature: opts.temperature ?? 0.9,
+        max_tokens:  maxTokens,
+        ...antiRepeat,
+        stream:      true,
+      }),
+    })
+  } catch (err) {
+    // Endpoint unreachable (e.g. a STOPPED dedicated endpoint). Degrade the
+    // unrestricted tier to the default serverless model instead of dead-ending.
+    if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+    throw err
+  }
   if ((!res.ok || !res.body) && fallbackModel && (res.status === 404 || res.status === 400)) {
     return yield* streamLocal(messages, { ...opts, localModel: fallbackModel })
   }
@@ -142,7 +158,11 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
     if (model !== LOCAL_FALLBACK_MODEL && LOCAL_FALLBACK_MODEL !== defModel) {
       return yield* streamLocal(messages, { ...opts, localModel: LOCAL_FALLBACK_MODEL })
     }
-    throw new Error(`${useUnc ? "uncensored" : "local"} LLM ${res.status}`)
+    // Last resort: a stopped/erroring uncensored endpoint (e.g. the dedicated M3
+    // box scaled down) degrades to the default serverless endpoint, so the
+    // unrestricted tier keeps answering instead of dead-ending.
+    if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+    throw new Error(`local LLM ${res.status}`)
   }
 
   const reader  = res.body.getReader()

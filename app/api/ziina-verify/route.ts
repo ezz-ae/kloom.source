@@ -61,11 +61,14 @@ export async function POST(req: NextRequest) {
         if (kind === "credits" && credits > 0) {
           runningCredits += credits
           await sb.from("kloom_entitlements").update({ credits: runningCredits, updated_at: new Date().toISOString() }).eq("user_id", ent.user_id)
-        } else if (kind !== "credits" && kind !== "unrestricted") {
+        } else if (kind === "unrestricted") {
+          // $10 / 30-day no-restriction unlock — server-persisted so it can't be
+          // forged in localStorage (the +18 gates read this through the account).
+          await sb.from("kloom_entitlements").update({ unrestricted_until: new Date(Date.now() + 30 * 24 * 3600_000).toISOString(), updated_at: new Date().toISOString() }).eq("user_id", ent.user_id)
+        } else if (kind !== "credits") {
           const def = PASSES.find((p) => p.id === kind)
           if (def) await sb.from("kloom_entitlements").update({ pass_id: kind, expires_at: new Date(Date.now() + def.durationHours * 3600_000).toISOString(), updated_at: new Date().toISOString() }).eq("user_id", ent.user_id)
         }
-        // 'unrestricted' has no server column yet — the client still persists that one.
       }
       // Server-side Purchase to Meta (reliable) — same event_id the browser fires
       // so Meta de-dupes. Best-effort; never blocks the grant.

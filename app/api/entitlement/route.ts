@@ -28,8 +28,8 @@ export async function GET(request: Request) {
   if (!user) return Response.json({ error: "invalid token" }, { status: 401 })
 
   const admin = getAdminClient()
-  const { data } = await admin.from("kloom_entitlements").select("pass_id,expires_at,credits").eq("user_id", user.id).maybeSingle()
-  return Response.json({ ok: true, entitlement: data ?? { pass_id: null, expires_at: null, credits: 0 } })
+  const { data } = await admin.from("kloom_entitlements").select("pass_id,expires_at,credits,unrestricted_until").eq("user_id", user.id).maybeSingle()
+  return Response.json({ ok: true, entitlement: data ?? { pass_id: null, expires_at: null, credits: 0, unrestricted_until: null } })
 }
 
 export async function POST(request: Request) {

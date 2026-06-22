@@ -141,6 +141,13 @@ export async function hydrateEntitlement(): Promise<void> {
         localStorage.setItem("kloom_pass", JSON.stringify({ id: entitlement.pass_id, expiresAt: Date.now() + remainingMs }))
       } catch { /* ignore */ }
     }
+    // Mirror the SERVER-persisted Unrestricted unlock so the synchronous +18 gates
+    // reflect real paid state (and expire with the server's timestamp). A forged
+    // localStorage flag is overwritten by the server truth on every load.
+    try {
+      const u = entitlement?.unrestricted_until
+      localStorage.setItem("kloom_unrestricted", u && Date.parse(u) > Date.now() ? "1" : "0")
+    } catch { /* ignore */ }
     try { localStorage.setItem(CREDITS_KEY, String(Math.max(0, Math.round(entitlement?.credits ?? 0)))) } catch { /* ignore */ }
   } catch { /* offline — local state stands */ }
 }

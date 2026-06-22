@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { getPaymentIntent } from "@/lib/ziina"
+import { PASSES } from "@/lib/pricing"
 
 export const runtime = "nodejs"
 
@@ -28,6 +29,12 @@ export async function POST(req: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(8)
 
+  // The buyer's entitlement row (seeded at signup, keyed by email). We grant into
+  // it SERVER-SIDE right after the atomic claim, so a flaky client can never strand
+  // a paid charge (the old flow granted client-side after a network round-trip).
+  const { data: ent } = await sb.from("kloom_entitlements").select("user_id,credits").eq("email", wallet).maybeSingle()
+  let runningCredits = Number(ent?.credits) || 0
+
   const grants: { credits: number; kind: string }[] = []
   for (const row of rows ?? []) {
     try {
@@ -42,7 +49,20 @@ export async function POST(req: NextRequest) {
         .select("id")
         .maybeSingle()
       if (!claimed) continue
-      grants.push({ credits: Number(row.credits) || 0, kind: String(row.kind || "credits") })
+      const credits = Number(row.credits) || 0
+      const kind = String(row.kind || "credits")
+      // Grant into kloom_entitlements here — the store the voice paywall reads.
+      if (ent?.user_id) {
+        if (kind === "credits" && credits > 0) {
+          runningCredits += credits
+          await sb.from("kloom_entitlements").update({ credits: runningCredits, updated_at: new Date().toISOString() }).eq("user_id", ent.user_id)
+        } else if (kind !== "credits" && kind !== "unrestricted") {
+          const def = PASSES.find((p) => p.id === kind)
+          if (def) await sb.from("kloom_entitlements").update({ pass_id: kind, expires_at: new Date(Date.now() + def.durationHours * 3600_000).toISOString(), updated_at: new Date().toISOString() }).eq("user_id", ent.user_id)
+        }
+        // 'unrestricted' has no server column yet — the client still persists that one.
+      }
+      grants.push({ credits, kind })
     } catch { /* skip this one, try the next */ }
   }
 

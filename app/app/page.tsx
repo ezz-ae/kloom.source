@@ -12,7 +12,7 @@ import { CATEGORY_META, CATEGORY_ORDER } from "@/lib/category-meta"
 import { listCustomRooms } from "@/lib/custom-rooms"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
-import { currentEmail, hydrateEntitlement, grantCredits, completePassPurchase } from "@/lib/auth"
+import { currentEmail, hydrateEntitlement } from "@/lib/auth"
 import { PASSES, usdForMinutes } from "@/lib/pricing"
 import { setUnrestricted } from "@/lib/account"
 import { track } from "@/lib/track"
@@ -53,14 +53,15 @@ export default function HubPage() {
           const { grants } = await res.json().catch(() => ({ grants: [] }))
           let applied = false
           for (const g of grants ?? []) {
+            applied = true
+            // credits + passes are already granted server-side in ziina-verify;
+            // here we only report the conversion and persist the client-only flag.
             if (g.kind === "credits" && g.credits > 0) {
-              await grantCredits(g.credits); applied = true
               try { track("purchase", { value: usdForMinutes(g.credits), currency: "USD", method: "ziina", kind: "credits" }) } catch { /* */ }
             } else if (g.kind === "unrestricted") {
-              setUnrestricted(true); applied = true
+              setUnrestricted(true)
               try { track("purchase", { value: 10, currency: "USD", method: "ziina", kind: "unrestricted" }) } catch { /* */ }
-            } else if (g.kind && g.kind !== "credits") {
-              await completePassPurchase(g.kind); applied = true
+            } else if (g.kind) {
               try { track("purchase", { value: PASSES.find((x) => x.id === g.kind)?.priceUsd ?? 0, currency: "USD", method: "ziina", kind: g.kind }) } catch { /* */ }
             }
           }

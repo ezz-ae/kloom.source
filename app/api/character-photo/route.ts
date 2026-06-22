@@ -22,7 +22,7 @@ const FAL_KEY  = process.env.FAL_KEY || ""
 // Together AI hosts FLUX.1 — the simplest "real model" path since TOGETHER_API_KEY
 // is already configured. FLUX.1-schnell-Free is free + fast (4 steps).
 const TOGETHER_KEY   = process.env.TOGETHER_API_KEY || ""
-const TOGETHER_MODEL = process.env.TOGETHER_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell-Free"
+const TOGETHER_MODEL = process.env.TOGETHER_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
 const TOGETHER_STEPS = Number(process.env.TOGETHER_IMAGE_STEPS || (TOGETHER_MODEL.includes("schnell") ? "4" : "28"))
 
 const WORLD_STYLE: Record<string, string> = {

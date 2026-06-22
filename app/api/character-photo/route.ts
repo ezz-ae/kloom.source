@@ -102,17 +102,19 @@ async function genTogether(prompt: string): Promise<Buffer | null> {
     const res = await fetch("https://api.together.xyz/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${TOGETHER_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: TOGETHER_MODEL, prompt, width: 768, height: 1024, steps: TOGETHER_STEPS, n: 1, response_format: "b64_json" }),
+      // Together returns a hosted URL by default; that's the most compatible path.
+      body: JSON.stringify({ model: TOGETHER_MODEL, prompt, width: 768, height: 1024, steps: TOGETHER_STEPS, n: 1 }),
       signal: AbortSignal.timeout(45000),
     })
-    if (!res.ok) return null
+    if (!res.ok) { console.error("together image error", res.status, (await res.text()).slice(0, 300)); return null }
     const d = await res.json()
+    const url: string = d?.data?.[0]?.url || ""
+    if (url) { const img = await fetch(url, { signal: AbortSignal.timeout(25000) }); if (img.ok) return Buffer.from(await img.arrayBuffer()) }
     const b64: string = d?.data?.[0]?.b64_json || ""
     if (b64) return Buffer.from(b64, "base64")
-    const url: string = d?.data?.[0]?.url || ""
-    if (url) { const img = await fetch(url, { signal: AbortSignal.timeout(20000) }); if (img.ok) return Buffer.from(await img.arrayBuffer()) }
+    console.error("together image: no url/b64 in response", JSON.stringify(d).slice(0, 300))
     return null
-  } catch { return null }
+  } catch (e) { console.error("together image threw", e instanceof Error ? e.message : String(e)); return null }
 }
 
 export async function POST(request: Request) {

@@ -43,6 +43,11 @@ export const metadata: Metadata = {
   description: DESC,
   applicationName: NAME,
   generator: NAME,
+  // Meta Business domain verification (paste the code from Business Settings →
+  // Brand Safety → Domains). No-op until NEXT_PUBLIC_FB_DOMAIN_VERIFY is set.
+  ...(process.env.NEXT_PUBLIC_FB_DOMAIN_VERIFY
+    ? { other: { "facebook-domain-verification": process.env.NEXT_PUBLIC_FB_DOMAIN_VERIFY } }
+    : {}),
   keywords: AIRRAW
     ? ["live voice chat", "AI voice", "talk to AI", "voice lounge", "AI characters", "voice AI", "AIRRAW", "it's the now"]
     : [

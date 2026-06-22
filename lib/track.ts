@@ -28,14 +28,15 @@ const STD: Record<string, { fb?: string; tt?: string; ga?: string }> = {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function track(event: string, props: Props = {}) {
+export function track(event: string, props: Props = {}, eventId?: string) {
   if (typeof window === "undefined") return
   const w = window as any
   const std = STD[event]
   try { (w.dataLayer = w.dataLayer || []).push({ event, ...props }) } catch { /* */ }
   try {
     if (typeof w.fbq === "function") {
-      if (std?.fb) w.fbq("track", std.fb, props)
+      // eventId is shared with the server-side Conversions API event → Meta de-dupes.
+      if (std?.fb) w.fbq("track", std.fb, props, eventId ? { eventID: eventId } : undefined)
       w.fbq("trackCustom", event, props)
     }
   } catch { /* */ }

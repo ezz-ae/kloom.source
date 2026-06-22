@@ -11,7 +11,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { getPaymentIntent } from "@/lib/ziina"
-import { PASSES } from "@/lib/pricing"
+import { PASSES, usdForMinutes } from "@/lib/pricing"
+import { metaPurchase } from "@/lib/meta-capi"
 
 export const runtime = "nodejs"
 
@@ -35,7 +36,11 @@ export async function POST(req: NextRequest) {
   const { data: ent } = await sb.from("kloom_entitlements").select("user_id,credits").eq("email", wallet).maybeSingle()
   let runningCredits = Number(ent?.credits) || 0
 
-  const grants: { credits: number; kind: string }[] = []
+  // For the Conversions API server-side Purchase event.
+  const ua = req.headers.get("user-agent") || undefined
+  const ip = ((req.headers.get("x-real-ip") || (req.headers.get("x-forwarded-for") || "").split(",")[0]) || "").trim() || undefined
+
+  const grants: { credits: number; kind: string; eventId: string }[] = []
   for (const row of rows ?? []) {
     try {
       const intent = await getPaymentIntent(row.id)
@@ -62,7 +67,13 @@ export async function POST(req: NextRequest) {
         }
         // 'unrestricted' has no server column yet — the client still persists that one.
       }
-      grants.push({ credits, kind })
+      // Server-side Purchase to Meta (reliable) — same event_id the browser fires
+      // so Meta de-dupes. Best-effort; never blocks the grant.
+      const value = kind === "credits" ? usdForMinutes(credits)
+                  : kind === "unrestricted" ? 10
+                  : (PASSES.find((p) => p.id === kind)?.priceUsd ?? 0)
+      metaPurchase({ value, currency: "USD", email: wallet, eventId: String(row.id), clientIp: ip, userAgent: ua }).catch(() => {})
+      grants.push({ credits, kind, eventId: String(row.id) })
     } catch { /* skip this one, try the next */ }
   }
 

@@ -57,12 +57,12 @@ export default function HubPage() {
             // credits + passes are already granted server-side in ziina-verify;
             // here we only report the conversion and persist the client-only flag.
             if (g.kind === "credits" && g.credits > 0) {
-              try { track("purchase", { value: usdForMinutes(g.credits), currency: "USD", method: "ziina", kind: "credits" }) } catch { /* */ }
+              try { track("purchase", { value: usdForMinutes(g.credits), currency: "USD", method: "ziina", kind: "credits" }, g.eventId) } catch { /* */ }
             } else if (g.kind === "unrestricted") {
               setUnrestricted(true)
-              try { track("purchase", { value: 10, currency: "USD", method: "ziina", kind: "unrestricted" }) } catch { /* */ }
+              try { track("purchase", { value: 10, currency: "USD", method: "ziina", kind: "unrestricted" }, g.eventId) } catch { /* */ }
             } else if (g.kind) {
-              try { track("purchase", { value: PASSES.find((x) => x.id === g.kind)?.priceUsd ?? 0, currency: "USD", method: "ziina", kind: g.kind }) } catch { /* */ }
+              try { track("purchase", { value: PASSES.find((x) => x.id === g.kind)?.priceUsd ?? 0, currency: "USD", method: "ziina", kind: g.kind }, g.eventId) } catch { /* */ }
             }
           }
           await hydrateEntitlement()

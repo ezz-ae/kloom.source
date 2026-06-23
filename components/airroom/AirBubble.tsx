@@ -68,6 +68,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const segRef = useRef<SpeechSegmenter | null>(null)   // hands-free recorder (iOS-proof)
   const hfRef = useRef(false)
   const talkedRef = useRef(false)   // fire onTalked once, on the first thing the user says
+  const speakTokenRef = useRef(0)   // serialize TTS — a new line invalidates the previous one's resume
+  const pendingRef = useRef<string | null>(null)   // an utterance heard while the host was replying — sent after
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
@@ -78,24 +80,32 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   const speak = async (text: string) => {
     if (mutedRef.current) return   // muted: skip the voice (the words still arrive)
+    const tok = ++speakTokenRef.current   // a newer line supersedes this one
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId }),
+        signal: AbortSignal.timeout(30000),
       })
-      if (!res.ok) return
+      if (!res.ok || tok !== speakTokenRef.current) return   // failed or superseded
       const url = URL.createObjectURL(await res.blob())
       const a = audioRef.current
-      if (a) {
-        hostSpeakingRef.current = true            // don't transcribe the host's own voice
-        setSpeaking(true)                          // pulse the call ring while they talk
-        try { segRef.current?.abort() } catch { /* */ }   // pause the live mic while the host speaks (no echo loop)
-        const resume = () => { hostSpeakingRef.current = false; setSpeaking(false); if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } } }
-        a.onended = resume
-        a.src = url
-        await a.play().catch(resume)              // play blocked → don't strand the mic paused
+      if (!a || tok !== speakTokenRef.current) { URL.revokeObjectURL(url); return }
+      hostSpeakingRef.current = true            // don't transcribe the host's own voice
+      setSpeaking(true)                          // pulse the call ring while they talk
+      try { segRef.current?.abort() } catch { /* */ }   // pause the live mic while the host speaks (no echo loop)
+      // Only the LATEST line is allowed to reopen the mic — a stale resume (from a
+      // line that got interrupted by a newer one) must not flip state mid-playback.
+      const resume = () => {
+        URL.revokeObjectURL(url)
+        if (tok !== speakTokenRef.current) return
+        hostSpeakingRef.current = false; setSpeaking(false)
+        if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } }
       }
-    } catch { hostSpeakingRef.current = false; setSpeaking(false) }
+      a.onended = resume
+      a.src = url
+      await a.play().catch(resume)              // play blocked/interrupted → don't strand the mic paused
+    } catch { if (tok === speakTokenRef.current) { hostSpeakingRef.current = false; setSpeaking(false); if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } } } }
   }
 
   useEffect(() => { speak(cluster.lines[0]) }, []) // greet on open
@@ -123,6 +133,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       setTrouble(true) // network drop — show retry rather than fabricating a reply
     } finally {
       busyRef.current = false; setBusy(false)
+      // Anything the user said while the host was replying is sent now, not lost.
+      const p = pendingRef.current
+      if (p) { pendingRef.current = null; setTimeout(() => send(p), 0) }
     }
   }
 
@@ -182,7 +195,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         const r = e.results?.[e.results.length - 1]
         if (!r || !r.isFinal) return
         const t = r[0]?.transcript?.trim()
-        if (t && !hostSpeakingRef.current && !busyRef.current) send(t)
+        if (t && !hostSpeakingRef.current) { if (busyRef.current) pendingRef.current = t; else send(t) }
       }
       rec.onerror = (ev: any) => { if (ev?.error === "not-allowed" || ev?.error === "service-not-allowed") setHandsFree(false) }
       rec.onend = () => { if (!stopped) { try { rec.start() } catch { /* */ } } }
@@ -200,7 +213,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       seg = new SpeechSegmenter({
         stream,
         getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
-        onText: (t) => { if (!hostSpeakingRef.current && !busyRef.current) send(t) },
+        onText: (t) => { if (hostSpeakingRef.current) return; if (busyRef.current) { pendingRef.current = t; return } send(t) },
         // No STT key / model access → fall back to the browser recognizer.
         onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!cancelled) startBrowserFallback() },
       })

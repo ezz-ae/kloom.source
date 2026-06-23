@@ -204,7 +204,9 @@ export class SpeechSegmenter {
       form.append("file", blob, `utterance.${ext}`)
       const lang = this.opts.getLanguage?.()
       if (lang) form.append("language", lang)
-      const res = await fetch("/api/stt", { method: "POST", body: form })
+      // Generous timeout: the server STT worker can cold-start (~20s). Past that,
+      // give up on this utterance rather than hang the live call forever.
+      const res = await fetch("/api/stt", { method: "POST", body: form, signal: AbortSignal.timeout(35000) })
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "" }))
         const msg = error || `Transcription failed (${res.status})`

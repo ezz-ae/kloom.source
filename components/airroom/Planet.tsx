@@ -399,20 +399,19 @@ export function Planet() {
               if (fs[0] < -40 || fs[1] < -40 || fs[0] > W + 40 || fs[1] > H + 40) continue
               const r = Math.max(2, m2 * 0.0040), fdc = Math.hypot(fs[0] - W / 2, fs[1] - H / 2)
               if (r > 2.2 && fdc < best) { best = fdc; act = { c, x: fx, y: fy, seed: fh } }
-              const fhue = co.h + (ifrac(fh) * 26 - 13), rad = Math.min(r * 0.3, 10 * DPR)
+              const fhue = co.h + (ifrac(fh) * 26 - 13)
+              const ball = () => { ctx.beginPath(); ctx.arc(fs[0], fs[1], r, 0, 6.283) }   // faces are round balls — no name labels
               if (r > 17 && !locked) {
                 const ch = charFor(fh, c), im = faceFor(ch)
-                if (im) { ctx.save(); rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.clip(); ctx.drawImage(im, fs[0] - r, fs[1] - r, r * 2, r * 2); ctx.restore(); ctx.strokeStyle = `hsla(${fhue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.stroke() }
-                else { ctx.fillStyle = `hsl(${fhue},70%,60%)`; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.fill() }
-                if (r > 34) { ctx.fillStyle = "rgba(238,244,248,.92)"; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, r * 0.34) * DPR}px ${FF}`; ctx.fillText(ch.host, fs[0], fs[1] + r + 13 * DPR); ctx.textAlign = "left" }
+                if (im) { ctx.save(); ball(); ctx.clip(); ctx.drawImage(im, fs[0] - r, fs[1] - r, r * 2, r * 2); ctx.restore(); ctx.strokeStyle = `hsla(${fhue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; ball(); ctx.stroke() }
+                else { ctx.fillStyle = `hsl(${fhue},70%,60%)`; ball(); ctx.fill() }
                 // AIR: a gold pulse rings your best matches
                 if (airOn && ifrac(ihash(fh, 99)) > 0.82) {
                   const g = 4 * DPR, pulse = 0.5 + 0.5 * Math.sin(t * 4.5 + fh)
                   ctx.strokeStyle = `rgba(255,206,122,${0.5 + 0.45 * pulse})`; ctx.lineWidth = 3 * DPR
-                  rrect(fs[0] - r - g, fs[1] - r - g, (r + g) * 2, (r + g) * 2, rad + g); ctx.stroke()
-                  if (r > 24) { ctx.fillStyle = "rgba(255,214,140,.96)"; ctx.textAlign = "center"; ctx.font = `600 ${Math.min(11, r * 0.28) * DPR}px ${FF}`; ctx.fillText("✦ match", fs[0], fs[1] - r - 9 * DPR); ctx.textAlign = "left" }
+                  ctx.beginPath(); ctx.arc(fs[0], fs[1], r + g, 0, 6.283); ctx.stroke()
                 }
-              } else { ctx.fillStyle = `hsl(${fhue},72%,62%)`; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, Math.max(1, r * 0.3)); ctx.fill() }
+              } else { ctx.fillStyle = `hsl(${fhue},72%,62%)`; ball(); ctx.fill() }
             }
           } else {
             ctx.fillStyle = `hsla(${co.h},55%,${cam.s < 8 ? 24 : 32}%,${cam.s < 8 ? 0.20 : 0.36})`

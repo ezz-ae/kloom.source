@@ -69,6 +69,43 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
   const [banter, setBanter] = useState<string>(`${name.toLowerCase()} racks the pieces… "sit. let's see what you've got."`)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const banterTok = useRef(0)
+  const engineRef = useRef<{ worker: Worker; ready: boolean; resolve: ((m: string | null) => void) | null } | null>(null)
+
+  // Load Stockfish (self-contained asm.js) as a CDN blob worker — a genuinely
+  // strong opponent. UCI Skill Level keeps it a fair fight, not brutal. Falls back
+  // to the built-in negamax if the engine can't load.
+  useEffect(() => {
+    let dead = false
+    fetch("https://cdn.jsdelivr.net/npm/stockfish.js@10.0.2/stockfish.js")
+      .then((r) => r.text())
+      .then((code) => {
+        if (dead) return
+        const worker = new Worker(URL.createObjectURL(new Blob([code], { type: "application/javascript" })))
+        const eng = { worker, ready: false, resolve: null as null | ((m: string | null) => void) }
+        worker.onmessage = (e: MessageEvent) => {
+          const line = typeof e.data === "string" ? e.data : (e.data && e.data.data) || ""
+          if (line === "uciok") worker.postMessage("isready")
+          else if (line === "readyok") eng.ready = true
+          else if (typeof line === "string" && line.startsWith("bestmove")) {
+            const mv = line.split(" ")[1]; const r = eng.resolve; eng.resolve = null; if (r) r(mv || null)
+          }
+        }
+        worker.postMessage("uci")
+        worker.postMessage("setoption name Skill Level value 14")
+        engineRef.current = eng
+      })
+      .catch(() => { /* CDN blocked → negamax fallback */ })
+    return () => { dead = true; try { engineRef.current?.worker.terminate() } catch { /* */ } engineRef.current = null }
+  }, [])
+
+  const stockfishMove = (fen: string, movetime = 700): Promise<string | null> => new Promise((resolve) => {
+    const eng = engineRef.current
+    if (!eng || !eng.ready) return resolve(null)
+    eng.resolve = resolve
+    eng.worker.postMessage("position fen " + fen)
+    eng.worker.postMessage("go movetime " + movetime)
+    setTimeout(() => { if (eng.resolve === resolve) { eng.resolve = null; resolve(null) } }, movetime + 3000)
+  })
 
   const speak = useCallback(async (text: string) => {
     const tok = ++banterTok.current
@@ -107,15 +144,19 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
     return false
   }, [quip])
 
-  const aiMove = useCallback(() => {
+  const aiMove = useCallback(async () => {
     const g = gameRef.current
     if (g.isGameOver()) return
     setThinking(true)
-    setTimeout(() => {
-      const m = bestMove(g, 3)
-      if (m) { const res = g.move(m); sync(); setThinking(false); if (!afterMove(res.captured, g.isCheck())) setStatus("your move") }
-      else setThinking(false)
-    }, 220)
+    let res: ReturnType<Chess["move"]> | null = null
+    const uci = await stockfishMove(g.fen(), 700).catch(() => null)   // strong: Stockfish
+    if (uci && uci.length >= 4 && uci !== "(none)") {
+      try { res = g.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: ((uci[4] || "q") as "q" | "r" | "b" | "n") }) } catch { res = null }
+    }
+    if (!res) { const m = bestMove(g, 3); if (m) { try { res = g.move(m) } catch { res = null } } }   // fallback: built-in negamax
+    sync(); setThinking(false)
+    if (res && !afterMove(res.captured, g.isCheck())) setStatus("your move")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [afterMove])
 
   const onSquare = (sq: Square) => {

@@ -262,9 +262,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </span>
           <span style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{muted ? "muted · text only" : "on air · just you two"}</span>
         </div>
-        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }} aria-label={muted ? "unmute" : "mute"} style={{ width: 44, height: 44, borderRadius: 12, fontSize: 12, fontWeight: 500, color: muted ? "#ffb59c" : "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{muted ? "🔇" : "🔊"}</button>
-          <button onClick={onClose} aria-label="leave" style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "10px 14px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
+        <div style={{ flex: "0 0 auto" }}>
+          <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }} aria-label={muted ? "unmute" : "mute"} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 44, padding: "0 14px", borderRadius: 12, fontSize: 13, fontWeight: 500, color: muted ? "#ffb59c" : "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{muted ? "🔇 muted" : "🔊 sound"}</button>
         </div>
       </div>
 
@@ -276,7 +275,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       )}
 
       {/* the call — big portrait, name, status, and the latest line (the words keep being written) */}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "4px 24px" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-evenly", gap: 8, padding: "14px 24px 6px" }}>
         <div style={{ position: "relative", width: "min(54vw, 210px)", aspectRatio: "1" }}>
           {speaking && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: "2px solid #7fd6c0", animation: "airpulse 1.5s ease-out infinite" }} />}
           <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${speaking ? "rgba(127,214,192,.7)" : "rgba(127,214,192,.32)"}`, boxShadow: "0 22px 70px -22px rgba(127,214,192,.55)" }}>
@@ -304,14 +303,14 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       </div>
 
       {/* the options bar — voice-first controls */}
-      <div style={{ padding: "8px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))" }}>
-        <div style={{ fontSize: 11, color: micHint ? "#ffb59c" : (listening || handsFree) ? "#7fd6c0" : "#7f93a5", marginBottom: 12, textAlign: "center", minHeight: 14 }}>
+      <div style={{ flexShrink: 0, padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 26px) max(18px, env(safe-area-inset-right))" }}>
+        <div style={{ fontSize: 11, color: micHint ? "#ffb59c" : (listening || handsFree) ? "#7fd6c0" : "#7f93a5", marginBottom: 16, textAlign: "center", minHeight: 14 }}>
           {micHint || (sttOk ? (handsFree ? "live — mic's open · tap the mic to stop" : "tap to talk · double-tap to go hands-free") : "tap the keypad to type")}
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28 }}>
           <button onClick={() => setChatOpen(true)} aria-label="open the text / type" style={optBtn}>text</button>
-          <button onClick={sttOk ? onTalk : () => setChatOpen(true)} aria-label={sttOk ? "talk" : "type"} style={{ width: 78, height: 78, borderRadius: "50%", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 16, color: (handsFree || listening) ? "#06201a" : "#1a0d08", background: handsFree ? "#7fd6c0" : listening ? "#bfe9d8" : "#ef7a4d", boxShadow: handsFree ? "0 14px 40px -12px rgba(127,214,192,.65)" : "0 14px 40px -12px rgba(239,122,77,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .15s" }}>{!sttOk ? "type" : handsFree ? "live" : listening ? "stop" : "talk"}</button>
-          <button onClick={onClose} aria-label="end the call" style={{ ...optBtn, background: "rgba(224,82,75,.18)", borderColor: "rgba(224,82,75,.5)", color: "#ff9d96" }}>end</button>
+          <button onClick={sttOk ? onTalk : () => setChatOpen(true)} aria-label={sttOk ? "talk" : "type"} style={{ width: 84, height: 84, borderRadius: "50%", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 16, color: (handsFree || listening) ? "#06201a" : "#1a0d08", background: handsFree ? "#7fd6c0" : listening ? "#bfe9d8" : "#ef7a4d", boxShadow: handsFree ? "0 14px 40px -12px rgba(127,214,192,.65)" : "0 14px 40px -12px rgba(239,122,77,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .15s" }}>{!sttOk ? "type" : handsFree ? "live" : listening ? "stop" : "talk"}</button>
+          <button onClick={onClose} aria-label="leave the call" style={{ ...optBtn, background: "rgba(224,82,75,.2)", borderColor: "rgba(224,82,75,.5)", color: "#ff9d96" }}>leave</button>
         </div>
       </div>
 

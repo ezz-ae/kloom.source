@@ -67,8 +67,18 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
   const [status, setStatus] = useState("your move — you're white")
   const [thinking, setThinking] = useState(false)
   const [banter, setBanter] = useState<string>(`${name.toLowerCase()} racks the pieces… "sit. let's see what you've got."`)
+  // talk-while-playing: a chat you can open over the lower screen without leaving the board
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chat, setChat] = useState<{ who: "you" | "kai"; text: string }[]>([])
+  const [chatInput, setChatInput] = useState("")
+  const [chatBusy, setChatBusy] = useState(false)
+  const [chatListen, setChatListen] = useState(false)
+  const chatRef = useRef<{ who: "you" | "kai"; text: string }[]>([])
+  const chatScrollRef = useRef<HTMLDivElement | null>(null)
+  const chatRecRef = useRef<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const banterTok = useRef(0)
+  const pushChat = (who: "you" | "kai", text: string) => { const n = [...chatRef.current, { who, text }]; chatRef.current = n; setChat(n); setTimeout(() => chatScrollRef.current?.scrollTo({ top: 1e9 }), 0) }
   const engineRef = useRef<{ worker: Worker; ready: boolean; resolve: ((m: string | null) => void) | null } | null>(null)
 
   // Load Stockfish (self-contained asm.js) as a CDN blob worker — a genuinely
@@ -128,9 +138,36 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
       const rd = res.body.getReader(); const dec = new TextDecoder(); let full = ""
       for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) }
       full = full.trim()
-      if (full) { setBanter(full); speak(full) }
+      if (full) { setBanter(full); pushChat("kai", full); speak(full) }
     } catch { /* */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, speak])
+
+  // chat to the house while you play — text or voice, the board keeps going
+  const sendChat = async (override?: string) => {
+    const text = (override ?? chatInput).trim()
+    if (!text || chatBusy) return
+    setChatInput(""); pushChat("you", text); setChatBusy(true)
+    try {
+      const persona = { name, personality: `You are ${name}, a cocky, playful chess hustler mid-game against this person. Talk WITH them — banter, smack talk, dares, but you can hold a real conversation too. Keep it to one or two short spoken lines. Never list chess moves.`, speakingStyle: "spoken, cocky, casual", backstory: "", language: "English" }
+      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, messages: chatRef.current.map((m) => ({ role: m.who === "you" ? "user" as const : "assistant" as const, content: m.text })) }) })
+      let full = ""
+      if (res.ok && res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }
+      full = full.trim()
+      if (full) { pushChat("kai", full); setBanter(full); speak(full) }
+    } catch { /* */ } finally { setChatBusy(false) }
+  }
+  const chatTalk = () => {
+    if (chatListen) { try { chatRecRef.current?.stop() } catch { /* */ } setChatListen(false); return }
+    const w = window as any // eslint-disable-line @typescript-eslint/no-explicit-any
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
+    if (!SR) return
+    const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.continuous = false
+    rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setChatListen(false); if (t) sendChat(t) } // eslint-disable-line
+    rec.onerror = () => setChatListen(false); rec.onend = () => setChatListen(false)
+    chatRecRef.current = rec
+    try { rec.start(); setChatListen(true) } catch { setChatListen(false) }
+  }
 
   useEffect(() => { quip("You just sat down across from me to play. Greet me — set the tone."); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [])
 
@@ -181,6 +218,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
   const reset = () => { gameRef.current = new Chess(); setSel(null); setTargets([]); setThinking(false); setStatus("your move — you're white"); sync(); quip("You just reset the board for a rematch. One cocky line.") }
 
   const board = gameRef.current.board()
+  const over = gameRef.current.isGameOver()   // "new game" only earns its spot once the game is done
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"]
   // Board sized by the viewport's SHORT side minus chrome, so it never exceeds the
   // screen in either orientation (the landscape-overflow fix). Glyphs scale off it.
@@ -215,12 +253,33 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
           }))}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
-          <span style={{ color: thinking ? "#7fd6c0" : "#9fb2c4" }}>{thinking ? `${name.toLowerCase()} is thinking…` : status}</span>
-          <button onClick={reset} style={{ fontSize: 13, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 12, padding: "11px 18px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>new game</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 13, minHeight: 44 }}>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: thinking ? "#7fd6c0" : "#9fb2c4" }}>{thinking ? `${name.toLowerCase()} is thinking…` : status}</span>
+          {over
+            ? <button onClick={reset} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 12, padding: "11px 18px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>new game</button>
+            : <button onClick={() => setChatOpen(true)} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "11px 16px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>💬 talk</button>}
         </div>
         <div style={{ fontSize: 12, color: "#6b8092", textAlign: "center" }}>{void fen}you&apos;re white · tap a piece, then a square</div>
       </div>
+      {chatOpen && (
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "min(46vh, 430px)", zIndex: 5, background: "linear-gradient(180deg, rgba(6,7,14,0) 0%, rgba(6,7,14,.96) 20%)", display: "flex", flexDirection: "column", paddingTop: 14, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "0 max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left))" }}>
+            <span style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>talking to {name} · game&apos;s still on</span>
+            <button onClick={() => setChatOpen(false)} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 40, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "8px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↓ board</button>
+          </div>
+          <div ref={chatScrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "4px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {chat.length === 0 && <div style={{ fontSize: 13, color: "#5f7283", textAlign: "center", marginTop: 8 }}>say something to {name.toLowerCase()} while you play…</div>}
+            {chat.map((m, i) => (
+              <div key={i} style={{ alignSelf: m.who === "you" ? "flex-end" : "flex-start", maxWidth: "82%", fontSize: 14.5, lineHeight: 1.4, color: m.who === "you" ? "#0a1622" : "#eef4f8", background: m.who === "you" ? "#cfe0ee" : "rgba(255,255,255,.1)", padding: "8px 12px", borderRadius: 14 }}>{m.text}</div>
+            ))}
+            {chatBusy && <div style={{ alignSelf: "flex-start", fontSize: 12, color: "#7f93a5", fontStyle: "italic" }}>{name.toLowerCase()} is talking…</div>}
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px max(16px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 12px) max(16px, env(safe-area-inset-right))" }}>
+            <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") sendChat() }} placeholder={chatListen ? "listening…" : `talk to ${name.toLowerCase()}…`} style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }} />
+            <button onClick={chatInput.trim() ? () => sendChat() : chatTalk} disabled={chatBusy && !!chatInput.trim()} aria-label={chatInput.trim() ? "send" : "talk"} style={{ flex: "0 0 auto", width: 62, height: 44, borderRadius: 14, fontSize: chatInput.trim() ? 14 : 18, fontWeight: 600, lineHeight: 1, border: "none", cursor: "pointer", color: chatInput.trim() ? "#1a0d08" : (chatListen ? "#06201a" : "#dfeaf2"), background: chatInput.trim() ? "#ef7a4d" : (chatListen ? "#7fd6c0" : "rgba(255,255,255,.12)"), WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{chatInput.trim() ? "send" : (chatListen ? "•••" : "🎙")}</button>
+          </div>
+        </div>
+      )}
       <audio ref={audioRef} style={{ display: "none" }} />
     </div>
   )

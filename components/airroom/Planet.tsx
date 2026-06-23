@@ -20,6 +20,7 @@ import { imageFor } from "@/lib/persona-utils"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { RoomCard, type RoomPreview } from "@/components/airroom/RoomCard"
+import { isPro } from "@/lib/airroom/pro"
 import { startAmbience, setAmbienceDepth, setAmbienceMuted, stopAmbience } from "@/lib/airroom/ambience"
 import { track } from "@/lib/airraw/track"
 
@@ -88,6 +89,8 @@ export function Planet() {
   const startedRef = useRef(false)
   const startFnRef = useRef<() => void>(() => {})
   const openingRef = useRef("")
+  const [pro] = useState(() => isPro())   // paid: the AIR pulse lights up your best matches
+  const airTrig = useRef(0)
   useEffect(() => { verifiedRef.current = verified }, [verified])
   useEffect(() => { const inCall = !!selected || !!group; inCallRef.current = inCall; try { setAmbienceMuted(inCall) } catch { /* */ } }, [selected, group])
 
@@ -172,6 +175,7 @@ export function Planet() {
     const stars = Array.from({ length: 160 }, (_, s) => ({ x: rnd(s * 3 + 1), y: rnd(s * 7 + 2), r: rnd(s * 5) * 1.1 + 0.2, ph: rnd(s) * 6.28 }))
     let t = 0, raf = 0, audioStarted = false, frameN = 0
     let pickedNode: { c: number; seed: number } | null = null, candId = -1, candAt = 0, spokenId = -1
+    let airEnd = 0, lastAirTrig = 0   // AIR pulse: lights your best matches for a few seconds
     let lastHud = ""
 
     const resize = () => { const r = cv.getBoundingClientRect(); cv.width = Math.max(1, r.width * DPR); cv.height = Math.max(1, r.height * DPR) }
@@ -233,6 +237,8 @@ export function Planet() {
 
     const loop = () => {
       raf = requestAnimationFrame(loop); t += 0.016; frameN++
+      if (airTrig.current !== lastAirTrig) { lastAirTrig = airTrig.current; airEnd = t + 4.5 }
+      const airOn = t < airEnd
       cam.x += (tgt.x - cam.x) * 0.15; cam.y += (tgt.y - cam.y) * 0.15; cam.s += (tgt.s - cam.s) * 0.15
       if (frameN % 18 === 0) { try { setAmbienceDepth(cam.s) } catch { /* */ } }
       const W = cv.width, H = cv.height
@@ -300,6 +306,13 @@ export function Planet() {
                 if (im) { ctx.save(); rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.clip(); ctx.drawImage(im, fs[0] - r, fs[1] - r, r * 2, r * 2); ctx.restore(); ctx.strokeStyle = `hsla(${fhue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.stroke() }
                 else { ctx.fillStyle = `hsl(${fhue},70%,60%)`; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.fill() }
                 if (r > 34) { ctx.fillStyle = "rgba(238,244,248,.92)"; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, r * 0.34) * DPR}px ${FF}`; ctx.fillText(ch.host, fs[0], fs[1] + r + 13 * DPR); ctx.textAlign = "left" }
+                // AIR: a gold pulse rings your best matches
+                if (airOn && ifrac(ihash(fh, 99)) > 0.82) {
+                  const g = 4 * DPR, pulse = 0.5 + 0.5 * Math.sin(t * 4.5 + fh)
+                  ctx.strokeStyle = `rgba(255,206,122,${0.5 + 0.45 * pulse})`; ctx.lineWidth = 3 * DPR
+                  rrect(fs[0] - r - g, fs[1] - r - g, (r + g) * 2, (r + g) * 2, rad + g); ctx.stroke()
+                  if (r > 24) { ctx.fillStyle = "rgba(255,214,140,.96)"; ctx.textAlign = "center"; ctx.font = `600 ${Math.min(11, r * 0.28) * DPR}px ${FF}`; ctx.fillText("✦ match", fs[0], fs[1] - r - 9 * DPR); ctx.textAlign = "left" }
+                }
               } else { ctx.fillStyle = `hsl(${fhue},72%,62%)`; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, Math.max(1, r * 0.3)); ctx.fill() }
             }
           } else {
@@ -379,6 +392,7 @@ export function Planet() {
 
       {started && (
       <div style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", display: "flex", flexDirection: "column", gap: 8 }}>
+        {pro && <button aria-label="AIR — light up your best matches" onClick={() => { airTrig.current++ }} style={{ width: 44, height: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#3a1e06", background: "linear-gradient(180deg,#ffd98a,#ef9a4d)", boxShadow: "0 6px 20px -6px rgba(255,180,90,.75)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>AIR</button>}
         <button aria-label="descend" onClick={() => zoomFnRef.current(1.6)} style={btn}>+</button>
         <button aria-label="climb" onClick={() => zoomFnRef.current(1 / 1.6)} style={btn}>−</button>
       </div>

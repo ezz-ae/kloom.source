@@ -56,9 +56,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
   const [busy, setBusy] = useState(false)
   const [sttOk, setSttOk] = useState(false)
   const [listening, setListening] = useState(false)
-  const [revealed, setRevealed] = useState(false)
   const [muted, setMuted] = useState(false)         // mute the room's voices (text keeps flowing)
   const [speaking, setSpeaking] = useState(false)   // someone is talking aloud → sound indicator
+  const [humanNote, setHumanNote] = useState(false) // one-time "some people are real" note (first room ever)
   const [pro] = useState(() => isPro())
   const [vibe, setVibe] = useState("")              // pro: steer the room vibe → enforced on the AI
   const [vibeEdit, setVibeEdit] = useState(false)
@@ -82,6 +82,8 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
   useEffect(() => { linesRef.current = lines }, [lines])
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [lines, humans])
   useEffect(() => { const w = window as any; setSttOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, []) // eslint-disable-line
+  useEffect(() => { try { if (!localStorage.getItem("airraw_human_note")) setHumanNote(true) } catch { /* */ } }, [])
+  const dismissHumanNote = () => { setHumanNote(false); try { localStorage.setItem("airraw_human_note", "1") } catch { /* */ } }
 
   const speak = async (text: string, m: Cluster) => {
     if (mutedRef.current) return   // muted: skip the voices (the words still arrive)
@@ -232,6 +234,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
   }
 
   const realOthers = humans.filter((h) => !h.isYou)
+  const hasText = input.trim().length > 0
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
@@ -289,21 +292,23 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
       </div>
 
       <div style={{ padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))", boxSizing: "border-box" }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 9 }}>
-          <button onClick={pass} disabled={busy} aria-label="pass the mic to someone else" style={{ fontSize: 12.5, minHeight: 38, color: "#cfe0ee", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, padding: "8px 15px", cursor: "pointer", opacity: busy ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↦ pass the mic</button>
+        {humanNote && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cfe0ee", background: "rgba(127,214,192,.1)", border: ".5px solid rgba(127,214,192,.25)", borderRadius: 12, padding: "9px 12px", marginBottom: 9 }}>
+            <span style={{ flex: 1, lineHeight: 1.4 }}>some people in here are real — you won&apos;t always know which.</span>
+            <button onClick={dismissHumanNote} style={{ flex: "0 0 auto", fontSize: 12, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 9, padding: "7px 12px", minHeight: 34, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>got it</button>
+          </div>
+        )}
+        {/* pass + vibe — one fixed-height row, never reflows */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", height: 38, marginBottom: 9 }}>
+          <button onClick={pass} disabled={busy} aria-label="pass the mic to someone else" style={{ flex: "0 0 auto", fontSize: 12.5, height: 38, color: "#cfe0ee", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, padding: "0 15px", cursor: "pointer", opacity: busy ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↦ pass the mic</button>
           {(pro || vibe) && (
-            <button onClick={() => pro && setVibeEdit(true)} aria-label="set the room vibe" style={{ fontSize: 12.5, minHeight: 38, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "8px 15px", maxWidth: "62vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: pro ? "pointer" : "default", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ vibe — pro"}</button>
+            <button onClick={() => pro && setVibeEdit(true)} aria-label="set the room vibe" style={{ flex: "0 1 auto", minWidth: 0, fontSize: 12.5, height: 38, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "0 15px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: pro ? "pointer" : "default", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ vibe — pro"}</button>
           )}
         </div>
+        {/* input + ONE morphing button (fixed 66×44, so nothing jumps) — empty = voice, typing = send */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }} placeholder="say something to the room…" style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }} />
-          {sttOk && <button onClick={talkOnce} style={{ fontSize: 13, minHeight: 44, color: listening ? "#06201a" : "#dfeaf2", background: listening ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{listening ? "listening" : "talk"}</button>}
-          <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, minHeight: 44, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>send</button>
-        </div>
-        <div style={{ marginTop: 9, textAlign: "center" }}>
-          {revealed
-            ? <span style={{ fontSize: 12, color: "#9fb2c4" }}>{members.slice(0, 6).map((m) => m.host).join(", ")}{members.length > 6 ? ` and ${members.length - 6} more` : ""} are AI · {realOthers.length > 0 ? `${realOthers.map((h) => h.handle).join(", ")} ${realOthers.length === 1 ? "is" : "are"} a real person` : "the only human here right now is you — when someone real wanders in, they'll appear above, and you won't always know which is which"}</span>
-            : <button onClick={() => setRevealed(true)} style={{ fontSize: 12, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>who in here is human?</button>}
+          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }} placeholder={listening ? "listening…" : "say something to the room…"} style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }} />
+          <button onClick={hasText ? () => send() : (sttOk ? talkOnce : () => send())} disabled={busy && hasText} aria-label={hasText ? "send" : "talk"} style={{ flex: "0 0 auto", width: 66, height: 44, borderRadius: 14, fontSize: hasText ? 14 : 19, fontWeight: 600, lineHeight: 1, border: "none", cursor: "pointer", color: hasText ? "#1a0d08" : (listening ? "#06201a" : "#dfeaf2"), background: hasText ? "#ef7a4d" : (listening ? "#7fd6c0" : "rgba(255,255,255,.12)"), opacity: (busy && hasText) ? 0.6 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{hasText ? "send" : (listening ? "•••" : "🎙")}</button>
         </div>
       </div>
       {vibeEdit && pro && (

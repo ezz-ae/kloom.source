@@ -38,7 +38,6 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
   const [sttOk, setSttOk] = useState(false)
   const [listening, setListening] = useState(false)   // push-to-talk active
   const [handsFree, setHandsFree] = useState(false)    // continuous mode
-  const [revealed, setRevealed] = useState(false)
   const [trouble, setTrouble] = useState(false)     // backend unreachable — show retry, don't fake a reply
   const [speaking, setSpeaking] = useState(false)   // host is talking aloud → pulse the call ring
   const [chatOpen, setChatOpen] = useState(false)   // the words keep being written; this reveals/types them
@@ -282,12 +281,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
           </button>
         )}
         <div style={{ fontSize: 13, color: (listening || handsFree) ? "#7fd6c0" : "#9fb2c4", minHeight: 18 }}>{status}</div>
-        {last && (
-          <div style={{ maxWidth: 430, textAlign: "center" }}>
+        {/* live caption — FIXED height so the portrait/options never jump as lines change */}
+        <div style={{ width: "min(92vw, 430px)", height: 78, textAlign: "center", overflow: "hidden" }}>
+          {last && <>
             <div style={{ fontSize: 11, color: "#5f7283", marginBottom: 5 }}>{last.who === "you" ? "you" : cluster.host}</div>
-            <div style={{ fontSize: 16, lineHeight: 1.5, color: last.who === "you" ? "#bfe9d8" : "#e7eef4" }}>&ldquo;{last.text}&rdquo;</div>
-          </div>
-        )}
+            <div style={{ fontSize: 16, lineHeight: 1.5, color: last.who === "you" ? "#bfe9d8" : "#e7eef4", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden" }}>&ldquo;{last.text}&rdquo;</div>
+          </>}
+        </div>
       </div>
 
       {/* the options bar — voice-first controls */}
@@ -322,11 +322,6 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }} placeholder={`type to ${cluster.host.toLowerCase()}…`} style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }} />
               <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, minHeight: 44, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>send</button>
-            </div>
-            <div style={{ marginTop: 9, textAlign: "center" }}>
-              {revealed
-                ? <span style={{ fontSize: 11, color: "#9fb2c4" }}>{cluster.host} is AI — born the second you opened them. (when real people are on the floor, you won&apos;t always be able to tell.)</span>
-                : <button onClick={() => setRevealed(true)} style={{ fontSize: 11, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>are they human?</button>}
             </div>
           </div>
         </div>

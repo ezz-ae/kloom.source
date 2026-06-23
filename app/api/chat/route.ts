@@ -1,5 +1,6 @@
 // RunPod vLLM calls can be slow (cold worker spin-up); don't let Vercel kill us early.
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
+import { proTokenValid } from "@/lib/airraw-pro-token"
 
 export const maxDuration = 60
 
@@ -35,9 +36,15 @@ export async function POST(request: Request) {
     partners?: Persona[] // for N-AI rooms — replaces single `partner`
     relationship?: string
     messages: ChatMessage[]
+    proVibe?: string     // AIRRAW Pro: a room vibe to enforce — honoured ONLY with a valid Pro token
+    proToken?: string
   }
   try { body = await request.json() } catch { return Response.json({ error: "Bad request" }, { status: 400 }) }
-  const { persona, partner, partners, relationship } = body
+  const { persona, partner, partners, relationship, proVibe, proToken } = body
+  // Pro-only: steer the persona's vibe, but server-side gate it on a real (signed) Pro pass.
+  if (persona && proVibe?.trim() && proTokenValid(proToken)) {
+    persona.personality += ` The person set the vibe for this room: "${proVibe.trim()}". Honor it fully — let it shape your tone, mood and what you talk about.`
+  }
   if (!persona || !Array.isArray(body.messages)) return Response.json({ error: "Missing persona or messages" }, { status: 400 })
   // Length caps — bound the work an anonymous caller can ask the model to do.
   const messages: ChatMessage[] = body.messages.slice(-40).map((m) => ({ role: m.role, content: String(m.content ?? "").slice(0, 4000) }))

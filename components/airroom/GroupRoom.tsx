@@ -17,7 +17,7 @@ import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
 import { imageFor } from "@/lib/persona-utils"
-import { isPro } from "@/lib/airroom/pro"
+import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 
@@ -141,10 +141,10 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     const id = `ai-${humanMsgId}-${idx}`
     if (seen.current.has(id)) return // a peer driver already produced this exact line
     const others = members.filter((x) => x.host !== mem.host).map((x) => x.host).join(", ")
-    const steer = vibeRef.current.trim() ? ` Someone set the room's vibe: "${vibeRef.current.trim()}" — honor it fully in how you talk.` : ""
+    // The Pro "vibe" steer is sent separately and gated server-side on a real Pro token.
     const persona = {
       name: mem.host,
-      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. You are warm, real, human — never a corporate assistant, never robotic. React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.${steer}`,
+      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. You are warm, real, human — never a corporate assistant, never robotic. React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.`,
       speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am", backstory: "", language: langRef.current,
     }
     const msgs = linesRef.current.map((l) => l.kind === "ai" && l.handle === mem.host
@@ -152,7 +152,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       : { role: "user" as const, content: `${l.kind === "human" ? (l.handle === handle ? "newcomer" : l.handle) : l.handle}: ${l.content}` })
     let full = ""
     try {
-      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, messages: msgs }) })
+      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, proVibe: vibeRef.current, proToken: getProToken(), messages: msgs }) })
       if (res.ok && res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }
     } catch { /* */ }
     full = full.trim()

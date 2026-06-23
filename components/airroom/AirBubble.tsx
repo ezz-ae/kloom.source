@@ -12,7 +12,7 @@ import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Cluster } from "@/lib/airroom/roster"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { imageFor } from "@/lib/persona-utils"
-import { isPro } from "@/lib/airroom/pro"
+import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 
@@ -21,12 +21,13 @@ interface Msg { who: "host" | "you"; text: string }
 // the small round "option" controls flanking the mic on the call screen
 const optBtn: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 58, height: 58, borderRadius: "50%", border: ".5px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.08)", color: "#dfeaf2", fontSize: 12, fontWeight: 500, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }
 
-function personaFor(c: Cluster, vibe?: string, lang?: string) {
-  const steer = vibe?.trim() ? ` The person set the vibe for this room: "${vibe.trim()}". Honor it fully — let it shape your tone, mood and what you talk about.` : ""
+function personaFor(c: Cluster, lang?: string) {
+  // The Pro "vibe" steer is NOT baked in here — it's sent as a separate field and
+  // gated server-side on a real Pro token (see /api/chat).
   return {
     language: lang || "English",
     name: c.host,
-    personality: `You are ${c.host}, the ${c.archetype.toLowerCase()} of "${c.name}" on a late-night live voice floor (vibe: ${c.vibe}). You are warm, real, present, unmistakably human — never a corporate assistant, never robotic. Someone just "aired off" into a private one-on-one with you. Keep EVERY reply to one or two short spoken sentences. Match the heat: calm and sharp in the cool rooms, playful and flirty — but classy, never explicit — in the warm and fire rooms.${steer}`,
+    personality: `You are ${c.host}, the ${c.archetype.toLowerCase()} of "${c.name}" on a late-night live voice floor (vibe: ${c.vibe}). You are warm, real, present, unmistakably human — never a corporate assistant, never robotic. Someone just "aired off" into a private one-on-one with you. Keep EVERY reply to one or two short spoken sentences. Match the heat: calm and sharp in the cool rooms, playful and flirty — but classy, never explicit — in the warm and fire rooms.`,
     speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am",
     backstory: `A familiar voice on the ${c.vibe} part of the floor.`,
   }
@@ -106,7 +107,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ persona: personaFor(cluster, vibeRef.current, langRef.current), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
+        body: JSON.stringify({ persona: personaFor(cluster, langRef.current), proVibe: vibeRef.current, proToken: getProToken(), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
       if (!res.ok) { setTrouble(true); return } // surfaced, not swallowed — the user's line stays, retry is offered
       let full = ""

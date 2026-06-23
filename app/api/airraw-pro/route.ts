@@ -1,6 +1,6 @@
 import { createPaymentIntent, getPaymentIntent, usdToMinor, ziinaConfigured } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
-import { createHmac } from "crypto"
+import { mintProToken } from "@/lib/airraw-pro-token"
 
 // AIRRAW Pro — anonymous one-time 30-day pass via Ziina hosted checkout.
 //   POST { action: "checkout" }            → { url, intentId }  (redirect the user to url)
@@ -11,15 +11,7 @@ export const maxDuration = 30
 
 const PRICE_USD = Number(process.env.AIRRAW_PRO_USD || 9)
 const DAYS = Number(process.env.AIRRAW_PRO_DAYS || 30)
-// Sign with a server-only secret already present on the project (no new env needed).
-const SECRET = process.env.AIRRAW_PRO_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "airraw-dev-secret"
 const ORIGIN = process.env.AIRRAW_ORIGIN || "https://airraw.com"
-
-function mintToken(untilMs: number): string {
-  const payload = Buffer.from(JSON.stringify({ until: untilMs, v: 1 })).toString("base64")
-  const sig = createHmac("sha256", SECRET).update(payload).digest("hex")
-  return `${payload}.${sig}`
-}
 
 export async function POST(req: Request) {
   if (!ziinaConfigured()) return Response.json({ error: "payments not configured" }, { status: 503 })
@@ -58,7 +50,7 @@ export async function POST(req: Request) {
         return Response.json({ paid: false, status: "amount_mismatch" })
       }
       const until = Date.now() + DAYS * 86_400_000
-      return Response.json({ paid: true, token: mintToken(until), until })
+      return Response.json({ paid: true, token: mintProToken(until), until })
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : "claim failed" }, { status: 502 })
     }

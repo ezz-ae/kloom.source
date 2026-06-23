@@ -21,6 +21,7 @@ import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { RoomCard, type RoomPreview } from "@/components/airroom/RoomCard"
 import { isPro } from "@/lib/airroom/pro"
+import { detectLanguage, LANGUAGES } from "@/lib/languages"
 import { startAmbience, setAmbienceDepth, setAmbienceMuted, stopAmbience } from "@/lib/airroom/ambience"
 import { track } from "@/lib/airraw/track"
 
@@ -93,6 +94,9 @@ export function Planet() {
   const openingRef = useRef("")
   const [pro] = useState(() => isPro())   // paid: the AIR pulse lights up your best matches
   const airTrig = useRef(0)
+  // the planet speaks your language — detect the visitor's, let them change it
+  const [lang, setLang] = useState("English")
+  useEffect(() => { setLang(detectLanguage()) }, [])
   useEffect(() => { verifiedRef.current = verified }, [verified])
   useEffect(() => { const inCall = !!selected || !!group; inCallRef.current = inCall; try { setAmbienceMuted(inCall) } catch { /* */ } }, [selected, group])
 
@@ -366,6 +370,14 @@ export function Planet() {
     <div style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>
       <canvas ref={cvRef} style={{ display: "block", width: "100%", height: "100%", cursor: "grab" }} />
 
+      {/* the planet speaks your language — pick it any time */}
+      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+        <span style={{ fontSize: 12 }} aria-hidden>🌐</span>
+        <select value={lang} onChange={(e) => setLang(e.target.value)} aria-label="language" style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", color: "#cfe0ee", border: "none", fontSize: 12.5, fontFamily: "inherit", padding: "2px 4px", cursor: "pointer", outline: "none" }}>
+          {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{l.name}</option>)}
+        </select>
+      </div>
+
       {/* The very first view: only sky + a place to write. No boxes yet. */}
       {!started && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
@@ -409,9 +421,9 @@ export function Planet() {
 
       {preview && <RoomCard p={preview} onEnter={() => enterRoom(preview)} onClose={() => setPreview(null)} />}
 
-      {selected && <AirBubble cluster={selected} opening={opening} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening("") }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
+      {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening("") }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 
-      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening("") }} />}
+      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening("") }} />}
 
       {(pending || pendingJoin || nearDeep) && !verified && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,30,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", paddingTop: "max(26px, env(safe-area-inset-top))", paddingBottom: "max(26px, env(safe-area-inset-bottom))", paddingLeft: "max(26px, env(safe-area-inset-left))", paddingRight: "max(26px, env(safe-area-inset-right))", zIndex: 30 }}>

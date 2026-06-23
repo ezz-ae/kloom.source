@@ -18,6 +18,7 @@ import { joinSession, resolveHandle, colorFor, type WireMessage, type Participan
 import { avatarBg } from "@/lib/airroom/avatar"
 import { imageFor } from "@/lib/persona-utils"
 import { isPro } from "@/lib/airroom/pro"
+import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
@@ -40,7 +41,7 @@ function pickResponders(msgId: string, n: number): number[] {
   return [a, b]
 }
 
-export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number; opening?: string }) {
+export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lang = "English" }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number; opening?: string; lang?: string }) {
   // Deterministic cast of N — the same crowd for everyone who enters this room.
   // The zoom level chose N (a 60-voice floor or a 4-voice booth); members spread
   // across a small temperature band around the room so the room has texture.
@@ -66,6 +67,8 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
   const vibeRef = useRef("")
   useEffect(() => { mutedRef.current = muted }, [muted])
   useEffect(() => { vibeRef.current = vibe }, [vibe])
+  const langRef = useRef(lang)
+  useEffect(() => { langRef.current = lang }, [lang])
 
   const linesRef = useRef<WireMessage[]>([])
   const busyRef = useRef(false)
@@ -88,7 +91,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
   const speak = async (text: string, m: Cluster) => {
     if (mutedRef.current) return   // muted: skip the voices (the words still arrive)
     try {
-      const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, gender: m.gender, language: "English", voiceId: m.voiceId }) })
+      const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, gender: m.gender, language: langRef.current, voiceId: m.voiceId }) })
       if (!res.ok) return
       const url = URL.createObjectURL(await res.blob())
       const a = audioRef.current
@@ -140,7 +143,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
     const persona = {
       name: mem.host,
       personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. You are warm, real, human — never a corporate assistant, never robotic. React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.${steer}`,
-      speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am", backstory: "", language: "English",
+      speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am", backstory: "", language: langRef.current,
     }
     const msgs = linesRef.current.map((l) => l.kind === "ai" && l.handle === mem.host
       ? { role: "assistant" as const, content: l.content }
@@ -226,7 +229,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
     const w = window as any // eslint-disable-line @typescript-eslint/no-explicit-any
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     if (!SR) return
-    const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.continuous = false
+    const rec = new SR(); rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"; rec.interimResults = false; rec.continuous = false
     rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setListening(false); if (t) send(t) } // eslint-disable-line
     rec.onerror = () => setListening(false); rec.onend = () => setListening(false)
     recRef.current = rec

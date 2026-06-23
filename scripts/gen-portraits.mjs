@@ -38,7 +38,7 @@ const names = [
 const slug = (s) => s.toLowerCase().replace(/\(.*?\)/g, "").trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
 const hash = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h }
 
-const BASE = "RAW photo, ultra realistic, real human being, detailed natural skin texture with pores and imperfections, looking at camera"
+const BASE = "RAW photo, ultra realistic, real human being, detailed natural skin texture with pores and imperfections, head and shoulders, fully clothed in casual everyday clothes, looking at camera"
 // Different "levels" — most are casual phone/candid shots (real people, not models),
 // a few are cinematic. Rotated deterministically per name.
 const STYLES = [
@@ -52,7 +52,7 @@ const STYLES = [
   "golden hour window light, warm intimate evening ambience, soft glow on skin",
   "moody low-key lighting with warm practical accents, upscale lounge, relaxed confidence, cinematic",
 ]
-const NEG = "cartoon, illustration, 3d render, doll, plastic skin, deformed, text, watermark, nudity, nsfw, child"
+const NEG = "shirtless, bare chest, topless, underwear, lingerie, cleavage, revealing, suggestive, in bed, cartoon, illustration, 3d render, doll, plastic skin, deformed, text, watermark, nudity, nsfw, child"
 // Varied LOOKS — not all gorgeous models. A real spread of ages and ordinary faces.
 const LOOKS_F = ["a strikingly beautiful young woman with captivating eyes", "an average-looking woman, girl-next-door, natural and real", "a cute woman in her late twenties, little to no makeup, light freckles", "a woman in her thirties with a warm relatable face", "a plain but lovely woman, real everyday face", "a stylish woman with an unconventional, interesting face"]
 const LOOKS_M = ["a strikingly handsome man with strong features", "an average-looking guy, everyday relatable face", "a man in his thirties with stubble and a real, warm look", "a regular guy, a little awkward and genuine", "a rugged older man with a character-filled face", "a stylish guy with an unconventional, interesting face"]

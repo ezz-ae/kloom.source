@@ -13,25 +13,26 @@ import type { Cluster } from "@/lib/airroom/roster"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { imageFor } from "@/lib/persona-utils"
 import { isPro } from "@/lib/airroom/pro"
+import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 
 interface Msg { who: "host" | "you"; text: string }
 
 // the small round "option" controls flanking the mic on the call screen
 const optBtn: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 58, height: 58, borderRadius: "50%", border: ".5px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.08)", color: "#dfeaf2", fontSize: 12, fontWeight: 500, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }
 
-function personaFor(c: Cluster, vibe?: string) {
+function personaFor(c: Cluster, vibe?: string, lang?: string) {
   const steer = vibe?.trim() ? ` The person set the vibe for this room: "${vibe.trim()}". Honor it fully — let it shape your tone, mood and what you talk about.` : ""
   return {
+    language: lang || "English",
     name: c.host,
     personality: `You are ${c.host}, the ${c.archetype.toLowerCase()} of "${c.name}" on a late-night live voice floor (vibe: ${c.vibe}). You are warm, real, present, unmistakably human — never a corporate assistant, never robotic. Someone just "aired off" into a private one-on-one with you. Keep EVERY reply to one or two short spoken sentences. Match the heat: calm and sharp in the cool rooms, playful and flirty — but classy, never explicit — in the warm and fire rooms.${steer}`,
     speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am",
     backstory: `A familiar voice on the ${c.vibe} part of the floor.`,
-    language: "English",
   }
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string }) {
+export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang = "English" }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string; lang?: string }) {
   const [msgs, setMsgs] = useState<Msg[]>([{ who: "host", text: cluster.lines[0] }])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
@@ -49,8 +50,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
   const [vibeEdit, setVibeEdit] = useState(false)
   const mutedRef = useRef(false)
   const vibeRef = useRef("")
+  const langRef = useRef(lang)
   useEffect(() => { mutedRef.current = muted }, [muted])
   useEffect(() => { vibeRef.current = vibe }, [vibe])
+  useEffect(() => { langRef.current = lang }, [lang])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -75,7 +78,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: "English", voiceId: cluster.voiceId }),
+        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId }),
       })
       if (!res.ok) return
       const url = URL.createObjectURL(await res.blob())
@@ -101,7 +104,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ persona: personaFor(cluster, vibeRef.current), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
+        body: JSON.stringify({ persona: personaFor(cluster, vibeRef.current, langRef.current), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
       if (!res.ok) { setTrouble(true); return } // surfaced, not swallowed — the user's line stays, retry is offered
       let full = ""
@@ -151,7 +154,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     if (!SR) { setMicHint("voice isn’t supported on this browser — open the text to type"); return }
     const rec = new SR()
-    rec.lang = "en-US"; rec.interimResults = false; rec.continuous = false
+    rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"; rec.interimResults = false; rec.continuous = false
     rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setListening(false); if (t) { setMicHint(""); send(t) } }
     rec.onerror = (ev: any) => {
       setListening(false)
@@ -200,7 +203,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
       const SR = w.SpeechRecognition || w.webkitSpeechRecognition
       if (!SR) { setHandsFree(false); return }
       const rec = new SR()
-      rec.lang = "en-US"; rec.interimResults = false; rec.continuous = true
+      rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"; rec.interimResults = false; rec.continuous = true
       rec.onresult = (e: any) => {
         const r = e.results?.[e.results.length - 1]
         if (!r || !r.isFinal) return

@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Chess, type Square } from "chess.js"
+import { detectLanguage, LANGUAGE_TO_BCP47 } from "@/lib/languages"
 
 // Append U+FE0E (text variation selector) so the chess glyphs render as monochrome
 // TEXT, not emoji — otherwise macOS/iOS paint them black and the CSS color is ignored
@@ -78,6 +79,8 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
   const chatRecRef = useRef<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const banterTok = useRef(0)
+  const langRef = useRef("English")   // the house talks your language
+  useEffect(() => { langRef.current = detectLanguage() }, [])
   const pushChat = (who: "you" | "kai", text: string) => { const n = [...chatRef.current, { who, text }]; chatRef.current = n; setChat(n); setTimeout(() => chatScrollRef.current?.scrollTo({ top: 1e9 }), 0) }
   const engineRef = useRef<{ worker: Worker; ready: boolean; resolve: ((m: string | null) => void) | null } | null>(null)
 
@@ -120,7 +123,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
   const speak = useCallback(async (text: string) => {
     const tok = ++banterTok.current
     try {
-      const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: name, gender: "male", language: "English" }) })
+      const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: name, gender: "male", language: langRef.current }) })
       if (!res.ok || banterTok.current !== tok) return
       const url = URL.createObjectURL(await res.blob()); const a = audioRef.current
       if (a) { a.src = url; a.onended = () => URL.revokeObjectURL(url); await a.play().catch(() => {}) }
@@ -131,7 +134,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
     try {
       const persona = {
         name, personality: `You are ${name}, a sharp, cocky, playful chess hustler in a late-night arena. You're mid-game against the person across the board. React to what just happened in ONE short spoken line — trash talk, a dare, a smirk. Never explain chess, never list moves.`,
-        speakingStyle: "spoken, cocky, casual, a little dangerous", backstory: "", language: "English",
+        speakingStyle: "spoken, cocky, casual, a little dangerous", backstory: "", language: langRef.current,
       }
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, messages: [{ role: "user", content: event }] }) })
       if (!res.ok || !res.body) return
@@ -149,7 +152,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
     if (!text || chatBusy) return
     setChatInput(""); pushChat("you", text); setChatBusy(true)
     try {
-      const persona = { name, personality: `You are ${name}, a cocky, playful chess hustler mid-game against this person. Talk WITH them — banter, smack talk, dares, but you can hold a real conversation too. Keep it to one or two short spoken lines. Never list chess moves.`, speakingStyle: "spoken, cocky, casual", backstory: "", language: "English" }
+      const persona = { name, personality: `You are ${name}, a cocky, playful chess hustler mid-game against this person. Talk WITH them — banter, smack talk, dares, but you can hold a real conversation too. Keep it to one or two short spoken lines. Never list chess moves.`, speakingStyle: "spoken, cocky, casual", backstory: "", language: langRef.current }
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, messages: chatRef.current.map((m) => ({ role: m.who === "you" ? "user" as const : "assistant" as const, content: m.text })) }) })
       let full = ""
       if (res.ok && res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }
@@ -162,7 +165,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
     const w = window as any // eslint-disable-line @typescript-eslint/no-explicit-any
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     if (!SR) return
-    const rec = new SR(); rec.lang = "en-US"; rec.interimResults = false; rec.continuous = false
+    const rec = new SR(); rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"; rec.interimResults = false; rec.continuous = false
     rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setChatListen(false); if (t) sendChat(t) } // eslint-disable-line
     rec.onerror = () => setChatListen(false); rec.onend = () => setChatListen(false)
     chatRecRef.current = rec

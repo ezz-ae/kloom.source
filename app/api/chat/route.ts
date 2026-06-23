@@ -376,8 +376,9 @@ Now speak as ${self.name}. One short reply only.`
 }
 
 function languageLine(persona: Persona) {
-  return persona.language && persona.language !== "English"
-    ? `\n\nLANGUAGE:\nYou MUST speak exclusively in ${persona.language}. All your responses should be in ${persona.language}. If others speak in another language, still respond in ${persona.language}.`
+  const lang = persona.language
+  return lang && lang !== "English"
+    ? `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet. This holds even when the other person writes to you in English or any other language — you still answer in ${lang}, never switching, never mixing in English words. If you are about to write an English word, stop and write it in ${lang} instead.`
     : ""
 }
 

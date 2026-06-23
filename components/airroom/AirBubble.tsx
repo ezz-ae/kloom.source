@@ -204,17 +204,17 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked }: { cluster: 
   }, [handsFree])
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(6,9,16,.74)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", display: "flex", flexDirection: "column", zIndex: 20 }}>
-      <div style={{ padding: "18px 22px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(6,9,16,.74)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>aired off · just you two</div>
-          <div style={{ fontSize: 19, fontWeight: 500, color: "#eef4f8" }}>{cluster.host} · {cluster.name}</div>
+          <div style={{ fontSize: 19, fontWeight: 500, color: "#eef4f8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cluster.host} · {cluster.name}</div>
           <div style={{ fontSize: 11, color: "#7f93a5" }}>{tempLabel}</div>
         </div>
-        <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer" }}>← leave</button>
+        <button onClick={onClose} style={{ flex: "0 0 auto", fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "10px 14px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
       </div>
 
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "8px 22px", display: "flex", flexDirection: "column", gap: 10 }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "8px 22px", display: "flex", flexDirection: "column", gap: 10 }}>
         {msgs.map((m, i) => (
           <div key={i} style={{ alignSelf: m.who === "you" ? "flex-end" : "flex-start", maxWidth: "82%", fontSize: 15, lineHeight: 1.45, color: m.who === "you" ? "#0a1622" : "#eef4f8", background: m.who === "you" ? "#cfe0ee" : "rgba(255,255,255,.08)", padding: "9px 13px", borderRadius: 16 }}>
             {m.text}
@@ -223,9 +223,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked }: { cluster: 
         {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: "#7f93a5", fontStyle: "italic" }}>{cluster.host} is talking…</div>}
       </div>
 
-      <div style={{ padding: "10px 18px 18px" }}>
+      <div style={{ padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))", boxSizing: "border-box" }}>
         {trouble && (
-          <div onClick={retry} role="button" tabIndex={0} style={{ fontSize: 12, color: "#ffd0bf", background: "rgba(239,122,77,.14)", border: ".5px solid rgba(239,122,77,.4)", borderRadius: 12, padding: "9px 12px", marginBottom: 9, textAlign: "center", cursor: "pointer" }}>
+          <div onClick={retry} role="button" tabIndex={0} style={{ fontSize: 12, color: "#ffd0bf", background: "rgba(239,122,77,.14)", border: ".5px solid rgba(239,122,77,.4)", borderRadius: 12, padding: "9px 12px", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 9, textAlign: "center", cursor: "pointer" }}>
             couldn&apos;t reach the voice — tap to retry
           </div>
         )}
@@ -240,12 +240,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked }: { cluster: 
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") send() }}
             placeholder={handsFree ? "…or type" : `say something to ${cluster.host.toLowerCase()}…`}
-            style={{ flex: 1, fontSize: 14, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", outline: "none" }}
+            style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }}
           />
           {sttOk && (
-            <button onClick={onTalk} aria-label="talk — tap to speak once, double-tap for hands-free" style={{ fontSize: 13, fontWeight: handsFree ? 500 : 400, color: (handsFree || listening) ? "#06201a" : "#dfeaf2", background: handsFree ? "#7fd6c0" : listening ? "#bfe9d8" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>{handsFree ? "live" : listening ? "listening" : "talk"}</button>
+            <button onClick={onTalk} aria-label="talk — tap to speak once, double-tap for hands-free" style={{ fontSize: 13, fontWeight: handsFree ? 500 : 400, minHeight: 44, color: (handsFree || listening) ? "#06201a" : "#dfeaf2", background: handsFree ? "#7fd6c0" : listening ? "#bfe9d8" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{handsFree ? "live" : listening ? "listening" : "talk"}</button>
           )}
-          <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>send</button>
+          <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, minHeight: 44, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>send</button>
         </div>
         <div style={{ marginTop: 9, textAlign: "center" }}>
           {revealed ? (

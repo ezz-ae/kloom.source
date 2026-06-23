@@ -182,22 +182,25 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
 
   const board = gameRef.current.board()
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"]
+  // Board sized by the viewport's SHORT side minus chrome, so it never exceeds the
+  // screen in either orientation (the landscape-overflow fix). Glyphs scale off it.
+  const BSIZE = "min(92vw, 460px, calc(100dvh - 240px))"
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#06070e", color: "#eef4f8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      <div style={{ width: "min(92vw, 460px)", display: "flex", flexDirection: "column", gap: 10 }}>
+    <div style={{ position: "fixed", inset: 0, background: "#06070e", color: "#eef4f8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflowY: "auto", WebkitOverflowScrolling: "touch", paddingTop: "calc(16px + env(safe-area-inset-top))", paddingBottom: "calc(16px + env(safe-area-inset-bottom))", paddingLeft: "calc(16px + env(safe-area-inset-left))", paddingRight: "calc(16px + env(safe-area-inset-right))", boxSizing: "border-box", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div style={{ width: "min(92vw, 460px)", margin: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
         {/* header — aligned to the board's edges */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
           <div>
             <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>the arena · chess</div>
             <div style={{ fontSize: 18, fontWeight: 500 }}>{name} · the house</div>
           </div>
-          <button onClick={() => onClose ? onClose() : (window.location.href = "/airraw")} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer", whiteSpace: "nowrap" }}>← leave</button>
+          <button onClick={() => onClose ? onClose() : (window.location.href = "/airraw")} style={{ flex: "0 0 auto", fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 14px", minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
         </div>
 
-        <div style={{ fontSize: 13, color: "#cfe0ee", minHeight: 36, textAlign: "center", fontStyle: "italic", lineHeight: 1.4 }}>&ldquo;{banter}&rdquo;</div>
+        <div style={{ fontSize: 13, color: "#cfe0ee", height: 40, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", textAlign: "center", fontStyle: "italic", lineHeight: 1.4 }}>&ldquo;{banter}&rdquo;</div>
 
-        <div style={{ width: "100%", aspectRatio: "1", display: "grid", gridTemplateColumns: "repeat(8,1fr)", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,.12)" }}>
+        <div style={{ width: BSIZE, maxWidth: "100%", margin: "0 auto", aspectRatio: "1", display: "grid", gridTemplateColumns: "repeat(8,1fr)", fontSize: `calc(${BSIZE} / 11)`, borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,.12)" }}>
           {board.map((row, r) => row.map((sq, f) => {
             const square = (files[f] + (8 - r)) as Square
             const dark = (r + f) % 2 === 1
@@ -205,7 +208,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
             const isTarget = targets.includes(square)
             return (
               <button key={square} onClick={() => onSquare(square)} style={{ position: "relative", border: "none", cursor: "pointer", background: isSel ? "#3f7d6e" : dark ? "#2f3e49" : "#647686", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
-                {sq && <span style={{ fontSize: "min(8.5vw,42px)", lineHeight: 1, color: sq.color === "w" ? "#f6f7f4" : "#0c1014", textShadow: sq.color === "w" ? "0 1px 3px rgba(0,0,0,.55)" : "0 1px 1px rgba(255,255,255,.2)" }}>{GLYPH[sq.type]}</span>}
+                {sq && <span style={{ fontSize: "1em", lineHeight: 1, color: sq.color === "w" ? "#f6f7f4" : "#0c1014", textShadow: sq.color === "w" ? "0 1px 3px rgba(0,0,0,.55)" : "0 1px 1px rgba(255,255,255,.2)" }}>{GLYPH[sq.type]}</span>}
                 {isTarget && <span style={{ position: "absolute", width: sq ? "100%" : "30%", height: sq ? "100%" : "30%", borderRadius: sq ? 0 : "50%", background: sq ? "transparent" : "rgba(127,214,160,.55)", boxShadow: sq ? "inset 0 0 0 3px rgba(127,214,160,.75)" : "none", pointerEvents: "none" }} />}
               </button>
             )
@@ -214,9 +217,9 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
           <span style={{ color: thinking ? "#7fd6c0" : "#9fb2c4" }}>{thinking ? `${name.toLowerCase()} is thinking…` : status}</span>
-          <button onClick={reset} style={{ fontSize: 13, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 12, padding: "8px 16px", cursor: "pointer", whiteSpace: "nowrap" }}>new game</button>
+          <button onClick={reset} style={{ fontSize: 13, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 12, padding: "11px 18px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>new game</button>
         </div>
-        <div style={{ fontSize: 11, color: "#5f7283", textAlign: "center" }}>{void fen}you&apos;re white · tap a piece, then a square</div>
+        <div style={{ fontSize: 12, color: "#6b8092", textAlign: "center" }}>{void fen}you&apos;re white · tap a piece, then a square</div>
       </div>
       <audio ref={audioRef} style={{ display: "none" }} />
     </div>

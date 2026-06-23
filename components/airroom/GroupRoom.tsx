@@ -201,15 +201,15 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3 }: { seed: nu
   const realOthers = humans.filter((h) => !h.isYou)
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20 }}>
-      <div style={{ padding: "18px 22px 10px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>
             you stepped into a room · {members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""}
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", maxHeight: 64, overflow: "hidden" }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "nowrap", overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", paddingBottom: 4, maskImage: "linear-gradient(to right, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 92%, transparent)" }}>
             {members.slice(0, 12).map((m, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500, color: "#eef4f8" }}>
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500, color: "#eef4f8", flexShrink: 0, whiteSpace: "nowrap" }}>
                 <span style={{ width: 20, height: 20, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed * 7 + i + 1, m.f), boxShadow: `0 0 6px ${dot(m.f)}66`, border: "1px solid rgba(255,255,255,.15)", display: "inline-block" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={imageFor({ name: m.host })} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -217,26 +217,26 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3 }: { seed: nu
               </span>
             ))}
             {members.length > 12 && (
-              <span style={{ display: "inline-flex", alignItems: "center", fontSize: 13, fontWeight: 500, color: "#9fb2c4", background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "2px 9px" }}>+{members.length - 12} more</span>
+              <span style={{ display: "inline-flex", alignItems: "center", fontSize: 13, fontWeight: 500, color: "#9fb2c4", background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "2px 9px", flexShrink: 0, whiteSpace: "nowrap" }}>+{members.length - 12} more</span>
             )}
             {realOthers.map((h) => (
-              <span key={h.handle} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 500, color: h.color }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: h.color }} />{h.handle}
+              <span key={h.handle} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 500, color: h.color, flexShrink: 0, whiteSpace: "nowrap" }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: h.color, flexShrink: 0 }} />{h.handle}
               </span>
             ))}
           </div>
-          <div style={{ fontSize: 11, color: "#7f93a5", marginTop: 3 }}>{tempLabel}</div>
+          <div style={{ fontSize: 12, color: "#7f93a5", marginTop: 3 }}>{tempLabel}</div>
         </div>
-        <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer" }}>← leave</button>
+        <button onClick={onClose} style={{ flex: "0 0 auto", fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 14px", minHeight: 44, minWidth: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
       </div>
 
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "8px 22px", display: "flex", flexDirection: "column", gap: 9 }}>
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "8px 22px", display: "flex", flexDirection: "column", gap: 9 }}>
         {lines.map((l, i) => {
           const mine = l.kind === "human" && l.handle === handle
           const c = l.kind === "ai" ? dot(members.find((m) => m.host === l.handle)?.f ?? 0.5) : colorFor(l.handle)
           return (
             <div key={l.id || i} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>
-              {!mine && <div style={{ fontSize: 10, color: c, marginBottom: 2, marginLeft: 4 }}>{l.handle}</div>}
+              {!mine && <div style={{ fontSize: 12, color: c, marginBottom: 2, marginLeft: 4 }}>{l.handle}</div>}
               <div style={{ fontSize: 15, lineHeight: 1.45, color: mine ? "#0a1622" : "#eef4f8", background: mine ? "#cfe0ee" : "rgba(255,255,255,.08)", padding: "9px 13px", borderRadius: 16 }}>{l.content}</div>
             </div>
           )
@@ -244,16 +244,16 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3 }: { seed: nu
         {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: "#7f93a5", fontStyle: "italic" }}>the room is talking…</div>}
       </div>
 
-      <div style={{ padding: "10px 18px 18px" }}>
+      <div style={{ padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))", boxSizing: "border-box" }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }} placeholder="say something to the room…" style={{ flex: 1, fontSize: 14, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", outline: "none" }} />
-          {sttOk && <button onClick={talkOnce} style={{ fontSize: 13, color: listening ? "#06201a" : "#dfeaf2", background: listening ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>{listening ? "listening" : "talk"}</button>}
-          <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1 }}>send</button>
+          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }} placeholder="say something to the room…" style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }} />
+          {sttOk && <button onClick={talkOnce} style={{ fontSize: 13, minHeight: 44, color: listening ? "#06201a" : "#dfeaf2", background: listening ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{listening ? "listening" : "talk"}</button>}
+          <button onClick={() => send()} disabled={busy} style={{ fontSize: 14, minHeight: 44, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "11px 16px", cursor: "pointer", opacity: busy ? 0.6 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>send</button>
         </div>
         <div style={{ marginTop: 9, textAlign: "center" }}>
           {revealed
-            ? <span style={{ fontSize: 11, color: "#9fb2c4" }}>{members.slice(0, 6).map((m) => m.host).join(", ")}{members.length > 6 ? ` and ${members.length - 6} more` : ""} are AI · {realOthers.length > 0 ? `${realOthers.map((h) => h.handle).join(", ")} ${realOthers.length === 1 ? "is" : "are"} a real person` : "the only human here right now is you — when someone real wanders in, they'll appear above, and you won't always know which is which"}</span>
-            : <button onClick={() => setRevealed(true)} style={{ fontSize: 11, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>who in here is human?</button>}
+            ? <span style={{ fontSize: 12, color: "#9fb2c4" }}>{members.slice(0, 6).map((m) => m.host).join(", ")}{members.length > 6 ? ` and ${members.length - 6} more` : ""} are AI · {realOthers.length > 0 ? `${realOthers.map((h) => h.handle).join(", ")} ${realOthers.length === 1 ? "is" : "are"} a real person` : "the only human here right now is you — when someone real wanders in, they'll appear above, and you won't always know which is which"}</span>
+            : <button onClick={() => setRevealed(true)} style={{ fontSize: 12, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>who in here is human?</button>}
         </div>
       </div>
       <audio ref={audioRef} style={{ display: "none" }} />

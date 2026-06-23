@@ -62,7 +62,7 @@ function ihash(a: number, b: number): number { let h = ((a | 0) * 73856093) ^ ((
 function ifrac(h: number): number { return (h % 100003) / 100003 }
 
 
-const btn: React.CSSProperties = { width: 36, height: 36, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 10, cursor: "pointer", fontSize: 19, lineHeight: "1" }
+const btn: React.CSSProperties = { width: 44, height: 44, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, cursor: "pointer", fontSize: 20, lineHeight: "1", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }
 
 export function Planet() {
   const cvRef = useRef<HTMLCanvasElement | null>(null)
@@ -310,19 +310,19 @@ export function Planet() {
       <canvas ref={cvRef} style={{ display: "block", width: "100%", height: "100%", cursor: "grab" }} />
 
       <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: 16, right: 16, display: "flex", justifyContent: "space-between", gap: 10, pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-        <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>it&apos;s the now · {hud.crumb}</div>
-        <div style={{ fontSize: 11, color: "#6b7d8e", background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, whiteSpace: "nowrap" }}>altitude — {hud.alt}</div>
+        <div style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, color: "#9fb2c4", letterSpacing: 1, background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>it&apos;s the now · {hud.crumb}</div>
+        <div style={{ flex: "0 0 auto", fontSize: 11, color: "#6b7d8e", background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, whiteSpace: "nowrap" }}>altitude — {hud.alt}</div>
       </div>
 
       {/* The main act: join the group at this scale. The number shrinks as you descend. */}
       {hud.join && !selected && !group && (
         <button onClick={() => joinGroup(hud.join!)}
-          style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 60px)", fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap" }}>
+          style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? "talk 1:1 →" : `join this room · ${hud.join.n} here →`}
         </button>
       )}
 
-      <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "62%", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>
+      <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>
 
       <div style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", display: "flex", flexDirection: "column", gap: 8 }}>
         <button aria-label="descend" onClick={() => zoomFnRef.current(1.6)} style={btn}>+</button>
@@ -334,14 +334,14 @@ export function Planet() {
       {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} tempLabel={tempLabel(group.f)} onClose={() => setGroup(null)} />}
 
       {(pending || pendingJoin) && !verified && (
-        <div style={{ position: "absolute", inset: 0, background: "rgba(20,6,30,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26, zIndex: 30 }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,30,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", paddingTop: "max(26px, env(safe-area-inset-top))", paddingBottom: "max(26px, env(safe-area-inset-bottom))", paddingLeft: "max(26px, env(safe-area-inset-left))", paddingRight: "max(26px, env(safe-area-inset-right))", zIndex: 30 }}>
           <div style={{ maxWidth: 340, textAlign: "center", color: "#f3e8fb" }}>
             <div style={{ fontSize: 12, letterSpacing: 1, color: "#c69cff" }}>you&apos;re at the edge of the deep</div>
             <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>it gets adult down here</div>
             <div style={{ fontSize: 14, lineHeight: 1.6, color: "#d7c3ea" }}>flirty, late-night, 18+. you only go deeper if you&apos;re old enough.</div>
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
-              <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, color: "#1a0d2a", background: "#c69cff", border: "none", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>i&apos;m 18 or older — take me down</button>
-              <button onClick={() => { setPending(null); setPendingJoin(null) }} style={{ fontSize: 14, color: "#d7c3ea", background: "transparent", border: ".5px solid rgba(198,156,255,.3)", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>keep me up here</button>
+              <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, minHeight: 44, color: "#1a0d2a", background: "#c69cff", border: "none", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>i&apos;m 18 or older — take me down</button>
+              <button onClick={() => { setPending(null); setPendingJoin(null) }} style={{ fontSize: 14, lineHeight: 1.2, minHeight: 44, color: "#d7c3ea", background: "transparent", border: "1px solid rgba(198,156,255,.4)", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>keep me up here</button>
             </div>
           </div>
         </div>

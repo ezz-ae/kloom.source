@@ -13,7 +13,10 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Chess, type Square } from "chess.js"
 
-const GLYPH: Record<string, string> = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" }
+// Append U+FE0E (text variation selector) so the chess glyphs render as monochrome
+// TEXT, not emoji — otherwise macOS/iOS paint them black and the CSS color is ignored
+// (white pieces come out dark). With text rendering, `color` works for both sides.
+const GLYPH: Record<string, string> = { k: "♚︎", q: "♛︎", r: "♜︎", b: "♝︎", n: "♞︎", p: "♟︎" }
 const VAL: Record<string, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 }
 
 // ── the opponent: negamax + alpha-beta, material + centre control ──
@@ -140,37 +143,40 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
   const files = ["a", "b", "c", "d", "e", "f", "g", "h"]
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#06070e", color: "#eef4f8", display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: 560, padding: "16px 18px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>the arena · chess</div>
-          <div style={{ fontSize: 18, fontWeight: 500 }}>{name} · the house</div>
+    <div style={{ position: "fixed", inset: 0, background: "#06070e", color: "#eef4f8", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16, boxSizing: "border-box", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div style={{ width: "min(92vw, 460px)", display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* header — aligned to the board's edges */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div>
+            <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>the arena · chess</div>
+            <div style={{ fontSize: 18, fontWeight: 500 }}>{name} · the house</div>
+          </div>
+          <button onClick={() => onClose ? onClose() : (window.location.href = "/airraw")} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer", whiteSpace: "nowrap" }}>← leave</button>
         </div>
-        <button onClick={() => onClose ? onClose() : (window.location.href = "/airraw")} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "7px 12px", borderRadius: 12, cursor: "pointer" }}>← leave</button>
-      </div>
 
-      <div style={{ fontSize: 13, color: "#cfe0ee", minHeight: 38, maxWidth: 520, textAlign: "center", padding: "4px 18px", fontStyle: "italic" }}>&ldquo;{banter}&rdquo;</div>
+        <div style={{ fontSize: 13, color: "#cfe0ee", minHeight: 36, textAlign: "center", fontStyle: "italic", lineHeight: 1.4 }}>&ldquo;{banter}&rdquo;</div>
 
-      <div style={{ width: "min(94vw, 520px)", aspectRatio: "1", display: "grid", gridTemplateColumns: "repeat(8,1fr)", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,.12)", margin: "6px 0" }}>
-        {board.map((row, r) => row.map((sq, f) => {
-          const square = (files[f] + (8 - r)) as Square
-          const dark = (r + f) % 2 === 1
-          const isSel = sel === square
-          const isTarget = targets.includes(square)
-          return (
-            <button key={square} onClick={() => onSquare(square)} style={{ position: "relative", border: "none", cursor: "pointer", background: isSel ? "#3f7d6e" : dark ? "#33424d" : "#6c7e8c", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
-              {sq && <span style={{ fontSize: "min(7vw,40px)", lineHeight: 1, color: sq.color === "w" ? "#f4f5f2" : "#10151a", textShadow: sq.color === "w" ? "0 1px 2px rgba(0,0,0,.5)" : "0 1px 1px rgba(255,255,255,.25)" }}>{GLYPH[sq.type]}</span>}
-              {isTarget && <span style={{ position: "absolute", width: sq ? "100%" : "32%", height: sq ? "100%" : "32%", borderRadius: sq ? 0 : "50%", background: sq ? "transparent" : "rgba(127,214,160,.6)", boxShadow: sq ? "inset 0 0 0 3px rgba(127,214,160,.7)" : "none", pointerEvents: "none" }} />}
-            </button>
-          )
-        }))}
-      </div>
+        <div style={{ width: "100%", aspectRatio: "1", display: "grid", gridTemplateColumns: "repeat(8,1fr)", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(255,255,255,.12)" }}>
+          {board.map((row, r) => row.map((sq, f) => {
+            const square = (files[f] + (8 - r)) as Square
+            const dark = (r + f) % 2 === 1
+            const isSel = sel === square
+            const isTarget = targets.includes(square)
+            return (
+              <button key={square} onClick={() => onSquare(square)} style={{ position: "relative", border: "none", cursor: "pointer", background: isSel ? "#3f7d6e" : dark ? "#2f3e49" : "#647686", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>
+                {sq && <span style={{ fontSize: "min(8.5vw,42px)", lineHeight: 1, color: sq.color === "w" ? "#f6f7f4" : "#0c1014", textShadow: sq.color === "w" ? "0 1px 3px rgba(0,0,0,.55)" : "0 1px 1px rgba(255,255,255,.2)" }}>{GLYPH[sq.type]}</span>}
+                {isTarget && <span style={{ position: "absolute", width: sq ? "100%" : "30%", height: sq ? "100%" : "30%", borderRadius: sq ? 0 : "50%", background: sq ? "transparent" : "rgba(127,214,160,.55)", boxShadow: sq ? "inset 0 0 0 3px rgba(127,214,160,.75)" : "none", pointerEvents: "none" }} />}
+              </button>
+            )
+          }))}
+        </div>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 6, fontSize: 13 }}>
-        <span style={{ color: thinking ? "#7fd6c0" : "#9fb2c4" }}>{thinking ? `${name.toLowerCase()} is thinking…` : status}</span>
-        <button onClick={reset} style={{ fontSize: 13, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 12, padding: "8px 16px", cursor: "pointer" }}>new game</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+          <span style={{ color: thinking ? "#7fd6c0" : "#9fb2c4" }}>{thinking ? `${name.toLowerCase()} is thinking…` : status}</span>
+          <button onClick={reset} style={{ fontSize: 13, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 12, padding: "8px 16px", cursor: "pointer", whiteSpace: "nowrap" }}>new game</button>
+        </div>
+        <div style={{ fontSize: 11, color: "#5f7283", textAlign: "center" }}>{void fen}you&apos;re white · tap a piece, then a square</div>
       </div>
-      <div style={{ fontSize: 11, color: "#5f7283", marginTop: 8 }}>{void fen}you&apos;re white · tap a piece, then a square</div>
       <audio ref={audioRef} style={{ display: "none" }} />
     </div>
   )

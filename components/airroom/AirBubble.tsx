@@ -11,6 +11,7 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Cluster } from "@/lib/airroom/roster"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
+import { listenOnce, canListen } from "@/lib/voice-once"
 import { imageFor } from "@/lib/persona-utils"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
@@ -72,7 +73,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   useEffect(() => { msgsRef.current = msgs }, [msgs])
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
-  useEffect(() => { const w = window as any; setSttOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, [])
+  useEffect(() => { setSttOk(canListen()) }, [])
   useEffect(() => { try { if (!localStorage.getItem("airraw_human_note")) setHumanNote(true) } catch { /* */ } }, [])
   const dismissHumanNote = () => { setHumanNote(false); try { localStorage.setItem("airraw_human_note", "1") } catch { /* */ } }
 
@@ -151,25 +152,21 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   // push-to-talk: one utterance, then sends. Started SYNCHRONOUSLY inside the tap
   // (iOS Safari only lets you start the mic from within the gesture — the old
   // version deferred this behind a 240ms timer, so on iPhone the tap did nothing).
+  // push-to-talk: tap → mic opens → say one thing → it auto-sends on the pause.
+  // Tap again cancels. Primary capture is MediaRecorder + server Whisper (works in
+  // the Instagram / in-app browsers where webkitSpeechRecognition doesn't exist);
+  // it transparently falls back to the browser recognizer when that path can't run.
   const talkOnce = () => {
     if (listening) { try { onceRecRef.current?.stop() } catch { /* */ } setListening(false); return }
-    const w = window as any
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) { setMicHint("voice isn’t supported on this browser — open the text to type"); return }
-    const rec = new SR()
-    rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"; rec.interimResults = false; rec.continuous = false
-    rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setListening(false); if (t) { setMicHint(""); send(t) } }
-    rec.onerror = (ev: any) => {
-      setListening(false)
-      const er = ev?.error
-      if (er === "not-allowed" || er === "service-not-allowed") setMicHint("mic is blocked — allow it in your browser, or open the text to type")
-      else if (er === "no-speech") setMicHint("didn’t catch that — tap the mic and speak")
-      else if (er !== "aborted") setMicHint("voice hiccuped — tap again, or type")
-    }
-    rec.onend = () => setListening(false)
-    onceRecRef.current = rec
+    const bcp47 = LANGUAGE_TO_BCP47[langRef.current] || "en-US"
     setMicHint("")
-    try { rec.start(); setListening(true) } catch { setListening(false); setMicHint("couldn’t start the mic — open the text to type") }
+    onceRecRef.current = listenOnce({
+      lang: bcp47.split("-")[0],
+      bcp47,
+      onState: (s) => { setListening(s !== "idle"); if (s === "listening") setMicHint(""); else if (s === "thinking") setMicHint("got it — one sec…") },
+      onText: (t) => { setMicHint(""); send(t) },
+      onError: (m) => setMicHint(m),
+    })
   }
 
   // One mic, two gestures: a tap talks once (started in-gesture above); a quick

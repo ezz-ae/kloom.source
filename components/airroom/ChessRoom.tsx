@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Chess, type Square } from "chess.js"
 import { detectLanguage, LANGUAGE_TO_BCP47 } from "@/lib/languages"
+import { listenOnce } from "@/lib/voice-once"
 
 // Append U+FE0E (text variation selector) so the chess glyphs render as monochrome
 // TEXT, not emoji — otherwise macOS/iOS paint them black and the CSS color is ignored
@@ -160,16 +161,17 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
       if (full) { pushChat("kai", full); setBanter(full); speak(full) }
     } catch { /* */ } finally { setChatBusy(false) }
   }
+  // tap → say one line → it banters back. MediaRecorder + server Whisper first
+  // (works in the Instagram / in-app browsers), browser SR as fallback.
   const chatTalk = () => {
     if (chatListen) { try { chatRecRef.current?.stop() } catch { /* */ } setChatListen(false); return }
-    const w = window as any // eslint-disable-line @typescript-eslint/no-explicit-any
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) return
-    const rec = new SR(); rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"; rec.interimResults = false; rec.continuous = false
-    rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setChatListen(false); if (t) sendChat(t) } // eslint-disable-line
-    rec.onerror = () => setChatListen(false); rec.onend = () => setChatListen(false)
-    chatRecRef.current = rec
-    try { rec.start(); setChatListen(true) } catch { setChatListen(false) }
+    const bcp47 = LANGUAGE_TO_BCP47[langRef.current] || "en-US"
+    chatRecRef.current = listenOnce({
+      lang: bcp47.split("-")[0],
+      bcp47,
+      onState: (s) => setChatListen(s !== "idle"),
+      onText: (t) => sendChat(t),
+    })
   }
 
   useEffect(() => { quip("You just sat down across from me to play. Greet me — set the tone."); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [])

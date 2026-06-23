@@ -20,6 +20,7 @@ import { imageFor } from "@/lib/persona-utils"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
+import { listenOnce, canListen } from "@/lib/voice-once"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
@@ -86,7 +87,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
 
   useEffect(() => { linesRef.current = lines }, [lines])
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [lines, humans])
-  useEffect(() => { const w = window as any; setSttOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, []) // eslint-disable-line
+  useEffect(() => { setSttOk(canListen()) }, [])
   useEffect(() => { try { if (!localStorage.getItem("airraw_human_note")) setHumanNote(true) } catch { /* */ } }, [])
   const dismissHumanNote = () => { setHumanNote(false); try { localStorage.setItem("airraw_human_note", "1") } catch { /* */ } }
 
@@ -226,16 +227,17 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // tap → say one line → auto-sends to the room. MediaRecorder + server Whisper
+  // first (so it works in the Instagram / in-app browsers), browser SR as fallback.
   const talkOnce = () => {
     if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false); return }
-    const w = window as any // eslint-disable-line @typescript-eslint/no-explicit-any
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) return
-    const rec = new SR(); rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"; rec.interimResults = false; rec.continuous = false
-    rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); setListening(false); if (t) send(t) } // eslint-disable-line
-    rec.onerror = () => setListening(false); rec.onend = () => setListening(false)
-    recRef.current = rec
-    try { rec.start(); setListening(true) } catch { setListening(false) }
+    const bcp47 = LANGUAGE_TO_BCP47[langRef.current] || "en-US"
+    recRef.current = listenOnce({
+      lang: bcp47.split("-")[0],
+      bcp47,
+      onState: (s) => setListening(s !== "idle"),
+      onText: (t) => send(t),
+    })
   }
 
   const realOthers = humans.filter((h) => !h.isYou)

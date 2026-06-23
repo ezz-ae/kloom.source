@@ -5,7 +5,7 @@
 // Browser STT fallback is handled client-side when NEXT_PUBLIC_STT_BROWSER=1.
 
 export const runtime = "nodejs"
-export const maxDuration = 60
+export const maxDuration = 300   // RunPod Whisper can cold-start; give it room (capped by plan)
 
 function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms))
@@ -90,17 +90,19 @@ async function runpodWhisper(
   try {
     const buf    = await file.arrayBuffer()
     const b64    = Buffer.from(buf).toString("base64")
-    const model  = process.env.STT_MODEL || "large-v3"
+    // faster-whisper model (tiny|base|small|medium|large-v3|turbo). Use a RunPod-specific
+    // var so it can't collide with STT_MODEL, which is the OpenAI-compat fallback's model id
+    // (e.g. "whisper-1" — an invalid value for this worker).
+    const model  = process.env.RUNPOD_STT_MODEL || "large-v3"
 
     const res = await fetch(`${base}/runsync`, {
       method: "POST",
       headers,
       body: JSON.stringify({
         input: {
-          audio:       b64,
-          model:       model,   // most whisper workers use `model`; harmless if it wants `model_size`
-          model_size:  model,
-          language:    language || "en",
+          audio_base64:  b64,                    // worker wants base64 here; `audio` is a URL field
+          model:         model,
+          language:      language || undefined,  // omit → whisper auto-detects (multilingual)
           transcription: "plain_text",
           word_timestamps: false,
         },

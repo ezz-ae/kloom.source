@@ -11,7 +11,24 @@ const mem = new Map<string, string>()
 const inflight = new Map<string, Promise<string | null>>()
 
 function keyOf(p: FacePersona): string { return String(p.seed || p.name || "").trim() }
-const lsKey = (k: string) => "airraw_face:" + k
+
+// Bump when the SERVER image pipeline changes (model / realism pass) so every client
+// drops its cached URLs and re-fetches the new faces — otherwise a returning visitor
+// keeps seeing the old face URL saved in localStorage even though the server moved on.
+const FACE_CACHE_VERSION = "v2"
+const lsKey = (k: string) => `airraw_face:${FACE_CACHE_VERSION}:` + k
+
+// One-time sweep: drop face URLs cached under an older pipeline version so stale
+// localStorage entries don't linger (and so the old plastic faces never resurface).
+try {
+  if (typeof localStorage !== "undefined") {
+    const keep = `airraw_face:${FACE_CACHE_VERSION}:`
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith("airraw_face:") && !key.startsWith(keep)) localStorage.removeItem(key)
+    }
+  }
+} catch { /* localStorage unavailable — fine */ }
 
 /** The already-resolved URL for this persona, or null if not generated yet. */
 export function cachedFace(p: FacePersona): string | null {

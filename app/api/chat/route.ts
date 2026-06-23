@@ -57,7 +57,12 @@ export async function POST(request: Request) {
       : []
 
   const baseUrl = (process.env.LLM_BASE_URL || "http://localhost:11434/v1").replace(/\/$/, "")
-  const apiKey = process.env.LLM_API_KEY || "local"
+  // When the LLM runs on Together, use the shared TOGETHER_API_KEY (the same key the
+  // images use) so a rotated Together key never strands chat on a stale LLM_API_KEY —
+  // that was the "couldn't reach the voice" 401. (Plus a 401-retry below as a net.)
+  const apiKey = (/together/i.test(baseUrl) && process.env.TOGETHER_API_KEY)
+    ? process.env.TOGETHER_API_KEY
+    : (process.env.LLM_API_KEY || "local")
   const model = process.env.LLM_MODEL || "llama3.2:latest"
 
   const systemPrompt =
@@ -92,26 +97,29 @@ export async function POST(request: Request) {
   const antiRepeat = isGeminiCompat ? {} : { top_p: 0.95, presence_penalty: 0.6, frequency_penalty: 0.4 }
 
   let upstream: Response
+  const llmBody = JSON.stringify({
+    model,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...(others.length === 0 ? FEW_SHOT : []),
+      ...openaiMessages,
+    ],
+    temperature: 0.95,
+    ...antiRepeat,
+    max_tokens: 180,
+    stream: true,
+  })
+  const callLLM = (key: string) => fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: llmBody,
+  })
   try {
-    upstream = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...(others.length === 0 ? FEW_SHOT : []),
-          ...openaiMessages,
-        ],
-        temperature: 0.95,
-        ...antiRepeat,
-        max_tokens: 180,
-        stream: true,
-      }),
-    })
+    upstream = await callLLM(apiKey)
+    // Stale/rotated LLM key → retry once with the shared Together key (the one images use).
+    if (upstream.status === 401 && process.env.TOGETHER_API_KEY && apiKey !== process.env.TOGETHER_API_KEY) {
+      upstream = await callLLM(process.env.TOGETHER_API_KEY)
+    }
   } catch (err) {
     return Response.json(
       {

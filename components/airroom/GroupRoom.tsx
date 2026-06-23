@@ -281,6 +281,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       </div>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "8px 22px", display: "flex", flexDirection: "column", gap: 9 }}>
+        <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }} />{/* anchor messages to the bottom, like a real chat */}
         {lines.map((l, i) => {
           const mine = l.kind === "human" && l.handle === handle
           const c = l.kind === "ai" ? dot(members.find((m) => m.host === l.handle)?.f ?? 0.5) : colorFor(l.handle)

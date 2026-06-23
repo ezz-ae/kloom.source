@@ -271,6 +271,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
             <button onClick={() => setChatOpen(false)} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 40, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "8px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↓ board</button>
           </div>
           <div ref={chatScrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "4px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }} />
             {chat.length === 0 && <div style={{ fontSize: 13, color: "#5f7283", textAlign: "center", marginTop: 8 }}>say something to {name.toLowerCase()} while you play…</div>}
             {chat.map((m, i) => (
               <div key={i} style={{ alignSelf: m.who === "you" ? "flex-end" : "flex-start", maxWidth: "82%", fontSize: 14.5, lineHeight: 1.4, color: m.who === "you" ? "#0a1622" : "#eef4f8", background: m.who === "you" ? "#cfe0ee" : "rgba(255,255,255,.1)", padding: "8px 12px", borderRadius: 14 }}>{m.text}</div>

@@ -9,9 +9,9 @@ import { useState } from "react"
 import { setPendingIntent } from "@/lib/airroom/pro"
 
 const PERKS: [string, string][] = [
+  ["✦  fully unrestricted", "the whole floor wide open — no limits, no gates, nothing held back"],
   ["✦  AIR", "tap once and your best matches light up across the whole floor"],
   ["✦  set the vibe", "steer any room — flirty, hyped, brutally honest — and the voices follow"],
-  ["✦  first in line", "every new power lands for you first, as the now grows"],
 ]
 
 export function ProSheet({ onClose }: { onClose: () => void }) {

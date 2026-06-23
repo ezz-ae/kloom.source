@@ -1,3 +1,4 @@
+import type { NextRequest } from "next/server"
 import { createPaymentIntent, getPaymentIntent, usdToMinor, ziinaConfigured } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
 import { mintProToken } from "@/lib/airraw-pro-token"
@@ -11,9 +12,10 @@ export const maxDuration = 30
 
 const PRICE_USD = Number(process.env.AIRRAW_PRO_USD || 9)
 const DAYS = Number(process.env.AIRRAW_PRO_DAYS || 30)
-const ORIGIN = process.env.AIRRAW_ORIGIN || "https://airraw.com"
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  // return the buyer to the public host they're on (proxy-aware), like the kloom flow
+  const origin = process.env.AIRRAW_ORIGIN || req.nextUrl.origin || "https://airraw.com"
   if (!ziinaConfigured()) return Response.json({ error: "payments not configured" }, { status: 503 })
   const rl = rateLimit(`airrawpro:${clientIp(req)}`, 20, 60_000)
   if (!rl.ok) return Response.json({ error: "slow down a sec" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
@@ -27,9 +29,9 @@ export async function POST(req: Request) {
       const intent = await createPaymentIntent({
         usd: PRICE_USD,
         message: `AIRRAW Pro · ${DAYS} days`,
-        successUrl: `${ORIGIN}/airraw?pro_ok=1`,
-        cancelUrl:  `${ORIGIN}/airraw`,
-        failureUrl: `${ORIGIN}/airraw?pro_fail=1`,
+        successUrl: `${origin}/airraw?pro_ok=1`,
+        cancelUrl:  `${origin}/airraw`,
+        failureUrl: `${origin}/airraw?pro_fail=1`,
       })
       const url = intent.redirect_url || intent.embedded_url
       if (!url) return Response.json({ error: "no checkout url from provider" }, { status: 502 })

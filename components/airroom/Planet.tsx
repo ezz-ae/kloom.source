@@ -96,20 +96,23 @@ export function Planet() {
   const [showPro, setShowPro] = useState(false)   // the paywall
   const [proMsg, setProMsg] = useState("")         // "you're pro" / payment toast
   const airTrig = useRef(0)
-  // back from Ziina checkout → verify the intent and grant the pass
+  // Grant the pass on return from Ziina — but reconcile on EVERY load, not just the
+  // redirect: if Ziina doesn't bounce the buyer back (or marks the intent completed a
+  // beat later), the pending intent is claimed next time they open airraw.com.
   useEffect(() => {
     try {
       const u = new URLSearchParams(window.location.search)
-      if (u.get("pro_fail") === "1") { setProMsg("payment didn't go through — you weren't charged."); window.history.replaceState({}, "", "/airraw"); return }
-      if (u.get("pro_ok") !== "1") return
+      const justPaid = u.get("pro_ok") === "1"
+      if (u.get("pro_fail") === "1") setProMsg("payment didn't go through — you weren't charged.")
+      if (justPaid || u.get("pro_fail")) window.history.replaceState({}, "", "/airraw")
       const id = getPendingIntent()
-      window.history.replaceState({}, "", "/airraw")
-      if (!id) return
+      if (!id || isPro()) return
       fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id }) })
         .then((r) => r.json())
         .then((d) => {
           if (d?.paid && d?.token) { setProToken(d.token); clearPendingIntent(); setPro(true); setProMsg("you're AIRRAW Pro ✦ enjoy the floor."); track("airraw_pro_paid", { surface: "planet" }) }
-          else setProMsg("payment is still processing — your Pro will appear shortly.")
+          else if (["failed", "canceled", "cancelled", "expired"].includes(String(d?.status))) clearPendingIntent()
+          else if (justPaid) setProMsg("payment is still processing — reopen airraw in a moment and your Pro will appear.")
         })
         .catch(() => {})
     } catch { /* */ }

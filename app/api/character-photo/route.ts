@@ -12,6 +12,7 @@
 
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { buildPortraitPrompt } from "@/lib/airraw/portrait-prompt"
+import { isCleanPortrait } from "@/lib/face-validate"
 
 export const runtime = "nodejs"
 export const maxDuration = 120
@@ -30,6 +31,9 @@ const TOGETHER_STEPS = Number(process.env.TOGETHER_IMAGE_STEPS || (TOGETHER_MODE
 // steps rather than the fast 4-step schnell. Override via env if the key lacks dev.
 const TOGETHER_REAL_MODEL = process.env.TOGETHER_REAL_MODEL || "black-forest-labs/FLUX.1-dev"
 const TOGETHER_REAL_STEPS = Number(process.env.TOGETHER_REAL_STEPS || 28)
+// If the key can't use the photoreal model (4xx), stop trying it after the first
+// failure — every later gen skips straight to the base model (no wasted call).
+let togetherRealOff = false
 
 const WORLD_STYLE: Record<string, string> = {
   fantasy:        "fantasy film still, elaborate costume, ethereal violet practical lighting, cinematic",
@@ -159,7 +163,10 @@ async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL,
       body: JSON.stringify({ model, prompt, seed, width: 768, height: 1024, steps, n: 1 }),
       signal: AbortSignal.timeout(60000),
     })
-    if (!res.ok) { console.error("together image error", res.status, (await res.text()).slice(0, 300)); return null }
+    if (!res.ok) {
+      if (model === TOGETHER_REAL_MODEL && res.status >= 400 && res.status < 500) togetherRealOff = true   // key lacks this model → stop trying it
+      console.error("together image error", res.status, (await res.text()).slice(0, 300)); return null
+    }
     const d = await res.json()
     const url: string = d?.data?.[0]?.url || ""
     if (url) { const img = await fetch(url, { signal: AbortSignal.timeout(25000) }); if (img.ok) return Buffer.from(await img.arrayBuffer()) }
@@ -219,17 +226,32 @@ export async function POST(request: Request) {
     }
   } catch { /* not cached → generate */ }
 
-  let bytes: Buffer | null = null
+  // One generation at a given diffusion seed (the prompt — i.e. the persona — is
+  // fixed; only the pixels change with the seed). diverse → try photoreal FLUX.1-dev,
+  // fall back to schnell if the key lacks dev.
   let genErr = ""
-  if (provider === "qwen") { const r = await genQwen(prompt, negative, seed); bytes = r.bytes; genErr = r.error || "" }
-  else if (provider === "together") {
-    // diverse → try the photoreal FLUX.1-dev; if the key can't use it, fall back to
-    // the base/schnell model (the stronger realism prompt still applies either way).
-    bytes = dp ? await genTogether(prompt, seed, TOGETHER_REAL_MODEL, TOGETHER_REAL_STEPS) : null
-    if (!bytes) bytes = await genTogether(prompt, seed)
+  const genWithSeed = async (dseed: number): Promise<Buffer | null> => {
+    if (provider === "qwen") { const r = await genQwen(prompt, negative, dseed); genErr = r.error || ""; return r.bytes }
+    if (provider === "together") {
+      const b = (dp && !togetherRealOff) ? await genTogether(prompt, dseed, TOGETHER_REAL_MODEL, TOGETHER_REAL_STEPS) : null
+      return b || (await genTogether(prompt, dseed))
+    }
+    if (provider === "fal") return genFal(prompt, dseed)
+    return genRunpod(prompt, negative, dseed)
   }
-  else if (provider === "fal")      bytes = await genFal(prompt, seed)
-  else                              bytes = await genRunpod(prompt, negative, seed)
+
+  // Generate + quality-gate (AIRRAW only): a good portrait is exactly ONE clean human
+  // face. A broken render (no face / two faces / artifacts) gets retried with a new
+  // diffusion seed for the SAME persona, so a bad face never gets cached. The face
+  // check is fail-open, so it can never block generation.
+  let bytes: Buffer | null = null
+  const MAX_TRIES = dp ? 3 : 1
+  for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
+    const b = await genWithSeed((seed + attempt * 7919) % 2147483647)
+    if (!b || b.length < 8000) continue
+    bytes = b                                       // keep the latest good bytes (best-effort)
+    if (!dp || (await isCleanPortrait(b))) break    // single clean face (or non-diverse) → done
+  }
   if (!bytes || bytes.length < 8000) {
     return Response.json({ error: "generation failed", provider, detail: genErr || undefined }, { status: 502 })
   }

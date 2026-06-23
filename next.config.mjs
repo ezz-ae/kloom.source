@@ -19,6 +19,15 @@ const nextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  // The face-quality validator loads its tinyFaceDetector model + tfjs WASM by
+  // runtime path, so the file tracer can't see them — force them into the
+  // character-photo serverless function bundle.
+  outputFileTracingIncludes: {
+    "/api/character-photo": ["./face-assets/**/*"],
+  },
+  // Native (@napi-rs/canvas) + large/wasm (tfjs, face-api) packages must be required
+  // at runtime from node_modules, not bundled by Turbopack/webpack.
+  serverExternalPackages: ["@vladmandic/face-api", "@tensorflow/tfjs", "@tensorflow/tfjs-backend-wasm", "@napi-rs/canvas"],
   typescript: {
     ignoreBuildErrors: true,
   },

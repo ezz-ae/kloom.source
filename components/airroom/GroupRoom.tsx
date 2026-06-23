@@ -22,6 +22,11 @@ const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
 const rid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 
+// When the LLM is unreachable (e.g. out of credits), replies fall back to the
+// character's roster lines then to these generic beats — cycled, never repeated —
+// so a dead backend degrades to "alive but quiet", not "same line three times".
+const BEATS = ["mm, go on.", "wait — say that again?", "ha, okay.", "i'm listening… tell me more.", "okay, and then?", "hmm. keep going.", "say more."]
+
 // Deterministic turn selection: every client picks the SAME responders for a given
 // human line (hashed from its id), so the cast that answers can never diverge
 // between participants — and a sender who drops can be safely taken over.
@@ -132,7 +137,12 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3 }: { seed: nu
       if (res.ok && res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }
     } catch { /* */ }
     full = full.trim()
-    if (!full) full = mem.lines[1] || mem.lines[0] || "…still here." // backend hiccup: stay in character, never dead air
+    if (!full) {
+      // LLM down (e.g. 402 out of credits): vary by how much this member has said
+      // so it never repeats the same line — roster lines first, then generic beats.
+      const said = linesRef.current.filter((l) => l.kind === "ai" && l.handle === mem.host).length
+      full = said < mem.lines.length ? mem.lines[said] : BEATS[(said - mem.lines.length) % BEATS.length]
+    }
     if (seen.current.has(id)) return // a peer's copy may have landed while we were waiting
     const aiMsg: WireMessage = { id, kind: "ai", handle: mem.host, content: full, ts: Date.now() }
     push(aiMsg); bcastRef.current?.(aiMsg)

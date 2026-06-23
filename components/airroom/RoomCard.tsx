@@ -31,9 +31,11 @@ export function RoomCard({ p, onEnter, onClose }: { p: RoomPreview; onEnter: () 
       <div style={{ width: "min(92vw, 440px)", background: "linear-gradient(180deg, rgba(18,28,40,.96), rgba(8,11,18,.96))", border: ".5px solid rgba(255,255,255,.12)", borderRadius: 22, boxShadow: "0 30px 90px -30px rgba(0,0,0,.8)", overflow: "hidden", color: "#eef4f8" }}>
         {/* header */}
         <div style={{ padding: "18px 20px 12px", textAlign: "center" }}>
-          <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: `hsl(${p.hue},60%,72%)` }}>{p.continent}{p.adult ? " · 18+" : ""}</div>
-          <div style={{ fontSize: 20, fontWeight: 500, marginTop: 4 }}>{isVoice ? `${lead.host} is on the floor` : `${members.length} here right now`}</div>
-          <div style={{ fontSize: 13, color: "#9fb2c4", marginTop: 3 }}>{p.vibe}</div>
+          {/* a world is known by its colour + vibe, not a name */}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: `hsl(${p.hue},60%,72%)` }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: `hsl(${p.hue},65%,60%)`, boxShadow: `0 0 8px hsl(${p.hue},65%,60%)` }} />{p.vibe}{p.adult ? " · 18+" : ""}
+          </div>
+          <div style={{ fontSize: 20, fontWeight: 500, marginTop: 6 }}>{isVoice ? `${lead.host} is on the floor` : `${members.length} here right now`}</div>
         </div>
 
         {/* living portraits */}

@@ -76,6 +76,8 @@ export function Planet() {
   const [preview, setPreview] = useState<RoomPreview | null>(null)   // the room card, shown before you enter
   const [pending, setPending] = useState<Cluster | null>(null)   // deep voice awaiting 18+ confirm
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null) // deep group awaiting 18+ confirm
+  const [nearDeep, setNearDeep] = useState(false)   // you're descending toward the deep → age screen
+  const nearDeepRef = useRef(false)
   const [verified, setVerified] = useState(false)
   const [hud, setHud] = useState<{ crumb: string; alt: string; hearing: string; join: Join | null }>({ crumb: "from orbit · the whole now", alt: "orbit", hearing: "the hum of the whole now", join: null })
 
@@ -158,6 +160,7 @@ export function Planet() {
   }
   const confirm18 = () => {
     setVerified(true); try { localStorage.setItem("airroom_18", "1") } catch { /* */ }
+    setNearDeep(false); nearDeepRef.current = false
     const p = pending, pj = pendingJoin; setPending(null); setPendingJoin(null)
     if (p) { takeOpening(); setSelected(p) } else if (pj) { takeOpening(); setGroup({ seed: pj.seed, f: pj.f, count: pj.n }) }
   }
@@ -264,11 +267,13 @@ export function Planet() {
           rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.fill()
           ctx.strokeStyle = `hsla(${co.h},66%,64%,0.40)`; ctx.lineWidth = 1.4 * DPR
           rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.stroke()
+          // no box names — a world is its colour + its vibe (and 18+ for the deep)
           if (cam.s < 8) {
-            ctx.fillStyle = `hsla(${co.h},65%,86%,.95)`; ctx.textAlign = "center"; ctx.font = `500 ${12.5 * DPR}px ${FF}`
-            ctx.fillText(co.adult ? co.n + " · 18+" : co.n, cp[0], cp[1] - 2 * DPR)
-            ctx.fillStyle = `hsla(${co.h},45%,76%,.7)`; ctx.font = `400 ${10 * DPR}px ${FF}`
-            ctx.fillText(co.v, cp[0], cp[1] + 14 * DPR); ctx.textAlign = "left"
+            ctx.textAlign = "center"
+            ctx.fillStyle = `hsla(${co.h},62%,82%,.95)`; ctx.font = `500 ${12.5 * DPR}px ${FF}`
+            ctx.fillText(co.v, cp[0], cp[1] + 4 * DPR)
+            if (co.adult) { ctx.fillStyle = `hsla(${co.h},72%,72%,.9)`; ctx.font = `600 ${10.5 * DPR}px ${FF}`; ctx.fillText("18+", cp[0], cp[1] - 13 * DPR) }
+            ctx.textAlign = "left"
           }
         }
       }
@@ -335,12 +340,15 @@ export function Planet() {
       }
       const baseRm = act || nearestRoom
       const bc = baseRm ? baseRm.c : 0, co = CONTINENTS[bc], loc = baseRm ? baseRm.seed : 0
+      // Approaching the deep unverified → raise the age screen before they arrive.
+      if (cam.s > 8.5 && co.adult && !verifiedRef.current) { if (!nearDeepRef.current) { nearDeepRef.current = true; setNearDeep(true) } }
+      else if (cam.s < 6 && nearDeepRef.current) { nearDeepRef.current = false; setNearDeep(false) }
       const join: Join | null = (baseRm && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: co.f, adult: !!co.adult, c: bc } : null
       let crumb: string, altl: string, hear: string
       if (cam.s < 3.2) { crumb = "from orbit · the whole now"; altl = "orbit"; hear = "the hum of the whole now · thousands of voices" }
-      else if (cam.s < 11) { crumb = `${co.n} · a region of the now`; altl = "atmosphere"; hear = `drifting over ${co.n} — ${co.v}` }
-      else if (!facesVisible) { crumb = `${co.n} · a block`; altl = "rooftops"; hear = `a block in ${co.n} · ${nearestRoom ? nearestRoom.count : 0} inside · zoom in to land` }
-      else { crumb = `${co.n} · on the floor`; altl = "the floor"; hear = actChar ? `hearing · ${actChar.host} — “${actChar.lines[0]}”` : "lean closer" }
+      else if (cam.s < 11) { crumb = `${co.v} · a region of the now`; altl = "atmosphere"; hear = `drifting through ${co.v}` }
+      else if (!facesVisible) { crumb = `${co.v} · a block`; altl = "rooftops"; hear = `a block of ${co.v} · ${nearestRoom ? nearestRoom.count : 0} inside · zoom in to land` }
+      else { crumb = `${co.v} · on the floor`; altl = "the floor"; hear = actChar ? `hearing · ${actChar.host} — “${actChar.lines[0]}”` : "lean closer" }
       const sig = crumb + "|" + altl + "|" + hear + "|" + (join ? `${join.n}:${join.seed}` : "0")
       if (sig !== lastHud) { lastHud = sig; setHud({ crumb, alt: altl, hearing: hear, join }) }
     }
@@ -404,15 +412,15 @@ export function Planet() {
 
       {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening("") }} />}
 
-      {(pending || pendingJoin) && !verified && (
+      {(pending || pendingJoin || nearDeep) && !verified && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,30,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", paddingTop: "max(26px, env(safe-area-inset-top))", paddingBottom: "max(26px, env(safe-area-inset-bottom))", paddingLeft: "max(26px, env(safe-area-inset-left))", paddingRight: "max(26px, env(safe-area-inset-right))", zIndex: 30 }}>
           <div style={{ maxWidth: 340, textAlign: "center", color: "#f3e8fb" }}>
-            <div style={{ fontSize: 12, letterSpacing: 1, color: "#c69cff" }}>you&apos;re at the edge of the deep</div>
+            <div style={{ fontSize: 12, letterSpacing: 1, color: "#c69cff" }}>you&apos;re approaching the deep</div>
             <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>it gets adult down here</div>
             <div style={{ fontSize: 14, lineHeight: 1.6, color: "#d7c3ea" }}>flirty, late-night, 18+. you only go deeper if you&apos;re old enough.</div>
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
               <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, minHeight: 44, color: "#1a0d2a", background: "#c69cff", border: "none", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>i&apos;m 18 or older — take me down</button>
-              <button onClick={() => { setPending(null); setPendingJoin(null) }} style={{ fontSize: 14, lineHeight: 1.2, minHeight: 44, color: "#d7c3ea", background: "transparent", border: "1px solid rgba(198,156,255,.4)", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>keep me up here</button>
+              <button onClick={() => { setPending(null); setPendingJoin(null); setNearDeep(false); zoomFnRef.current(0.18) }} style={{ fontSize: 14, lineHeight: 1.2, minHeight: 44, color: "#d7c3ea", background: "transparent", border: "1px solid rgba(198,156,255,.4)", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>keep me up here</button>
             </div>
           </div>
         </div>

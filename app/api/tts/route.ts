@@ -167,11 +167,25 @@ function elVoiceFor(name?: string, gender?: string): string {
 async function elevenTTS(text: string, key: string, name?: string, gender?: string): Promise<ArrayBuffer | null> {
   try {
     const voice = elVoiceFor(name, gender)
+    // multilingual_v2 = the most natural/emotional voice. For a snappier live call,
+    // set ELEVENLABS_MODEL=eleven_turbo_v2_5 (faster, still very natural).
     const model = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2"
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`, {
+    // Tuned for real feeling: lower stability = more emotional variation, higher style
+    // = more expressive delivery, speaker_boost for presence. 192kbps for crisper audio.
+    const fmt = process.env.ELEVENLABS_FORMAT || "mp3_44100_192"
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=${fmt}`, {
       method: "POST",
       headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
-      body: JSON.stringify({ text, model_id: model, voice_settings: { stability: 0.4, similarity_boost: 0.85, style: 0.35, use_speaker_boost: true } }),
+      body: JSON.stringify({
+        text,
+        model_id: model,
+        voice_settings: {
+          stability: Number(process.env.ELEVENLABS_STABILITY ?? 0.32),
+          similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY ?? 0.9),
+          style: Number(process.env.ELEVENLABS_STYLE ?? 0.55),
+          use_speaker_boost: true,
+        },
+      }),
       signal: AbortSignal.timeout(30000),
     })
     if (!res.ok) { console.error("elevenlabs", res.status, (await res.text()).slice(0, 200)); return null }

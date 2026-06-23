@@ -22,7 +22,6 @@ import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { RoomCard, type RoomPreview } from "@/components/airroom/RoomCard"
 import { isPro } from "@/lib/airroom/pro"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
-import { startAmbience, setAmbienceDepth, setAmbienceMuted, stopAmbience } from "@/lib/airroom/ambience"
 import { track } from "@/lib/airraw/track"
 
 interface Continent { n: string; v: string; h: number; f: number; adult?: boolean }
@@ -98,11 +97,10 @@ export function Planet() {
   const [lang, setLang] = useState("English")
   useEffect(() => { setLang(detectLanguage()) }, [])
   useEffect(() => { verifiedRef.current = verified }, [verified])
-  useEffect(() => { const inCall = !!selected || !!group; inCallRef.current = inCall; try { setAmbienceMuted(inCall) } catch { /* */ } }, [selected, group])
+  useEffect(() => { inCallRef.current = !!selected || !!group }, [selected, group])
 
   useEffect(() => { try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ } }, [])
   useEffect(() => { track("airraw_land", { surface: "planet" }) }, [])
-  useEffect(() => () => { try { stopAmbience() } catch { /* */ } }, [])
 
   // Only the 8 continent anchors are fixed; rooms + faces are generated procedurally
   // for whatever's on screen (see the loop), so the world is infinite.
@@ -197,7 +195,7 @@ export function Planet() {
       tgt.x = wx - (px - cv.width / 2) / (tgt.s * m); tgt.y = wy - (py - cv.height / 2) / (tgt.s * m)
     }
     zoomFnRef.current = (f: number) => zoomAt(cv.width / 2, cv.height / 2, f)
-    const startAudio = () => { if (!audioStarted) { audioStarted = true; try { startAmbience(); setAmbienceDepth(cam.s) } catch { /* */ } } }
+    const startAudio = () => { audioStarted = true }   // unlocks the proximity voice; no background ambience
     // begin the descent: reveal the blocks and drift inward so the world opens up
     const markStarted = () => { if (!startedRef.current) { startedRef.current = true; setStarted(true); tgt.s = Math.max(tgt.s, 1.6) } }
     startFnRef.current = markStarted
@@ -248,7 +246,6 @@ export function Planet() {
       if (airTrig.current !== lastAirTrig) { lastAirTrig = airTrig.current; airEnd = t + 4.5 }
       const airOn = t < airEnd
       cam.x += (tgt.x - cam.x) * 0.15; cam.y += (tgt.y - cam.y) * 0.15; cam.s += (tgt.s - cam.s) * 0.15
-      if (frameN % 18 === 0) { try { setAmbienceDepth(cam.s) } catch { /* */ } }
       const W = cv.width, H = cv.height
       ctx.fillStyle = "#04050b"; ctx.fillRect(0, 0, W, H)
       for (const st of stars) { let sx = (st.x * W + cam.x * -12) % W; if (sx < 0) sx += W; let sy = (st.y * H + cam.y * -12) % H; if (sy < 0) sy += H; ctx.globalAlpha = (0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 1.3 + st.ph))) * 0.7; ctx.fillStyle = "#cdd9e3"; ctx.beginPath(); ctx.arc(sx, sy, st.r * DPR, 0, 6.283); ctx.fill() }

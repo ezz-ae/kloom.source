@@ -94,9 +94,9 @@ export async function POST(request: Request) {
       text: ttsText,
       reference_id: referenceId,
       format: "mp3",
-      mp3_bitrate: 128,
+      mp3_bitrate: 192,                 // richer than 128 — less "boxed" compression
       normalize: true,
-      latency: process.env.FISH_LATENCY || "balanced",
+      latency: "normal",                // best quality over lowest latency (was "balanced")
     })
 
     try {
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "model": process.env.FISH_MODEL || "s1",
+          "model": "s1",                // force Fish's flagship model for the most natural voice
         },
         body,
       })

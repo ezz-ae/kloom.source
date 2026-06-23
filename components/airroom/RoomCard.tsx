@@ -8,7 +8,7 @@
  */
 import { useMemo } from "react"
 import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
-import { imageFor } from "@/lib/persona-utils"
+import { Face } from "@/components/airroom/Face"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 
@@ -42,8 +42,7 @@ export function RoomCard({ p, onEnter, onClose }: { p: RoomPreview; onEnter: () 
         {isVoice ? (
           <div style={{ padding: "4px 20px 8px" }}>
             <div style={{ position: "relative", width: "100%", aspectRatio: "16/11", borderRadius: 16, overflow: "hidden", border: ".5px solid rgba(255,255,255,.12)" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imageFor({ name: lead.host })} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", animation: "rcburns 10s ease-in-out infinite" }} />
+              <Face persona={{ name: lead.host, gender: lead.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", animation: "rcburns 10s ease-in-out infinite" }} />
               <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "26px 14px 12px", background: "linear-gradient(transparent, rgba(4,6,12,.85))" }}>
                 <div style={{ fontSize: 18, fontWeight: 500 }}>{lead.host}</div>
                 <div style={{ fontSize: 13, color: "#cfe0ee", fontStyle: "italic", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>&ldquo;{lead.lines[0]}&rdquo;</div>
@@ -54,8 +53,7 @@ export function RoomCard({ p, onEnter, onClose }: { p: RoomPreview; onEnter: () 
           <div style={{ padding: "4px 16px 8px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 7 }}>
             {shown.map((m, i) => (
               <div key={i} style={{ position: "relative", aspectRatio: "1", borderRadius: 12, overflow: "hidden", border: ".5px solid rgba(255,255,255,.1)" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageFor({ name: m.host })} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", animation: `rcburns ${9 + (i % 4)}s ease-in-out infinite`, animationDelay: `${-i * 1.3}s` }} />
+                <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", animation: `rcburns ${9 + (i % 4)}s ease-in-out infinite`, animationDelay: `${-i * 1.3}s` }} />
                 <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "16px 6px 4px", background: "linear-gradient(transparent, rgba(4,6,12,.8))", fontSize: 11, fontWeight: 500, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.host}</div>
                 {i === 8 && members.length > 9 && (
                   <div style={{ position: "absolute", inset: 0, background: "rgba(6,9,16,.6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 600 }}>+{members.length - 9}</div>

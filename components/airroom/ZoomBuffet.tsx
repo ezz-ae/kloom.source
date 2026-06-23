@@ -13,7 +13,7 @@ import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { usePresence } from "@/lib/airroom/presence"
 import { avatarBg, avatarGlow } from "@/lib/airroom/avatar"
-import { imageFor } from "@/lib/persona-utils"
+import { Face } from "@/components/airroom/Face"
 import { startAmbience, setAmbienceDepth, setAmbienceMuted, stopAmbience } from "@/lib/airroom/ambience"
 import { track } from "@/lib/airraw/track"
 
@@ -106,8 +106,7 @@ export function ZoomBuffet() {
     const char = makeCharacter(seed, f)
     return (
       <button key={v} onClick={() => openVoice(char)} aria-label="a voice" style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed, f), border: "1px solid rgba(255,255,255,.14)", cursor: "pointer", boxShadow: `0 0 6px ${avatarGlow(f)}55`, padding: 0 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageFor({ name: char.host })} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <Face persona={{ name: char.host, gender: char.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       </button>
     )
   }), [world, room, voicesCount, openVoice])

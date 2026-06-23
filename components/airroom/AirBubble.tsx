@@ -12,7 +12,7 @@ import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Cluster } from "@/lib/airroom/roster"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { listenOnce, canListen } from "@/lib/voice-once"
-import { imageFor } from "@/lib/persona-utils"
+import { Face } from "@/components/airroom/Face"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
@@ -245,7 +245,6 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   const last = msgs[msgs.length - 1]
   const status = busy ? `${cluster.host.toLowerCase()} is talking…` : listening ? "listening — say it" : handsFree ? "live — just talk" : "tap the mic to talk"
-  const portrait = imageFor({ name: cluster.host })
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "radial-gradient(125% 90% at 50% 0%, #122231 0%, #070b12 58%, #04050b 100%)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#eef4f8" }}>
@@ -280,7 +279,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           {speaking && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: "2px solid #7fd6c0", animation: "airpulse 1.5s ease-out infinite" }} />}
           <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${speaking ? "rgba(127,214,192,.7)" : "rgba(127,214,192,.32)"}`, boxShadow: "0 22px 70px -22px rgba(127,214,192,.55)" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={portrait} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <Face persona={{ name: cluster.host, gender: cluster.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         </div>
         <div style={{ textAlign: "center" }}>

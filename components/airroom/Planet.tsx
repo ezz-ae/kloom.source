@@ -17,25 +17,36 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { imageFor } from "@/lib/persona-utils"
+import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { RoomCard, type RoomPreview } from "@/components/airroom/RoomCard"
 import { isPro, getPendingIntent, setProToken, clearPendingIntent } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
+import { ProfileSheet } from "@/components/airroom/ProfileSheet"
+import { getProfile, type Profile } from "@/lib/airroom/profile"
+import { getCredits, spendCredits } from "@/lib/airroom/credits"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
 import { track } from "@/lib/airraw/track"
 
-interface Continent { n: string; v: string; h: number; f: number; adult?: boolean }
+// `v` is the full vibe (feeds the AI persona + deeper HUD); `label` is the single
+// word the world wears at orbit — one word, not three, so the sky stays quiet.
+interface Continent { n: string; v: string; label: string; h: number; f: number; adult?: boolean }
 const CONTINENTS: Continent[] = [
-  { n: "still water", v: "study · deep focus", h: 193, f: 0.12 },
-  { n: "the workshop", v: "build · make things", h: 150, f: 0.24 },
-  { n: "the trading floor", v: "markets · risk · calls", h: 128, f: 0.33 },
-  { n: "the arena", v: "games · chess · play", h: 262, f: 0.40 },
-  { n: "the playground", v: "dares · chaos · fun", h: 322, f: 0.46 },
-  { n: "the commons", v: "social · warm", h: 45, f: 0.52 },
-  { n: "the late floor", v: "night · close", h: 18, f: 0.62 },
-  { n: "the deep", v: "raw · 18+", h: 300, f: 0.86, adult: true },
+  { n: "still water", v: "study · deep focus", label: "focus", h: 193, f: 0.12 },
+  { n: "the workshop", v: "build · make things", label: "build", h: 150, f: 0.24 },
+  { n: "the trading floor", v: "markets · risk · calls", label: "markets", h: 128, f: 0.33 },
+  { n: "the arena", v: "games · chess · play", label: "play", h: 262, f: 0.40 },
+  { n: "the playground", v: "dares · chaos · fun", label: "chaos", h: 322, f: 0.46 },
+  { n: "the commons", v: "social · warm", label: "warm", h: 45, f: 0.52 },
+  { n: "the late floor", v: "night · close", label: "night", h: 18, f: 0.62 },
+  { n: "the deep", v: "raw · 18+", label: "raw", h: 300, f: 0.86, adult: true },
 ]
+
+// the cold-open: a few lines drift up the sky before the worlds appear, then it
+// opens into the write box. Plays once per browser (skippable by a tap).
+const INTRO_LINES = ["it’s the now.", "a whole sky of voices.", "some real — some not.", "you won’t always know."]
+const INTRO_LINE_MS = 1900   // each line's on-screen slot (kept in sync with the CSS)
 const CITIES = 8
 const FACES = 14
 const PR = 0.40, CX = 0.5, CY = 0.5
@@ -89,6 +100,25 @@ export function Planet() {
   const [started, setStarted] = useState(false)
   const [intent, setIntent] = useState("")      // what you write on the sky
   const [opening, setOpening] = useState("")     // handed to the first room you enter as your first line
+  const [intro, setIntro] = useState(true)       // the cold-open scroll-text plays first
+  const skipIntro = () => { try { localStorage.setItem("airraw_intro_seen", "1") } catch { /* */ } setIntro(false) }
+  // drive the cold-open: the lines animate via staggered CSS (below), so JS only
+  // needs ONE timeout to open the sky when the sequence ends — no per-line state,
+  // no interval to compound under Strict Mode. Returning visitors skip it; ?intro=1
+  // forces a replay.
+  useEffect(() => {
+    let force = false
+    try { force = new URLSearchParams(window.location.search).get("intro") === "1" } catch { /* */ }
+    let seen = false
+    try { seen = !force && localStorage.getItem("airraw_intro_seen") === "1" } catch { /* */ }
+    if (seen) { setIntro(false); return }
+    const total = INTRO_LINES.length * INTRO_LINE_MS + 700
+    const timer = setTimeout(() => {
+      try { localStorage.setItem("airraw_intro_seen", "1") } catch { /* */ }
+      setIntro(false)
+    }, total)
+    return () => clearTimeout(timer)
+  }, [])
   const startedRef = useRef(false)
   const startFnRef = useRef<() => void>(() => {})
   const openingRef = useRef("")
@@ -96,6 +126,11 @@ export function Planet() {
   const [showPro, setShowPro] = useState(false)   // the paywall
   const [proMsg, setProMsg] = useState("")         // "you're pro" / payment toast
   const airTrig = useRef(0)
+  // who you are on the floor + your credit balance (anonymous, local)
+  const [showProfile, setShowProfile] = useState(false)
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [credits, setCredits] = useState(0)
+  useEffect(() => { setProfile(getProfile()); setCredits(getCredits()) }, [])
   // Grant the pass on return from Ziina — but reconcile on EVERY load, not just the
   // redirect: if Ziina doesn't bounce the buyer back (or marks the intent completed a
   // beat later), the pending intent is claimed next time they open airraw.com.
@@ -133,7 +168,7 @@ export function Planet() {
   // phone (narrow x, tall y) instead of clustering in one block.
   const conCentres = useMemo(() => CONTINENTS.map((_, c) => {
     const cang = (c / CONTINENTS.length) * 6.283 + 0.6
-    return { x: CX + Math.cos(cang) * 0.205, y: CY + Math.sin(cang) * 0.345 }
+    return { x: CX + Math.cos(cang) * 0.235, y: CY + Math.sin(cang) * 0.375 }
   }), [])
   // Characters are minted lazily per face-seed and cached — only the ones you
   // actually drift near or open are ever built.
@@ -256,12 +291,21 @@ export function Planet() {
     cv.addEventListener("pointerdown", onDown); cv.addEventListener("pointermove", onMove)
     cv.addEventListener("pointerup", onUp); cv.addEventListener("pointercancel", onUp)
 
-    const faceFor = (host: string): HTMLImageElement | null => {
+    // Each face shows the cheap fallback instantly, then swaps to its live, diverse,
+    // generated photo once it resolves (generated-once, cached forever server-side).
+    const faceFor = (ch: { host: string; gender?: string }): HTMLImageElement | null => {
+      const host = ch.host
       if (imgs.has(host)) return imgs.get(host) || null
       if (imgs.size > 260) return null
       imgs.set(host, null)
-      const im = new Image(); im.onload = () => imgs.set(host, im); im.onerror = () => imgs.set(host, null)
-      im.src = imageFor({ name: host }); return null
+      const setImg = (url: string) => { const im = new Image(); im.onload = () => imgs.set(host, im); im.src = url }
+      const cached = cachedFace({ name: host, gender: ch.gender })
+      if (cached) { setImg(cached) }
+      else {
+        setImg(imageFor({ name: host }))   // fallback while the real face generates
+        faceUrl({ name: host, gender: ch.gender }).then((u) => { if (u) setImg(u) })
+      }
+      return null
     }
     const ROOM_OPEN = 168 * DPR   // a block's screen size at which it opens to faces
     const rrect = (x: number, y: number, w: number, h: number, r: number) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath() }
@@ -287,19 +331,42 @@ export function Planet() {
           const co = CONTINENTS[c]
           // each world drifts on its own slow orbit — the sky is alive
           const dx = Math.sin(t * 0.18 + c * 1.7) * 0.012, dy = Math.cos(t * 0.13 + c * 2.3) * 0.012
-          const cp = w2s(conCentres[c].x + dx, conCentres[c].y + dy), ch = 0.10 * cam.s * vm()
+          const cp = w2s(conCentres[c].x + dx, conCentres[c].y + dy), ch = 0.088 * cam.s * vm()
           if (cp[0] + ch < 0 || cp[0] - ch > W || cp[1] + ch < 0 || cp[1] - ch > H) continue
-          const rad = Math.min(ch * 0.3, 18 * DPR)
-          ctx.fillStyle = `hsla(${co.h},55%,52%,0.10)`
+          const rad = Math.min(ch * 0.34, 22 * DPR)
+          const breathe = 0.5 + 0.5 * Math.sin(t * 0.85 + c * 1.3)   // a slow, alive pulse
+          // a world is a glowing place, not a wireframe: soft bloom + a core that
+          // fades to the sky, so the block reads as somewhere with depth inside.
+          ctx.save()
+          ctx.shadowColor = `hsla(${co.h},78%,60%,${0.45 + 0.22 * breathe})`
+          ctx.shadowBlur = (15 + 9 * breathe) * DPR
+          const grd = ctx.createRadialGradient(cp[0], cp[1] - ch * 0.18, ch * 0.12, cp[0], cp[1], ch * 1.08)
+          grd.addColorStop(0, `hsla(${co.h},72%,58%,0.32)`)
+          grd.addColorStop(0.72, `hsla(${co.h},64%,48%,0.13)`)
+          grd.addColorStop(1, `hsla(${co.h},60%,44%,0)`)
+          ctx.fillStyle = grd
           rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.fill()
-          ctx.strokeStyle = `hsla(${co.h},66%,64%,0.40)`; ctx.lineWidth = 1.4 * DPR
+          ctx.restore()
+          // a crisp thin rim on top of the bloom
+          ctx.strokeStyle = `hsla(${co.h},74%,72%,${0.30 + 0.18 * breathe})`; ctx.lineWidth = 1.1 * DPR
           rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.stroke()
-          // no box names — a world is its colour + its vibe (and 18+ for the deep)
+          // life inside: a scatter of voices drifting and twinkling — "thousands of voices"
+          const vn = 7
+          for (let i = 0; i < vn; i++) {
+            const a = (i / vn) * 6.283 + c * 0.9
+            const rr = ch * (0.28 + 0.5 * ifrac(ihash(c * 31 + i, 7)))
+            const vx = cp[0] + Math.cos(a + t * 0.24) * rr
+            const vy = cp[1] + Math.sin(a * 1.27 + t * 0.21) * rr * 0.9
+            const tw = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 2.1 + i * 1.7 + c))
+            ctx.fillStyle = `hsla(${co.h},85%,82%,${tw * 0.8})`
+            ctx.beginPath(); ctx.arc(vx, vy, 1.7 * DPR, 0, 6.283); ctx.fill()
+          }
+          // one word — the world's essence (the full vibe lives in the AI, not the sky)
           if (cam.s < 8) {
             ctx.textAlign = "center"
-            ctx.fillStyle = `hsla(${co.h},62%,82%,.95)`; ctx.font = `500 ${12.5 * DPR}px ${FF}`
-            ctx.fillText(co.v, cp[0], cp[1] + 4 * DPR)
-            if (co.adult) { ctx.fillStyle = `hsla(${co.h},72%,72%,.9)`; ctx.font = `600 ${10.5 * DPR}px ${FF}`; ctx.fillText("18+", cp[0], cp[1] - 13 * DPR) }
+            ctx.fillStyle = `hsla(${co.h},60%,88%,.97)`; ctx.font = `600 ${13 * DPR}px ${FF}`
+            ctx.fillText(co.label, cp[0], cp[1] + 4.5 * DPR)
+            if (co.adult) { ctx.fillStyle = `hsla(${co.h},80%,76%,.92)`; ctx.font = `700 ${9.5 * DPR}px ${FF}`; ctx.fillText("18+", cp[0], cp[1] - 16 * DPR) }
             ctx.textAlign = "left"
           }
         }
@@ -334,7 +401,7 @@ export function Planet() {
               if (r > 2.2 && fdc < best) { best = fdc; act = { c, x: fx, y: fy, seed: fh } }
               const fhue = co.h + (ifrac(fh) * 26 - 13), rad = Math.min(r * 0.3, 10 * DPR)
               if (r > 17 && !locked) {
-                const ch = charFor(fh, c), im = faceFor(ch.host)
+                const ch = charFor(fh, c), im = faceFor(ch)
                 if (im) { ctx.save(); rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.clip(); ctx.drawImage(im, fs[0] - r, fs[1] - r, r * 2, r * 2); ctx.restore(); ctx.strokeStyle = `hsla(${fhue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.stroke() }
                 else { ctx.fillStyle = `hsl(${fhue},70%,60%)`; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.fill() }
                 if (r > 34) { ctx.fillStyle = "rgba(238,244,248,.92)"; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, r * 0.34) * DPR}px ${FF}`; ctx.fillText(ch.host, fs[0], fs[1] + r + 13 * DPR); ctx.textAlign = "left" }
@@ -392,8 +459,16 @@ export function Planet() {
     <div style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>
       <canvas ref={cvRef} style={{ display: "block", width: "100%", height: "100%", cursor: "grab" }} />
 
+      {/* you, on the floor — avatar + a peek at your credits; opens the profile */}
+      {profile && !intro && (
+        <button onClick={() => setShowProfile(true)} aria-label="your profile" style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "max(16px, env(safe-area-inset-left))", zIndex: 26, width: 40, height: 40, borderRadius: "50%", border: "none", background: `radial-gradient(120% 120% at 30% 25%, hsl(${profile.hue},78%,64%), hsl(${(profile.hue + 40) % 360},70%,40%))`, color: "rgba(255,255,255,.96)", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 6px 18px -6px hsla(${profile.hue},80%,50%,.7)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+          {profile.glyph}
+          <span style={{ position: "absolute", bottom: -4, right: -4, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 9, background: "#0a0c12", border: `.5px solid ${pro ? "rgba(255,217,138,.55)" : "rgba(127,214,192,.5)"}`, color: pro ? "#ffd98a" : "#7fd6c0", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>{pro ? "∞" : credits}</span>
+        </button>
+      )}
+
       {/* the planet speaks your language — pick it any time */}
-      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: intro ? "none" : "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
         <span style={{ fontSize: 12 }} aria-hidden>🌐</span>
         <select value={lang} onChange={(e) => setLang(e.target.value)} aria-label="language" style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", color: "#cfe0ee", border: "none", fontSize: 12.5, fontFamily: "inherit", padding: "2px 2px 2px 4px", cursor: "pointer", outline: "none" }}>
           {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{l.name}</option>)}
@@ -401,10 +476,23 @@ export function Planet() {
         <span style={{ fontSize: 9, color: "#8aa0b3", marginRight: 4 }} aria-hidden>▾</span>
       </div>
 
+      {/* Cold-open: a line at a time drifts up the sky, then it opens to the write box. */}
+      {!started && intro && (
+        <div onClick={skipIntro} style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 28px", zIndex: 22, cursor: "pointer", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+          <style>{`@keyframes introScroll{0%{opacity:0;transform:translateY(44px)}26%{opacity:1;transform:translateY(5px)}74%{opacity:1;transform:translateY(-5px)}100%{opacity:0;transform:translateY(-44px)}}@keyframes skyOpen{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}@keyframes skipFade{0%,70%{opacity:0}100%{opacity:.7}}`}</style>
+          <div style={{ position: "relative", width: "100%", maxWidth: 520, height: "1.4em", fontSize: "clamp(24px, 7vw, 40px)" }}>
+            {INTRO_LINES.map((ln, i) => (
+              <div key={i} style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontWeight: 500, lineHeight: 1.2, color: "#eef4f8", letterSpacing: 0.2, textShadow: "0 2px 34px rgba(127,214,192,.28)", opacity: 0, animation: `introScroll ${INTRO_LINE_MS}ms ease-in-out ${i * INTRO_LINE_MS}ms both` }}>{ln}</div>
+            ))}
+          </div>
+          <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 30px)", left: 0, right: 0, textAlign: "center", fontSize: 12, color: "#5f7080", letterSpacing: 1, opacity: 0, animation: "skipFade 2.4s ease both" }}>tap to skip</div>
+        </div>
+      )}
+
       {/* The very first view: only sky + a place to write. No boxes yet. */}
-      {!started && (
+      {!started && !intro && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-          <div style={{ pointerEvents: "auto", width: "min(88vw, 460px)", textAlign: "center", color: "#eef4f8" }}>
+          <div style={{ pointerEvents: "auto", width: "min(88vw, 460px)", textAlign: "center", color: "#eef4f8", animation: "skyOpen .8s ease both" }}>
             <div style={{ fontSize: 12, letterSpacing: 4, color: "#7fd6c0", textTransform: "uppercase" }}>airraw</div>
             <div style={{ fontSize: "clamp(25px, 7.5vw, 36px)", fontWeight: 500, lineHeight: 1.18, margin: "14px 0 8px" }}>it&apos;s the now.</div>
             <div style={{ fontSize: 15, lineHeight: 1.5, color: "#9fb2c4", marginBottom: 22 }}>say what&apos;s on your mind — then dive into the sky.</div>
@@ -419,7 +507,7 @@ export function Planet() {
 
       {started && (
       <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 54px)", left: 16, right: 16, display: "flex", justifyContent: "space-between", gap: 10, pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-        <div style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, color: "#9fb2c4", letterSpacing: 1, background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>it&apos;s the now · {hud.crumb}</div>
+        <div style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, color: "#9fb2c4", letterSpacing: 1, background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hud.crumb}</div>
         <div style={{ flex: "0 0 auto", fontSize: 11, color: "#6b7d8e", background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, whiteSpace: "nowrap" }}>altitude — {hud.alt}</div>
       </div>
       )}
@@ -436,9 +524,16 @@ export function Planet() {
 
       {started && (
       <div style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", display: "flex", flexDirection: "column", gap: 8 }}>
-        {pro
-          ? <button aria-label="AIR — light up your best matches" onClick={() => { airTrig.current++ }} style={{ width: 44, height: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#3a1e06", background: "linear-gradient(180deg,#ffd98a,#ef9a4d)", boxShadow: "0 6px 20px -6px rgba(255,180,90,.75)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>AIR</button>
-          : <button aria-label="AIRRAW Pro" onClick={() => setShowPro(true)} style={{ width: 44, height: 44, borderRadius: 12, border: ".5px solid rgba(255,217,138,.5)", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#ffd98a", background: "rgba(255,217,138,.1)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>✦</button>}
+        {(pro || credits > 0)
+          ? <button aria-label="AIR — light up your best matches" onClick={() => {
+              if (!pro) {
+                if (!spendCredits(1)) { setShowPro(true); return }
+                const left = getCredits(); setCredits(left)
+                setProMsg(left > 0 ? `AIR ✦ ${left} credit${left === 1 ? "" : "s"} left` : "that was your last credit — go Pro for ∞ AIR")
+              }
+              airTrig.current++
+            }} style={{ width: 44, height: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#3a1e06", background: "linear-gradient(180deg,#ffd98a,#ef9a4d)", boxShadow: "0 6px 20px -6px rgba(255,180,90,.75)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>AIR</button>
+          : <button aria-label="out of credits — get AIRRAW Pro" onClick={() => setShowPro(true)} style={{ width: 44, height: 44, borderRadius: 12, border: ".5px solid rgba(255,217,138,.5)", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#ffd98a", background: "rgba(255,217,138,.1)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>✦</button>}
         <button aria-label="descend" onClick={() => zoomFnRef.current(1.6)} style={btn}>+</button>
         <button aria-label="climb" onClick={() => zoomFnRef.current(1 / 1.6)} style={btn}>−</button>
       </div>
@@ -465,6 +560,7 @@ export function Planet() {
       )}
 
       {showPro && <ProSheet onClose={() => setShowPro(false)} />}
+      {showProfile && <ProfileSheet onClose={() => { setShowProfile(false); setProfile(getProfile()); setCredits(getCredits()) }} onUpgrade={() => { setShowProfile(false); setShowPro(true) }} />}
       {proMsg && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 150px)", zIndex: 35, maxWidth: "86vw", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", padding: "11px 18px", borderRadius: 14, boxShadow: "0 12px 32px -8px rgba(0,0,0,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{proMsg}</div>
       )}

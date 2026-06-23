@@ -13,7 +13,7 @@
 import { useMemo, useEffect, useRef, useState } from "react"
 import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { avatarBg, avatarGlow } from "@/lib/airroom/avatar"
-import { imageFor } from "@/lib/persona-utils"
+import { Face } from "@/components/airroom/Face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { CaptureWall } from "@/components/airroom/CaptureWall"
 import { usePresence } from "@/lib/airroom/presence"
@@ -74,8 +74,7 @@ export function Lobby() {
           style={{ width: size, height: size, background: avatarBg(seed, f), ["--glow" as string]: glow, animationDelay: `${bdelay}s`, transform: isHover ? "scale(1.12)" : undefined } as React.CSSProperties}
         >
           {/* Real face on top of the gradient (which stays as the load/fallback). */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="orb-img" src={imageFor({ name: c.host })} alt="" loading="lazy" />
+          <Face persona={{ name: c.host, gender: c.gender }} className="orb-img" />
         </span>
         <span className="orb-name" style={{ color: nameColor(f) }}>{c.host}</span>
         <span className="orb-line" style={{ opacity: isHover ? 1 : 0.62, maxHeight: isHover ? 60 : 32 }}>&ldquo;{c.lines[0]}&rdquo;</span>

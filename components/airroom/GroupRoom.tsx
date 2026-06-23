@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "react"
 import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
-import { imageFor } from "@/lib/persona-utils"
+import { Face } from "@/components/airroom/Face"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
@@ -255,8 +255,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
             {members.slice(0, 12).map((m, i) => (
               <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500, color: "#eef4f8", flexShrink: 0, whiteSpace: "nowrap" }}>
                 <span style={{ width: 20, height: 20, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed * 7 + i + 1, m.f), boxShadow: `0 0 6px ${dot(m.f)}66`, border: "1px solid rgba(255,255,255,.15)", display: "inline-block" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imageFor({ name: m.host })} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                 </span>{m.host}
               </span>
             ))}

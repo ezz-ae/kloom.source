@@ -78,6 +78,14 @@ export function Planet() {
 
   const verifiedRef = useRef(false)
   const inCallRef = useRef(false)
+  // Sky-first entry: the very first view is just sky + a place to write. The blocks
+  // only appear once you begin (type & dive, or scroll/drag/zoom the sky).
+  const [started, setStarted] = useState(false)
+  const [intent, setIntent] = useState("")      // what you write on the sky
+  const [opening, setOpening] = useState("")     // handed to the first room you enter as your first line
+  const startedRef = useRef(false)
+  const startFnRef = useRef<() => void>(() => {})
+  const openingRef = useRef("")
   useEffect(() => { verifiedRef.current = verified }, [verified])
   useEffect(() => { const inCall = !!selected || !!group; inCallRef.current = inCall; try { setAmbienceMuted(inCall) } catch { /* */ } }, [selected, group])
 
@@ -117,21 +125,24 @@ export function Planet() {
     } catch { /* a quiet sky is fine */ }
   }, [])
 
+  const takeOpening = () => { const o = openingRef.current; openingRef.current = ""; setOpening(o); return o }
   const openVoice = useCallback((c: number, seed: number) => {
     const ch = charFor(seed, c)
     if (CONTINENTS[c].adult && !verifiedRef.current) { setPending(ch); return }
-    setSelected(ch)
+    takeOpening(); setSelected(ch)
   }, [charFor])
   const joinGroup = useCallback((j: Join) => {
     if (CONTINENTS[j.c]?.n === "the arena") { window.location.href = "/airraw/chess"; return }   // games room → the board
     if (j.adult && !verifiedRef.current) { setPendingJoin(j); return }
-    setGroup({ seed: j.seed, f: j.f, count: j.n })
+    takeOpening(); setGroup({ seed: j.seed, f: j.f, count: j.n })
   }, [])
   const confirm18 = () => {
     setVerified(true); try { localStorage.setItem("airroom_18", "1") } catch { /* */ }
     const p = pending, pj = pendingJoin; setPending(null); setPendingJoin(null)
-    if (p) setSelected(p); else if (pj) setGroup({ seed: pj.seed, f: pj.f, count: pj.n })
+    if (p) { takeOpening(); setSelected(p) } else if (pj) { takeOpening(); setGroup({ seed: pj.seed, f: pj.f, count: pj.n }) }
   }
+  // write-box "dive": remember what they wrote (seeds their first room), then begin.
+  const dive = () => { openingRef.current = intent.trim(); startFnRef.current() }
 
   // ── the engine ──
   useEffect(() => {
@@ -158,14 +169,17 @@ export function Planet() {
     }
     zoomFnRef.current = (f: number) => zoomAt(cv.width / 2, cv.height / 2, f)
     const startAudio = () => { if (!audioStarted) { audioStarted = true; try { startAmbience(); setAmbienceDepth(cam.s) } catch { /* */ } } }
+    // begin the descent: reveal the blocks and drift inward so the world opens up
+    const markStarted = () => { if (!startedRef.current) { startedRef.current = true; setStarted(true); tgt.s = Math.max(tgt.s, 2.6) } }
+    startFnRef.current = markStarted
 
-    const onWheel = (e: WheelEvent) => { e.preventDefault(); startAudio(); const r = cv.getBoundingClientRect(); zoomAt((e.clientX - r.left) * DPR, (e.clientY - r.top) * DPR, e.deltaY < 0 ? 1.16 : 1 / 1.16) }
+    const onWheel = (e: WheelEvent) => { e.preventDefault(); startAudio(); markStarted(); const r = cv.getBoundingClientRect(); zoomAt((e.clientX - r.left) * DPR, (e.clientY - r.top) * DPR, e.deltaY < 0 ? 1.16 : 1 / 1.16) }
     cv.addEventListener("wheel", onWheel, { passive: false })
 
     const pts = new Map<number, { x: number; y: number }>()
     let drag: { x: number; y: number; cx: number; cy: number } | null = null, moved = 0, pinchD = 0
     const onDown = (e: PointerEvent) => {
-      startAudio(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      startAudio(); markStarted(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
       if (pts.size === 1) { drag = { x: e.clientX, y: e.clientY, cx: tgt.x, cy: tgt.y }; moved = 0 }
       else if (pts.size === 2) { const p = [...pts.values()]; pinchD = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y); drag = null }
       try { cv.setPointerCapture(e.pointerId) } catch { /* */ }
@@ -212,7 +226,9 @@ export function Planet() {
       const blTL = w2s(CX - PR, CY - PR), blBR = w2s(CX + PR, CY + PR)
       const bw = blBR[0] - blTL[0], bh = blBR[1] - blTL[1]
       const blockRad = Math.min(bw, bh) * 0.05
-      if (bw > 40 && bw < Math.max(W, H) * 1.7) {
+      // Sky-first: until you begin, draw nothing but stars — the write box invites you in.
+      const begun = startedRef.current
+      if (begun && bw > 40 && bw < Math.max(W, H) * 1.7) {
         ctx.fillStyle = "rgba(13,26,44,0.30)"
         rrect(blTL[0], blTL[1], bw, bh, blockRad); ctx.fill()
         ctx.strokeStyle = "rgba(120,200,225,0.20)"; ctx.lineWidth = 1.2 * DPR
@@ -222,12 +238,12 @@ export function Planet() {
       const facesVisible = roomHalf * 2 >= ROOM_OPEN
       // ── BLOCKS: continents are the bigger blocks; rooms are the blocks; the
       // users only appear once you're INSIDE a room block. ──
-      if (cam.s < 10) {
+      if (begun && cam.s < 10) {
         for (let c = 0; c < CONTINENTS.length; c++) {
           const co = CONTINENTS[c], cp = w2s(conCentres[c].x, conCentres[c].y), ch = 0.082 * cam.s * vm()
           if (cp[0] + ch < 0 || cp[0] - ch > W || cp[1] + ch < 0 || cp[1] - ch > H) continue
           ctx.strokeStyle = `hsla(${co.h},62%,60%,0.26)`; ctx.lineWidth = 1.2 * DPR
-          rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, 20 * DPR); ctx.stroke()
+          rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, Math.min(ch * 0.3, 16 * DPR)); ctx.stroke()
           if (cam.s < 7) { ctx.fillStyle = `hsla(${co.h},60%,82%,.9)`; ctx.textAlign = "center"; ctx.font = `500 ${12 * DPR}px ${FF}`; ctx.fillText(co.adult ? co.n + " · 18+" : co.n, cp[0], cp[1] - ch - 7 * DPR); ctx.textAlign = "left" }
         }
       }
@@ -309,29 +325,49 @@ export function Planet() {
     <div style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>
       <canvas ref={cvRef} style={{ display: "block", width: "100%", height: "100%", cursor: "grab" }} />
 
+      {/* The very first view: only sky + a place to write. No boxes yet. */}
+      {!started && (
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+          <div style={{ pointerEvents: "auto", width: "min(88vw, 460px)", textAlign: "center", color: "#eef4f8" }}>
+            <div style={{ fontSize: 12, letterSpacing: 4, color: "#7fd6c0", textTransform: "uppercase" }}>airraw</div>
+            <div style={{ fontSize: "clamp(25px, 7.5vw, 36px)", fontWeight: 500, lineHeight: 1.18, margin: "14px 0 8px" }}>it&apos;s the now.</div>
+            <div style={{ fontSize: 15, lineHeight: 1.5, color: "#9fb2c4", marginBottom: 22 }}>say what&apos;s on your mind — then dive into the sky.</div>
+            <form onSubmit={(e) => { e.preventDefault(); dive() }} style={{ display: "flex", gap: 8 }}>
+              <input value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="type anything…" aria-label="say something to the now" style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.22)", borderRadius: 14, padding: "14px 16px", minHeight: 52, boxSizing: "border-box", outline: "none" }} />
+              <button type="submit" style={{ flex: "0 0 auto", fontSize: 15, fontWeight: 600, minHeight: 52, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "0 18px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>dive →</button>
+            </form>
+            <button onClick={() => { openingRef.current = ""; startFnRef.current() }} style={{ marginTop: 16, fontSize: 13, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>or just look around →</button>
+          </div>
+        </div>
+      )}
+
+      {started && (
       <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: 16, right: 16, display: "flex", justifyContent: "space-between", gap: 10, pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
         <div style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, color: "#9fb2c4", letterSpacing: 1, background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>it&apos;s the now · {hud.crumb}</div>
         <div style={{ flex: "0 0 auto", fontSize: 11, color: "#6b7d8e", background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, whiteSpace: "nowrap" }}>altitude — {hud.alt}</div>
       </div>
+      )}
 
       {/* The main act: join the group at this scale. The number shrinks as you descend. */}
-      {hud.join && !selected && !group && (
+      {started && hud.join && !selected && !group && (
         <button onClick={() => joinGroup(hud.join!)}
           style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? "talk 1:1 →" : `join this room · ${hud.join.n} here →`}
         </button>
       )}
 
-      <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>
+      {started && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
 
+      {started && (
       <div style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", display: "flex", flexDirection: "column", gap: 8 }}>
         <button aria-label="descend" onClick={() => zoomFnRef.current(1.6)} style={btn}>+</button>
         <button aria-label="climb" onClick={() => zoomFnRef.current(1 / 1.6)} style={btn}>−</button>
       </div>
+      )}
 
-      {selected && <AirBubble cluster={selected} tempLabel={tempLabel(selected.f)} onClose={() => setSelected(null)} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
+      {selected && <AirBubble cluster={selected} opening={opening} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening("") }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 
-      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} tempLabel={tempLabel(group.f)} onClose={() => setGroup(null)} />}
+      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening("") }} />}
 
       {(pending || pendingJoin) && !verified && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,30,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", paddingTop: "max(26px, env(safe-area-inset-top))", paddingBottom: "max(26px, env(safe-area-inset-bottom))", paddingLeft: "max(26px, env(safe-area-inset-left))", paddingRight: "max(26px, env(safe-area-inset-right))", zIndex: 30 }}>

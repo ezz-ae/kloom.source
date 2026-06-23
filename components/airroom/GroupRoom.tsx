@@ -39,7 +39,7 @@ function pickResponders(msgId: string, n: number): number[] {
   return [a, b]
 }
 
-export function GroupRoom({ seed, f, tempLabel, onClose, count = 3 }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number }) {
+export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number; opening?: string }) {
   // Deterministic cast of N — the same crowd for everyone who enters this room.
   // The zoom level chose N (a 60-voice floor or a 4-voice booth); members spread
   // across a small temperature band around the room so the room has texture.
@@ -185,6 +185,15 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3 }: { seed: nu
     push(mine); bcastRef.current?.(mine)
     drive(mine.id) // the sender drives immediately; peers stand by as backups
   }
+
+  // Seed the room with what you wrote on the sky, once you've walked in.
+  useEffect(() => {
+    const o = opening?.trim()
+    if (!o) return
+    const id = setTimeout(() => send(o), 900)
+    return () => clearTimeout(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const talkOnce = () => {
     if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false); return }

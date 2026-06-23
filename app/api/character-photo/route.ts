@@ -27,13 +27,20 @@ const FAL_KEY  = process.env.FAL_KEY || ""
 const TOGETHER_KEY   = process.env.TOGETHER_API_KEY || ""
 const TOGETHER_MODEL = process.env.TOGETHER_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
 const TOGETHER_STEPS = Number(process.env.TOGETHER_IMAGE_STEPS || (TOGETHER_MODEL.includes("schnell") ? "4" : "28"))
-// AIRRAW (diverse) wants MAXIMUM realism, so it uses the stronger FLUX.1-dev at full
-// steps rather than the fast 4-step schnell. Override via env if the key lacks dev.
-const TOGETHER_REAL_MODEL = process.env.TOGETHER_REAL_MODEL || "black-forest-labs/FLUX.1-dev"
-const TOGETHER_REAL_STEPS = Number(process.env.TOGETHER_REAL_STEPS || 28)
-// If the key can't use the photoreal model (4xx), stop trying it after the first
-// failure — every later gen skips straight to the base model (no wasted call).
-let togetherRealOff = false
+// AIRRAW (diverse) wants MAXIMUM realism. The diverse path climbs a LADDER of Together
+// FLUX models (best→cheapest) and uses the best the key can actually reach; a 4xx on a
+// rung disables just that rung (per warm instance) so we never re-pay to rediscover the
+// key's ceiling. Default ladder is FLUX.1-dev, then the schnell base as the floor.
+//   • Pin one model with TOGETHER_REAL_MODEL (e.g. black-forest-labs/FLUX.1.1-pro).
+//   • Or set TOGETHER_LADDER to a comma list to customise the climb.
+const TOGETHER_LADDER: { model: string; steps: number }[] = (() => {
+  const pin = process.env.TOGETHER_REAL_MODEL
+  if (pin) return [{ model: pin, steps: Number(process.env.TOGETHER_REAL_STEPS || 28) }]
+  const env = process.env.TOGETHER_LADDER
+  if (env) return env.split(",").map((s) => s.trim()).filter(Boolean).map((m) => ({ model: m, steps: /pro/i.test(m) ? 0 : 28 }))
+  return [{ model: "black-forest-labs/FLUX.1-dev", steps: 28 }]
+})()
+const togetherOff = new Set<string>()   // models this key can't use (cached 4xx)
 
 const WORLD_STYLE: Record<string, string> = {
   fantasy:        "fantasy film still, elaborate costume, ethereal violet practical lighting, cinematic",
@@ -156,16 +163,20 @@ async function genFal(prompt: string, seed: number): Promise<Buffer | null> {
 async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL, steps = TOGETHER_STEPS): Promise<Buffer | null> {
   if (!TOGETHER_KEY) return null
   try {
+    // Together returns a hosted URL by default; that's the most compatible path.
+    // pro models reject an explicit `steps` — omit it (steps<=0) and let them self-pick.
+    const payload: Record<string, unknown> = { model, prompt, seed, width: 768, height: 1024, n: 1 }
+    if (steps > 0) payload.steps = steps
     const res = await fetch("https://api.together.xyz/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${TOGETHER_KEY}`, "Content-Type": "application/json" },
-      // Together returns a hosted URL by default; that's the most compatible path.
-      body: JSON.stringify({ model, prompt, seed, width: 768, height: 1024, steps, n: 1 }),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(60000),
     })
     if (!res.ok) {
-      if (model === TOGETHER_REAL_MODEL && res.status >= 400 && res.status < 500) togetherRealOff = true   // key lacks this model → stop trying it
-      console.error("together image error", res.status, (await res.text()).slice(0, 300)); return null
+      // 4xx on a non-base model → the key can't use it; remember so we skip that rung.
+      if (model !== TOGETHER_MODEL && res.status >= 400 && res.status < 500) togetherOff.add(model)
+      console.error("together image error", model, res.status, (await res.text()).slice(0, 300)); return null
     }
     const d = await res.json()
     const url: string = d?.data?.[0]?.url || ""
@@ -222,7 +233,7 @@ export async function POST(request: Request) {
   try {
     const head = await fetch(existing, { method: "HEAD", signal: AbortSignal.timeout(6000) })
     if (head.ok && Number(head.headers.get("content-length") || 0) > 8000) {
-      return Response.json({ url: existing, cached: true })
+      return Response.json({ url: existing, cached: true, model: "cached" })
     }
   } catch { /* not cached → generate */ }
 
@@ -230,14 +241,24 @@ export async function POST(request: Request) {
   // fixed; only the pixels change with the seed). diverse → try photoreal FLUX.1-dev,
   // fall back to schnell if the key lacks dev.
   let genErr = ""
+  let usedModel = ""   // which engine/model actually produced the bytes (diagnostic)
   const genWithSeed = async (dseed: number): Promise<Buffer | null> => {
-    if (provider === "qwen") { const r = await genQwen(prompt, negative, dseed); genErr = r.error || ""; return r.bytes }
+    if (provider === "qwen") { const r = await genQwen(prompt, negative, dseed); genErr = r.error || ""; if (r.bytes) usedModel = "qwen"; return r.bytes }
     if (provider === "together") {
-      const b = (dp && !togetherRealOff) ? await genTogether(prompt, dseed, TOGETHER_REAL_MODEL, TOGETHER_REAL_STEPS) : null
-      return b || (await genTogether(prompt, dseed))
+      // Diverse → climb the photoreal ladder (best the key can reach), then schnell floor.
+      if (dp) {
+        for (const rung of TOGETHER_LADDER) {
+          if (togetherOff.has(rung.model)) continue
+          const b = await genTogether(prompt, dseed, rung.model, rung.steps)
+          if (b) { usedModel = rung.model; return b }
+        }
+      }
+      const b = await genTogether(prompt, dseed)   // schnell base (the floor)
+      if (b) usedModel = TOGETHER_MODEL
+      return b
     }
-    if (provider === "fal") return genFal(prompt, dseed)
-    return genRunpod(prompt, negative, dseed)
+    if (provider === "fal") { const b = await genFal(prompt, dseed); if (b) usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return b }
+    const b = await genRunpod(prompt, negative, dseed); if (b) usedModel = "runpod-sdxl"; return b
   }
 
   // Generate + quality-gate (AIRRAW only): a good portrait is exactly ONE clean human
@@ -262,7 +283,10 @@ export async function POST(request: Request) {
   })
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  return Response.json({ url: existing, gated: dp ? await validatorReady() : false })
+  return Response.json(
+    { url: existing, model: usedModel || "none", gated: dp ? await validatorReady() : false },
+    { headers: { "X-Img-Model": usedModel || "none" } },
+  )
 }
 
 function hashStr(s: string): number {

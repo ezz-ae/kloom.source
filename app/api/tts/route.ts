@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
     const el = await elevenTTS(ttsText, elKey, personaName, gender)
-    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } })
+    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs" } })
     // fall through to CosyVoice / Fish
   }
 
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     if (wav) {
       return new Response(wav, {
         status: 200,
-        headers: { "Content-Type": "audio/wav", "Cache-Control": "no-store" },
+        headers: { "Content-Type": "audio/wav", "Cache-Control": "no-store", "X-TTS-Provider": "cosyvoice" },
       })
     }
     // fall through to fish.audio
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       if (buf.byteLength > 0) {
         return new Response(buf, {
           status: 200,
-          headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" },
+          headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "fish" },
         })
       }
       lastErrorText = "Fish returned 200 with empty audio"

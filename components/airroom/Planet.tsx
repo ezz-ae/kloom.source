@@ -24,11 +24,14 @@ import { track } from "@/lib/airraw/track"
 
 interface Continent { n: string; v: string; h: number; f: number; adult?: boolean }
 const CONTINENTS: Continent[] = [
-  { n: "still water", v: "study · calm", h: 193, f: 0.12 },
-  { n: "the gardens", v: "grow · heal", h: 150, f: 0.30 },
-  { n: "the commons", v: "social · warm", h: 45, f: 0.45 },
-  { n: "the late floor", v: "night · close", h: 18, f: 0.60 },
-  { n: "the deep", v: "raw · 18+", h: 288, f: 0.86, adult: true },
+  { n: "still water", v: "study · deep focus", h: 193, f: 0.12 },
+  { n: "the workshop", v: "build · make things", h: 150, f: 0.24 },
+  { n: "the trading floor", v: "markets · risk · calls", h: 128, f: 0.33 },
+  { n: "the arena", v: "games · chess · play", h: 262, f: 0.40 },
+  { n: "the playground", v: "dares · chaos · fun", h: 322, f: 0.46 },
+  { n: "the commons", v: "social · warm", h: 45, f: 0.52 },
+  { n: "the late floor", v: "night · close", h: 18, f: 0.62 },
+  { n: "the deep", v: "raw · 18+", h: 300, f: 0.86, adult: true },
 ]
 const CITIES = 8
 const FACES = 14
@@ -81,7 +84,7 @@ export function Planet() {
   const nodes = useMemo<Node[]>(() => {
     const out: Node[] = []
     for (let c = 0; c < CONTINENTS.length; c++) {
-      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.25
+      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.29
       const ccx = CX + Math.cos(cang) * cr, ccy = CY + Math.sin(cang) * cr
       for (let ci = 0; ci < CITIES; ci++) {
         const a1 = rnd(c * 53 + ci) * 6.283, r1 = 0.018 + rnd(c * 7 + ci * 3) * 0.055
@@ -89,10 +92,12 @@ export function Planet() {
         for (let i = 0; i < FACES; i++) {
           const a2 = rnd(c * 999 + ci * 131 + i) * 6.283, r2 = 0.004 + rnd(c * 31 + ci * 17 + i * 5) * 0.02
           const seed = (c * 100003 + ci) * 100003 + i + 7
+          const char = makeCharacter(seed, CONTINENTS[c].f)
+          char.vibe = CONTINENTS[c].v   // theme the room: the trading floor talks markets, the arena talks games
           out.push({
             x: cityx + Math.cos(a2) * r2, y: cityy + Math.sin(a2) * r2, cx: cityx, cy: cityy, c, ci,
             hue: CONTINENTS[c].h + (rnd(seed) * 26 - 13), ph: rnd(seed + 1) * 6.28, dr: rnd(seed + 9) * 0.5 + 0.3,
-            char: makeCharacter(seed, CONTINENTS[c].f),
+            char,
           })
         }
       }
@@ -101,7 +106,7 @@ export function Planet() {
   }, [])
 
   const conCentres = useMemo(() => CONTINENTS.map((_, c) => {
-    const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.25
+    const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.29
     return { x: CX + Math.cos(cang) * cr, y: CY + Math.sin(cang) * cr }
   }), [])
 
@@ -111,7 +116,7 @@ export function Planet() {
   const rooms = useMemo<Room[]>(() => {
     const out: Room[] = []
     for (let c = 0; c < CONTINENTS.length; c++) {
-      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.25
+      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.29
       const ccx = CX + Math.cos(cang) * cr, ccy = CY + Math.sin(cang) * cr
       for (let ci = 0; ci < CITIES; ci++) {
         const a1 = rnd(c * 53 + ci) * 6.283, r1 = 0.018 + rnd(c * 7 + ci * 3) * 0.055
@@ -244,7 +249,7 @@ export function Planet() {
       // users only appear once you're INSIDE a room block. ──
       if (cam.s < 10) {
         for (let c = 0; c < CONTINENTS.length; c++) {
-          const co = CONTINENTS[c], cp = w2s(conCentres[c].x, conCentres[c].y), ch = 0.10 * cam.s * vm()
+          const co = CONTINENTS[c], cp = w2s(conCentres[c].x, conCentres[c].y), ch = 0.082 * cam.s * vm()
           if (cp[0] + ch < 0 || cp[0] - ch > W || cp[1] + ch < 0 || cp[1] - ch > H) continue
           ctx.strokeStyle = `hsla(${co.h},62%,60%,0.26)`; ctx.lineWidth = 1.2 * DPR
           rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, 20 * DPR); ctx.stroke()

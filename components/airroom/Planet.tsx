@@ -53,8 +53,14 @@ function joinSize(camS: number, locSeed: number): number {
 }
 interface Join { n: number; seed: number; f: number; adult: boolean; c: number }
 
-interface Node { x: number; y: number; cx: number; cy: number; c: number; ci: number; hue: number; ph: number; dr: number; char: Cluster }
-interface Room { c: number; ci: number; x: number; y: number; hue: number; seed: number; count: number; adult: boolean }
+// Procedural infinity: the planet surface is an INFINITE grid of rooms. Each grid
+// cell is a room, deterministically themed by its nearest continent — so you can
+// drift forever and rooms keep appearing, never repeating, always stable (pan back
+// and the same room is there). ihash → a stable int per cell; ifrac → 0..1 from it.
+const RCELL = 0.055
+function ihash(a: number, b: number): number { let h = ((a | 0) * 73856093) ^ ((b | 0) * 19349663); h = Math.imul(h ^ (h >>> 13), 1274126177); return (h ^ (h >>> 16)) >>> 0 }
+function ifrac(h: number): number { return (h % 100003) / 100003 }
+
 
 const btn: React.CSSProperties = { width: 36, height: 36, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 10, cursor: "pointer", fontSize: 19, lineHeight: "1" }
 
@@ -79,61 +85,29 @@ export function Planet() {
   useEffect(() => { track("airraw_land", { surface: "planet" }) }, [])
   useEffect(() => () => { try { stopAmbience() } catch { /* */ } }, [])
 
-  // The crowd — deterministic, built once. Every light already knows its face,
-  // voice and lines (makeCharacter is cheap + stable per seed).
-  const nodes = useMemo<Node[]>(() => {
-    const out: Node[] = []
-    for (let c = 0; c < CONTINENTS.length; c++) {
-      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.29
-      const ccx = CX + Math.cos(cang) * cr, ccy = CY + Math.sin(cang) * cr
-      for (let ci = 0; ci < CITIES; ci++) {
-        const a1 = rnd(c * 53 + ci) * 6.283, r1 = 0.018 + rnd(c * 7 + ci * 3) * 0.055
-        const cityx = ccx + Math.cos(a1) * r1, cityy = ccy + Math.sin(a1) * r1
-        for (let i = 0; i < FACES; i++) {
-          const a2 = rnd(c * 999 + ci * 131 + i) * 6.283, r2 = 0.004 + rnd(c * 31 + ci * 17 + i * 5) * 0.02
-          const seed = (c * 100003 + ci) * 100003 + i + 7
-          const char = makeCharacter(seed, CONTINENTS[c].f)
-          char.vibe = CONTINENTS[c].v   // theme the room: the trading floor talks markets, the arena talks games
-          out.push({
-            x: cityx + Math.cos(a2) * r2, y: cityy + Math.sin(a2) * r2, cx: cityx, cy: cityy, c, ci,
-            hue: CONTINENTS[c].h + (rnd(seed) * 26 - 13), ph: rnd(seed + 1) * 6.28, dr: rnd(seed + 9) * 0.5 + 0.3,
-            char,
-          })
-        }
-      }
-    }
-    return out
-  }, [])
-
+  // Only the 8 continent anchors are fixed; rooms + faces are generated procedurally
+  // for whatever's on screen (see the loop), so the world is infinite.
   const conCentres = useMemo(() => CONTINENTS.map((_, c) => {
     const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.29
     return { x: CX + Math.cos(cang) * cr, y: CY + Math.sin(cang) * cr }
   }), [])
-
-  // The blocks: every city is a BLOCK (a room you can join). You navigate blocks —
-  // continents (the bigger blocks) hold rooms (the blocks), rooms hold the users.
-  // Faces only appear once you're INSIDE a room block.
-  const rooms = useMemo<Room[]>(() => {
-    const out: Room[] = []
-    for (let c = 0; c < CONTINENTS.length; c++) {
-      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.29
-      const ccx = CX + Math.cos(cang) * cr, ccy = CY + Math.sin(cang) * cr
-      for (let ci = 0; ci < CITIES; ci++) {
-        const a1 = rnd(c * 53 + ci) * 6.283, r1 = 0.018 + rnd(c * 7 + ci * 3) * 0.055
-        out.push({ c, ci, x: ccx + Math.cos(a1) * r1, y: ccy + Math.sin(a1) * r1, hue: CONTINENTS[c].h, seed: c * 100003 + ci, count: 6 + Math.round(rnd(c * 61 + ci * 7) * 56), adult: !!CONTINENTS[c].adult })
-      }
-    }
-    return out
+  // Characters are minted lazily per face-seed and cached — only the ones you
+  // actually drift near or open are ever built.
+  const charCache = useRef(new Map<number, Cluster>())
+  const charFor = useCallback((seed: number, c: number): Cluster => {
+    let ch = charCache.current.get(seed)
+    if (!ch) { ch = makeCharacter((seed >>> 0) + 7, CONTINENTS[c].f); ch.vibe = CONTINENTS[c].v; charCache.current.set(seed, ch) }
+    return ch
   }, [])
 
   // ── proximity voice — the nearest face murmurs, like leaning toward someone ──
   const speakTok = useRef(0)
-  const speak = useCallback(async (node: Node) => {
+  const speak = useCallback(async (char: Cluster) => {
     const tok = ++speakTok.current
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: node.char.lines[0], personaName: node.char.host, gender: node.char.gender, language: "English", voiceId: node.char.voiceId }),
+        body: JSON.stringify({ text: char.lines[0], personaName: char.host, gender: char.gender, language: "English", voiceId: char.voiceId }),
       })
       if (!res.ok || speakTok.current !== tok) return
       const url = URL.createObjectURL(await res.blob())
@@ -143,10 +117,11 @@ export function Planet() {
     } catch { /* a quiet sky is fine */ }
   }, [])
 
-  const openVoice = useCallback((node: Node) => {
-    if (CONTINENTS[node.c].adult && !verifiedRef.current) { setPending(node.char); return }
-    setSelected(node.char)
-  }, [])
+  const openVoice = useCallback((c: number, seed: number) => {
+    const ch = charFor(seed, c)
+    if (CONTINENTS[c].adult && !verifiedRef.current) { setPending(ch); return }
+    setSelected(ch)
+  }, [charFor])
   const joinGroup = useCallback((j: Join) => {
     if (CONTINENTS[j.c]?.n === "the arena") { window.location.href = "/airraw/chess"; return }   // games room → the board
     if (j.adult && !verifiedRef.current) { setPendingJoin(j); return }
@@ -168,7 +143,7 @@ export function Planet() {
     const imgs = new Map<string, HTMLImageElement | null>()
     const stars = Array.from({ length: 160 }, (_, s) => ({ x: rnd(s * 3 + 1), y: rnd(s * 7 + 2), r: rnd(s * 5) * 1.1 + 0.2, ph: rnd(s) * 6.28 }))
     let t = 0, raf = 0, audioStarted = false, frameN = 0
-    let pickedNode: Node | null = null, candId = -1, candAt = 0, spokenId = -1
+    let pickedNode: { c: number; seed: number } | null = null, candId = -1, candAt = 0, spokenId = -1
     let lastHud = ""
 
     const resize = () => { const r = cv.getBoundingClientRect(); cv.width = Math.max(1, r.width * DPR); cv.height = Math.max(1, r.height * DPR) }
@@ -210,18 +185,17 @@ export function Planet() {
     const onUp = (e: PointerEvent) => {
       const wasDrag = drag && moved > 6
       pts.delete(e.pointerId); if (pts.size < 2) pinchD = 0; if (pts.size === 0) drag = null
-      if (!wasDrag && pts.size === 0 && pickedNode && cam.s > 24) openVoice(pickedNode)
+      if (!wasDrag && pts.size === 0 && pickedNode && cam.s > 24) openVoice(pickedNode.c, pickedNode.seed)
     }
     cv.addEventListener("pointerdown", onDown); cv.addEventListener("pointermove", onMove)
     cv.addEventListener("pointerup", onUp); cv.addEventListener("pointercancel", onUp)
 
-    const faceFor = (n: Node): HTMLImageElement | null => {
-      const key = n.char.host
-      if (imgs.has(key)) return imgs.get(key) || null
-      if (imgs.size > 220) return null
-      imgs.set(key, null)
-      const im = new Image(); im.onload = () => imgs.set(key, im); im.onerror = () => imgs.set(key, null)
-      im.src = imageFor({ name: n.char.host }); return null
+    const faceFor = (host: string): HTMLImageElement | null => {
+      if (imgs.has(host)) return imgs.get(host) || null
+      if (imgs.size > 260) return null
+      imgs.set(host, null)
+      const im = new Image(); im.onload = () => imgs.set(host, im); im.onerror = () => imgs.set(host, null)
+      im.src = imageFor({ name: host }); return null
     }
     const ROOM_OPEN = 168 * DPR   // a block's screen size at which it opens to faces
     const rrect = (x: number, y: number, w: number, h: number, r: number) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath() }
@@ -257,66 +231,68 @@ export function Planet() {
           if (cam.s < 7) { ctx.fillStyle = `hsla(${co.h},60%,82%,.9)`; ctx.textAlign = "center"; ctx.font = `500 ${12 * DPR}px ${FF}`; ctx.fillText(co.adult ? co.n + " · 18+" : co.n, cp[0], cp[1] - ch - 7 * DPR); ctx.textAlign = "left" }
         }
       }
-      let nearestRoom: Room | null = null, nrBest = 1e9
-      for (const rm of rooms) {
-        const s = w2s(rm.x, rm.y)
-        const dc = Math.hypot(s[0] - W / 2, s[1] - H / 2)
-        if (dc < nrBest) { nrBest = dc; nearestRoom = rm }
-        if (cam.s <= 5) continue   // at orbit, only the continent blocks show
-        if (s[0] + roomHalf < 0 || s[0] - roomHalf > W || s[1] + roomHalf < 0 || s[1] - roomHalf > H) continue
-        const locked = rm.adult && !verifiedRef.current
-        if (roomHalf * 2 >= ROOM_OPEN) {
-          ctx.strokeStyle = `hsla(${rm.hue},60%,62%,0.16)`; ctx.lineWidth = DPR
-          rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, 16 * DPR); ctx.stroke()
-        } else {
-          ctx.fillStyle = `hsla(${rm.hue},55%,${cam.s < 8 ? 24 : 32}%,${cam.s < 8 ? 0.20 : 0.36})`
-          rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, Math.min(roomHalf * 0.28, 14 * DPR)); ctx.fill()
-          ctx.strokeStyle = `hsla(${rm.hue},66%,64%,0.45)`; ctx.lineWidth = DPR; ctx.stroke()
-          if (roomHalf * 2 > 48) { ctx.fillStyle = `hsla(${rm.hue},60%,86%,.92)`; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, roomHalf * 0.2) * DPR}px ${FF}`; ctx.fillText(locked ? "the deep · 18+" : `${rm.count} here`, s[0], s[1] + 4 * DPR); ctx.textAlign = "left" }
-        }
-      }
-      let best = 1e9, act: Node | null = null
-      if (facesVisible) for (const n of nodes) {
-        const dx = Math.sin(t * 0.4 + n.ph) * n.dr * 0.0008, dy = Math.cos(t * 0.31 + n.ph) * n.dr * 0.0008
-        const s = w2s(n.x + dx, n.y + dy)
-        if (s[0] < -40 || s[1] < -40 || s[0] > W + 40 || s[1] > H + 40) continue
-        const baseR = Math.max(1.0, cam.s * vm() * 0.0040), r = baseR * (1 + 0.1 * Math.sin(t * 1.6 + n.ph))
-        const dc = Math.hypot(s[0] - W / 2, s[1] - H / 2)
-        if (r > 2.2 && dc < best) { best = dc; act = n }
-        const locked = !!CONTINENTS[n.c].adult && !verifiedRef.current
-        const rad = Math.min(r * 0.3, 10 * DPR)
-        if (r > 17 && !locked) {
-          const im = faceFor(n)
-          if (im) {
-            ctx.save(); rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.clip(); ctx.drawImage(im, s[0] - r, s[1] - r, r * 2, r * 2); ctx.restore()
-            ctx.strokeStyle = `hsla(${n.hue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.stroke()
-          } else { ctx.fillStyle = `hsl(${n.hue},70%,60%)`; rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.fill() }
-          // Names only appear once you're really close (zoomed onto a few faces),
-          // so the crowd stays clean until you lean in.
-          if (r > 34) { ctx.fillStyle = "rgba(238,244,248,.92)"; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, r * 0.34) * DPR}px ${FF}`; ctx.fillText(n.char.host, s[0], s[1] + r + 13 * DPR); ctx.textAlign = "left" }
-        } else {
-          ctx.fillStyle = `hsl(${n.hue},72%,62%)`; rrect(s[0] - r, s[1] - r, r * 2, r * 2, Math.max(1, r * 0.3)); ctx.fill()
+      // ── procedural rooms + faces for the viewport — the world is infinite ──
+      const contOf = (x: number, y: number) => { let bc = 0, bd = 1e9; for (let k = 0; k < conCentres.length; k++) { const dx = conCentres[k].x - x, dy = conCentres[k].y - y, d = dx * dx + dy * dy; if (d < bd) { bd = d; bc = k } } return bc }
+      let nearestRoom: { c: number; x: number; y: number; seed: number; count: number; adult: boolean } | null = null, nrBest = 1e9
+      let best = 1e9, act: { c: number; x: number; y: number; seed: number } | null = null
+      let actChar: Cluster | null = null
+      if (cam.s > 4.4) {
+        const m2 = cam.s * vm(), hw = (W / 2) / m2, hh = (H / 2) / m2
+        let gx0 = Math.floor((cam.x - hw) / RCELL) - 1, gx1 = Math.ceil((cam.x + hw) / RCELL) + 1
+        let gy0 = Math.floor((cam.y - hh) / RCELL) - 1, gy1 = Math.ceil((cam.y + hh) / RCELL) + 1
+        if ((gx1 - gx0) * (gy1 - gy0) > 1400) { gx1 = gx0 + 36; gy1 = gy0 + 36 }   // safety cap
+        for (let gx = gx0; gx <= gx1; gx++) for (let gy = gy0; gy <= gy1; gy++) {
+          const rh = ihash(gx, gy)
+          const rx = (gx + 0.5) * RCELL + (ifrac(rh) - 0.5) * RCELL * 0.45
+          const ry = (gy + 0.5) * RCELL + (ifrac(ihash(gx + 7, gy * 3 + 1)) - 0.5) * RCELL * 0.45
+          const c = contOf(rx, ry), co = CONTINENTS[c], s = w2s(rx, ry)
+          const dc = Math.hypot(s[0] - W / 2, s[1] - H / 2), count = 5 + (rh % 60)
+          if (dc < nrBest) { nrBest = dc; nearestRoom = { c, x: rx, y: ry, seed: rh, count, adult: !!co.adult } }
+          if (s[0] + roomHalf < 0 || s[0] - roomHalf > W || s[1] + roomHalf < 0 || s[1] - roomHalf > H) continue
+          const locked = co.adult && !verifiedRef.current
+          if (facesVisible) {
+            ctx.strokeStyle = `hsla(${co.h},60%,62%,0.14)`; ctx.lineWidth = DPR; rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, 16 * DPR); ctx.stroke()
+            const fn = 9 + (rh % 7)
+            for (let i = 0; i < fn; i++) {
+              const fh = ihash(gx * 131 + i + 3, gy * 197 + i * 7 + 5)
+              const fx = rx + (ifrac(fh) - 0.5) * RCELL * 0.66, fy = ry + (ifrac(ihash(fh, i + 11)) - 0.5) * RCELL * 0.66, fs = w2s(fx, fy)
+              if (fs[0] < -40 || fs[1] < -40 || fs[0] > W + 40 || fs[1] > H + 40) continue
+              const r = Math.max(2, m2 * 0.0040), fdc = Math.hypot(fs[0] - W / 2, fs[1] - H / 2)
+              if (r > 2.2 && fdc < best) { best = fdc; act = { c, x: fx, y: fy, seed: fh } }
+              const fhue = co.h + (ifrac(fh) * 26 - 13), rad = Math.min(r * 0.3, 10 * DPR)
+              if (r > 17 && !locked) {
+                const ch = charFor(fh, c), im = faceFor(ch.host)
+                if (im) { ctx.save(); rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.clip(); ctx.drawImage(im, fs[0] - r, fs[1] - r, r * 2, r * 2); ctx.restore(); ctx.strokeStyle = `hsla(${fhue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.stroke() }
+                else { ctx.fillStyle = `hsl(${fhue},70%,60%)`; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, rad); ctx.fill() }
+                if (r > 34) { ctx.fillStyle = "rgba(238,244,248,.92)"; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, r * 0.34) * DPR}px ${FF}`; ctx.fillText(ch.host, fs[0], fs[1] + r + 13 * DPR); ctx.textAlign = "left" }
+              } else { ctx.fillStyle = `hsl(${fhue},72%,62%)`; rrect(fs[0] - r, fs[1] - r, r * 2, r * 2, Math.max(1, r * 0.3)); ctx.fill() }
+            }
+          } else {
+            ctx.fillStyle = `hsla(${co.h},55%,${cam.s < 8 ? 24 : 32}%,${cam.s < 8 ? 0.20 : 0.36})`
+            rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, Math.min(roomHalf * 0.28, 14 * DPR)); ctx.fill()
+            ctx.strokeStyle = `hsla(${co.h},66%,64%,0.45)`; ctx.lineWidth = DPR; ctx.stroke()
+            if (roomHalf * 2 > 48) { ctx.fillStyle = `hsla(${co.h},60%,86%,.92)`; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, roomHalf * 0.2) * DPR}px ${FF}`; ctx.fillText(locked ? "the deep · 18+" : `${count} here`, s[0], s[1] + 4 * DPR); ctx.textAlign = "left" }
+          }
         }
       }
       pickedNode = act
       if (act) {
-        const s = w2s(act.x, act.y)
-        const hr = Math.max(8, cam.s * vm() * 0.0042 + 6 * DPR)
+        actChar = charFor(act.seed, act.c)
+        const s = w2s(act.x, act.y), hr = Math.max(8, cam.s * vm() * 0.0042 + 6 * DPR)
         ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.5 * DPR
         rrect(s[0] - hr, s[1] - hr, hr * 2, hr * 2, hr * 0.3); ctx.stroke()
-        const id = act.c * 10000 + act.ci * 100 + (nodes.indexOf(act) % 100)
+        const id = act.seed
         if (id !== candId) { candId = id; candAt = t }
-        else if (audioStarted && !inCallRef.current && id !== spokenId && t - candAt > 0.45 && cam.s > 14) { spokenId = id; speak(act) }
+        else if (audioStarted && !inCallRef.current && id !== spokenId && t - candAt > 0.45 && cam.s > 14) { spokenId = id; speak(actChar) }
       }
       const baseRm = act || nearestRoom
-      const co = baseRm ? CONTINENTS[baseRm.c] : CONTINENTS[0]
-      const loc = baseRm ? baseRm.c * 100003 + baseRm.ci : 0
-      const join: Join | null = (baseRm && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: CONTINENTS[baseRm.c].f, adult: !!CONTINENTS[baseRm.c].adult, c: baseRm.c } : null
+      const bc = baseRm ? baseRm.c : 0, co = CONTINENTS[bc], loc = baseRm ? baseRm.seed : 0
+      const join: Join | null = (baseRm && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: co.f, adult: !!co.adult, c: bc } : null
       let crumb: string, altl: string, hear: string
       if (cam.s < 3.2) { crumb = "from orbit · the whole now"; altl = "orbit"; hear = "the hum of the whole now · thousands of voices" }
       else if (cam.s < 11) { crumb = `${co.n} · a region of the now`; altl = "atmosphere"; hear = `drifting over ${co.n} — ${co.v}` }
       else if (!facesVisible) { crumb = `${co.n} · a block`; altl = "rooftops"; hear = `a block in ${co.n} · ${nearestRoom ? nearestRoom.count : 0} inside · zoom in to land` }
-      else { crumb = `${co.n} · on the floor`; altl = "the floor"; hear = act ? `hearing · ${act.char.host} — “${act.char.lines[0]}”` : "lean closer" }
+      else { crumb = `${co.n} · on the floor`; altl = "the floor"; hear = actChar ? `hearing · ${actChar.host} — “${actChar.lines[0]}”` : "lean closer" }
       const sig = crumb + "|" + altl + "|" + hear + "|" + (join ? `${join.n}:${join.seed}` : "0")
       if (sig !== lastHud) { lastHud = sig; setHud({ crumb, alt: altl, hearing: hear, join }) }
     }
@@ -327,7 +303,7 @@ export function Planet() {
       speakTok.current++
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, rooms, conCentres, speak, openVoice])
+  }, [conCentres, charFor, speak, openVoice])
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>

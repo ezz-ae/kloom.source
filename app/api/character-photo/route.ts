@@ -12,7 +12,7 @@
 
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { buildPortraitPrompt } from "@/lib/airraw/portrait-prompt"
-import { isCleanPortrait } from "@/lib/face-validate"
+import { isCleanPortrait, validatorReady } from "@/lib/face-validate"
 
 export const runtime = "nodejs"
 export const maxDuration = 120
@@ -262,7 +262,7 @@ export async function POST(request: Request) {
   })
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  return Response.json({ url: existing })
+  return Response.json({ url: existing, gated: dp ? await validatorReady() : false })
 }
 
 function hashStr(s: string): number {

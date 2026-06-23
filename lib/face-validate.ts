@@ -30,6 +30,9 @@ function init(): Promise<boolean> {
   return ready
 }
 
+/** Whether the validator actually loaded (vs fail-open). For prod verification. */
+export function validatorReady(): Promise<boolean> { return init() }
+
 /** How many confident faces are in the image (0 if the validator can't run). */
 export async function countFaces(buf: Buffer): Promise<number> {
   const img = await canvas.loadImage(buf)

@@ -20,7 +20,8 @@ import { imageFor } from "@/lib/persona-utils"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { RoomCard, type RoomPreview } from "@/components/airroom/RoomCard"
-import { isPro } from "@/lib/airroom/pro"
+import { isPro, getPendingIntent, setProToken, clearPendingIntent } from "@/lib/airroom/pro"
+import { ProSheet } from "@/components/airroom/ProSheet"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
 import { track } from "@/lib/airraw/track"
 
@@ -91,8 +92,29 @@ export function Planet() {
   const startedRef = useRef(false)
   const startFnRef = useRef<() => void>(() => {})
   const openingRef = useRef("")
-  const [pro] = useState(() => isPro())   // paid: the AIR pulse lights up your best matches
+  const [pro, setPro] = useState(() => isPro())   // paid: the AIR pulse lights up your best matches
+  const [showPro, setShowPro] = useState(false)   // the paywall
+  const [proMsg, setProMsg] = useState("")         // "you're pro" / payment toast
   const airTrig = useRef(0)
+  // back from Ziina checkout → verify the intent and grant the pass
+  useEffect(() => {
+    try {
+      const u = new URLSearchParams(window.location.search)
+      if (u.get("pro_fail") === "1") { setProMsg("payment didn't go through — you weren't charged."); window.history.replaceState({}, "", "/airraw"); return }
+      if (u.get("pro_ok") !== "1") return
+      const id = getPendingIntent()
+      window.history.replaceState({}, "", "/airraw")
+      if (!id) return
+      fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id }) })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.paid && d?.token) { setProToken(d.token); clearPendingIntent(); setPro(true); setProMsg("you're AIRRAW Pro ✦ enjoy the floor."); track("airraw_pro_paid", { surface: "planet" }) }
+          else setProMsg("payment is still processing — your Pro will appear shortly.")
+        })
+        .catch(() => {})
+    } catch { /* */ }
+  }, [])
+  useEffect(() => { if (!proMsg) return; const t = setTimeout(() => setProMsg(""), 5000); return () => clearTimeout(t) }, [proMsg])
   // the planet speaks your language — detect the visitor's, let them change it
   const [lang, setLang] = useState("English")
   useEffect(() => { setLang(detectLanguage()) }, [])
@@ -411,7 +433,9 @@ export function Planet() {
 
       {started && (
       <div style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", display: "flex", flexDirection: "column", gap: 8 }}>
-        {pro && <button aria-label="AIR — light up your best matches" onClick={() => { airTrig.current++ }} style={{ width: 44, height: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#3a1e06", background: "linear-gradient(180deg,#ffd98a,#ef9a4d)", boxShadow: "0 6px 20px -6px rgba(255,180,90,.75)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>AIR</button>}
+        {pro
+          ? <button aria-label="AIR — light up your best matches" onClick={() => { airTrig.current++ }} style={{ width: 44, height: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#3a1e06", background: "linear-gradient(180deg,#ffd98a,#ef9a4d)", boxShadow: "0 6px 20px -6px rgba(255,180,90,.75)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>AIR</button>
+          : <button aria-label="AIRRAW Pro" onClick={() => setShowPro(true)} style={{ width: 44, height: 44, borderRadius: 12, border: ".5px solid rgba(255,217,138,.5)", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#ffd98a", background: "rgba(255,217,138,.1)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>✦</button>}
         <button aria-label="descend" onClick={() => zoomFnRef.current(1.6)} style={btn}>+</button>
         <button aria-label="climb" onClick={() => zoomFnRef.current(1 / 1.6)} style={btn}>−</button>
       </div>
@@ -435,6 +459,11 @@ export function Planet() {
             </div>
           </div>
         </div>
+      )}
+
+      {showPro && <ProSheet onClose={() => setShowPro(false)} />}
+      {proMsg && (
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 150px)", zIndex: 35, maxWidth: "86vw", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", padding: "11px 18px", borderRadius: 14, boxShadow: "0 12px 32px -8px rgba(0,0,0,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{proMsg}</div>
       )}
 
       <audio ref={audioRef} style={{ display: "none" }} />

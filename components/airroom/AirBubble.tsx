@@ -13,6 +13,7 @@ import type { Cluster } from "@/lib/airroom/roster"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { imageFor } from "@/lib/persona-utils"
 import { isPro } from "@/lib/airroom/pro"
+import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 
 interface Msg { who: "host" | "you"; text: string }
@@ -48,6 +49,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [pro] = useState(() => isPro())
   const [vibe, setVibe] = useState("")              // pro: steer the room's vibe → enforced on the AI
   const [vibeEdit, setVibeEdit] = useState(false)
+  const [showPro, setShowPro] = useState(false)
   const mutedRef = useRef(false)
   const vibeRef = useRef("")
   const langRef = useRef(lang)
@@ -287,8 +289,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           <div style={{ fontSize: 23, fontWeight: 500 }}>{cluster.host}</div>
           <div style={{ fontSize: 12.5, color: "#7f93a5", marginTop: 3 }}>{cluster.name} · {tempLabel}</div>
         </div>
-        {(pro || vibe) && (
-          <button onClick={() => pro && setVibeEdit(true)} aria-label="set the vibe" style={{ fontSize: 12, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "6px 14px", minHeight: 32, maxWidth: "82vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: pro ? "pointer" : "default", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+        {(
+          <button onClick={() => pro ? setVibeEdit(true) : setShowPro(true)} aria-label="set the vibe" style={{ fontSize: 12, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "6px 14px", minHeight: 32, maxWidth: "82vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
             {vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ set the vibe — pro"}
           </button>
         )}
@@ -352,6 +354,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </div>
         </div>
       )}
+      {showPro && <ProSheet onClose={() => setShowPro(false)} />}
       <audio ref={audioRef} style={{ display: "none" }} />
     </div>
   )

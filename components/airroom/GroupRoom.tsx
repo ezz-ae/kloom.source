@@ -18,6 +18,7 @@ import { joinSession, resolveHandle, colorFor, type WireMessage, type Participan
 import { avatarBg } from "@/lib/airroom/avatar"
 import { imageFor } from "@/lib/persona-utils"
 import { isPro } from "@/lib/airroom/pro"
+import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
@@ -63,6 +64,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   const [pro] = useState(() => isPro())
   const [vibe, setVibe] = useState("")              // pro: steer the room vibe → enforced on the AI
   const [vibeEdit, setVibeEdit] = useState(false)
+  const [showPro, setShowPro] = useState(false)
   const mutedRef = useRef(false)
   const vibeRef = useRef("")
   useEffect(() => { mutedRef.current = muted }, [muted])
@@ -305,8 +307,8 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
         {/* pass + vibe — one fixed-height row, never reflows */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", height: 38, marginBottom: 9 }}>
           <button onClick={pass} disabled={busy} aria-label="pass the mic to someone else" style={{ flex: "0 0 auto", fontSize: 12.5, height: 38, color: "#cfe0ee", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, padding: "0 15px", cursor: "pointer", opacity: busy ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↦ pass the mic</button>
-          {(pro || vibe) && (
-            <button onClick={() => pro && setVibeEdit(true)} aria-label="set the room vibe" style={{ flex: "0 1 auto", minWidth: 0, fontSize: 12.5, height: 38, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "0 15px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: pro ? "pointer" : "default", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ vibe — pro"}</button>
+          {(
+            <button onClick={() => pro ? setVibeEdit(true) : setShowPro(true)} aria-label="set the room vibe" style={{ flex: "0 1 auto", minWidth: 0, fontSize: 12.5, height: 38, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "0 15px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ vibe — pro"}</button>
           )}
         </div>
         {/* input + ONE morphing button (fixed 66×44, so nothing jumps) — empty = voice, typing = send */}
@@ -328,6 +330,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
           </div>
         </div>
       )}
+      {showPro && <ProSheet onClose={() => setShowPro(false)} />}
       <audio ref={audioRef} style={{ display: "none" }} />
     </div>
   )

@@ -50,7 +50,8 @@ function joinSize(camS: number, locSeed: number): number {
 }
 interface Join { n: number; seed: number; f: number; adult: boolean }
 
-interface Node { x: number; y: number; c: number; ci: number; hue: number; ph: number; dr: number; char: Cluster }
+interface Node { x: number; y: number; cx: number; cy: number; c: number; ci: number; hue: number; ph: number; dr: number; char: Cluster }
+interface Room { c: number; ci: number; x: number; y: number; hue: number; seed: number; count: number; adult: boolean }
 
 const btn: React.CSSProperties = { width: 36, height: 36, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 10, cursor: "pointer", fontSize: 19, lineHeight: "1" }
 
@@ -80,7 +81,7 @@ export function Planet() {
   const nodes = useMemo<Node[]>(() => {
     const out: Node[] = []
     for (let c = 0; c < CONTINENTS.length; c++) {
-      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.07 + rnd(c * 13) * 0.21
+      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.25
       const ccx = CX + Math.cos(cang) * cr, ccy = CY + Math.sin(cang) * cr
       for (let ci = 0; ci < CITIES; ci++) {
         const a1 = rnd(c * 53 + ci) * 6.283, r1 = 0.018 + rnd(c * 7 + ci * 3) * 0.055
@@ -89,7 +90,7 @@ export function Planet() {
           const a2 = rnd(c * 999 + ci * 131 + i) * 6.283, r2 = 0.004 + rnd(c * 31 + ci * 17 + i * 5) * 0.02
           const seed = (c * 100003 + ci) * 100003 + i + 7
           out.push({
-            x: cityx + Math.cos(a2) * r2, y: cityy + Math.sin(a2) * r2, c, ci,
+            x: cityx + Math.cos(a2) * r2, y: cityy + Math.sin(a2) * r2, cx: cityx, cy: cityy, c, ci,
             hue: CONTINENTS[c].h + (rnd(seed) * 26 - 13), ph: rnd(seed + 1) * 6.28, dr: rnd(seed + 9) * 0.5 + 0.3,
             char: makeCharacter(seed, CONTINENTS[c].f),
           })
@@ -100,9 +101,25 @@ export function Planet() {
   }, [])
 
   const conCentres = useMemo(() => CONTINENTS.map((_, c) => {
-    const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.07 + rnd(c * 13) * 0.21
+    const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.25
     return { x: CX + Math.cos(cang) * cr, y: CY + Math.sin(cang) * cr }
   }), [])
+
+  // The blocks: every city is a BLOCK (a room you can join). You navigate blocks —
+  // continents (the bigger blocks) hold rooms (the blocks), rooms hold the users.
+  // Faces only appear once you're INSIDE a room block.
+  const rooms = useMemo<Room[]>(() => {
+    const out: Room[] = []
+    for (let c = 0; c < CONTINENTS.length; c++) {
+      const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.25
+      const ccx = CX + Math.cos(cang) * cr, ccy = CY + Math.sin(cang) * cr
+      for (let ci = 0; ci < CITIES; ci++) {
+        const a1 = rnd(c * 53 + ci) * 6.283, r1 = 0.018 + rnd(c * 7 + ci * 3) * 0.055
+        out.push({ c, ci, x: ccx + Math.cos(a1) * r1, y: ccy + Math.sin(a1) * r1, hue: CONTINENTS[c].h, seed: c * 100003 + ci, count: 6 + Math.round(rnd(c * 61 + ci * 7) * 56), adult: !!CONTINENTS[c].adult })
+      }
+    }
+    return out
+  }, [])
 
   // A dense "ocean" of dim voices fills the whole disc so the now reads as a full,
   // glowing, populated planet from orbit — the continents are just the brighter
@@ -216,6 +233,8 @@ export function Planet() {
       const im = new Image(); im.onload = () => imgs.set(key, im); im.onerror = () => imgs.set(key, null)
       im.src = imageFor({ name: n.char.host }); return null
     }
+    const ROOM_OPEN = 168 * DPR   // a block's screen size at which it opens to faces
+    const rrect = (x: number, y: number, w: number, h: number, r: number) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath() }
 
     const loop = () => {
       raf = requestAnimationFrame(loop); t += 0.016; frameN++
@@ -236,30 +255,54 @@ export function Planet() {
         ctx.fillStyle = core; ctx.beginPath(); ctx.arc(pc[0], pc[1], prs, 0, 6.283); ctx.fill()
         ctx.strokeStyle = "rgba(150,220,240,.22)"; ctx.lineWidth = DPR; ctx.beginPath(); ctx.arc(pc[0], pc[1], prs, 0, 6.283); ctx.stroke()
       }
-      if (cam.s >= 4 && cam.s < 42) {
+      const roomHalf = 0.044 * cam.s * vm()
+      const facesVisible = roomHalf * 2 >= ROOM_OPEN
+      // ── BLOCKS: continents are the bigger blocks; rooms are the blocks; the
+      // users only appear once you're INSIDE a room block. ──
+      if (cam.s < 10) {
         for (let c = 0; c < CONTINENTS.length; c++) {
-          const co = CONTINENTS[c], cp = w2s(conCentres[c].x, conCentres[c].y), crs = 0.085 * cam.s * vm()
-          if (cp[0] < -90 || cp[0] > W + 90 || cp[1] < -90 || cp[1] > H + 90) continue
-          ctx.strokeStyle = `hsla(${co.h},62%,60%,${cam.s < 11 ? 0.3 : 0.12})`; ctx.lineWidth = DPR
-          ctx.beginPath(); ctx.arc(cp[0], cp[1], crs, 0, 6.283); ctx.stroke()
-          if (cam.s < 13) { ctx.fillStyle = `hsla(${co.h},60%,80%,.85)`; ctx.font = `500 ${12 * DPR}px ${FF}`; ctx.textAlign = "center"; ctx.fillText(co.adult ? co.n + " · 18+" : co.n, cp[0], cp[1] - crs - 6 * DPR); ctx.textAlign = "left" }
+          const co = CONTINENTS[c], cp = w2s(conCentres[c].x, conCentres[c].y), ch = 0.10 * cam.s * vm()
+          if (cp[0] + ch < 0 || cp[0] - ch > W || cp[1] + ch < 0 || cp[1] - ch > H) continue
+          ctx.strokeStyle = `hsla(${co.h},62%,60%,0.26)`; ctx.lineWidth = 1.2 * DPR
+          rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, 20 * DPR); ctx.stroke()
+          if (cam.s < 7) { ctx.fillStyle = `hsla(${co.h},60%,82%,.9)`; ctx.textAlign = "center"; ctx.font = `500 ${12 * DPR}px ${FF}`; ctx.fillText(co.adult ? co.n + " · 18+" : co.n, cp[0], cp[1] - ch - 7 * DPR); ctx.textAlign = "left" }
         }
       }
-      // ambient ocean — the planet's mass: dim, faceless, never interactive
-      for (const n of ambient) {
-        const dx = Math.sin(t * 0.3 + n.ph) * n.dr * 0.0006, dy = Math.cos(t * 0.27 + n.ph) * n.dr * 0.0006
-        const s = w2s(n.x + dx, n.y + dy)
-        if (s[0] < -20 || s[1] < -20 || s[0] > W + 20 || s[1] > H + 20) continue
-        let bright = 1
-        if (fromSpace) { const dd = Math.hypot(n.x - CX, n.y - CY) / PR; bright = 1 - Math.min(1, dd * dd) * 0.6 }
-        ctx.globalAlpha = Math.max(0.1, bright * 0.5)
-        ctx.fillStyle = `hsl(${n.hue},58%,${Math.round(50 + bright * 8)}%)`
-        ctx.beginPath(); ctx.arc(s[0], s[1], Math.max(0.5, cam.s * vm() * 0.0026), 0, 6.283); ctx.fill()
+      let nearestRoom: Room | null = null, nrBest = 1e9
+      for (const rm of rooms) {
+        const s = w2s(rm.x, rm.y)
+        const dc = Math.hypot(s[0] - W / 2, s[1] - H / 2)
+        if (dc < nrBest) { nrBest = dc; nearestRoom = rm }
+        if (cam.s <= 5) continue   // at orbit, only the continent blocks show
+        if (s[0] + roomHalf < 0 || s[0] - roomHalf > W || s[1] + roomHalf < 0 || s[1] - roomHalf > H) continue
+        const locked = rm.adult && !verifiedRef.current
+        if (roomHalf * 2 >= ROOM_OPEN) {
+          ctx.strokeStyle = `hsla(${rm.hue},60%,62%,0.16)`; ctx.lineWidth = DPR
+          rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, 16 * DPR); ctx.stroke()
+        } else {
+          ctx.fillStyle = `hsla(${rm.hue},55%,${cam.s < 8 ? 24 : 32}%,${cam.s < 8 ? 0.20 : 0.36})`
+          rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, Math.min(roomHalf * 0.28, 14 * DPR)); ctx.fill()
+          ctx.strokeStyle = `hsla(${rm.hue},66%,64%,0.45)`; ctx.lineWidth = DPR; ctx.stroke()
+          if (roomHalf * 2 > 48) { ctx.fillStyle = `hsla(${rm.hue},60%,86%,.92)`; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, roomHalf * 0.2) * DPR}px ${FF}`; ctx.fillText(locked ? "the deep · 18+" : `${rm.count} here`, s[0], s[1] + 4 * DPR); ctx.textAlign = "left" }
+        }
       }
-      ctx.globalAlpha = 1
+      // ambient ocean — the planet's mass while you're looking AT blocks (not inside)
+      if (!facesVisible) {
+        for (const n of ambient) {
+          const dx = Math.sin(t * 0.3 + n.ph) * n.dr * 0.0006, dy = Math.cos(t * 0.27 + n.ph) * n.dr * 0.0006
+          const s = w2s(n.x + dx, n.y + dy)
+          if (s[0] < -20 || s[1] < -20 || s[0] > W + 20 || s[1] > H + 20) continue
+          let bright = 1
+          if (fromSpace) { const dd = Math.hypot(n.x - CX, n.y - CY) / PR; bright = 1 - Math.min(1, dd * dd) * 0.6 }
+          ctx.globalAlpha = Math.max(0.1, bright * 0.5)
+          ctx.fillStyle = `hsl(${n.hue},58%,${Math.round(50 + bright * 8)}%)`
+          ctx.beginPath(); ctx.arc(s[0], s[1], Math.max(0.5, cam.s * vm() * 0.0026), 0, 6.283); ctx.fill()
+        }
+        ctx.globalAlpha = 1
+      }
 
       let best = 1e9, act: Node | null = null
-      for (const n of nodes) {
+      if (facesVisible) for (const n of nodes) {
         const dx = Math.sin(t * 0.4 + n.ph) * n.dr * 0.0008, dy = Math.cos(t * 0.31 + n.ph) * n.dr * 0.0008
         const s = w2s(n.x + dx, n.y + dy)
         if (s[0] < -40 || s[1] < -40 || s[0] > W + 40 || s[1] > H + 40) continue
@@ -292,14 +335,15 @@ export function Planet() {
         if (id !== candId) { candId = id; candAt = t }
         else if (audioStarted && !inCallRef.current && id !== spokenId && t - candAt > 0.45 && cam.s > 14) { spokenId = id; speak(act) }
       }
-      const co = act ? CONTINENTS[act.c] : CONTINENTS[0]
-      const loc = act ? act.c * 100003 + act.ci : 0
-      const join: Join | null = (act && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: CONTINENTS[act.c].f, adult: !!CONTINENTS[act.c].adult } : null
+      const baseRm = act || nearestRoom
+      const co = baseRm ? CONTINENTS[baseRm.c] : CONTINENTS[0]
+      const loc = baseRm ? baseRm.c * 100003 + baseRm.ci : 0
+      const join: Join | null = (baseRm && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: CONTINENTS[baseRm.c].f, adult: !!CONTINENTS[baseRm.c].adult } : null
       let crumb: string, altl: string, hear: string
       if (cam.s < 3.2) { crumb = "from orbit · the whole now"; altl = "orbit"; hear = "the hum of the whole now · thousands of voices" }
       else if (cam.s < 11) { crumb = `${co.n} · a region of the now`; altl = "atmosphere"; hear = `drifting over ${co.n} — ${co.v}` }
-      else if (cam.s < 24) { crumb = `${co.n} · room ${(act ? act.ci : 0) + 1}`; altl = "rooftops"; hear = `a room in ${co.n} · many close voices` }
-      else { crumb = `${co.n} · room ${(act ? act.ci : 0) + 1} · one voice`; altl = "street"; hear = act ? `hearing · ${act.char.host} — “${act.char.lines[0]}”` : "lean closer" }
+      else if (!facesVisible) { crumb = `${co.n} · a block`; altl = "rooftops"; hear = `a block in ${co.n} · ${nearestRoom ? nearestRoom.count : 0} inside · zoom in to land` }
+      else { crumb = `${co.n} · on the floor`; altl = "the floor"; hear = act ? `hearing · ${act.char.host} — “${act.char.lines[0]}”` : "lean closer" }
       const sig = crumb + "|" + altl + "|" + hear + "|" + (join ? `${join.n}:${join.seed}` : "0")
       if (sig !== lastHud) { lastHud = sig; setHud({ crumb, alt: altl, hearing: hear, join }) }
     }
@@ -310,7 +354,7 @@ export function Planet() {
       speakTok.current++
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, ambient, conCentres, speak, openVoice])
+  }, [nodes, ambient, rooms, conCentres, speak, openVoice])
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>

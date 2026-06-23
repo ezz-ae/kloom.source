@@ -17,6 +17,7 @@ import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
 import { imageFor } from "@/lib/persona-utils"
+import { isPro } from "@/lib/airroom/pro"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
@@ -56,6 +57,15 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
   const [sttOk, setSttOk] = useState(false)
   const [listening, setListening] = useState(false)
   const [revealed, setRevealed] = useState(false)
+  const [muted, setMuted] = useState(false)         // mute the room's voices (text keeps flowing)
+  const [speaking, setSpeaking] = useState(false)   // someone is talking aloud → sound indicator
+  const [pro] = useState(() => isPro())
+  const [vibe, setVibe] = useState("")              // pro: steer the room vibe → enforced on the AI
+  const [vibeEdit, setVibeEdit] = useState(false)
+  const mutedRef = useRef(false)
+  const vibeRef = useRef("")
+  useEffect(() => { mutedRef.current = muted }, [muted])
+  useEffect(() => { vibeRef.current = vibe }, [vibe])
 
   const linesRef = useRef<WireMessage[]>([])
   const busyRef = useRef(false)
@@ -74,14 +84,15 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
   useEffect(() => { const w = window as any; setSttOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, []) // eslint-disable-line
 
   const speak = async (text: string, m: Cluster) => {
+    if (mutedRef.current) return   // muted: skip the voices (the words still arrive)
     try {
       const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, gender: m.gender, language: "English", voiceId: m.voiceId }) })
       if (!res.ok) return
       const url = URL.createObjectURL(await res.blob())
       const a = audioRef.current
-      if (a) { a.src = url; await a.play().catch(() => {}); await new Promise<void>((r) => { a.onended = () => r(); a.onerror = () => r() }) }
+      if (a) { a.src = url; setSpeaking(true); await a.play().catch(() => {}); await new Promise<void>((r) => { a.onended = () => r(); a.onerror = () => r() }); setSpeaking(false) }
       URL.revokeObjectURL(url)
-    } catch { /* */ }
+    } catch { setSpeaking(false) }
   }
 
   const push = (m: WireMessage) => {
@@ -123,9 +134,10 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
     const id = `ai-${humanMsgId}-${idx}`
     if (seen.current.has(id)) return // a peer driver already produced this exact line
     const others = members.filter((x) => x.host !== mem.host).map((x) => x.host).join(", ")
+    const steer = vibeRef.current.trim() ? ` Someone set the room's vibe: "${vibeRef.current.trim()}" — honor it fully in how you talk.` : ""
     const persona = {
       name: mem.host,
-      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. You are warm, real, human — never a corporate assistant, never robotic. React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.`,
+      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. You are warm, real, human — never a corporate assistant, never robotic. React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.${steer}`,
       speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am", backstory: "", language: "English",
     }
     const msgs = linesRef.current.map((l) => l.kind === "ai" && l.handle === mem.host
@@ -186,6 +198,18 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
     drive(mine.id) // the sender drives immediately; peers stand by as backups
   }
 
+  // pass the mic — you don't want to speak, so hand the floor to someone else and
+  // let them carry it. Rotates through the room's voices.
+  const passIdx = useRef(0)
+  const pass = () => {
+    if (busyRef.current || !members.length) return
+    const i = passIdx.current % members.length; passIdx.current++
+    const mem = members[i]
+    drivenRef.current.add(`pass-${i}-${linesRef.current.length}`)
+    busyRef.current = true; setBusy(true)
+    respond(mem, `pass-${rid()}`, i).finally(() => { busyRef.current = false; setBusy(false) })
+  }
+
   // Seed the room with what you wrote on the sky, once you've walked in.
   useEffect(() => {
     const o = opening?.trim()
@@ -211,7 +235,8 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+      <style>{`@keyframes greq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}`}</style>
+      <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>
             you stepped into a room · {members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""}
@@ -234,9 +259,19 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
               </span>
             ))}
           </div>
-          <div style={{ fontSize: 12, color: "#7f93a5", marginTop: 3 }}>{tempLabel}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 4 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 2, height: 12 }}>
+              {[0, 1, 2].map((i) => (
+                <span key={i} style={{ width: 3, height: 12, borderRadius: 2, background: muted ? "#46586a" : "#7fd6c0", transformOrigin: "center", animation: (speaking && !muted) ? `greq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)" }} />
+              ))}
+            </span>
+            <span style={{ fontSize: 12, color: "#7f93a5" }}>{muted ? "muted · text only" : tempLabel}</span>
+          </div>
         </div>
-        <button onClick={onClose} style={{ flex: "0 0 auto", fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 14px", minHeight: 44, minWidth: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }} aria-label={muted ? "unmute" : "mute"} style={{ width: 44, height: 44, borderRadius: 12, fontSize: 13, color: muted ? "#ffb59c" : "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{muted ? "🔇" : "🔊"}</button>
+          <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 12px", minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
+        </div>
       </div>
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "8px 22px", display: "flex", flexDirection: "column", gap: 9 }}>
@@ -254,6 +289,12 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
       </div>
 
       <div style={{ padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))", boxSizing: "border-box" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "center", flexWrap: "wrap", marginBottom: 9 }}>
+          <button onClick={pass} disabled={busy} aria-label="pass the mic to someone else" style={{ fontSize: 12.5, minHeight: 38, color: "#cfe0ee", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, padding: "8px 15px", cursor: "pointer", opacity: busy ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↦ pass the mic</button>
+          {(pro || vibe) && (
+            <button onClick={() => pro && setVibeEdit(true)} aria-label="set the room vibe" style={{ fontSize: 12.5, minHeight: 38, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "8px 15px", maxWidth: "62vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: pro ? "pointer" : "default", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ vibe — pro"}</button>
+          )}
+        </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }} placeholder="say something to the room…" style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }} />
           {sttOk && <button onClick={talkOnce} style={{ fontSize: 13, minHeight: 44, color: listening ? "#06201a" : "#dfeaf2", background: listening ? "#7fd6c0" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "11px 14px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{listening ? "listening" : "talk"}</button>}
@@ -265,6 +306,19 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening }: {
             : <button onClick={() => setRevealed(true)} style={{ fontSize: 12, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}>who in here is human?</button>}
         </div>
       </div>
+      {vibeEdit && pro && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 26, background: "rgba(4,6,12,.82)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ width: "min(88vw, 400px)", background: "#0f1622", border: ".5px solid rgba(150,120,255,.4)", borderRadius: 18, padding: 20, textAlign: "center" }}>
+            <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#c7b3ff" }}>pro · set the room vibe</div>
+            <div style={{ fontSize: 14, color: "#cdd9e3", margin: "8px 0 14px", lineHeight: 1.5 }}>set the mood and the whole room follows it.</div>
+            <input value={vibe} onChange={(e) => setVibe(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setVibeEdit(false) }} autoFocus placeholder="e.g. roast each other · deep and honest · hype" style={{ width: "100%", fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "12px 14px", minHeight: 46, boxSizing: "border-box", outline: "none" }} />
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <button onClick={() => { setVibe(""); setVibeEdit(false) }} style={{ flex: 1, minHeight: 44, fontSize: 13, color: "#9fb2c4", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 12, cursor: "pointer" }}>clear</button>
+              <button onClick={() => setVibeEdit(false)} style={{ flex: 1, minHeight: 44, fontSize: 14, fontWeight: 600, color: "#1a0d2a", background: "#c7b3ff", border: "none", borderRadius: 12, cursor: "pointer" }}>set it</button>
+            </div>
+          </div>
+        </div>
+      )}
       <audio ref={audioRef} style={{ display: "none" }} />
     </div>
   )

@@ -19,6 +19,7 @@ import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { imageFor } from "@/lib/persona-utils"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
+import { RoomCard, type RoomPreview } from "@/components/airroom/RoomCard"
 import { startAmbience, setAmbienceDepth, setAmbienceMuted, stopAmbience } from "@/lib/airroom/ambience"
 import { track } from "@/lib/airraw/track"
 
@@ -71,6 +72,7 @@ export function Planet() {
 
   const [selected, setSelected] = useState<Cluster | null>(null)
   const [group, setGroup] = useState<{ seed: number; f: number; count: number } | null>(null)
+  const [preview, setPreview] = useState<RoomPreview | null>(null)   // the room card, shown before you enter
   const [pending, setPending] = useState<Cluster | null>(null)   // deep voice awaiting 18+ confirm
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null) // deep group awaiting 18+ confirm
   const [verified, setVerified] = useState(false)
@@ -95,9 +97,11 @@ export function Planet() {
 
   // Only the 8 continent anchors are fixed; rooms + faces are generated procedurally
   // for whatever's on screen (see the loop), so the world is infinite.
+  // The 8 worlds, unboxed: spread across a tall ellipse so they fill the sky on a
+  // phone (narrow x, tall y) instead of clustering in one block.
   const conCentres = useMemo(() => CONTINENTS.map((_, c) => {
-    const cang = (c / CONTINENTS.length) * 6.283 + 0.6, cr = 0.29
-    return { x: CX + Math.cos(cang) * cr, y: CY + Math.sin(cang) * cr }
+    const cang = (c / CONTINENTS.length) * 6.283 + 0.6
+    return { x: CX + Math.cos(cang) * 0.205, y: CY + Math.sin(cang) * 0.345 }
   }), [])
   // Characters are minted lazily per face-seed and cached — only the ones you
   // actually drift near or open are ever built.
@@ -126,16 +130,29 @@ export function Planet() {
   }, [])
 
   const takeOpening = () => { const o = openingRef.current; openingRef.current = ""; setOpening(o); return o }
+  // Tapping a face or a join CTA now shows the room CARD first (who's here) — the
+  // real room only opens when you "step in".
   const openVoice = useCallback((c: number, seed: number) => {
-    const ch = charFor(seed, c)
-    if (CONTINENTS[c].adult && !verifiedRef.current) { setPending(ch); return }
-    takeOpening(); setSelected(ch)
-  }, [charFor])
+    const co = CONTINENTS[c]
+    setPreview({ kind: "voice", c, seed, f: co.f, count: 1, adult: !!co.adult, continent: co.n, vibe: co.v, hue: co.h })
+  }, [])
   const joinGroup = useCallback((j: Join) => {
     if (CONTINENTS[j.c]?.n === "the arena") { window.location.href = "/airraw/chess"; return }   // games room → the board
-    if (j.adult && !verifiedRef.current) { setPendingJoin(j); return }
-    takeOpening(); setGroup({ seed: j.seed, f: j.f, count: j.n })
+    const co = CONTINENTS[j.c]
+    setPreview({ kind: "group", c: j.c, seed: j.seed, f: j.f, count: j.n, adult: !!j.adult, continent: co.n, vibe: co.v, hue: co.h })
   }, [])
+  // "step in" from the card → the real room (18+ gate enforced here).
+  const enterRoom = (p: RoomPreview) => {
+    setPreview(null)
+    if (p.adult && !verifiedRef.current) {
+      if (p.kind === "voice") setPending(charFor(p.seed, p.c))
+      else setPendingJoin({ n: p.count, seed: p.seed, f: p.f, adult: true, c: p.c })
+      return
+    }
+    takeOpening()
+    if (p.kind === "voice") setSelected(charFor(p.seed, p.c))
+    else setGroup({ seed: p.seed, f: p.f, count: p.count })
+  }
   const confirm18 = () => {
     setVerified(true); try { localStorage.setItem("airroom_18", "1") } catch { /* */ }
     const p = pending, pj = pendingJoin; setPending(null); setPendingJoin(null)
@@ -170,7 +187,7 @@ export function Planet() {
     zoomFnRef.current = (f: number) => zoomAt(cv.width / 2, cv.height / 2, f)
     const startAudio = () => { if (!audioStarted) { audioStarted = true; try { startAmbience(); setAmbienceDepth(cam.s) } catch { /* */ } } }
     // begin the descent: reveal the blocks and drift inward so the world opens up
-    const markStarted = () => { if (!startedRef.current) { startedRef.current = true; setStarted(true); tgt.s = Math.max(tgt.s, 2.6) } }
+    const markStarted = () => { if (!startedRef.current) { startedRef.current = true; setStarted(true); tgt.s = Math.max(tgt.s, 1.6) } }
     startFnRef.current = markStarted
 
     const onWheel = (e: WheelEvent) => { e.preventDefault(); startAudio(); markStarted(); const r = cv.getBoundingClientRect(); zoomAt((e.clientX - r.left) * DPR, (e.clientY - r.top) * DPR, e.deltaY < 0 ? 1.16 : 1 / 1.16) }
@@ -222,29 +239,31 @@ export function Planet() {
       ctx.fillStyle = "#04050b"; ctx.fillRect(0, 0, W, H)
       for (const st of stars) { let sx = (st.x * W + cam.x * -12) % W; if (sx < 0) sx += W; let sy = (st.y * H + cam.y * -12) % H; if (sy < 0) sy += H; ctx.globalAlpha = (0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 1.3 + st.ph))) * 0.7; ctx.fillStyle = "#cdd9e3"; ctx.beginPath(); ctx.arc(sx, sy, st.r * DPR, 0, 6.283); ctx.fill() }
       ctx.globalAlpha = 1
-      // The now is ONE BIG BLOCK — same shape as everything, no circle.
-      const blTL = w2s(CX - PR, CY - PR), blBR = w2s(CX + PR, CY + PR)
-      const bw = blBR[0] - blTL[0], bh = blBR[1] - blTL[1]
-      const blockRad = Math.min(bw, bh) * 0.05
-      // Sky-first: until you begin, draw nothing but stars — the write box invites you in.
+      // The SKY itself is the big box now — no drawn container. The 8 worlds float
+      // and drift inside it. Until you begin, it's just stars + the write box.
       const begun = startedRef.current
-      if (begun && bw > 40 && bw < Math.max(W, H) * 1.7) {
-        ctx.fillStyle = "rgba(13,26,44,0.30)"
-        rrect(blTL[0], blTL[1], bw, bh, blockRad); ctx.fill()
-        ctx.strokeStyle = "rgba(120,200,225,0.20)"; ctx.lineWidth = 1.2 * DPR
-        rrect(blTL[0], blTL[1], bw, bh, blockRad); ctx.stroke()
-      }
       const roomHalf = 0.044 * cam.s * vm()
       const facesVisible = roomHalf * 2 >= ROOM_OPEN
       // ── BLOCKS: continents are the bigger blocks; rooms are the blocks; the
       // users only appear once you're INSIDE a room block. ──
       if (begun && cam.s < 10) {
         for (let c = 0; c < CONTINENTS.length; c++) {
-          const co = CONTINENTS[c], cp = w2s(conCentres[c].x, conCentres[c].y), ch = 0.082 * cam.s * vm()
+          const co = CONTINENTS[c]
+          // each world drifts on its own slow orbit — the sky is alive
+          const dx = Math.sin(t * 0.18 + c * 1.7) * 0.012, dy = Math.cos(t * 0.13 + c * 2.3) * 0.012
+          const cp = w2s(conCentres[c].x + dx, conCentres[c].y + dy), ch = 0.10 * cam.s * vm()
           if (cp[0] + ch < 0 || cp[0] - ch > W || cp[1] + ch < 0 || cp[1] - ch > H) continue
-          ctx.strokeStyle = `hsla(${co.h},62%,60%,0.26)`; ctx.lineWidth = 1.2 * DPR
-          rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, Math.min(ch * 0.3, 16 * DPR)); ctx.stroke()
-          if (cam.s < 7) { ctx.fillStyle = `hsla(${co.h},60%,82%,.9)`; ctx.textAlign = "center"; ctx.font = `500 ${12 * DPR}px ${FF}`; ctx.fillText(co.adult ? co.n + " · 18+" : co.n, cp[0], cp[1] - ch - 7 * DPR); ctx.textAlign = "left" }
+          const rad = Math.min(ch * 0.3, 18 * DPR)
+          ctx.fillStyle = `hsla(${co.h},55%,52%,0.10)`
+          rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.fill()
+          ctx.strokeStyle = `hsla(${co.h},66%,64%,0.40)`; ctx.lineWidth = 1.4 * DPR
+          rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.stroke()
+          if (cam.s < 8) {
+            ctx.fillStyle = `hsla(${co.h},65%,86%,.95)`; ctx.textAlign = "center"; ctx.font = `500 ${12.5 * DPR}px ${FF}`
+            ctx.fillText(co.adult ? co.n + " · 18+" : co.n, cp[0], cp[1] - 2 * DPR)
+            ctx.fillStyle = `hsla(${co.h},45%,76%,.7)`; ctx.font = `400 ${10 * DPR}px ${FF}`
+            ctx.fillText(co.v, cp[0], cp[1] + 14 * DPR); ctx.textAlign = "left"
+          }
         }
       }
       // ── procedural rooms + faces for the viewport — the world is infinite ──
@@ -349,7 +368,7 @@ export function Planet() {
       )}
 
       {/* The main act: join the group at this scale. The number shrinks as you descend. */}
-      {started && hud.join && !selected && !group && (
+      {started && hud.join && !selected && !group && !preview && (
         <button onClick={() => joinGroup(hud.join!)}
           style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? "talk 1:1 →" : `join this room · ${hud.join.n} here →`}
@@ -364,6 +383,8 @@ export function Planet() {
         <button aria-label="climb" onClick={() => zoomFnRef.current(1 / 1.6)} style={btn}>−</button>
       </div>
       )}
+
+      {preview && <RoomCard p={preview} onEnter={() => enterRoom(preview)} onClose={() => setPreview(null)} />}
 
       {selected && <AirBubble cluster={selected} opening={opening} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening("") }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 

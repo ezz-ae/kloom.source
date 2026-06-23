@@ -43,6 +43,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
   const [chatOpen, setChatOpen] = useState(false)   // the words keep being written; this reveals/types them
   const [micHint, setMicHint] = useState("")        // surface mic-permission/availability instead of dying silently
   const [muted, setMuted] = useState(false)         // mute their voice (text keeps flowing)
+  const [humanNote, setHumanNote] = useState(false) // one-time "they might be real" note
   const [pro] = useState(() => isPro())
   const [vibe, setVibe] = useState("")              // pro: steer the room's vibe → enforced on the AI
   const [vibeEdit, setVibeEdit] = useState(false)
@@ -66,6 +67,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
   useEffect(() => { const w = window as any; setSttOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, [])
+  useEffect(() => { try { if (!localStorage.getItem("airraw_human_note")) setHumanNote(true) } catch { /* */ } }, [])
+  const dismissHumanNote = () => { setHumanNote(false); try { localStorage.setItem("airraw_human_note", "1") } catch { /* */ } }
 
   const speak = async (text: string) => {
     if (mutedRef.current) return   // muted: skip the voice (the words still arrive)
@@ -261,6 +264,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening }: { 
           <button onClick={onClose} aria-label="leave" style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "10px 14px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
         </div>
       </div>
+
+      {humanNote && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px max(18px, env(safe-area-inset-right)) 2px max(18px, env(safe-area-inset-left))", fontSize: 12, color: "#cfe0ee", background: "rgba(127,214,192,.1)", border: ".5px solid rgba(127,214,192,.25)", borderRadius: 12, padding: "9px 12px" }}>
+          <span style={{ flex: 1, lineHeight: 1.4 }}>some voices here are real people — you won&apos;t always know.</span>
+          <button onClick={dismissHumanNote} style={{ flex: "0 0 auto", fontSize: 12, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 9, padding: "7px 12px", minHeight: 34, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>got it</button>
+        </div>
+      )}
 
       {/* the call — big portrait, name, status, and the latest line (the words keep being written) */}
       <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "4px 24px" }}>

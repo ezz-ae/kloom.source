@@ -144,7 +144,8 @@ export function Planet() {
   const joinGroup = useCallback((j: Join) => {
     if (CONTINENTS[j.c]?.n === "the arena") { window.location.href = "/airraw/chess"; return }   // games room → the board
     const co = CONTINENTS[j.c]
-    setPreview({ kind: "group", c: j.c, seed: j.seed, f: j.f, count: j.n, adult: !!j.adult, continent: co.n, vibe: co.v, hue: co.h })
+    // a 1:1 join opens the CALL (voice card → AirBubble), not a one-person room
+    setPreview({ kind: j.n === 1 ? "voice" : "group", c: j.c, seed: j.seed, f: j.f, count: j.n, adult: !!j.adult, continent: co.n, vibe: co.v, hue: co.h })
   }, [])
   // "step in" from the card → the real room (18+ gate enforced here).
   const enterRoom = (p: RoomPreview) => {

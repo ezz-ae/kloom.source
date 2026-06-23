@@ -188,6 +188,108 @@ async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL,
   } catch (e) { console.error("together image threw", e instanceof Error ? e.message : String(e)); return null }
 }
 
+// ── Realism pass ─────────────────────────────────────────────────────────────
+// FLUX output is too smooth / plasticky / AI-vivid. This makes it read as a candid
+// amateur phone photo: low-amplitude film grain + chroma noise, a gentle S-curve,
+// a touch of desaturation, a soft vignette, a 1px edge chromatic aberration, then a
+// JPEG re-encode so the file carries the real 8x8 compression artifacts FLUX lacks.
+// @napi-rs/canvas ONLY (sharp unavailable; this lib already runs server-side in
+// lib/face-validate.ts). FAIL-OPEN: any error returns the original bytes untouched.
+const R_GRAIN      = floor0(process.env.REALISM_GRAIN, 7)     // luma grain amplitude (ISO-800-ish)
+const R_CHROMA     = floor0(process.env.REALISM_CHROMA, 3)    // per-channel chroma noise
+const R_CONTRAST   = numEnv(process.env.REALISM_CONTRAST, 0.10)
+const R_DESAT      = numEnv(process.env.REALISM_DESAT, 0.06)
+const R_VIGNETTE   = numEnv(process.env.REALISM_VIGNETTE, 0.16)
+const R_ABERRATION = numEnv(process.env.REALISM_ABERRATION, 1) // px R/B split at edges (0 disables)
+const R_JPEG_Q     = Math.max(60, Math.min(95, Number(process.env.REALISM_JPEG_QUALITY || 88)))
+
+function numEnv(v: string | undefined, d: number): number { const n = Number(v); return Number.isFinite(n) ? n : d }
+function floor0(v: string | undefined, d: number): number { const n = Number(v); return Number.isFinite(n) ? Math.max(0, n) : d }
+// Cheap deterministic per-pixel noise (no Math.random over ~3M samples; stable grain).
+function hashNoise(x: number): number {
+  x = (x ^ 61) ^ (x >>> 16); x = x + (x << 3); x = x ^ (x >>> 4)
+  x = Math.imul(x, 0x27d4eb2d); x = x ^ (x >>> 15)
+  return ((x >>> 0) / 4294967295) * 2 - 1   // -1..1
+}
+
+async function realismPass(input: Buffer): Promise<Buffer> {
+  if (!input || input.length < 1000) return input
+  try {
+    const rcanvas = await import("@napi-rs/canvas")
+    const img = await rcanvas.loadImage(input)
+    const w = img.width, h = img.height
+    if (!w || !h || w > 4096 || h > 4096) return input
+
+    const c = rcanvas.createCanvas(w, h)
+    const ctx = c.getContext("2d")
+    ctx.drawImage(img, 0, 0)
+    const imageData = ctx.getImageData(0, 0, w, h)
+    const d = imageData.data
+
+    // Gentle symmetric S-curve LUT (lifts mid contrast, soft toes).
+    const lut = new Uint8Array(256)
+    const k = R_CONTRAST * 4
+    const s0 = 1 / (1 + Math.exp(k * 0.5)), s1 = 1 / (1 + Math.exp(-k * 0.5))
+    for (let v = 0; v < 256; v++) {
+      const x = v / 255
+      const s = 1 / (1 + Math.exp(-k * (x - 0.5)))
+      const norm = (s - s0) / (s1 - s0)
+      const out = x * (1 - R_CONTRAST) + norm * R_CONTRAST
+      lut[v] = Math.max(0, Math.min(255, Math.round(out * 255)))
+    }
+
+    const cx = (w - 1) / 2, cy = (h - 1) / 2
+    const maxd2 = cx * cx + cy * cy
+    let i = 0
+    for (let y = 0; y < h; y++) {
+      const dy = y - cy
+      for (let x = 0; x < w; x++, i += 4) {
+        let r = lut[d[i]], g = lut[d[i + 1]], b = lut[d[i + 2]]
+        if (R_DESAT > 0) {
+          const luma = 0.299 * r + 0.587 * g + 0.114 * b
+          r += (luma - r) * R_DESAT; g += (luma - g) * R_DESAT; b += (luma - b) * R_DESAT
+        }
+        const n = hashNoise(i) * R_GRAIN
+        r += n; g += n; b += n
+        if (R_CHROMA > 0) { r += hashNoise(i + 1) * R_CHROMA; g += hashNoise(i + 7) * R_CHROMA; b += hashNoise(i + 13) * R_CHROMA }
+        if (R_VIGNETTE > 0) {
+          const dx = x - cx
+          const f = 1 - R_VIGNETTE * ((dx * dx + dy * dy) / maxd2)
+          r *= f; g *= f; b *= f
+        }
+        d[i]     = r < 0 ? 0 : r > 255 ? 255 : r
+        d[i + 1] = g < 0 ? 0 : g > 255 ? 255 : g
+        d[i + 2] = b < 0 ? 0 : b > 255 ? 255 : b
+      }
+    }
+
+    // Micro chromatic aberration: edge-weighted 1px R/B split (face is near center → ~0).
+    if (R_ABERRATION > 0) {
+      const src = Uint8ClampedArray.from(d)
+      let p = 0
+      for (let y = 0; y < h; y++) {
+        const dy = y - cy
+        for (let x = 0; x < w; x++, p += 4) {
+          const dx = x - cx
+          const edge = Math.sqrt((dx * dx + dy * dy) / maxd2)
+          const sh = Math.round(R_ABERRATION * edge) * (dx < 0 ? -1 : 1)
+          if (sh !== 0) {
+            const rx = x - sh, bx = x + sh
+            if (rx >= 0 && rx < w) d[p]     = src[(y * w + rx) * 4]
+            if (bx >= 0 && bx < w) d[p + 2] = src[(y * w + bx) * 4 + 2]
+          }
+        }
+      }
+    }
+
+    ctx.putImageData(imageData, 0, 0)
+    const out = c.toBuffer("image/jpeg", R_JPEG_Q)   // real JPEG artifacts FLUX never has
+    return out && out.length > 1000 ? out : input
+  } catch {
+    return input   // FAIL-OPEN
+  }
+}
+
 export async function POST(request: Request) {
   let name = "", gender = "", world = "", desc = "", slug = "", seedKey = ""
   let diverse = false, providerOverride = ""
@@ -228,7 +330,13 @@ export async function POST(request: Request) {
   // regeneration, no cost, and never a duplicate. This is what makes "every face
   // live" affordable.
   const admin = getAdminClient()
-  const path = `${slug || "char"}-${seed}.png`
+  // The realism pass re-encodes to JPEG; version the cache key so existing (plastic)
+  // PNGs miss the HEAD check and regenerate through the pass. REALISM_OFF=1 keeps PNG.
+  const realismOn = process.env.REALISM_OFF !== "1"
+  const realismVersion = process.env.REALISM_VERSION || "r1"
+  const path = realismOn
+    ? `${slug || "char"}-${seed}-${realismVersion}.jpg`
+    : `${slug || "char"}-${seed}.png`
   const existing = admin.storage.from("character-photos").getPublicUrl(path).data.publicUrl
   try {
     const head = await fetch(existing, { method: "HEAD", signal: AbortSignal.timeout(6000) })
@@ -252,6 +360,13 @@ export async function POST(request: Request) {
           const b = await genTogether(prompt, dseed, rung.model, rung.steps)
           if (b) { usedModel = rung.model; return b }
         }
+      }
+      // Together can't reach a photoreal model (key schnell-capped) → FAL flux (photoreal,
+      // independent of the Together tier). Fires automatically the moment FAL_KEY is set —
+      // no provider switch, no rebuild. Falls through to the schnell floor if FAL is absent.
+      if (dp && FAL_KEY) {
+        const fb = await genFal(prompt, dseed)
+        if (fb) { usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return fb }
       }
       const b = await genTogether(prompt, dseed)   // schnell base (the floor)
       if (b) usedModel = TOGETHER_MODEL
@@ -277,9 +392,12 @@ export async function POST(request: Request) {
     return Response.json({ error: "generation failed", provider, detail: genErr || undefined }, { status: 502 })
   }
 
+  // Realism pass: make FLUX output read as a candid amateur phone photo. Fail-open.
+  if (realismOn) bytes = await realismPass(bytes)
+
   // Persist to the public bucket at the seed-keyed path (computed above).
   const { error } = await admin.storage.from("character-photos").upload(path, bytes, {
-    contentType: "image/png", upsert: true,
+    contentType: realismOn ? "image/jpeg" : "image/png", upsert: true,
   })
   if (error) return Response.json({ error: error.message }, { status: 500 })
 

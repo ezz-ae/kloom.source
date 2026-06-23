@@ -26,8 +26,10 @@ export async function POST(request: Request) {
     return Response.json({ error: "Missing text" }, { status: 400 })
   }
   // A spoken line is short; cap it so a huge payload can't be forwarded to (and
-  // billed by) the TTS provider.
-  const ttsText = text.slice(0, 1000)
+  // billed by) the TTS provider. Shape it for natural speech first; if shaping strips
+  // a line down to nothing (e.g. a URL/emoji-only message), fall back to the raw text
+  // so we never send an empty request.
+  const ttsText = shapeForSpeech(text) || text.replace(/\s+/g, " ").trim().slice(0, 1000)
 
   // ── ElevenLabs — premium natural TTS (tier 0) ─────────────────────────────
   // The most natural voice available; runs first when ELEVENLABS_API_KEY is set,
@@ -95,8 +97,14 @@ export async function POST(request: Request) {
       reference_id: referenceId,
       format: "mp3",
       mp3_bitrate: 192,                 // richer than 128 — less "boxed" compression
-      normalize: true,
-      latency: "normal",                // best quality over lowest latency (was "balanced")
+      normalize: true,                  // Fish G2P + loudness normalize; complements shapeForSpeech
+      latency: "normal",                // full prosody planning (do NOT drop to "low" — it flattens)
+      // Naturalness levers (s1): a touch of variation so lines aren't flat/robotic, steadier
+      // prosody via shorter chunks, and ~6% slower cadence so it reads human, not rushed.
+      temperature: Number(process.env.FISH_TEMPERATURE ?? 0.75),
+      top_p: Number(process.env.FISH_TOP_P ?? 0.72),
+      chunk_length: Number(process.env.FISH_CHUNK_LENGTH ?? 200),
+      prosody: { speed: Number(process.env.FISH_SPEED ?? 0.94) },
     })
 
     try {
@@ -149,6 +157,84 @@ function resolveReferenceId(voice?: string): string | undefined {
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+// Make ANY TTS engine sound more human by cleaning what we send it: strip markdown,
+// links, emoji and stage-directions (engines read them aloud as gibberish), expand
+// abbreviations/symbols, and insert natural comma/sentence beats so the voice breathes
+// instead of machine-gunning. NO SSML (safe for non-SSML engines like Fish/CosyVoice).
+// Idempotent; length-bounded. Caller falls back to the raw text if this empties out.
+function shapeForSpeech(input: string): string {
+  if (!input || typeof input !== "string") return ""
+  let t = input.normalize("NFC")
+
+  // 1) Strip code & links (read out as gibberish otherwise).
+  t = t.replace(/```[\s\S]*?```/g, " ").replace(/`([^`]*)`/g, "$1")
+  t = t.replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+  t = t.replace(/https?:\/\/\S+/gi, " ").replace(/\bwww\.\S+/gi, " ")
+  t = t.replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g, " ")
+
+  // 2) Strip markdown structure & inline emphasis (keep the words).
+  t = t.replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s{0,3}>\s?/gm, "")
+  t = t.replace(/^\s{0,3}([-*_])(?:\s*\1){2,}\s*$/gm, " ")
+  t = t.replace(/(\*{1,3}|_{1,3}|~{2})(\S[\s\S]*?\S|\S)\1/g, "$2")
+  t = t.replace(/^\s*[-*+]\s+/gm, "").replace(/^\s*\d+[.)]\s+/gm, "")
+  t = t.replace(/[*_~`#|>]/g, " ")
+
+  // 3) Strip stage directions / sound cues — engines voice them literally.
+  t = t.replace(/\((?:laughs?|sighs?|giggles?|whispers?|pauses?|smiles?|grins?|chuckles?|clears throat|beat|gasps?|inhales?|exhales?|softly|coughs?)[^)]*\)/gi, " ")
+  t = t.replace(/\[(?:laughs?|sighs?|music|sound|sfx|pause|beat|applause)[^\]]*\]/gi, " ")
+
+  // 4) Strip emoji & pictographs.
+  t = t.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}]/gu, " ")
+
+  // 5) Currency (before generic number handling).
+  t = t.replace(/\$\s?(\d[\d,]*)(\.\d{1,2})?/g, (_m, d: string, c?: string) => {
+    const dollars = d.replace(/,/g, "")
+    return c ? `${dollars} dollars and ${c.slice(1)} cents` : `${dollars} dollars`
+  })
+  t = t.replace(/€\s?(\d[\d,]*)/g, (_m, d: string) => `${d.replace(/,/g, "")} euros`)
+  t = t.replace(/£\s?(\d[\d,]*)/g, (_m, d: string) => `${d.replace(/,/g, "")} pounds`)
+
+  // 6) Common abbreviations.
+  const ABBR: Record<string, string> = {
+    "Dr.": "Doctor", "Mr.": "Mister", "Mrs.": "Missus", "Ms.": "Miss",
+    "Prof.": "Professor", "St.": "Saint", "Mt.": "Mount", "vs.": "versus",
+    "e.g.": "for example", "i.e.": "that is", "etc.": "and so on",
+    "approx.": "approximately", "Jan.": "January", "Feb.": "February",
+    "Aug.": "August", "Sept.": "September", "Oct.": "October",
+    "Nov.": "November", "Dec.": "December",
+  }
+  for (const [k, v] of Object.entries(ABBR)) {
+    t = t.replace(new RegExp(k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), v)
+  }
+
+  // 7) Symbols → words.
+  t = t.replace(/(\d)\s?%/g, "$1 percent")
+  t = t.replace(/\s&\s/g, " and ").replace(/&/g, " and ")
+  t = t.replace(/\band\s*\/\s*or\b/gi, "and or")  // before the generic slash rule
+  t = t.replace(/\s*\/\s*/g, " or ")
+  t = t.replace(/(\d)\s?-\s?(\d)/g, "$1 to $2")
+
+  // 8) Micro-pause shaping so the voice breathes.
+  t = t.replace(/\s*[—–]\s*/g, ", ")
+  t = t.replace(/\.{3,}/g, "… ")
+  t = t.replace(/[!?]{2,}/g, (m) => (m.includes("!") ? "!" : "?"))  // ?!?! / !!! → one mark
+  t = t.replace(/,{2,}/g, ",")
+  t = t.replace(/\n{2,}/g, "\n").replace(/\n+/g, ". ")
+
+  // 9) Whitespace & punctuation spacing cleanup.
+  t = t.replace(/[ \t]+/g, " ")
+  t = t.replace(/\s+([,.!?…;:])/g, "$1")
+  t = t.replace(/([,;:])\s*([.!?…])/g, "$2")
+  t = t.replace(/([.!?…])\s*,/g, "$1")
+  t = t.replace(/([,.!?…;:])(?=[^\s\d])/g, "$1 ")
+  t = t.replace(/\s{2,}/g, " ").trim()
+
+  // 10) Guarantee a sentence-final beat so the line lands instead of cutting dead.
+  if (t && !/[.!?…"')\]]$/.test(t)) t += "."
+
+  return t.slice(0, 1000).trim()
 }
 
 // ── ElevenLabs (premium natural TTS) ─────────────────────────────────────────

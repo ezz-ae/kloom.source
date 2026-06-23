@@ -285,7 +285,9 @@ export function Planet() {
             ctx.save(); rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.clip(); ctx.drawImage(im, s[0] - r, s[1] - r, r * 2, r * 2); ctx.restore()
             ctx.strokeStyle = `hsla(${n.hue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.stroke()
           } else { ctx.fillStyle = `hsl(${n.hue},70%,60%)`; rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.fill() }
-          ctx.fillStyle = "rgba(238,244,248,.92)"; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, r * 0.45) * DPR}px ${FF}`; ctx.fillText(n.char.host, s[0], s[1] + r + 13 * DPR); ctx.textAlign = "left"
+          // Names only appear once you're really close (zoomed onto a few faces),
+          // so the crowd stays clean until you lean in.
+          if (r > 34) { ctx.fillStyle = "rgba(238,244,248,.92)"; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, r * 0.34) * DPR}px ${FF}`; ctx.fillText(n.char.host, s[0], s[1] + r + 13 * DPR); ctx.textAlign = "left" }
         } else {
           ctx.fillStyle = `hsl(${n.hue},72%,62%)`; rrect(s[0] - r, s[1] - r, r * 2, r * 2, Math.max(1, r * 0.3)); ctx.fill()
         }

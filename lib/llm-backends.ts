@@ -39,7 +39,12 @@ export interface LLMOptions {
 // ── Config ────────────────────────────────────────────────────────────────
 
 const LOCAL_URL   = (process.env.LLM_BASE_URL || "http://localhost:11434/v1").replace(/\/$/, "")
-const LOCAL_KEY   = process.env.LLM_API_KEY   || "local"
+// When the LLM endpoint is Together, use the shared TOGETHER_API_KEY (the same key
+// images use) so a rotated Together key never leaves chat on a stale LLM_API_KEY —
+// which is exactly what broke the call ("couldn't reach the voice" = chat 401).
+const LOCAL_KEY   = (/together\.(xyz|ai)/.test(LOCAL_URL) && process.env.TOGETHER_API_KEY)
+  ? process.env.TOGETHER_API_KEY
+  : (process.env.LLM_API_KEY || "local")
 const LOCAL_MODEL = process.env.LLM_MODEL     || "llama3.2:latest"
 const LOCAL_FALLBACK_MODEL = process.env.LLM_FALLBACK_MODEL || "llama3.2:latest"
 

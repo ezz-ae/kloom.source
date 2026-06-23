@@ -100,23 +100,22 @@ export function Planet() {
   const [started, setStarted] = useState(false)
   const [intent, setIntent] = useState("")      // what you write on the sky
   const [opening, setOpening] = useState("")     // handed to the first room you enter as your first line
-  const [intro, setIntro] = useState(true)       // the cold-open scroll-text plays first
+  const [intro, setIntro] = useState(false)      // cold-open is opt-in (?intro=1); default lands on the write box
   const skipIntro = () => { try { localStorage.setItem("airraw_intro_seen", "1") } catch { /* */ } setIntro(false) }
   // drive the cold-open: the lines animate via staggered CSS (below), so JS only
   // needs ONE timeout to open the sky when the sequence ends — no per-line state,
   // no interval to compound under Strict Mode. Returning visitors skip it; ?intro=1
   // forces a replay.
   useEffect(() => {
+    // The cold-open rendered blank on real iOS and blocked the payment return, so it's
+    // OPT-IN for now: visitors land straight on the write box (proven to render); add
+    // ?intro=1 to replay/test it. Once it's verified on a device we can re-enable.
     let force = false
     try { force = new URLSearchParams(window.location.search).get("intro") === "1" } catch { /* */ }
-    let seen = false
-    try { seen = !force && localStorage.getItem("airraw_intro_seen") === "1" } catch { /* */ }
-    if (seen) { setIntro(false); return }
+    if (!force) { setIntro(false); return }
+    setIntro(true)
     const total = INTRO_LINES.length * INTRO_LINE_MS + 700
-    const timer = setTimeout(() => {
-      try { localStorage.setItem("airraw_intro_seen", "1") } catch { /* */ }
-      setIntro(false)
-    }, total)
+    const timer = setTimeout(() => setIntro(false), total)
     return () => clearTimeout(timer)
   }, [])
   const startedRef = useRef(false)

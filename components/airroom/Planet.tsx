@@ -51,7 +51,7 @@ function joinSize(camS: number, locSeed: number): number {
   const j = (rnd(locSeed * 1.7 + 3) * 2 - 1) * base * 0.38
   return Math.max(3, Math.round(base + j))
 }
-interface Join { n: number; seed: number; f: number; adult: boolean }
+interface Join { n: number; seed: number; f: number; adult: boolean; c: number }
 
 interface Node { x: number; y: number; cx: number; cy: number; c: number; ci: number; hue: number; ph: number; dr: number; char: Cluster }
 interface Room { c: number; ci: number; x: number; y: number; hue: number; seed: number; count: number; adult: boolean }
@@ -148,6 +148,7 @@ export function Planet() {
     setSelected(node.char)
   }, [])
   const joinGroup = useCallback((j: Join) => {
+    if (CONTINENTS[j.c]?.n === "the arena") { window.location.href = "/airraw/chess"; return }   // games room → the board
     if (j.adult && !verifiedRef.current) { setPendingJoin(j); return }
     setGroup({ seed: j.seed, f: j.f, count: j.n })
   }, [])
@@ -310,7 +311,7 @@ export function Planet() {
       const baseRm = act || nearestRoom
       const co = baseRm ? CONTINENTS[baseRm.c] : CONTINENTS[0]
       const loc = baseRm ? baseRm.c * 100003 + baseRm.ci : 0
-      const join: Join | null = (baseRm && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: CONTINENTS[baseRm.c].f, adult: !!CONTINENTS[baseRm.c].adult } : null
+      const join: Join | null = (baseRm && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: CONTINENTS[baseRm.c].f, adult: !!CONTINENTS[baseRm.c].adult, c: baseRm.c } : null
       let crumb: string, altl: string, hear: string
       if (cam.s < 3.2) { crumb = "from orbit · the whole now"; altl = "orbit"; hear = "the hum of the whole now · thousands of voices" }
       else if (cam.s < 11) { crumb = `${co.n} · a region of the now`; altl = "atmosphere"; hear = `drifting over ${co.n} — ${co.v}` }
@@ -341,7 +342,7 @@ export function Planet() {
       {hud.join && !selected && !group && (
         <button onClick={() => joinGroup(hud.join!)}
           style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 60px)", fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap" }}>
-          {hud.join.n === 1 ? "talk 1:1 →" : `join this room · ${hud.join.n} here →`}
+          {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? "talk 1:1 →" : `join this room · ${hud.join.n} here →`}
         </button>
       )}
 

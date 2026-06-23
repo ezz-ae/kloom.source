@@ -210,13 +210,17 @@ export class SpeechSegmenter {
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "" }))
         const msg = error || `Transcription failed (${res.status})`
-        // Auth / missing-model / no-key → server STT is unusable; tell the caller
-        // to switch to browser speech recognition instead of failing silently.
+        // "unusable" means the server STT can NEVER work (auth/config) → switch to
+        // the browser recognizer. It must be NARROW: a transient hiccup (cold/failed
+        // worker → 5xx "RunPod STT failed", a timeout) is NOT unusable — skip just this
+        // utterance and keep the live call listening. The old check matched "STT" in
+        // "RunPod STT failed" and treated 404/500 as permanent, so one blip dropped
+        // hands-free on iOS (no browser fallback there) — the "mic turns off" bug.
         const unusable =
-          res.status === 401 || res.status === 403 || res.status === 404 ||
-          res.status === 500 || /model_not_found|does not have access|api key|STT/i.test(msg)
+          res.status === 401 || res.status === 403 ||
+          /missing.?permission|does not have access|invalid api key|no .{0,12}key|not configured|disabled/i.test(msg)
         if (unusable) this.opts.onUnavailable?.(msg)
-        else this.opts.onError?.(msg)
+        else this.opts.onError?.(msg)   // transient → caller keeps listening
         return
       }
       const { text } = (await res.json()) as { text?: string }

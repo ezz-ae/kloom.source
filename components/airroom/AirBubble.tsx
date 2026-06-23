@@ -232,7 +232,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   }, [handsFree])
 
   const last = msgs[msgs.length - 1]
-  const status = busy ? `${cluster.host.toLowerCase()} is talking…` : handsFree ? "live — just talk" : "tap to talk"
+  // One calm, truthful call-state: thinking → talking → listening → idle.
+  const host = cluster.host.toLowerCase()
+  const status = speaking ? `${host} is talking…` : busy ? `${host} is thinking…` : handsFree ? "listening — just talk" : "tap to talk"
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "radial-gradient(125% 90% at 50% 0%, #122231 0%, #070b12 58%, #04050b 100%)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#eef4f8" }}>
@@ -279,7 +281,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             {vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ set the vibe — pro"}
           </button>
         )}
-        <div style={{ fontSize: 13, color: (listening || handsFree) ? "#7fd6c0" : "#9fb2c4", minHeight: 18 }}>{status}</div>
+        <div style={{ fontSize: 13, color: handsFree ? "#7fd6c0" : "#9fb2c4", minHeight: 18 }}>{status}</div>
         {/* live caption — FIXED height so the portrait/options never jump as lines change */}
         <div style={{ width: "min(92vw, 430px)", height: 78, textAlign: "center", overflow: "hidden" }}>
           {last && <>
@@ -292,7 +294,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       {/* the options bar — voice-first controls */}
       <div style={{ flexShrink: 0, padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 26px) max(18px, env(safe-area-inset-right))" }}>
         <div style={{ fontSize: 11, color: micHint ? "#ffb59c" : handsFree ? "#7fd6c0" : "#7f93a5", marginBottom: 16, textAlign: "center", minHeight: 14 }}>
-          {micHint || (sttOk ? (handsFree ? "live — just talk · tap to stop" : "tap to start talking") : "tap the keypad to type")}
+          {micHint || (sttOk ? (handsFree ? "tap the mic to stop" : "tap the mic to talk · or text") : "tap the keypad to type")}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28 }}>
           <button onClick={() => setChatOpen(true)} aria-label="open the text / type" style={optBtn}>text</button>
@@ -313,7 +315,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             {msgs.map((m, i) => (
               <div key={i} style={{ alignSelf: m.who === "you" ? "flex-end" : "flex-start", maxWidth: "82%", fontSize: 15, lineHeight: 1.45, color: m.who === "you" ? "#0a1622" : "#eef4f8", background: m.who === "you" ? "#cfe0ee" : "rgba(255,255,255,.08)", padding: "9px 13px", borderRadius: 16 }}>{m.text}</div>
             ))}
-            {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: "#7f93a5", fontStyle: "italic" }}>{cluster.host} is talking…</div>}
+            {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: "#7f93a5", fontStyle: "italic" }}>{cluster.host} is thinking…</div>}
           </div>
           <div style={{ padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))", boxSizing: "border-box" }}>
             {trouble && (

@@ -120,7 +120,7 @@ export async function POST(request: Request) {
       if (buf.byteLength > 0) {
         return new Response(buf, {
           status: 200,
-          headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "fish" },
+          headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "fish", "X-EL-Diag": (elDiag || "").replace(/[^\x20-\x7e]/g, " ").slice(0, 200) },
         })
       }
       lastErrorText = "Fish returned 200 with empty audio"
@@ -188,11 +188,17 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
       }),
       signal: AbortSignal.timeout(30000),
     })
-    if (!res.ok) { console.error("elevenlabs", res.status, (await res.text()).slice(0, 200)); return null }
+    if (!res.ok) { elDiag = `${res.status} ${(await res.text()).slice(0, 180)}`; console.error("elevenlabs", elDiag); return null }
     const buf = await res.arrayBuffer()
-    return buf.byteLength > 0 ? buf : null
-  } catch (e) { console.error("elevenlabs threw", e instanceof Error ? e.message : String(e)); return null }
+    if (buf.byteLength > 0) return buf
+    elDiag = "empty audio"; return null
+  } catch (e) { elDiag = e instanceof Error ? e.message : String(e); console.error("elevenlabs threw", elDiag); return null }
 }
+
+// Last ElevenLabs failure reason — surfaced on the fallback response as X-EL-Diag so
+// we can see WHY it fell back to Fish (e.g. a 401 missing-permissions) without ever
+// handling the key directly.
+let elDiag = ""
 
 // CosyVoice3 RunPod serverless endpoint.
 // Input:  { tts_text, spk_id, speed }

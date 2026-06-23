@@ -121,22 +121,6 @@ export function Planet() {
     return out
   }, [])
 
-  // A dense "ocean" of dim voices fills the whole disc so the now reads as a full,
-  // glowing, populated planet from orbit — the continents are just the brighter
-  // concentrations within it. Ambient texture only: these never resolve into faces
-  // or open; they're the felt millions that give the planet its mass.
-  const ambient = useMemo(() => {
-    const out: { x: number; y: number; hue: number; ph: number; dr: number }[] = []
-    for (let i = 0; i < 1300; i++) {
-      const a = rnd(i * 1.7 + 3) * 6.283, rr = Math.sqrt(rnd(i * 2.3 + 1)) * PR * 0.98
-      const x = CX + Math.cos(a) * rr, y = CY + Math.sin(a) * rr
-      let bh = 200, bd = 1e9
-      for (let c = 0; c < CONTINENTS.length; c++) { const d = Math.hypot(conCentres[c].x - x, conCentres[c].y - y); if (d < bd) { bd = d; bh = CONTINENTS[c].h } }
-      out.push({ x, y, hue: bh + (rnd(i * 3 + 7) * 30 - 15), ph: rnd(i + 5) * 6.28, dr: rnd(i + 2) * 0.4 + 0.2 })
-    }
-    return out
-  }, [conCentres])
-
   // ── proximity voice — the nearest face murmurs, like leaning toward someone ──
   const speakTok = useRef(0)
   const speak = useCallback(async (node: Node) => {
@@ -244,16 +228,15 @@ export function Planet() {
       ctx.fillStyle = "#04050b"; ctx.fillRect(0, 0, W, H)
       for (const st of stars) { let sx = (st.x * W + cam.x * -12) % W; if (sx < 0) sx += W; let sy = (st.y * H + cam.y * -12) % H; if (sy < 0) sy += H; ctx.globalAlpha = (0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 1.3 + st.ph))) * 0.7; ctx.fillStyle = "#cdd9e3"; ctx.beginPath(); ctx.arc(sx, sy, st.r * DPR, 0, 6.283); ctx.fill() }
       ctx.globalAlpha = 1
-      const pc = w2s(CX, CY), prs = PR * cam.s * vm()
-      const fromSpace = prs < Math.max(W, H) * 0.72
-      if (fromSpace) {
-        const halo = ctx.createRadialGradient(pc[0], pc[1], prs * 0.55, pc[0], pc[1], prs * 1.5)
-        halo.addColorStop(0, "rgba(60,150,180,0)"); halo.addColorStop(0.72, "rgba(70,170,200,.10)"); halo.addColorStop(0.92, "rgba(120,210,230,.22)"); halo.addColorStop(1, "rgba(120,210,230,0)")
-        ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(pc[0], pc[1], prs * 1.5, 0, 6.283); ctx.fill()
-        const core = ctx.createRadialGradient(pc[0], pc[1], 0, pc[0], pc[1], prs)
-        core.addColorStop(0, "rgba(20,40,70,.5)"); core.addColorStop(1, "rgba(8,16,34,.12)")
-        ctx.fillStyle = core; ctx.beginPath(); ctx.arc(pc[0], pc[1], prs, 0, 6.283); ctx.fill()
-        ctx.strokeStyle = "rgba(150,220,240,.22)"; ctx.lineWidth = DPR; ctx.beginPath(); ctx.arc(pc[0], pc[1], prs, 0, 6.283); ctx.stroke()
+      // The now is ONE BIG BLOCK — same shape as everything, no circle.
+      const blTL = w2s(CX - PR, CY - PR), blBR = w2s(CX + PR, CY + PR)
+      const bw = blBR[0] - blTL[0], bh = blBR[1] - blTL[1]
+      const blockRad = Math.min(bw, bh) * 0.05
+      if (bw > 40 && bw < Math.max(W, H) * 1.7) {
+        ctx.fillStyle = "rgba(13,26,44,0.30)"
+        rrect(blTL[0], blTL[1], bw, bh, blockRad); ctx.fill()
+        ctx.strokeStyle = "rgba(120,200,225,0.20)"; ctx.lineWidth = 1.2 * DPR
+        rrect(blTL[0], blTL[1], bw, bh, blockRad); ctx.stroke()
       }
       const roomHalf = 0.044 * cam.s * vm()
       const facesVisible = roomHalf * 2 >= ROOM_OPEN
@@ -286,51 +269,33 @@ export function Planet() {
           if (roomHalf * 2 > 48) { ctx.fillStyle = `hsla(${rm.hue},60%,86%,.92)`; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, roomHalf * 0.2) * DPR}px ${FF}`; ctx.fillText(locked ? "the deep · 18+" : `${rm.count} here`, s[0], s[1] + 4 * DPR); ctx.textAlign = "left" }
         }
       }
-      // ambient ocean — the planet's mass while you're looking AT blocks (not inside)
-      if (!facesVisible) {
-        for (const n of ambient) {
-          const dx = Math.sin(t * 0.3 + n.ph) * n.dr * 0.0006, dy = Math.cos(t * 0.27 + n.ph) * n.dr * 0.0006
-          const s = w2s(n.x + dx, n.y + dy)
-          if (s[0] < -20 || s[1] < -20 || s[0] > W + 20 || s[1] > H + 20) continue
-          let bright = 1
-          if (fromSpace) { const dd = Math.hypot(n.x - CX, n.y - CY) / PR; bright = 1 - Math.min(1, dd * dd) * 0.6 }
-          ctx.globalAlpha = Math.max(0.1, bright * 0.5)
-          ctx.fillStyle = `hsl(${n.hue},58%,${Math.round(50 + bright * 8)}%)`
-          ctx.beginPath(); ctx.arc(s[0], s[1], Math.max(0.5, cam.s * vm() * 0.0026), 0, 6.283); ctx.fill()
-        }
-        ctx.globalAlpha = 1
-      }
-
       let best = 1e9, act: Node | null = null
       if (facesVisible) for (const n of nodes) {
         const dx = Math.sin(t * 0.4 + n.ph) * n.dr * 0.0008, dy = Math.cos(t * 0.31 + n.ph) * n.dr * 0.0008
         const s = w2s(n.x + dx, n.y + dy)
         if (s[0] < -40 || s[1] < -40 || s[0] > W + 40 || s[1] > H + 40) continue
-        const baseR = Math.max(1.0, cam.s * vm() * 0.0040), r = baseR * (1 + 0.13 * Math.sin(t * 1.6 + n.ph))
-        let bright = 1
-        if (fromSpace) { const dd = Math.hypot(n.x - CX, n.y - CY) / PR; bright = 1 - Math.min(1, dd * dd) * 0.55 }
+        const baseR = Math.max(1.0, cam.s * vm() * 0.0040), r = baseR * (1 + 0.1 * Math.sin(t * 1.6 + n.ph))
         const dc = Math.hypot(s[0] - W / 2, s[1] - H / 2)
         if (r > 2.2 && dc < best) { best = dc; act = n }
         const locked = !!CONTINENTS[n.c].adult && !verifiedRef.current
+        const rad = Math.min(r * 0.3, 10 * DPR)
         if (r > 17 && !locked) {
           const im = faceFor(n)
           if (im) {
-            ctx.save(); ctx.beginPath(); ctx.arc(s[0], s[1], r, 0, 6.283); ctx.clip(); ctx.drawImage(im, s[0] - r, s[1] - r, r * 2, r * 2); ctx.restore()
-            ctx.strokeStyle = `hsla(${n.hue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; ctx.beginPath(); ctx.arc(s[0], s[1], r, 0, 6.283); ctx.stroke()
-          } else { ctx.beginPath(); ctx.arc(s[0], s[1], r, 0, 6.283); ctx.fillStyle = `hsl(${n.hue},70%,60%)`; ctx.shadowBlur = r * 1.6; ctx.shadowColor = `hsla(${n.hue},85%,62%,.8)`; ctx.fill(); ctx.shadowBlur = 0 }
+            ctx.save(); rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.clip(); ctx.drawImage(im, s[0] - r, s[1] - r, r * 2, r * 2); ctx.restore()
+            ctx.strokeStyle = `hsla(${n.hue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.stroke()
+          } else { ctx.fillStyle = `hsl(${n.hue},70%,60%)`; rrect(s[0] - r, s[1] - r, r * 2, r * 2, rad); ctx.fill() }
           ctx.fillStyle = "rgba(238,244,248,.92)"; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, r * 0.45) * DPR}px ${FF}`; ctx.fillText(n.char.host, s[0], s[1] + r + 13 * DPR); ctx.textAlign = "left"
         } else {
-          ctx.globalAlpha = Math.max(0.25, bright); ctx.beginPath(); ctx.arc(s[0], s[1], r, 0, 6.283)
-          ctx.fillStyle = `hsl(${n.hue},72%,${Math.round(58 + bright * 8)}%)`
-          if (r > 2.6) { ctx.shadowBlur = r * 1.7; ctx.shadowColor = `hsla(${n.hue},85%,62%,.8)` } else ctx.shadowBlur = 0
-          ctx.fill(); ctx.shadowBlur = 0; ctx.globalAlpha = 1
+          ctx.fillStyle = `hsl(${n.hue},72%,62%)`; rrect(s[0] - r, s[1] - r, r * 2, r * 2, Math.max(1, r * 0.3)); ctx.fill()
         }
       }
       pickedNode = act
       if (act) {
         const s = w2s(act.x, act.y)
+        const hr = Math.max(8, cam.s * vm() * 0.0042 + 6 * DPR)
         ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.5 * DPR
-        ctx.beginPath(); ctx.arc(s[0], s[1], Math.max(8, cam.s * vm() * 0.0042 + 6 * DPR), 0, 6.283); ctx.stroke()
+        rrect(s[0] - hr, s[1] - hr, hr * 2, hr * 2, hr * 0.3); ctx.stroke()
         const id = act.c * 10000 + act.ci * 100 + (nodes.indexOf(act) % 100)
         if (id !== candId) { candId = id; candAt = t }
         else if (audioStarted && !inCallRef.current && id !== spokenId && t - candAt > 0.45 && cam.s > 14) { spokenId = id; speak(act) }
@@ -354,7 +319,7 @@ export function Planet() {
       speakTok.current++
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, ambient, rooms, conCentres, speak, openVoice])
+  }, [nodes, rooms, conCentres, speak, openVoice])
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>

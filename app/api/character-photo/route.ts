@@ -333,7 +333,7 @@ export async function POST(request: Request) {
   // The realism pass re-encodes to JPEG; version the cache key so existing (plastic)
   // PNGs miss the HEAD check and regenerate through the pass. REALISM_OFF=1 keeps PNG.
   const realismOn = process.env.REALISM_OFF !== "1"
-  const realismVersion = process.env.REALISM_VERSION || "r1"
+  const realismVersion = process.env.REALISM_VERSION || "r2"
   const path = realismOn
     ? `${slug || "char"}-${seed}-${realismVersion}.jpg`
     : `${slug || "char"}-${seed}.png`

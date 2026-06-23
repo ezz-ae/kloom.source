@@ -97,14 +97,11 @@ export async function POST(request: Request) {
       reference_id: referenceId,
       format: "mp3",
       mp3_bitrate: 192,                 // richer than 128 — less "boxed" compression
-      normalize: true,                  // Fish G2P + loudness normalize; complements shapeForSpeech
-      latency: "normal",                // full prosody planning (do NOT drop to "low" — it flattens)
-      // Naturalness levers (s1): a touch of variation so lines aren't flat/robotic, steadier
-      // prosody via shorter chunks, and ~6% slower cadence so it reads human, not rushed.
-      temperature: Number(process.env.FISH_TEMPERATURE ?? 0.75),
-      top_p: Number(process.env.FISH_TOP_P ?? 0.72),
-      chunk_length: Number(process.env.FISH_CHUNK_LENGTH ?? 200),
-      prosody: { speed: Number(process.env.FISH_SPEED ?? 0.94) },
+      normalize: true,
+      latency: "normal",                // best quality over lowest latency
+      // NOTE: temperature/top_p/chunk_length/prosody tuning was REVERTED — it made Fish
+      // sound worse (choppier/robotic). Fish s1 on its own defaults is the cleaner baseline.
+      // The real non-robotic voice comes from the engine swap (Kokoro RunPod / ElevenLabs).
     })
 
     try {

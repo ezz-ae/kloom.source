@@ -29,31 +29,32 @@ const ETHNICITY = [
   "mixed-race", "biracial", "Indigenous Native American", "Pacific Islander", "Māori",
 ]
 
+// Young-skewed for a consumer product — 20s–30s mostly, a little into the early 40s.
 const AGE = [
-  "in their early 20s", "in their mid-20s", "in their late 20s",
-  "in their early 30s", "in their mid-30s", "in their late 30s",
-  "in their 40s", "in their late 40s", "in their early 50s", "in their late 50s",
-  "around 60", "in their 60s",
+  "in their early 20s", "in their early 20s", "in their mid-20s", "in their mid-20s",
+  "in their late 20s", "in their late 20s", "in their early 30s", "in their early 30s",
+  "in their mid-30s", "in their mid-30s", "in their late 30s", "in their early 40s",
 ]
 
-// Ordinary spread — most people are NOT models. Mix of plain, real, striking, rugged.
+// Attractive but BELIEVABLE — appealing faces, kept real by the candid/amateur BASE
+// (natural skin, phone selfie, not a model/glamour). Variety of vibe, not a wall of models.
 const LOOK_F = [
-  "an ordinary, real-looking woman, girl-next-door", "a plain but warm-faced woman",
-  "an average-looking woman with a relatable face", "a strikingly beautiful woman",
-  "a cute woman with light freckles and little makeup", "a tired but kind-looking woman",
-  "a stylish woman with an unconventional, interesting face", "a heavier-set woman with a lovely smile",
-  "a thin woman with sharp features", "a woman with a round, soft face",
+  "a strikingly beautiful young woman", "a very pretty woman with a warm natural smile",
+  "an attractive girl-next-door with a fresh face", "a cute woman with light freckles and bright eyes",
+  "a gorgeous woman with striking features", "a naturally pretty woman with minimal makeup",
+  "a stylish, attractive woman with an interesting face", "a lovely woman with a radiant smile",
+  "a stunning woman with captivating eyes", "an attractive woman with soft, photogenic features",
 ]
 const LOOK_M = [
-  "an ordinary, everyday-looking man", "an average guy with a relatable face",
-  "a man with stubble and a real, warm look", "a strikingly handsome man",
-  "a regular guy, a little awkward and genuine", "a rugged older man with a character-filled face",
-  "a stylish guy with an unconventional face", "a heavier-set man with a friendly face",
-  "a thin man with tired eyes", "a balding man with a kind face",
+  "a strikingly handsome young man", "a very good-looking man with light stubble",
+  "an attractive guy-next-door with a warm look", "a handsome man with sharp features",
+  "a ruggedly handsome man with a bit of stubble", "a naturally good-looking man with an easy smile",
+  "a stylish, attractive man with an interesting face", "a charming man with a great smile",
+  "a striking man with intense eyes", "an attractive man with photogenic features",
 ]
 const LOOK_X = [
-  "an ordinary-looking androgynous person", "a striking androgynous person",
-  "a real, everyday non-binary person", "a soft-featured androgynous person",
+  "a striking, beautiful androgynous person", "an attractive androgynous person with soft features",
+  "a good-looking non-binary person", "a stylish, striking androgynous person",
 ]
 
 // "different type of image" — the kind of photo it is, not just the person.

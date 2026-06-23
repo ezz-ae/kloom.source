@@ -63,9 +63,9 @@ export class SpeechSegmenter {
   constructor(options: SegmenterOptions) {
     this.opts = {
       silenceMs: 850,
-      minSpeechMs: 300,
-      startRms: 0.015,
-      endRms: 0.008,
+      minSpeechMs: 420,    // ignore blips shorter than real speech (coughs, clicks, a breath)
+      startRms: 0.02,      // require a bit more energy to START → quiet background won't trigger silence-hallucinations
+      endRms: 0.01,
       ...options,
     }
   }

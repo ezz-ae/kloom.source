@@ -11,6 +11,25 @@ function sleep(ms: number) {
   return new Promise<void>((r) => setTimeout(r, ms))
 }
 
+// Whisper hallucinates stock phrases ("thank you", "thanks for watching") on silence
+// / non-speech — its training data was full of YouTube outros. Drop a transcript that
+// is ONLY one of those, so a beat of quiet on the open mic never becomes a phantom
+// "thank you" sent to the chat. Real, longer utterances pass through untouched.
+const HALLUCINATIONS = new Set([
+  "thank you", "thanks", "thankyou", "thank you so much", "thanks so much",
+  "thank you very much", "thanks for watching", "thank you for watching",
+  "thanks for watching everyone", "thanks for watching the video", "thank you bye",
+  "you", "bye", "bye bye", "goodbye", "see you", "see you next time", "okay thank you",
+  "please subscribe", "subscribe", "like and subscribe", "youre welcome",
+  "music", "silence", "applause", "foreign", "the end",
+])
+function cleanTranscript(text: string | null | undefined): string {
+  const t = (text || "").trim()
+  const n = t.toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim()
+  if (!n || HALLUCINATIONS.has(n)) return ""
+  return t
+}
+
 export async function POST(request: Request) {
   let form: FormData
   try {
@@ -32,7 +51,7 @@ export async function POST(request: Request) {
   if (rpSTTEndpoint && rpKey) {
     const r = await runpodWhisper(file, rpSTTEndpoint, rpKey, language)
     if (r.text !== null) {
-      return Response.json({ text: r.text }, { headers: { "Cache-Control": "no-store" } })
+      return Response.json({ text: cleanTranscript(r.text) }, { headers: { "Cache-Control": "no-store" } })
     }
     // RunPod is the configured primary — surface WHY it failed instead of masking it
     // behind the (often keyless) OpenAI fallback.
@@ -74,7 +93,7 @@ export async function POST(request: Request) {
   }
 
   const data = (await upstream.json().catch(() => ({}))) as { text?: string }
-  return Response.json({ text: (data.text || "").trim() }, { headers: { "Cache-Control": "no-store" } })
+  return Response.json({ text: cleanTranscript(data.text) }, { headers: { "Cache-Control": "no-store" } })
 }
 
 // RunPod faster-whisper worker. Sends audio as base64, polls if cold-starting.
@@ -105,6 +124,9 @@ async function runpodWhisper(
           language:      language || undefined,  // omit → whisper auto-detects (multilingual)
           transcription: "plain_text",
           word_timestamps: false,
+          enable_vad:    true,                   // skip non-speech → far fewer silence hallucinations
+          no_speech_threshold: 0.6,              // be stricter about "this segment is silence"
+          condition_on_previous_text: false,     // don't let a phantom line prime the next
         },
       }),
       signal: AbortSignal.timeout(60000),

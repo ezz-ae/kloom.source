@@ -26,6 +26,10 @@ const FAL_KEY  = process.env.FAL_KEY || ""
 const TOGETHER_KEY   = process.env.TOGETHER_API_KEY || ""
 const TOGETHER_MODEL = process.env.TOGETHER_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
 const TOGETHER_STEPS = Number(process.env.TOGETHER_IMAGE_STEPS || (TOGETHER_MODEL.includes("schnell") ? "4" : "28"))
+// AIRRAW (diverse) wants MAXIMUM realism, so it uses the stronger FLUX.1-dev at full
+// steps rather than the fast 4-step schnell. Override via env if the key lacks dev.
+const TOGETHER_REAL_MODEL = process.env.TOGETHER_REAL_MODEL || "black-forest-labs/FLUX.1-dev"
+const TOGETHER_REAL_STEPS = Number(process.env.TOGETHER_REAL_STEPS || 28)
 
 const WORLD_STYLE: Record<string, string> = {
   fantasy:        "fantasy film still, elaborate costume, ethereal violet practical lighting, cinematic",
@@ -145,15 +149,15 @@ async function genFal(prompt: string, seed: number): Promise<Buffer | null> {
 }
 
 // Together AI → FLUX.1. Returns image bytes (or null).
-async function genTogether(prompt: string, seed: number): Promise<Buffer | null> {
+async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL, steps = TOGETHER_STEPS): Promise<Buffer | null> {
   if (!TOGETHER_KEY) return null
   try {
     const res = await fetch("https://api.together.xyz/v1/images/generations", {
       method: "POST",
       headers: { Authorization: `Bearer ${TOGETHER_KEY}`, "Content-Type": "application/json" },
       // Together returns a hosted URL by default; that's the most compatible path.
-      body: JSON.stringify({ model: TOGETHER_MODEL, prompt, seed, width: 768, height: 1024, steps: TOGETHER_STEPS, n: 1 }),
-      signal: AbortSignal.timeout(45000),
+      body: JSON.stringify({ model, prompt, seed, width: 768, height: 1024, steps, n: 1 }),
+      signal: AbortSignal.timeout(60000),
     })
     if (!res.ok) { console.error("together image error", res.status, (await res.text()).slice(0, 300)); return null }
     const d = await res.json()
@@ -218,7 +222,12 @@ export async function POST(request: Request) {
   let bytes: Buffer | null = null
   let genErr = ""
   if (provider === "qwen") { const r = await genQwen(prompt, negative, seed); bytes = r.bytes; genErr = r.error || "" }
-  else if (provider === "together") bytes = await genTogether(prompt, seed)
+  else if (provider === "together") {
+    // diverse → try the photoreal FLUX.1-dev; if the key can't use it, fall back to
+    // the base/schnell model (the stronger realism prompt still applies either way).
+    bytes = dp ? await genTogether(prompt, seed, TOGETHER_REAL_MODEL, TOGETHER_REAL_STEPS) : null
+    if (!bytes) bytes = await genTogether(prompt, seed)
+  }
   else if (provider === "fal")      bytes = await genFal(prompt, seed)
   else                              bytes = await genRunpod(prompt, negative, seed)
   if (!bytes || bytes.length < 8000) {

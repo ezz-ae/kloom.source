@@ -11,7 +11,7 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Cluster } from "@/lib/airroom/roster"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
-import { listenOnce, canListen } from "@/lib/voice-once"
+import { canListen } from "@/lib/voice-once"
 import { Face } from "@/components/airroom/Face"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
@@ -67,7 +67,6 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const onceRecRef = useRef<any>(null)
   const segRef = useRef<SpeechSegmenter | null>(null)   // hands-free recorder (iOS-proof)
   const hfRef = useRef(false)
-  const lastTapRef = useRef(0)      // double-tap detection by timestamp (never defers the mic start)
   const talkedRef = useRef(false)   // fire onTalked once, on the first thing the user says
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
@@ -149,37 +148,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // push-to-talk: one utterance, then sends. Started SYNCHRONOUSLY inside the tap
-  // (iOS Safari only lets you start the mic from within the gesture — the old
-  // version deferred this behind a 240ms timer, so on iPhone the tap did nothing).
-  // push-to-talk: tap → mic opens → say one thing → it auto-sends on the pause.
-  // Tap again cancels. Primary capture is MediaRecorder + server Whisper (works in
-  // the Instagram / in-app browsers where webkitSpeechRecognition doesn't exist);
-  // it transparently falls back to the browser recognizer when that path can't run.
-  const talkOnce = () => {
-    if (listening) { try { onceRecRef.current?.stop() } catch { /* */ } setListening(false); return }
-    const bcp47 = LANGUAGE_TO_BCP47[langRef.current] || "en-US"
-    setMicHint("")
-    onceRecRef.current = listenOnce({
-      lang: bcp47.split("-")[0],
-      bcp47,
-      onState: (s) => { setListening(s !== "idle"); if (s === "listening") setMicHint(""); else if (s === "thinking") setMicHint("got it — one sec…") },
-      onText: (t) => { setMicHint(""); send(t) },
-      onError: (m) => setMicHint(m),
-    })
-  }
-
-  // One mic, two gestures: a tap talks once (started in-gesture above); a quick
-  // double-tap goes hands-free "live"; a tap while live stops it. Double-tap is
-  // detected by timestamp so it never delays the first tap's mic start.
-  const onTalk = () => {
-    const now = Date.now()
-    const dbl = now - lastTapRef.current < 320
-    lastTapRef.current = now
-    if (handsFree) { setHandsFree(false); return }
-    if (dbl) { try { onceRecRef.current?.stop() } catch { /* */ } setListening(false); setMicHint(""); setHandsFree(true); return }
-    talkOnce()
-  }
+  // A voice call is a clean toggle: tap to start talking — the mic opens and STAYS
+  // open, you talk naturally and each line auto-sends, tap again to stop. No
+  // per-utterance tapping, no hidden double-tap (that old model let a "stop" tap
+  // silently discard what you said). The continuous path (below) is MediaRecorder +
+  // server Whisper, so it works in the Instagram / in-app browsers too.
+  const onTalk = () => { setMicHint(""); setHandsFree((h) => !h) }
 
   // hands-free: keep the mic open and auto-send each finished utterance. Primary
   // path is MediaRecorder + server Whisper (SpeechSegmenter) — it stays live across
@@ -201,7 +175,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     const startBrowserFallback = () => {
       const w = window as any
       const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-      if (!SR) { setHandsFree(false); return }
+      if (!SR) { setMicHint("voice isn’t supported on this browser — tap the keypad to type"); setHandsFree(false); return }
       const rec = new SR()
       rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"; rec.interimResults = false; rec.continuous = true
       rec.onresult = (e: any) => {
@@ -221,10 +195,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       if (!canRecord) { startBrowserFallback(); return }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      } catch { setHandsFree(false); return }   // mic denied
+      } catch { setMicHint("allow mic access to talk — or tap the keypad to type"); setHandsFree(false); return }   // mic denied
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
       seg = new SpeechSegmenter({
         stream,
+        getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
         onText: (t) => { if (!hostSpeakingRef.current && !busyRef.current) send(t) },
         // No STT key / model access → fall back to the browser recognizer.
         onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!cancelled) startBrowserFallback() },
@@ -244,7 +219,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   }, [handsFree])
 
   const last = msgs[msgs.length - 1]
-  const status = busy ? `${cluster.host.toLowerCase()} is talking…` : listening ? "listening — say it" : handsFree ? "live — just talk" : "tap the mic to talk"
+  const status = busy ? `${cluster.host.toLowerCase()} is talking…` : handsFree ? "live — just talk" : "tap to talk"
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "radial-gradient(125% 90% at 50% 0%, #122231 0%, #070b12 58%, #04050b 100%)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#eef4f8" }}>
@@ -303,12 +278,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
       {/* the options bar — voice-first controls */}
       <div style={{ flexShrink: 0, padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 26px) max(18px, env(safe-area-inset-right))" }}>
-        <div style={{ fontSize: 11, color: micHint ? "#ffb59c" : (listening || handsFree) ? "#7fd6c0" : "#7f93a5", marginBottom: 16, textAlign: "center", minHeight: 14 }}>
-          {micHint || (sttOk ? (handsFree ? "live — mic's open · tap the mic to stop" : "tap to talk · double-tap to go hands-free") : "tap the keypad to type")}
+        <div style={{ fontSize: 11, color: micHint ? "#ffb59c" : handsFree ? "#7fd6c0" : "#7f93a5", marginBottom: 16, textAlign: "center", minHeight: 14 }}>
+          {micHint || (sttOk ? (handsFree ? "live — just talk · tap to stop" : "tap to start talking") : "tap the keypad to type")}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28 }}>
           <button onClick={() => setChatOpen(true)} aria-label="open the text / type" style={optBtn}>text</button>
-          <button onClick={sttOk ? onTalk : () => setChatOpen(true)} aria-label={sttOk ? "talk" : "type"} style={{ width: 84, height: 84, borderRadius: "50%", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 16, color: (handsFree || listening) ? "#06201a" : "#1a0d08", background: handsFree ? "#7fd6c0" : listening ? "#bfe9d8" : "#ef7a4d", boxShadow: handsFree ? "0 14px 40px -12px rgba(127,214,192,.65)" : "0 14px 40px -12px rgba(239,122,77,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .15s" }}>{!sttOk ? "type" : handsFree ? "live" : listening ? "stop" : "talk"}</button>
+          <button onClick={sttOk ? onTalk : () => setChatOpen(true)} aria-label={sttOk ? "talk" : "type"} style={{ width: 84, height: 84, borderRadius: "50%", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 16, color: handsFree ? "#06201a" : "#1a0d08", background: handsFree ? "#7fd6c0" : "#ef7a4d", boxShadow: handsFree ? "0 14px 40px -12px rgba(127,214,192,.65)" : "0 14px 40px -12px rgba(239,122,77,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .15s" }}>{!sttOk ? "type" : handsFree ? "live" : "talk"}</button>
           <button onClick={onClose} aria-label="leave the call" style={{ ...optBtn, background: "rgba(224,82,75,.2)", borderColor: "rgba(224,82,75,.5)", color: "#ff9d96" }}>leave</button>
         </div>
       </div>

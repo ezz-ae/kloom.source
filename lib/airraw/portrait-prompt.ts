@@ -78,13 +78,17 @@ const HAIR = [
 ]
 
 const BASE =
-  "RAW unedited photo, real ordinary human being, true-to-life, natural imperfect skin with pores and blemishes, " +
-  "head and shoulders, fully clothed in casual everyday clothes, looking at the camera, authentic, not a model, not retouched"
+  "candid amateur snapshot of a real ordinary person, shot on a cheap phone camera, completely photorealistic, " +
+  "true-to-life, natural imperfect skin with visible pores, blemishes, fine lines and slight blotchiness, " +
+  "real human face, slightly uneven everyday lighting, head and shoulders, fully clothed in plain everyday clothes, " +
+  "looking at the camera, totally authentic, unedited, no filter, not a model, not professional, not posed"
 
 export const PORTRAIT_NEG =
   "shirtless, bare chest, topless, underwear, lingerie, cleavage, revealing, suggestive, in bed, nude, nsfw, child, " +
-  "cartoon, anime, illustration, painting, 3d render, cgi, doll, plastic skin, airbrushed, glamour, fashion model, " +
-  "studio backdrop, perfect symmetry, text, watermark, logo, deformed, extra fingers, bad anatomy, lowres, blurry"
+  "cartoon, anime, illustration, drawing, painting, 3d render, cgi, doll, plastic skin, waxy skin, smooth skin, " +
+  "flawless skin, airbrushed, retouched, beauty filter, instagram filter, glamour, fashion model, magazine, " +
+  "professional photoshoot, studio backdrop, studio lighting, perfect, symmetrical, overly sharp, hdr, " +
+  "AI-generated, fake, text, watermark, logo, deformed, extra fingers, bad anatomy, lowres, blurry"
 
 function genderLooks(gender?: string, seed = ""): { pool: string[]; word: string } {
   const g = (gender || "").toLowerCase()

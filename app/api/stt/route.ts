@@ -30,11 +30,16 @@ export async function POST(request: Request) {
   const rpSTTEndpoint = process.env.RUNPOD_STT_ENDPOINT_ID
   const rpKey         = process.env.RUNPOD_API_KEY
   if (rpSTTEndpoint && rpKey) {
-    const text = await runpodWhisper(file, rpSTTEndpoint, rpKey, language)
-    if (text !== null) {
-      return Response.json({ text }, { headers: { "Cache-Control": "no-store" } })
+    const r = await runpodWhisper(file, rpSTTEndpoint, rpKey, language)
+    if (r.text !== null) {
+      return Response.json({ text: r.text }, { headers: { "Cache-Control": "no-store" } })
     }
-    // fall through to OpenAI-compatible fallback
+    // RunPod is the configured primary — surface WHY it failed instead of masking it
+    // behind the (often keyless) OpenAI fallback.
+    if (!process.env.STT_API_KEY && !process.env.OPENAI_API_KEY) {
+      return Response.json({ error: `RunPod STT failed: ${r.error || "unknown"}` }, { status: 502 })
+    }
+    // fall through to OpenAI-compatible fallback (only if a key is actually set)
   }
 
   // ── OpenAI-compatible fallback ────────────────────────────────────────────
@@ -79,7 +84,7 @@ async function runpodWhisper(
   endpointId: string,
   key: string,
   language?: string,
-): Promise<string | null> {
+): Promise<{ text: string | null; error?: string }> {
   const base    = `https://api.runpod.ai/v2/${endpointId}`
   const headers = { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }
   try {
@@ -93,6 +98,7 @@ async function runpodWhisper(
       body: JSON.stringify({
         input: {
           audio:       b64,
+          model:       model,   // most whisper workers use `model`; harmless if it wants `model_size`
           model_size:  model,
           language:    language || "en",
           transcription: "plain_text",
@@ -101,7 +107,7 @@ async function runpodWhisper(
       }),
       signal: AbortSignal.timeout(60000),
     })
-    if (!res.ok) return null
+    if (!res.ok) return { text: null, error: `http ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}` }
     let data: any = await res.json()
 
     // Poll if worker was cold (IN_QUEUE / IN_PROGRESS).
@@ -109,19 +115,20 @@ async function runpodWhisper(
     while ((data?.status === "IN_PROGRESS" || data?.status === "IN_QUEUE") && tries < 30) {
       await sleep(2000)
       const s = await fetch(`${base}/status/${data.id}`, { headers })
-      if (!s.ok) return null
+      if (!s.ok) return { text: null, error: `poll http ${s.status}` }
       data = await s.json()
       tries++
     }
-    if (data?.status !== "COMPLETED") return null
+    if (data?.status !== "COMPLETED") return { text: null, error: `status=${data?.status}; ${JSON.stringify(data?.error || data?.output || "").slice(0, 200)}` }
 
+    const o = data?.output
     const text: string | undefined =
-      data?.output?.transcription ??
-      data?.output?.text ??
-      data?.output?.[0]?.text
+      o?.transcription ?? o?.text ?? o?.[0]?.text ??
+      (Array.isArray(o?.segments) ? o.segments.map((s: any) => s?.text || "").join(" ") : undefined)
 
-    return typeof text === "string" ? text.trim() : null
-  } catch {
-    return null
+    if (typeof text === "string") return { text: text.trim() }
+    return { text: null, error: `no transcript in output: ${JSON.stringify(o).slice(0, 200)}` }
+  } catch (e) {
+    return { text: null, error: e instanceof Error ? e.message : String(e) }
   }
 }

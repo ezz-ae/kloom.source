@@ -28,12 +28,15 @@ export async function POST(req: NextRequest) {
 
   if (action === "checkout") {
     try {
+      // Return the buyer to a route that EXISTS on this domain and runs the <ProClaim/>
+      // effect (mounted in the root layout): /airraw on the AIRRAW deploy, /app on kloom.io.
+      const ret = process.env.AIRRAW_HOME === "1" ? "/airraw" : "/app"
       const intent = await createPaymentIntent({
         usd: PRICE_USD,
-        message: `AIRRAW Pro · ${DAYS} days`,
-        successUrl: `${origin}/airraw?pro_ok=1`,
-        cancelUrl:  `${origin}/airraw`,
-        failureUrl: `${origin}/airraw?pro_fail=1`,
+        message: `The Pass · ${DAYS} days`,
+        successUrl: `${origin}${ret}?pro_ok=1`,
+        cancelUrl:  `${origin}${ret}`,
+        failureUrl: `${origin}${ret}?pro_fail=1`,
       })
       const url = intent.redirect_url || intent.embedded_url
       if (!url) return Response.json({ error: "no checkout url from provider" }, { status: 502 })

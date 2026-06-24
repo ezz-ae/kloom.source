@@ -157,9 +157,11 @@ function SettingsContent() {
 
               {/* Subscription plans — Creator tools (optional) */}
               <div>
-                <h3 className="font-bold mb-1">Full-access passes</h3>
-                <p className="text-xs text-muted-foreground mb-4">Unlimited voice + every premium model, time-boxed.</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <h3 className="font-bold mb-1">The Pass</h3>
+                <p className="text-xs text-muted-foreground mb-4">Everything open — voice, every room, no limits. One price, no account.</p>
+                <TopUpSlider />
+                {/* legacy tiered plans — superseded by the single pass above (kept dormant) */}
+                <div className="hidden">
                   {PLANS.map((plan) => (
                     <div
                       key={plan.id}

@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
 import { isFun, SITE } from '@/lib/variant'
 import { PixelScripts } from '@/components/airroom/PixelScripts'
+import { ProClaim } from '@/components/ProClaim'
 import { FunAgeGate } from '@/components/FunAgeGate'
 import './globals.css'
 
@@ -151,6 +152,7 @@ export default function RootLayout({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
         {children}
         <FunAgeGate />
+        <ProClaim />
         <Toaster theme="system" richColors position="bottom-right" />
         {process.env.NODE_ENV === 'production' && <Analytics />}
         <PixelScripts />

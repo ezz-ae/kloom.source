@@ -1,30 +1,43 @@
 "use client"
 
 /**
- * In-context upsell for the $10 / 30-day "Unrestricted" tier — full no-restriction mode
- * across the whole platform. Shown on 18+ experts and dark/red rooms when the user
- * doesn't already hold it. Expands inline to Ziina's hosted card checkout.
- * Renders nothing if the user is already unrestricted (incl. during the
- * launch-unlimited build phase).
+ * In-context upsell for THE PASS — $9 / 90 days, fully unrestricted + 6000 voice
+ * minutes, anonymous (no account). Shown on 18+ experts and dark/red rooms when the
+ * user doesn't already hold it. Routes through the shared /api/airraw-pro flow;
+ * the redirect-back is claimed by <ProClaim/> in the root layout. Renders nothing
+ * if the user already holds the pass (incl. during the launch-unlimited phase).
  */
 import { useState, useEffect } from "react"
 import { hasUnrestricted } from "@/lib/account"
-import { AuthGate } from "@/components/widgets/AuthGate"
-import { ZiinaCheckout } from "@/components/widgets/ZiinaCheckout"
+import { setPendingIntent } from "@/lib/airroom/pro"
 import { Flame, Check, X } from "lucide-react"
 
 const PERKS = [
   "Removes every restriction — platform-wide",
-  "Unlocks the full adult category & dark rooms",
-  "Consensual adult content, no limits (18+)",
+  "6000 voice minutes — three months of talking",
+  "The full adult category & dark rooms (18+)",
+  "No account — tied to this device, instantly",
 ]
 
 export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
   const [owned, setOwned] = useState(true) // assume owned until checked (no flash)
   const [open, setOpen]   = useState(false)
+  const [busy, setBusy]   = useState(false)
+  const [err, setErr]     = useState("")
 
   useEffect(() => { setOwned(hasUnrestricted()) }, [])
   if (owned) return null
+
+  const go = async () => {
+    setBusy(true); setErr("")
+    try {
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout" }) })
+      const d = await r.json()
+      if (!r.ok || !d.url) { setErr(d.error || "couldn't start checkout — try again"); setBusy(false); return }
+      setPendingIntent(d.intentId)
+      window.location.href = d.url
+    } catch { setErr("network hiccup — try again"); setBusy(false) }
+  }
 
   return (
     <div className="rounded-2xl border border-rose-500/25 bg-gradient-to-br from-rose-950/40 to-stone-950 p-4">
@@ -34,16 +47,16 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-sm">Unlock Unrestricted</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30">$10 · 30 days</span>
+            <span className="font-bold text-sm">Unlock The Pass</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30">$9 · 90 days</span>
           </div>
           <p className="text-xs text-foreground/50 mt-0.5">
-            Full no-restriction mode across the whole platform — not just {context}.
+            Full no-restriction mode + 6000 voice minutes across the whole platform — not just {context}.
           </p>
           {!open && (
             <button onClick={() => setOpen(true)}
               className="mt-3 inline-flex items-center gap-1.5 bg-rose-500 hover:bg-rose-400 text-foreground text-xs font-bold px-4 py-2 rounded-xl transition-all hover:scale-[1.02]">
-              <Flame size={13} /> Unlock — $10
+              <Flame size={13} /> Unlock — $9
             </button>
           )}
         </div>
@@ -61,10 +74,12 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
               </li>
             ))}
           </ul>
-          <AuthGate intent="to unlock unrestricted">
-            <ZiinaCheckout price={10} kind="unrestricted" label="Unrestricted — 30-day pass" />
-          </AuthGate>
-          <p className="text-[10px] text-foreground/30 text-center mt-3">Pay by card · one-time, 30 days · no auto-renew</p>
+          {err && <div className="text-xs text-rose-300 mb-2">{err}</div>}
+          <button onClick={go} disabled={busy}
+            className="w-full bg-rose-500 hover:bg-rose-400 text-foreground text-sm font-bold py-3 rounded-xl transition-all disabled:opacity-70">
+            {busy ? "opening checkout…" : "Unlock — $9"}
+          </button>
+          <p className="text-[10px] text-foreground/30 text-center mt-3">Pay by card · one-time, 90 days · no account</p>
         </div>
       )}
     </div>

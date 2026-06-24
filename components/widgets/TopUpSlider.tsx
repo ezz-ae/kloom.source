@@ -1,109 +1,57 @@
 "use client"
 
 /**
- * Pricing panel — FlexiCalls + passes, paid by card via Ziina (hosted checkout)
- * with an email account. Drag the bar, watch minutes and money move; every extra
- * dollar buys more minutes than the last. At $7.93 we suggest the Dayuse pass.
+ * The Pass — ONE offer, anonymous (no account). $9 · 90 days · 6000 voice minutes ·
+ * fully unrestricted. Pays by card via Ziina hosted checkout through the shared
+ * /api/airraw-pro flow; the redirect-back is claimed by <ProClaim/> in the root
+ * layout. Replaces the old FlexiCalls slider + tiered passes + account gate.
  */
 import { useState } from "react"
-import {
-  FLEXI_MIN_USD, FLEXI_MAX_USD, flexiMinutes,
-  PASSES, activePass, passTimeLeft, type Pass,
-} from "@/lib/pricing"
-import { AuthGate } from "@/components/widgets/AuthGate"
-import { ZiinaCheckout } from "@/components/widgets/ZiinaCheckout"
-import { Check, Crown, ChevronLeft } from "lucide-react"
+import { setPendingIntent } from "@/lib/airroom/pro"
 
 interface TopUpSliderProps { onDone?: () => void }
 
-export function TopUpSlider({ onDone }: TopUpSliderProps) {
-  const [usd, setUsd] = useState(3)
-  const [checkout, setCheckout] = useState<null | { kind: "flexi" } | { kind: "pass"; pass: Pass }>(null)
+const PERKS = [
+  "Fully unrestricted — every room, every character, no limits",
+  "6000 voice minutes — three months of talking out loud",
+  "No account — it's tied to this device, instantly",
+]
 
-  const minutes  = flexiMinutes(usd)
-  const current  = activePass()
-  const timeLeft = passTimeLeft()
+export function TopUpSlider({ onDone: _onDone }: TopUpSliderProps) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState("")
 
-  // ── Checkout — sign in, then one tap to Ziina's clean hosted card page ──
-  if (checkout) {
-    const price = checkout.kind === "flexi" ? usd : checkout.pass.priceUsd
-    const label = checkout.kind === "flexi" ? `${minutes} FlexiCalls minutes` : `${checkout.pass.name} pass`
-    return (
-      <div className="space-y-4">
-        <button onClick={() => setCheckout(null)}
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <ChevronLeft size={14} /> Back
-        </button>
-        <div className="rounded-2xl border border-border/50 bg-foreground/5 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-bold">{label}</span>
-            <span className="text-lg font-black">${price.toFixed(2)}</span>
-          </div>
-          <AuthGate intent={checkout.kind === "flexi" ? "to add minutes" : "to get this pass"}>
-            <ZiinaCheckout price={price} credits={checkout.kind === "flexi" ? minutes : 0}
-              kind={checkout.kind === "flexi" ? "credits" : checkout.pass.id} label={label} />
-          </AuthGate>
-        </div>
-      </div>
-    )
+  const go = async () => {
+    setBusy(true); setErr("")
+    try {
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout" }) })
+      const d = await r.json()
+      if (!r.ok || !d.url) { setErr(d.error || "couldn't start checkout — try again"); setBusy(false); return }
+      setPendingIntent(d.intentId)
+      window.location.href = d.url
+    } catch { setErr("network hiccup — try again"); setBusy(false) }
   }
 
   return (
-    <div className="space-y-6">
-      {current && timeLeft && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 py-2.5 text-sm font-bold text-emerald-300">
-          <Crown size={14} /> {PASSES.find((p) => p.id === current.id)?.name} active · {timeLeft}
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/[0.06] p-5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-base font-black">The Pass</span>
+          <span className="text-2xl font-black">$9</span>
         </div>
-      )}
-
-      {/* ── Pay as you go ── */}
-      <div>
-        <div className="text-center pt-1 pb-3">
-          <div className="text-6xl font-black tracking-tight">{minutes}<span className="text-2xl text-foreground/40 font-bold"> min</span></div>
-          <div className="text-sm text-foreground/50 mt-1">voice for <span className="text-foreground font-semibold">${usd.toFixed(2)}</span></div>
-        </div>
-        <input type="range" min={FLEXI_MIN_USD} max={FLEXI_MAX_USD} step={0.25} value={usd}
-          onChange={(e) => setUsd(Number(e.target.value))} className="w-full accent-amber-500" />
-        <button onClick={() => setCheckout({ kind: "flexi" })}
-          className="mt-4 w-full font-bold py-3.5 rounded-2xl text-sm bg-foreground/10 border border-border/60 hover:bg-foreground/15 text-foreground hover:scale-[1.01] active:scale-[0.99] transition-all">
-          Add {minutes} min · ${usd.toFixed(2)}
+        <div className="text-xs text-muted-foreground mt-0.5">90 days · everything open · no account</div>
+        <ul className="mt-3 space-y-1.5">
+          {PERKS.map((p, i) => (
+            <li key={i} className="text-sm text-foreground/80 flex gap-2"><span className="text-amber-400 shrink-0">✦</span><span>{p}</span></li>
+          ))}
+        </ul>
+        {err && <div className="text-xs text-rose-300 mt-2">{err}</div>}
+        <button onClick={go} disabled={busy}
+          className="mt-4 w-full font-bold py-3.5 rounded-2xl text-sm brand-gradient text-stone-950 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-70">
+          {busy ? "opening checkout…" : "Unlock — $9"}
         </button>
+        <div className="text-[11px] text-foreground/40 text-center mt-2">card / apple pay · one-time, 90 days</div>
       </div>
-
-      {/* ── Passes ── one shared promise, then just what differs ── */}
-      <div>
-        <div className="flex items-baseline justify-between mb-2.5">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Passes</span>
-          <span className="text-[11px] text-muted-foreground">Unlimited voice · no limits</span>
-        </div>
-        <div className="space-y-2">
-          {PASSES.map((pass) => {
-            const isCurrent = current?.id === pass.id
-            const duration  = pass.monthly ? "30 days" : pass.durationHours === 24 ? "24 hours" : "7 days"
-            const invites   = pass.invitations === "unlimited" ? "unlimited invites" : `${pass.invitations} invite${pass.invitations === 1 ? "" : "s"}`
-            return (
-              <button key={pass.id} onClick={() => setCheckout({ kind: "pass", pass })} disabled={isCurrent}
-                className={`w-full text-left rounded-2xl border p-4 flex items-center justify-between gap-3 transition-all ${
-                  isCurrent ? "border-emerald-500/40 bg-emerald-500/[0.07]"
-                  : pass.monthly ? "border-amber-500/40 bg-amber-500/[0.07] hover:bg-amber-500/[0.12]"
-                  : "border-border/50 bg-foreground/5 hover:bg-foreground/10"
-                } disabled:cursor-default`}>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-black text-base">{pass.name}</span>
-                    {pass.monthly && <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full brand-gradient text-stone-950">Best value</span>}
-                    {isCurrent && <Check size={14} className="text-emerald-400" />}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{duration} · {invites}</div>
-                </div>
-                <div className="shrink-0 text-xl font-black">${pass.priceUsd}</div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <p className="text-[11px] text-foreground/30 text-center">Card payments · minutes never expire</p>
     </div>
   )
 }

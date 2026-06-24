@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server"
 import { createPaymentIntent, getPaymentIntent, usdToMinor, ziinaConfigured } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
 import { mintProToken } from "@/lib/airraw-pro-token"
+import { metaPurchase } from "@/lib/meta-capi"
 
 // AIRRAW Pro — anonymous one-time 30-day pass via Ziina hosted checkout.
 //   POST { action: "checkout" }            → { url, intentId }  (redirect the user to url)
@@ -52,6 +53,18 @@ export async function POST(req: NextRequest) {
         return Response.json({ paid: false, status: "amount_mismatch" })
       }
       const until = Date.now() + DAYS * 86_400_000
+      // Server-side Purchase → Meta CAPI. This is the AIRRAW ad funnel's ACTUAL
+      // conversion (the $9 Pro pass) — without it, ad traffic that buys is invisible
+      // to Meta and can't be optimized for. event_id = intentId so a repeated claim
+      // (effect re-run / refresh) or a matching browser-pixel Purchase is de-duplicated
+      // by Meta, never double-counted. Best-effort — never block the grant on tracking.
+      metaPurchase({
+        value: PRICE_USD,
+        currency: "USD",
+        eventId: intentId,
+        clientIp: clientIp(req),
+        userAgent: req.headers.get("user-agent") || undefined,
+      }).catch(() => {})
       return Response.json({ paid: true, token: mintProToken(until), until })
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : "claim failed" }, { status: 502 })

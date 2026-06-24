@@ -238,7 +238,7 @@ function shapeForSpeech(input: string): string {
 // Preset voice pools (public default voices, available to every account). One is
 // chosen per persona by name hash so neighbours sound distinct; override the whole
 // pick with ELEVENLABS_VOICE_MALE / ELEVENLABS_VOICE_FEMALE.
-const EL_FEMALE = ["21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "MF3mGyEYCl7XYWbV9V6O", "jsCqWAovK2LkecY7zXl4", "pFZP5JQG7iQjIQuC4Bku"]
+const EL_FEMALE = ["21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "MF3mGyEYCl7XYWbV9V6O", "jsCqWAovK2LkecY7zXl4", "pFZP5JQG7iQjIQuC4Bku", "jAAHNNqlbAX9iWjJPEtE", "FvmvwvObRqIHojkEGh5N", "umKoJK6tP1ALjO0zo1EE"]
 const EL_MALE   = ["pNInz6obpgDQGcFmaJgB", "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG", "yoZ06aMxZJJ28mfd3POQ", "onwK4e9ZLuTAKqWW03F9"]
 function elVoiceFor(name?: string, gender?: string): string {
   const env = gender === "male" ? process.env.ELEVENLABS_VOICE_MALE : process.env.ELEVENLABS_VOICE_FEMALE

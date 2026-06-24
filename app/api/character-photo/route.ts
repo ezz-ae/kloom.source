@@ -13,6 +13,7 @@
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { buildPortraitPrompt } from "@/lib/airraw/portrait-prompt"
 import { isCleanPortrait, validatorReady } from "@/lib/face-validate"
+import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 
 export const runtime = "nodejs"
 export const maxDuration = 120
@@ -291,6 +292,16 @@ async function realismPass(input: Buffer): Promise<Buffer> {
 }
 
 export async function POST(request: Request) {
+  // Cost guard: image generation bills FAL per request and the cache key is
+  // caller-supplied (name/seed), so a loop varying the name forces unlimited fresh
+  // generations. Gate it like the other billable endpoints. globalGate is the daily
+  // kill-cap; the per-IP limit stops a single abuser's tight loop. (A hard FAL.ai
+  // dashboard spend limit is still the real dollar backstop.)
+  const gate = globalGate()
+  if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
+  const rl = rateLimit(`img:${clientIp(request)}`, 40, 60_000)
+  if (!rl.ok) return Response.json({ error: "slow down" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
+
   let name = "", gender = "", world = "", desc = "", slug = "", seedKey = ""
   let diverse = false, providerOverride = ""
   try {

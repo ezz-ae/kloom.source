@@ -19,6 +19,7 @@ import { analyzeIntent, refusalFor } from "@/lib/intent"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { adultEnabled } from "@/lib/variant"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
+import { proTokenValid } from "@/lib/airraw-pro-token"
 
 // RunPod vLLM + MCP roundtrips can be slow on cold workers.
 export const maxDuration = 60
@@ -378,7 +379,7 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit(`mcpchat:${clientIp(req)}`, 45, 60_000)
   if (!rl.ok) return new Response("Slow down a sec.", { status: 429, headers: { "Content-Type": "text/plain; charset=utf-8", "Retry-After": String(rl.retryAfter) } })
 
-  const { persona, messages, mode = "chat", partners, roomName, relationship, premium, unrestricted } = await req.json()
+  const { persona, messages, mode = "chat", partners, roomName, relationship, premium, unrestricted, proToken } = await req.json()
   const isVoice = mode === "voice"
   const mcpBase = mcpUrlFor(req)   // same-deployment MCP server, request-origin derived
 
@@ -430,7 +431,11 @@ export async function POST(req: NextRequest) {
   // skip it).
   const wantsEscalation = !!unrestricted || isUnrestrictedPersona(persona) ||
     (persona?.category ?? "") === "dark" || intent.category === "explicit" || EXPLICIT_RE.test(latestUserText)
-  const allowExplicit = wantsEscalation ? await verifiedUnrestricted(req) : false
+  // AIRRAW Pro token (Ziina payment) is accepted as equivalent to a Supabase entitlement.
+  // This closes the gap where the AIRRAW pay wall unlocked the /api/chat content tier
+  // but left mcp-chat running Supabase-only verification (S4 audit item).
+  const proTokenGranted = proTokenValid(proToken)
+  const allowExplicit = wantsEscalation ? (proTokenGranted || await verifiedUnrestricted(req)) : false
   const unrestrictedActive = allowExplicit && (!!unrestricted || isUnrestrictedPersona(persona))
 
   // Inline unlock moment — anyone NOT entitled who asks for explicit content (in

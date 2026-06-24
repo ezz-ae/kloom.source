@@ -14,6 +14,7 @@ import { adultEnabled, memoryEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
+import { getProToken } from "@/lib/airroom/pro"
 import { passCoversVoice } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
 import { track } from "@/lib/track"
@@ -353,7 +354,7 @@ function RoomContent() {
     try {
       const res = await fetch("/api/mcp-chat", {
         method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) },
-        body: JSON.stringify({ mode: "chat", persona: member, premium: isSubscribed(), unrestricted: hasUnrestricted(), messages: next }),
+        body: JSON.stringify({ mode: "chat", persona: member, premium: isSubscribed(), unrestricted: hasUnrestricted(), proToken: getProToken(), messages: next }),
       })
       const reader = res.body!.getReader(); const dec = new TextDecoder(); let full = ""
       while (true) { const { done, value } = await reader.read(); if (done) break; full += dec.decode(value, { stream: true }); setDmStream(full) }
@@ -460,6 +461,7 @@ function RoomContent() {
             },
             premium: isSubscribed(),
             unrestricted: hasUnrestricted(),
+            proToken: getProToken(),
             roomName: room.name,
             relationship: sceneRelationship,
             partners: others,
@@ -557,6 +559,7 @@ function RoomContent() {
           },
           premium: isSubscribed(),
           unrestricted: hasUnrestricted(),
+          proToken: getProToken(),
           partners: room.category === "co-intelligence" ? room.personas : undefined,
           roomName: room.name,
           relationship: room.relationship,

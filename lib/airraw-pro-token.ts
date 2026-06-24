@@ -14,20 +14,27 @@ const SECRET = process.env.AIRRAW_PRO_SECRET
 
 export function mintProToken(untilMs: number): string {
   if (!SECRET) throw new Error("AIRRAW_PRO_SECRET not configured — refusing to mint with an empty secret")
-  const payload = Buffer.from(JSON.stringify({ until: untilMs, v: 1 })).toString("base64")
+  // adult18:true records that the user affirmed 18+ at payment time (S1 age attestation).
+  const payload = Buffer.from(JSON.stringify({ until: untilMs, v: 1, adult18: true })).toString("base64")
   const sig = createHmac("sha256", SECRET).update(payload).digest("hex")
   return `${payload}.${sig}`
 }
 
-export function proTokenValid(token?: string | null): boolean {
-  if (!token || !SECRET) return false   // no server secret → fail closed, never validate
+/** Verified claims from a Pro token, or null if invalid/expired/unsigned. */
+export function proTokenClaims(token?: string | null): { until: number; v: number; adult18?: boolean } | null {
+  if (!token || !SECRET) return null
   const [payload, sig] = token.split(".")
-  if (!payload || !sig) return false
+  if (!payload || !sig) return null
   try {
     const expected = createHmac("sha256", SECRET).update(payload).digest("hex")
     const a = Buffer.from(sig, "hex"), b = Buffer.from(expected, "hex")
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return false
-    const { until } = JSON.parse(Buffer.from(payload, "base64").toString())
-    return typeof until === "number" && until > Date.now()
-  } catch { return false }
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null
+    const claims = JSON.parse(Buffer.from(payload, "base64").toString())
+    if (typeof claims.until !== "number" || claims.until <= Date.now()) return null
+    return claims
+  } catch { return null }
+}
+
+export function proTokenValid(token?: string | null): boolean {
+  return proTokenClaims(token) !== null
 }

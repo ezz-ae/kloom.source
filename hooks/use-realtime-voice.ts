@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
+import { getProToken } from "@/lib/airroom/pro"
 import { consumeVoice, voiceAvailable, LAUNCH_UNLIMITED, getFreeRemainingSec } from "@/lib/voice-credits"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { accountMinutes, setAccountMinutes, spendMinutes, authHeader } from "@/lib/auth"
@@ -323,6 +324,7 @@ export function useRealtimeVoice({
             persona:      self,               // includes category for MCP routing
             premium:      getPremium(),       // unlocks the full-unrestricted model tier
             unrestricted: hasUnrestricted(),  // bypasses explicit paywall & adds no-refusal note
+            proToken:     getProToken(),      // AIRRAW Pro token — accepted as entitlement proof
             partners:     others.length > 0 ? others : undefined,
             relationship: others.length > 0 ? relationshipRef.current : undefined,
             messages,

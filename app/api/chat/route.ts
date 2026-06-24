@@ -1,6 +1,7 @@
 // RunPod vLLM calls can be slow (cold worker spin-up); don't let Vercel kill us early.
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { proTokenValid } from "@/lib/airraw-pro-token"
+import { streamLLM, type LLMMessage } from "@/lib/llm-backends"
 
 export const maxDuration = 60
 
@@ -70,22 +71,17 @@ export async function POST(request: Request) {
       ? [partner]
       : []
 
-  // Pick the LLM endpoint as a COHERENT TRIPLE (base + key + model). Pro routes to the
-  // uncensored endpoint ONLY when it's fully configured (base AND model present), so
-  // "unrestricted" actually works. Otherwise pro stays on the SAME working endpoint as free
-  // (with the NO_FILTERS prompt) — we never switch only the model onto a base that can't
-  // serve it, which 404s the paid call and makes paid worse than free.
+  // LLM routing is delegated to streamLLM (lib/llm-backends), which owns the
+  // resilient fallback chain: the configured endpoint → the live house model
+  // (Gemini/GPT) → local. This is what keeps the planet answering even when one
+  // provider's key is rotated/dead — a raw single-endpoint fetch here would
+  // hard-fail the whole call (exactly the 401 that took chat down). Pro routes to
+  // the dedicated UNCENSORED endpoint via opts.uncensored ONLY when it's fully
+  // configured; otherwise pro rides the same working endpoint with the NO_FILTERS
+  // prompt (paid never lands worse than free).
   const unBase  = process.env.UNCENSORED_LLM_BASE_URL
   const unModel = process.env.UNCENSORED_LLM_MODEL || process.env.LLM_MODEL_UNRESTRICTED
   const useUncensored = !!(pro && unBase && unModel)
-
-  const baseUrl = (useUncensored ? unBase! : (process.env.LLM_BASE_URL || "http://localhost:11434/v1")).replace(/\/$/, "")
-  // When on the shared Together endpoint, use TOGETHER_API_KEY (the key images use) so a
-  // rotated key never strands chat on a stale LLM_API_KEY. (Plus a 401-retry below.)
-  const apiKey = useUncensored
-    ? (process.env.UNCENSORED_LLM_API_KEY || process.env.LLM_API_KEY || "local")
-    : ((/together/i.test(baseUrl) && process.env.TOGETHER_API_KEY) ? process.env.TOGETHER_API_KEY : (process.env.LLM_API_KEY || "local"))
-  const model = useUncensored ? unModel! : (process.env.LLM_MODEL || "llama3.2:latest")
 
   // The FLOOR is appended LAST so it outranks persona/vibe/content-layer text above it.
   const systemPrompt =
@@ -114,90 +110,35 @@ export async function POST(request: Request) {
     return { role: m.role as "user" | "assistant" | "system", content: m.content }
   })
 
-  // Gemini's OpenAI-compat endpoint 400s on penalty params — only send them to a
-  // real OpenAI-compatible/Ollama endpoint.
-  const isGeminiCompat = baseUrl.includes("generativelanguage.googleapis.com")
-  const antiRepeat = isGeminiCompat ? {} : { top_p: 0.95, presence_penalty: 0.6, frequency_penalty: 0.4 }
-
-  let upstream: Response
-  const llmBody = JSON.stringify({
-    model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...(others.length === 0 ? FEW_SHOT : []),
-      ...openaiMessages,
-    ],
-    temperature: 0.95,
-    ...antiRepeat,
-    max_tokens: 180,
-    stream: true,
-  })
-  const callLLM = (key: string) => fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: llmBody,
-  })
-  try {
-    upstream = await callLLM(apiKey)
-    // Stale/rotated LLM key → retry once with the shared Together key (the one images use).
-    if (upstream.status === 401 && process.env.TOGETHER_API_KEY && apiKey !== process.env.TOGETHER_API_KEY) {
-      upstream = await callLLM(process.env.TOGETHER_API_KEY)
-    }
-  } catch (err) {
-    return Response.json(
-      {
-        error: `Could not reach local LLM at ${baseUrl}. Is it running? (${
-          err instanceof Error ? err.message : String(err)
-        })`,
-      },
-      { status: 502 }
-    )
-  }
-
-  if (!upstream.ok || !upstream.body) {
-    const errorText = await upstream.text()
-    return Response.json(
-      { error: `Local LLM error (${upstream.status}): ${errorText}` },
-      { status: upstream.status }
-    )
-  }
+  const llmMessages: LLMMessage[] = [
+    { role: "system", content: systemPrompt },
+    ...(others.length === 0 ? FEW_SHOT : []),
+    ...openaiMessages,
+  ]
 
   const encoder = new TextEncoder()
-  const decoder = new TextDecoder()
 
+  // Stream via the resilient router. A Pro turn with a fully-configured uncensored
+  // endpoint routes there (opts.uncensored); otherwise it rides the default chain.
+  // streamLLM internally falls the configured endpoint → house model → local, so a
+  // single dead provider key can no longer take the planet's voice offline.
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      const reader = upstream.body!.getReader()
-      let buffer = ""
+      let emittedAny = false
       try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-
-          let nl: number
-          while ((nl = buffer.indexOf("\n")) >= 0) {
-            const line = buffer.slice(0, nl).trim()
-            buffer = buffer.slice(nl + 1)
-            if (!line.startsWith("data:")) continue
-            const data = line.slice(5).trim()
-            if (data === "[DONE]") {
-              controller.close()
-              return
-            }
-            try {
-              const json = JSON.parse(data)
-              const delta: string | undefined = json.choices?.[0]?.delta?.content
-              if (delta) controller.enqueue(encoder.encode(delta))
-            } catch {
-              // ignore keepalives
-            }
-          }
+        for await (const delta of streamLLM("local", llmMessages, {
+          temperature: 0.95,
+          maxTokens: 180,
+          uncensored: useUncensored,
+        })) {
+          if (delta) { emittedAny = true; controller.enqueue(encoder.encode(delta)) }
         }
-        controller.close()
-      } catch (err) {
-        controller.error(err)
+      } catch {
+        // Every backend failed (truly exceptional). Degrade gracefully so the call
+        // doesn't dead-air with a hard error the client can't render.
+        if (!emittedAny) controller.enqueue(encoder.encode("mmm, my line cut out for a sec— say that again?"))
       }
+      controller.close()
     },
   })
 

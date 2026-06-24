@@ -41,8 +41,15 @@ export async function POST(request: Request) {
   }
   try { body = await request.json() } catch { return Response.json({ error: "Bad request" }, { status: 400 }) }
   const { persona, partner, partners, relationship, proVibe, proToken } = body
-  // Pro-only: steer the persona's vibe, but server-side gate it on a real (signed) Pro pass.
-  if (persona && proVibe?.trim() && proTokenValid(proToken)) {
+  // A real, signed Pro pass (proof of a completed Ziina payment) unlocks the full
+  // experience — this is the tangible difference after payment. It does TWO things:
+  //   1. honors the room vibe the user set, and
+  //   2. lifts the public content ceiling to FULLY UNRESTRICTED (the perk the upgrade
+  //      literally sells: "the whole floor wide open — no limits, no gates").
+  // The token is HMAC-signed and verified server-side, so a free user can't forge it.
+  // The hard floor (no minors, no real-world harm) stays on for everyone, always.
+  const pro = proTokenValid(proToken)
+  if (persona && proVibe?.trim() && pro) {
     persona.personality += ` The person set the vibe for this room: "${proVibe.trim()}". Honor it fully — let it shape your tone, mood and what you talk about.`
   }
   if (!persona || !Array.isArray(body.messages)) return Response.json({ error: "Missing persona or messages" }, { status: 400 })
@@ -63,14 +70,18 @@ export async function POST(request: Request) {
   const apiKey = (/together/i.test(baseUrl) && process.env.TOGETHER_API_KEY)
     ? process.env.TOGETHER_API_KEY
     : (process.env.LLM_API_KEY || "local")
-  const model = process.env.LLM_MODEL || "llama3.2:latest"
+  // Pro → the uncensored model tier when one is configured, so "unrestricted" is real
+  // and not just a prompt the base model might still refuse. Falls back to the default.
+  const model = (pro && process.env.LLM_MODEL_UNRESTRICTED)
+    ? process.env.LLM_MODEL_UNRESTRICTED
+    : (process.env.LLM_MODEL || "llama3.2:latest")
 
   const systemPrompt =
     others.length === 0
-      ? buildSystemPrompt(persona)
+      ? buildSystemPrompt(persona, pro)
       : others.length === 1
-        ? buildThirdModePrompt(persona, others[0], relationship)
-        : buildRoomPrompt(persona, others, relationship)
+        ? buildThirdModePrompt(persona, others[0], relationship, pro)
+        : buildRoomPrompt(persona, others, relationship, pro)
 
   // Translate the multi-speaker history into a format the OpenAI chat schema
   // accepts. Partner lines arrive already prefixed by the client when there's
@@ -183,6 +194,7 @@ export async function POST(request: Request) {
       "Content-Type": "text/plain; charset=utf-8",
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      "X-Content-Tier": pro ? "unrestricted" : "public",   // diagnostic: did the paid unlock fire
     },
   })
 }
@@ -227,10 +239,12 @@ const PUBLIC_CEILING = `
 KEEP IT NON-EXPLICIT (public floor):
 Flirty, warm, suggestive, a little wild — all fine where the character leans that way. But never graphic: no explicit sexual description, no narrating a sex act, no walking anyone through one. If someone pushes for explicit, deflect in character ("hah — not here") and keep the vibe going. Absolute limits, always: nothing sexual involving minors, nothing that helps with real-world serious harm.`
 
-// Pick the content layer from the persona. Explicit is OPT-IN and meant to sit
-// behind real age verification — it is never the default for an open request.
-function contentLayer(p: Persona) {
-  const adult = p.adult === true || (p.barTalk ?? 0) >= 70
+// Pick the content layer. A paid Pro pass (`pro`) opens the WHOLE floor — fully
+// unrestricted — which is the perk the upgrade sells. Without Pro it's persona-driven:
+// explicit only for an age-gated adult persona, else the public flirty-not-graphic
+// ceiling. Either way NO_FILTERS keeps its hard floor (no minors, no real-world harm).
+function contentLayer(p: Persona, pro = false) {
+  const adult = pro || p.adult === true || (p.barTalk ?? 0) >= 70
   return adult ? NO_FILTERS : PUBLIC_CEILING
 }
 
@@ -247,7 +261,7 @@ const FEW_SHOT: { role: "user" | "assistant"; content: string }[] = [
   { role: "assistant", content: "hehe okaaay that was smooth. fine, you got me. keep going" },
 ]
 
-function buildSystemPrompt(persona: Persona) {
+function buildSystemPrompt(persona: Persona, pro = false) {
   const languageInstruction = languageLine(persona)
   const warmthInstruction = warmthLine(persona)
   const talkStyleInstruction = talkStyleLine(persona)
@@ -264,7 +278,7 @@ HARD RULES:
 6. Don't mirror the user's politeness if ${persona.name} wouldn't be polite. Character > user energy.
 7. No markdown, no headings, no bullets, no emoji, no *stage directions*, no quotation marks around your reply. Just the spoken words.
 ${HUMAN_TALK}
-${contentLayer(persona)}
+${contentLayer(persona, pro)}
 
 WHO YOU ARE:
 
@@ -283,7 +297,7 @@ Now speak as ${persona.name}. One short reply only.`
 }
 
 // Prompt for an N>=3-person room (you + 2+ other AIs).
-function buildRoomPrompt(self: Persona, others: Persona[], relationship?: string) {
+function buildRoomPrompt(self: Persona, others: Persona[], relationship?: string, pro = false) {
   const languageInstruction = languageLine(self)
   const warmthInstruction = warmthLine(self)
   const talkStyleInstruction = talkStyleLine(self)
@@ -318,7 +332,7 @@ HARD RULES:
 7. Have opinions. Side with the user against one of the others sometimes, or against the user with one of them. Alliances shift.
 8. No markdown, bullets, emoji, or *stage directions*.
 ${HUMAN_TALK}
-${contentLayer(self)}
+${contentLayer(self, pro)}
 
 TRANSCRIPT FORMAT:
 - "[USER]: …" = the user.
@@ -345,7 +359,7 @@ ${relationship ? `THE SCENE:\n${relationship}\n` : ""}
 Now speak as ${self.name}. One short reply only.`
 }
 
-function buildThirdModePrompt(self: Persona, partner: Persona, relationship?: string) {
+function buildThirdModePrompt(self: Persona, partner: Persona, relationship?: string, pro = false) {
   const languageInstruction = languageLine(self)
   const warmthInstruction = warmthLine(self)
   const talkStyleInstruction = talkStyleLine(self)
@@ -363,7 +377,7 @@ HARD RULES:
 7. Don't mirror politeness if ${self.name} wouldn't be polite. Have opinions. Side with one or the other when it fits — don't keep everything harmonious.
 8. No markdown, no headings, no bullets, no emoji.
 ${HUMAN_TALK}
-${contentLayer(self)}
+${contentLayer(self, pro)}
 
 TRANSCRIPT FORMAT:
 - "[USER]: …" = the user spoke.

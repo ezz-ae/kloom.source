@@ -20,6 +20,7 @@ import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { adultEnabled } from "@/lib/variant"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { proTokenValid } from "@/lib/airraw-pro-token"
+import { normSentence, isRepeatSentence, joinSentences } from "@/lib/text-dedup"
 
 // RunPod vLLM + MCP roundtrips can be slow on cold workers.
 export const maxDuration = 60
@@ -177,14 +178,15 @@ function stripPhilosophy(text: string, adult = false): string {
   return out || COMPANION_FALLBACKS[text.length % COMPANION_FALLBACKS.length]
 }
 
-// Drop duplicate / near-duplicate sentences (the repetition-loop failure mode).
+// Drop duplicate AND near-duplicate sentences (the repetition-loop failure mode —
+// the model restates the same idea reworded, which exact-match dedup let through).
 function dedupeSentences(parts: string[]): string[] {
-  const seen = new Set<string>()
+  const priors: string[] = []
   const out: string[] = []
   for (const s of parts) {
-    const norm = s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()
-    if (norm.length > 6 && seen.has(norm)) continue
-    if (norm.length > 6) seen.add(norm)
+    const norm = normSentence(s)
+    if (isRepeatSentence(norm, priors)) continue
+    if (norm.length > 8) priors.push(norm)
     out.push(s)
   }
   return out
@@ -725,21 +727,21 @@ export async function POST(req: NextRequest) {
       let leadDone   = false
       let leadBuf    = ""
       let outBuf     = ""                  // post-lead text, buffered to sentence boundaries
-      const seen     = new Set<string>()   // sentences already spoken → drop exact repeats
+      const priors   : string[] = []       // sentences already spoken → drop exact AND near repeats
       const WORD_CAP = isVoice ? 110 : 99999
-      // Emit completed sentences, DROPPING any exact repeat — kills the local-model
-      // "say the same line again" loop (now that a real voice speaks every repeat aloud).
+      // Emit completed sentences, DROPPING any exact OR near-duplicate repeat — kills the
+      // "say the same idea again, reworded" loop (jarring once a real voice speaks it aloud).
       const flushDedup = (text: string) => {
         const parts = text.match(/[^.!?…\n]*[.!?…\n]+|\S[^.!?…\n]*$/g)
         if (!parts) return
-        let out = ""
+        const kept: string[] = []
         for (const p of parts) {
-          const norm = p.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()
-          if (norm.length > 6 && seen.has(norm)) continue
-          if (norm.length > 6) seen.add(norm)
-          out += p
+          const norm = normSentence(p)
+          if (isRepeatSentence(norm, priors)) continue
+          if (norm.length > 8) priors.push(norm)
+          kept.push(p.trim())
         }
-        if (out) ctrl.enqueue(encoder.encode(out))
+        if (kept.length) ctrl.enqueue(encoder.encode(joinSentences(kept) + " "))
       }
       try {
         for await (const delta of streamLLM(backend, backendMessages, {

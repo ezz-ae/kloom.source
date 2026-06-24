@@ -392,11 +392,20 @@ export function Planet() {
           if (facesVisible) {
             ctx.strokeStyle = `hsla(${co.h},60%,62%,0.14)`; ctx.lineWidth = DPR; rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, 16 * DPR); ctx.stroke()
             const fn = 9 + (rh % 7)
+            // Grid-slot the faces instead of pure random jitter: random points in a box this
+            // small ALWAYS clump (every room overlapped). Give each face its own cell + a small
+            // organic offset so they read as distinct, tappable people. fh is derived exactly as
+            // before, so charFor/faceFor caching is unchanged — only the x/y placement moves.
+            const cols = Math.ceil(Math.sqrt(fn)), rows = Math.ceil(fn / cols)
+            const BOX = RCELL * 0.82, cw = BOX / cols, chh = BOX / rows
             for (let i = 0; i < fn; i++) {
               const fh = ihash(gx * 131 + i + 3, gy * 197 + i * 7 + 5)
-              const fx = rx + (ifrac(fh) - 0.5) * RCELL * 0.66, fy = ry + (ifrac(ihash(fh, i + 11)) - 0.5) * RCELL * 0.66, fs = w2s(fx, fy)
+              const cxi = i % cols, cyi = Math.floor(i / cols)
+              const fx = rx + ((cxi + 0.5) * cw - BOX / 2) + (ifrac(fh) - 0.5) * cw * 0.3
+              const fy = ry + ((cyi + 0.5) * chh - BOX / 2) + (ifrac(ihash(fh, i + 11)) - 0.5) * chh * 0.3
+              const fs = w2s(fx, fy)
               if (fs[0] < -40 || fs[1] < -40 || fs[0] > W + 40 || fs[1] > H + 40) continue
-              const r = Math.max(2, m2 * 0.0040), fdc = Math.hypot(fs[0] - W / 2, fs[1] - H / 2)
+              const r = Math.max(2, Math.min(m2 * 0.0040, Math.min(cw, chh) * m2 * 0.42)), fdc = Math.hypot(fs[0] - W / 2, fs[1] - H / 2)
               if (r > 2.2 && fdc < best) { best = fdc; act = { c, x: fx, y: fy, seed: fh } }
               const fhue = co.h + (ifrac(fh) * 26 - 13)
               const ball = () => { ctx.beginPath(); ctx.arc(fs[0], fs[1], r, 0, 6.283) }   // faces are round balls — no name labels

@@ -2,6 +2,7 @@
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { proTokenValid } from "@/lib/airraw-pro-token"
 import { streamLLM, type LLMMessage } from "@/lib/llm-backends"
+import { normSentence, isRepeatSentence, joinSentences } from "@/lib/text-dedup"
 
 export const maxDuration = 60
 
@@ -126,21 +127,22 @@ export async function POST(request: Request) {
     async start(controller) {
       let emittedAny = false
       let buf = ""
-      const seen = new Set<string>()
-      // Emit sentence-by-sentence, DROPPING any sentence that exactly repeats one already
-      // spoken. Kills the local-model "say the same line over and over" loop — far more
-      // jarring now that a real ElevenLabs voice speaks every repeat aloud.
+      const priors: string[] = []
+      // Emit sentence-by-sentence, DROPPING any sentence that exactly OR near-duplicates one
+      // already spoken — the model restates the same idea reworded ("i'm here now, right?" /
+      // "i'm right here."), which exact-match dedup let straight through. This is the dominant
+      // cause of the "AI keeps repeating" complaint, far more jarring once a real voice says it.
       const flush = (text: string) => {
         const parts = text.match(/[^.!?…\n]*[.!?…\n]+|\S[^.!?…\n]*$/g)
         if (!parts) return
-        let out = ""
+        const kept: string[] = []
         for (const p of parts) {
-          const norm = p.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()
-          if (norm.length > 6 && seen.has(norm)) continue   // exact repeat → drop
-          if (norm.length > 6) seen.add(norm)
-          out += p
+          const norm = normSentence(p)
+          if (isRepeatSentence(norm, priors)) continue
+          if (norm.length > 8) priors.push(norm)
+          kept.push(p.trim())
         }
-        if (out) { emittedAny = true; controller.enqueue(encoder.encode(out)) }
+        if (kept.length) { emittedAny = true; controller.enqueue(encoder.encode(joinSentences(kept) + " ")) }
       }
       try {
         for await (const delta of streamLLM("local", llmMessages, {
@@ -179,6 +181,7 @@ export async function POST(request: Request) {
 // model's diction far more than abstract instructions like "be casual".
 const HUMAN_TALK = `
 TALK LIKE A REAL PERSON, NOT A BOOK (CRITICAL):
+- NEVER repeat yourself. Do not say the same sentence twice, and do not restate something you already said reworded ("I'm here now" then "I'm right here" — pick ONE). Every line must add something new. If you have nothing new, ask them something or stop.
 - Plain words only. If a 12-year-old wouldn't say it out loud, you don't say it.
 - BANNED WORDS — never use these: indeed, truly, quite, rather, perhaps, certainly, delightful, wonderful, fascinating, marvelous, splendid, reminiscent, sensation, essence, embrace, cherish, savor, ponder, moreover, furthermore, additionally, "I must say", "I find myself", "one might", "shall we", "my dear".
 - Contractions ALWAYS: I'm, you're, don't, can't, it's, gonna, wanna, kinda, gotta.

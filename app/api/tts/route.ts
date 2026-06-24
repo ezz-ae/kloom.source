@@ -253,9 +253,11 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
     // multilingual_v2 = the most natural/emotional voice. For a snappier live call,
     // set ELEVENLABS_MODEL=eleven_turbo_v2_5 (faster, still very natural).
     const model = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2"
-    // Conversational defaults: stability 0.5 = steady (not erratic), modest similarity,
-    // LOW style so it doesn't over-perform/"act" (high style + low stability was the
-    // over-styled, robotic-feeling combo). 192kbps for crisper audio. Env-overridable.
+    // EXPRESSIVE defaults — user reported the voice felt flat/monotone/robotic. Lower
+    // stability = more emotional variation; HIGH style = lively, performed delivery;
+    // speaker_boost for presence. (A previous "calm" 0.5/0.75/0.2 read as dead.) These
+    // are env-overridable so it can be re-tuned without a deploy via ELEVENLABS_STABILITY
+    // / _SIMILARITY / _STYLE. 192kbps for crisper audio.
     const fmt = process.env.ELEVENLABS_FORMAT || "mp3_44100_192"
     const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=${fmt}`, {
       method: "POST",
@@ -264,9 +266,9 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
         text,
         model_id: model,
         voice_settings: {
-          stability: Number(process.env.ELEVENLABS_STABILITY ?? 0.5),
-          similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY ?? 0.75),
-          style: Number(process.env.ELEVENLABS_STYLE ?? 0.2),
+          stability: Number(process.env.ELEVENLABS_STABILITY ?? 0.4),
+          similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY ?? 0.85),
+          style: Number(process.env.ELEVENLABS_STYLE ?? 0.6),
           use_speaker_boost: true,
         },
       }),

@@ -442,7 +442,7 @@ export function useRealtimeVoice({
         console.log("Barge-in detected — stopping AI, processing:", userText)
         stopAI()
         // Brief pause so audio element fully stops before we start a new turn
-        await new Promise((r) => setTimeout(r, 80))
+        await new Promise((r) => setTimeout(r, 50))
       }
 
       onTranscript?.(userText, "user" as const)
@@ -483,8 +483,9 @@ export function useRealtimeVoice({
           console.error("Conversation error:", err)
         }
       } finally {
-        // Grace period so any speaker echo decays before mic reopens.
-        await new Promise((r) => setTimeout(r, 350))
+        // Grace period so any speaker echo decays before mic reopens. 200ms is enough
+        // with browser echo-cancellation on; lower = the user can speak back sooner (was 350).
+        await new Promise((r) => setTimeout(r, 200))
 
         isSpeakingRef.current = false
         setIsSpeaking(false)

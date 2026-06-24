@@ -724,7 +724,23 @@ export async function POST(req: NextRequest) {
       let wordCount  = 0
       let leadDone   = false
       let leadBuf    = ""
+      let outBuf     = ""                  // post-lead text, buffered to sentence boundaries
+      const seen     = new Set<string>()   // sentences already spoken → drop exact repeats
       const WORD_CAP = isVoice ? 110 : 99999
+      // Emit completed sentences, DROPPING any exact repeat — kills the local-model
+      // "say the same line again" loop (now that a real voice speaks every repeat aloud).
+      const flushDedup = (text: string) => {
+        const parts = text.match(/[^.!?…\n]*[.!?…\n]+|\S[^.!?…\n]*$/g)
+        if (!parts) return
+        let out = ""
+        for (const p of parts) {
+          const norm = p.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()
+          if (norm.length > 6 && seen.has(norm)) continue
+          if (norm.length > 6) seen.add(norm)
+          out += p
+        }
+        if (out) ctrl.enqueue(encoder.encode(out))
+      }
       try {
         for await (const delta of streamLLM(backend, backendMessages, {
           temperature: isVoice ? 0.85 : 0.92,
@@ -739,15 +755,18 @@ export async function POST(req: NextRequest) {
             leadBuf += delta
             // Wait until we have a line/sentence or ~60 chars before deciding.
             if (leadBuf.length < 60 && !/[\n.!?:]/.test(leadBuf)) continue
-            const cleaned = stripLeadingLabel(leadBuf)
-            ctrl.enqueue(encoder.encode(cleaned))
+            outBuf = stripLeadingLabel(leadBuf)   // seed the dedup buffer with the de-labeled lead
             leadDone = true
-            continue
+          } else {
+            outBuf += delta
           }
-          ctrl.enqueue(encoder.encode(delta))
+          // Flush only up to the last completed sentence; keep the trailing partial.
+          const m = outBuf.match(/^[\s\S]*[.!?…\n]/)
+          if (m) { flushDedup(m[0]); outBuf = outBuf.slice(m[0].length) }
           if (isVoice && wordCount >= WORD_CAP && /[.!?。！？]\s*$/.test(emitted)) break
         }
-        if (!leadDone && leadBuf) ctrl.enqueue(encoder.encode(stripLeadingLabel(leadBuf)))
+        if (!leadDone && leadBuf) outBuf = stripLeadingLabel(leadBuf)
+        if (outBuf.trim()) flushDedup(outBuf)
         ctrl.close()
       } catch (err) {
         if (!emitted) {

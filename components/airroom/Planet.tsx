@@ -493,7 +493,7 @@ export function Planet() {
           <div style={{ pointerEvents: "auto", width: "min(88vw, 460px)", textAlign: "center", color: "#eef4f8", animation: "skyOpen .8s ease both" }}>
             <div style={{ fontSize: 12, letterSpacing: 4, color: "#7fd6c0", textTransform: "uppercase" }}>airraw</div>
             <div style={{ fontSize: "clamp(25px, 7.5vw, 36px)", fontWeight: 500, lineHeight: 1.18, margin: "14px 0 8px" }}>it&apos;s the now.</div>
-            <div style={{ fontSize: 15, lineHeight: 1.5, color: "#9fb2c4", marginBottom: 22 }}>say what&apos;s on your mind — then dive into the sky.</div>
+            <div style={{ fontSize: 15, lineHeight: 1.5, color: "#9fb2c4", marginBottom: 22 }}>say what&apos;s on your mind — then dive into a sky full of voices.</div>
             <form onSubmit={(e) => { e.preventDefault(); dive() }} style={{ display: "flex", gap: 8 }}>
               <input value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="type anything…" aria-label="say something to the now" style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.22)", borderRadius: 14, padding: "14px 16px", minHeight: 52, boxSizing: "border-box", outline: "none" }} />
               <button type="submit" style={{ flex: "0 0 auto", fontSize: 15, fontWeight: 600, minHeight: 52, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "0 18px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>dive →</button>
@@ -547,11 +547,11 @@ export function Planet() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,30,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", paddingTop: "max(26px, env(safe-area-inset-top))", paddingBottom: "max(26px, env(safe-area-inset-bottom))", paddingLeft: "max(26px, env(safe-area-inset-left))", paddingRight: "max(26px, env(safe-area-inset-right))", zIndex: 30 }}>
           <div style={{ maxWidth: 340, textAlign: "center", color: "#f3e8fb" }}>
             <div style={{ fontSize: 12, letterSpacing: 1, color: "#c69cff" }}>you&apos;re approaching the deep</div>
-            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>it gets adult down here</div>
-            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#d7c3ea" }}>flirty, late-night, 18+. you only go deeper if you&apos;re old enough.</div>
+            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>18+ only past here</div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#d7c3ea" }}>flirty, explicit, late-night. tap below to confirm you&apos;re 18 or older.</div>
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
-              <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, minHeight: 44, color: "#1a0d2a", background: "#c69cff", border: "none", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>i&apos;m 18 or older — take me down</button>
-              <button onClick={() => { setPending(null); setPendingJoin(null); setNearDeep(false); zoomFnRef.current(0.18) }} style={{ fontSize: 14, lineHeight: 1.2, minHeight: 44, color: "#d7c3ea", background: "transparent", border: "1px solid rgba(198,156,255,.4)", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>keep me up here</button>
+              <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, minHeight: 44, color: "#1a0d2a", background: "#c69cff", border: "none", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>i&apos;m 18 or older — enter</button>
+              <button onClick={() => { setPending(null); setPendingJoin(null); setNearDeep(false); zoomFnRef.current(0.18) }} style={{ fontSize: 14, lineHeight: 1.2, minHeight: 44, color: "#d7c3ea", background: "transparent", border: "1px solid rgba(198,156,255,.4)", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>no — take me back</button>
             </div>
           </div>
         </div>

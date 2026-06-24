@@ -125,14 +125,36 @@ export async function POST(request: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let emittedAny = false
+      let buf = ""
+      const seen = new Set<string>()
+      // Emit sentence-by-sentence, DROPPING any sentence that exactly repeats one already
+      // spoken. Kills the local-model "say the same line over and over" loop — far more
+      // jarring now that a real ElevenLabs voice speaks every repeat aloud.
+      const flush = (text: string) => {
+        const parts = text.match(/[^.!?…\n]*[.!?…\n]+|\S[^.!?…\n]*$/g)
+        if (!parts) return
+        let out = ""
+        for (const p of parts) {
+          const norm = p.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()
+          if (norm.length > 6 && seen.has(norm)) continue   // exact repeat → drop
+          if (norm.length > 6) seen.add(norm)
+          out += p
+        }
+        if (out) { emittedAny = true; controller.enqueue(encoder.encode(out)) }
+      }
       try {
         for await (const delta of streamLLM("local", llmMessages, {
           temperature: 0.95,
           maxTokens: 180,
           uncensored: useUncensored,
         })) {
-          if (delta) { emittedAny = true; controller.enqueue(encoder.encode(delta)) }
+          if (!delta) continue
+          buf += delta
+          // Flush only up to the last completed sentence; keep the trailing partial.
+          const m = buf.match(/^[\s\S]*[.!?…\n]/)
+          if (m) { flush(m[0]); buf = buf.slice(m[0].length) }
         }
+        if (buf.trim()) flush(buf)
       } catch {
         // Every backend failed (truly exceptional). Degrade gracefully so the call
         // doesn't dead-air with a hard error the client can't render.

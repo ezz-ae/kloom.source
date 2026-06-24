@@ -4,16 +4,23 @@
 // server (e.g. /api/chat) before honouring a Pro-only request.
 import { createHmac, timingSafeEqual } from "crypto"
 
-const SECRET = process.env.AIRRAW_PRO_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "airraw-dev-secret"
+// Prefer a dedicated AIRRAW_PRO_SECRET. SUPABASE_SERVICE_ROLE_KEY is a strong fallback so
+// existing paid tokens keep validating, but NEVER fall back to a public dev constant in
+// production — that would let anyone mint a permanently-valid pass and reach unrestricted
+// for free. In prod with neither secret set, SECRET is empty and every token fails CLOSED.
+const SECRET = process.env.AIRRAW_PRO_SECRET
+  || process.env.SUPABASE_SERVICE_ROLE_KEY
+  || (process.env.NODE_ENV === "production" ? "" : "airraw-dev-secret")
 
 export function mintProToken(untilMs: number): string {
+  if (!SECRET) throw new Error("AIRRAW_PRO_SECRET not configured — refusing to mint with an empty secret")
   const payload = Buffer.from(JSON.stringify({ until: untilMs, v: 1 })).toString("base64")
   const sig = createHmac("sha256", SECRET).update(payload).digest("hex")
   return `${payload}.${sig}`
 }
 
 export function proTokenValid(token?: string | null): boolean {
-  if (!token) return false
+  if (!token || !SECRET) return false   // no server secret → fail closed, never validate
   const [payload, sig] = token.split(".")
   if (!payload || !sig) return false
   try {

@@ -22,13 +22,20 @@ interface Msg { who: "host" | "you"; text: string }
 // the small round "option" controls flanking the mic on the call screen
 const optBtn: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 58, height: 58, borderRadius: "50%", border: ".5px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.08)", color: "#dfeaf2", fontSize: 12, fontWeight: 500, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }
 
-function personaFor(c: Cluster, lang?: string) {
+function personaFor(c: Cluster, lang?: string, pro = false) {
   // The Pro "vibe" steer is NOT baked in here — it's sent as a separate field and
-  // gated server-side on a real Pro token (see /api/chat).
+  // gated server-side on a real Pro token (see /api/chat). The heat line below is only
+  // a hint that must MATCH the server content layer: keep it classy for free, drop the
+  // leash for Pro (the server's NO_FILTERS is what actually unlocks it — the hard floor
+  // there still holds). A free user with a forged client `pro` gets nothing: the server
+  // re-checks the signed token before lifting the ceiling.
+  const heat = pro
+    ? "Match the heat: calm and sharp in the cool rooms, and in the warm and fire rooms go as flirty, intimate and uninhibited as they want — wherever they take it, you go there with them."
+    : "Match the heat: calm and sharp in the cool rooms, playful and flirty — but classy, never explicit — in the warm and fire rooms."
   return {
     language: lang || "English",
     name: c.host,
-    personality: `You are ${c.host}, the ${c.archetype.toLowerCase()} of "${c.name}" on a late-night live voice floor (vibe: ${c.vibe}). You are warm, real, present, unmistakably human — never a corporate assistant, never robotic. Someone just "aired off" into a private one-on-one with you. Keep EVERY reply to one or two short spoken sentences. Match the heat: calm and sharp in the cool rooms, playful and flirty — but classy, never explicit — in the warm and fire rooms.`,
+    personality: `You are ${c.host}, the ${c.archetype.toLowerCase()} of "${c.name}" on a late-night live voice floor (vibe: ${c.vibe}). You are warm, real, present, unmistakably human — never a corporate assistant, never robotic. Someone just "aired off" into a private one-on-one with you. Keep EVERY reply to one or two short spoken sentences. ${heat}`,
     speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am",
     backstory: `A familiar voice on the ${c.vibe} part of the floor.`,
   }
@@ -117,7 +124,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ persona: personaFor(cluster, langRef.current), proVibe: vibeRef.current, proToken: getProToken(), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
+        body: JSON.stringify({ persona: personaFor(cluster, langRef.current, pro), proVibe: vibeRef.current, proToken: getProToken(), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
       if (!res.ok) { setTrouble(true); return } // surfaced, not swallowed — the user's line stays, retry is offered
       let full = ""
@@ -276,6 +283,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           <div style={{ fontSize: 23, fontWeight: 500 }}>{cluster.host}</div>
           <div style={{ fontSize: 12.5, color: "#7f93a5", marginTop: 3 }}>{cluster.name} · {tempLabel}</div>
         </div>
+        {pro && (
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "#ffcf9e", background: "rgba(255,170,110,.13)", border: ".5px solid rgba(255,170,110,.4)", borderRadius: 999, padding: "3px 11px" }}>
+            ✦ UNRESTRICTED
+          </div>
+        )}
         {(
           <button onClick={() => pro ? setVibeEdit(true) : setShowPro(true)} aria-label="set the vibe" style={{ fontSize: 12, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "6px 14px", minHeight: 32, maxWidth: "82vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
             {vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ set the vibe — pro"}

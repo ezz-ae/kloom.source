@@ -8,6 +8,7 @@
  */
 import { useState } from "react"
 import { setPendingIntent } from "@/lib/airroom/pro"
+import { track } from "@/lib/track"
 
 interface TopUpSliderProps { onDone?: () => void }
 
@@ -28,6 +29,7 @@ export function TopUpSlider({ onDone: _onDone }: TopUpSliderProps) {
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || "couldn't start checkout — try again"); setBusy(false); return }
       setPendingIntent(d.intentId)
+      try { track("initiate_checkout", { value: 9, currency: "USD", method: "ziina", kind: "pass" }, d.intentId) } catch { /* */ }
       window.location.href = d.url
     } catch { setErr("network hiccup — try again"); setBusy(false) }
   }

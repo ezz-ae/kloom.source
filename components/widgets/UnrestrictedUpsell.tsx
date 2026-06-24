@@ -10,6 +10,7 @@
 import { useState, useEffect } from "react"
 import { hasUnrestricted } from "@/lib/account"
 import { setPendingIntent } from "@/lib/airroom/pro"
+import { track } from "@/lib/track"
 import { Flame, Check, X } from "lucide-react"
 
 const PERKS = [
@@ -35,6 +36,7 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || "couldn't start checkout — try again"); setBusy(false); return }
       setPendingIntent(d.intentId)
+      try { track("initiate_checkout", { value: 9, currency: "USD", method: "ziina", kind: "pass" }, d.intentId) } catch { /* */ }
       window.location.href = d.url
     } catch { setErr("network hiccup — try again"); setBusy(false) }
   }

@@ -7,7 +7,8 @@
 // idempotent (claim is no-op once isPro() / the pending intent is cleared).
 
 import { useEffect, useState } from "react"
-import { getPendingIntent, clearPendingIntent, isPro, setProToken } from "@/lib/airroom/pro"
+import { getPendingIntent, clearPendingIntent, isPro, setProToken, fbCookies } from "@/lib/airroom/pro"
+import { track } from "@/lib/track"
 
 export function ProClaim() {
   const [msg, setMsg] = useState("")
@@ -23,10 +24,10 @@ export function ProClaim() {
       }
       const id = getPendingIntent()
       if (!id || isPro()) return
-      fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id }) })
+      fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id, ...fbCookies() }) })
         .then((r) => r.json())
         .then((d) => {
-          if (d?.paid && d?.token) { setProToken(d.token); clearPendingIntent(); setMsg("you're in ✦ pass active — everything's open.") }
+          if (d?.paid && d?.token) { setProToken(d.token); clearPendingIntent(); setMsg("you're in ✦ pass active — everything's open."); try { track("purchase", { value: 9, currency: "USD", method: "ziina", kind: "pass" }, id) } catch { /* */ } }
           else if (["failed", "canceled", "cancelled", "expired"].includes(String(d?.status))) clearPendingIntent()
           else if (justPaid) setMsg("payment is still processing — reopen in a moment.")
         })

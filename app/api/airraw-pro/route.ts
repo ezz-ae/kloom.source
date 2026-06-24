@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit(`airrawpro:${clientIp(req)}`, 20, 60_000)
   if (!rl.ok) return Response.json({ error: "slow down a sec" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  let body: { action?: string; intentId?: string } = {}
+  let body: { action?: string; intentId?: string; fbp?: string; fbc?: string } = {}
   try { body = await req.json() } catch { /* */ }
-  const { action, intentId } = body
+  const { action, intentId, fbp, fbc } = body
 
   if (action === "checkout") {
     try {
@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
         eventId: intentId,
         clientIp: clientIp(req),
         userAgent: req.headers.get("user-agent") || undefined,
+        fbp, fbc,   // browser match keys forwarded from the claim → server Purchase actually matches
       }).catch(() => {})
       return Response.json({ paid: true, token: mintProToken(until, PASS_MINUTES), until, minutes: PASS_MINUTES })
     } catch (e) {

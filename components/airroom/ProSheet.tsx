@@ -5,8 +5,9 @@
  * checkout (POST /api/airraw-pro). We stash the intent id before redirecting so the
  * planet can claim the pass when the buyer returns (?pro_ok=1).
  */
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { setPendingIntent } from "@/lib/airroom/pro"
+import { track } from "@/lib/track"
 
 const PERKS: [string, string][] = [
   ["✦  fully unrestricted", "the whole floor wide open — no limits, no gates, nothing held back"],
@@ -18,6 +19,8 @@ const PERKS: [string, string][] = [
 export function ProSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState("")
+  // The pass offer is on screen — mid-funnel intent signal (→ Meta AddToCart).
+  useEffect(() => { try { track("paywall_view", { value: 9, currency: "USD", kind: "pass" }) } catch { /* */ } }, [])
 
   const go = async () => {
     setBusy(true); setErr("")
@@ -26,6 +29,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || "couldn’t start checkout — try again"); setBusy(false); return }
       setPendingIntent(d.intentId)
+      try { track("initiate_checkout", { value: 9, currency: "USD", method: "ziina", kind: "pass" }, d.intentId) } catch { /* never block redirect */ }
       window.location.href = d.url
     } catch { setErr("network hiccup — try again"); setBusy(false) }
   }

@@ -44,6 +44,20 @@ export function isPro(): boolean {
   return proUntil() > Date.now()
 }
 
+// Meta match-quality keys for an anonymous buyer (no email): the browser pixel's _fbp
+// cookie + _fbc (click id). _fbc is synthesized from the ?fbclid landing param when the
+// cookie isn't there yet. Forwarded with the claim so the server Purchase actually matches.
+export function fbCookies(): { fbp?: string; fbc?: string } {
+  if (typeof document === "undefined") return {}
+  const g = (n: string) => document.cookie.split("; ").find((c) => c.startsWith(n + "="))?.split("=")[1]
+  let fbc = g("_fbc")
+  if (!fbc && typeof window !== "undefined") {
+    const cid = new URLSearchParams(window.location.search).get("fbclid")
+    if (cid) fbc = `fb.1.${Date.now()}.${cid}`
+  }
+  return { fbp: g("_fbp"), fbc }
+}
+
 // the Ziina intent we're mid-paying for — stashed before redirect, claimed on return
 export function setPendingIntent(id: string) { try { localStorage.setItem("airraw_pro_pending", id) } catch { /* */ } }
 export function getPendingIntent(): string | null { try { return localStorage.getItem("airraw_pro_pending") } catch { return null } }

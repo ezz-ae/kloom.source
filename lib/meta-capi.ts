@@ -21,6 +21,8 @@ export async function metaPurchase(opts: {
   eventId: string
   clientIp?: string
   userAgent?: string
+  fbp?: string
+  fbc?: string
 }): Promise<void> {
   if (!PIXEL || !TOKEN) return
   try {
@@ -28,6 +30,10 @@ export async function metaPurchase(opts: {
     if (opts.email) user_data.em = [sha256(opts.email)]
     if (opts.clientIp) user_data.client_ip_address = opts.clientIp
     if (opts.userAgent) user_data.client_user_agent = opts.userAgent
+    // fbp/fbc are Meta's own identifiers — passed UN-hashed (unlike em). Biggest match
+    // lever for an anonymous (emailless) buyer.
+    if (opts.fbp) user_data.fbp = opts.fbp
+    if (opts.fbc) user_data.fbc = opts.fbc
     await fetch(`https://graph.facebook.com/v19.0/${PIXEL}/events?access_token=${encodeURIComponent(TOKEN)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

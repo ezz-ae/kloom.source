@@ -441,7 +441,12 @@ export async function POST(req: NextRequest) {
   // Inline unlock moment — anyone NOT entitled who asks for explicit content (in
   // ANY room, dark/fantasy included) gets the upsell instead of the content.
   if (!allowExplicit && EXPLICIT_RE.test(latestUserText)) {
-    const notice = "mmm, I'd love to go there with you — but that's behind Unrestricted. unlock it for $10 and nothing's off-limits, here or anywhere on the platform."
+    // Price differs by product: the AIRRAW Pro pass is $9 (airraw.com, AIRRAW_HOME=1,
+    // AIRRAW_PRO_USD) while the kloom.io Unrestricted tier is $10. Same string serves both
+    // deployments, so resolve the price instead of hardcoding it (was a flat "$10" — wrong
+    // on the AIRRAW funnel where checkout actually charges $9).
+    const proUsd = process.env.AIRRAW_HOME === "1" ? Number(process.env.AIRRAW_PRO_USD || 9) : 10
+    const notice = `mmm, I'd love to go there with you — but that's behind Unrestricted. unlock it for $${proUsd} and nothing's off-limits, here or anywhere on the platform.`
     return new Response(notice, {
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-MCP-Upsell": "unrestricted" },
     })

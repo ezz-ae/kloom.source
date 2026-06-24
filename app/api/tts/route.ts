@@ -1,6 +1,7 @@
 import { resolveVoiceId, getFallbackVoiceId, voiceForLanguage } from "@/lib/voices"
 import { isoForLanguage } from "@/lib/languages"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
+import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
@@ -240,7 +241,14 @@ function shapeForSpeech(input: string): string {
 // pick with ELEVENLABS_VOICE_MALE / ELEVENLABS_VOICE_FEMALE.
 const EL_FEMALE = ["21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "MF3mGyEYCl7XYWbV9V6O", "jsCqWAovK2LkecY7zXl4", "pFZP5JQG7iQjIQuC4Bku", "jAAHNNqlbAX9iWjJPEtE", "FvmvwvObRqIHojkEGh5N", "umKoJK6tP1ALjO0zo1EE"]
 const EL_MALE   = ["pNInz6obpgDQGcFmaJgB", "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG", "yoZ06aMxZJJ28mfd3POQ", "onwK4e9ZLuTAKqWW03F9"]
+// A dedicated Indian-English female voice for South-Asian female personas — it MATCHES
+// their face (face ethnicity is derived from the same persona name). Deliberately NOT in
+// the random pool, so it only ever plays on a face it fits. Env-overridable.
+const SA_FEMALE_VOICE = process.env.ELEVENLABS_VOICE_FEMALE_SA || "f0JpDwzbGK384Dd1WH2s"
 function elVoiceFor(name?: string, gender?: string): string {
+  // Voice-casting by face ethnicity: a South-Asian female face gets the Indian-English
+  // voice (checked BEFORE the pinned default so it isn't overridden by it).
+  if (gender !== "male" && name && isSouthAsianSeed(name)) return SA_FEMALE_VOICE
   const env = gender === "male" ? process.env.ELEVENLABS_VOICE_MALE : process.env.ELEVENLABS_VOICE_FEMALE
   if (env) return env
   const pool = gender === "male" ? EL_MALE : EL_FEMALE

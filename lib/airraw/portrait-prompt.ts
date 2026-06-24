@@ -29,6 +29,18 @@ const ETHNICITY = [
   "mixed-race", "biracial", "Indigenous Native American", "Pacific Islander", "Māori",
 ]
 
+// The SAME deterministic ethnicity a persona's FACE gets — keyed on the persona's name/seed
+// (the face request uses the name as its seed). Exported so the VOICE can match the face
+// (e.g. a South-Asian face → an Indian-English voice). Canonical source: buildPortraitPrompt
+// uses this too, so face and voice can never disagree.
+export function ethnicityForSeed(seedKey: string): string {
+  return pick(ETHNICITY, seedKey, "eth")
+}
+const SOUTH_ASIAN = new Set(["Indian", "South Asian", "Pakistani", "Bangladeshi", "Sri Lankan"])
+export function isSouthAsianSeed(seedKey: string): boolean {
+  return SOUTH_ASIAN.has(ethnicityForSeed(seedKey))
+}
+
 // Young-skewed for a consumer product — 20s–30s mostly, a little into the early 40s.
 const AGE = [
   "in their early 20s", "in their early 20s", "in their mid-20s", "in their mid-20s",
@@ -107,7 +119,7 @@ export interface PortraitPrompt { prompt: string; negative: string; seed: number
 /** Build a unique, diverse portrait prompt for a persona. */
 export function buildPortraitPrompt(seedKey: string, gender?: string, _world?: string, desc?: string): PortraitPrompt {
   const k = seedKey || "anon"
-  const ethnicity = pick(ETHNICITY, k, "eth")
+  const ethnicity = ethnicityForSeed(k)
   const age = pick(AGE, k, "age")
   const { pool, word } = genderLooks(gender, k)
   const look = pick(pool, k, "look")

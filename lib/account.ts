@@ -7,18 +7,20 @@
 
 import { hasUnlimited, LAUNCH_UNLIMITED } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
+import { isPro } from "@/lib/airroom/pro"
 
 const SUB_KEY    = "kloom_subscribed"
 const UNREST_KEY = "kloom_unrestricted"
 
 /**
  * Unrestricted — full no-restriction mode across the WHOLE platform (every
- * model + character, no content limits). Included in every pass (Dayuse /
- * Holyweek / Super30). During launch mode everything is unlocked for testing.
+ * model + character, no content limits). Included in the ONE pass (the anonymous
+ * airraw_pro token). During launch mode everything is unlocked for testing.
  */
 export function hasUnrestricted(): boolean {
   if (LAUNCH_UNLIMITED) return true
-  if (hasActivePass()) return true   // every pass includes Unrestricted
+  if (isPro()) return true           // the ONE pass includes full unrestriction
+  if (hasActivePass()) return true   // legacy kloom pass
   try { return localStorage.getItem(UNREST_KEY) === "1" } catch { return false }
 }
 export function setUnrestricted(on: boolean) {

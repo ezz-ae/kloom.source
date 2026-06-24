@@ -12,7 +12,8 @@ import { metaPurchase } from "@/lib/meta-capi"
 export const maxDuration = 30
 
 const PRICE_USD = Number(process.env.AIRRAW_PRO_USD || 9)
-const DAYS = Number(process.env.AIRRAW_PRO_DAYS || 30)
+const DAYS = Number(process.env.AIRRAW_PRO_DAYS || 90)   // the ONE pass: 3 months
+const PASS_MINUTES = Number(process.env.AIRRAW_PASS_MINUTES || 6000)  // voice allowance
 
 export async function POST(req: NextRequest) {
   // return the buyer to the public host they're on (proxy-aware), like the kloom flow
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
         clientIp: clientIp(req),
         userAgent: req.headers.get("user-agent") || undefined,
       }).catch(() => {})
-      return Response.json({ paid: true, token: mintProToken(until), until })
+      return Response.json({ paid: true, token: mintProToken(until, PASS_MINUTES), until, minutes: PASS_MINUTES })
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : "claim failed" }, { status: 502 })
     }

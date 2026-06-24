@@ -12,16 +12,17 @@ const SECRET = process.env.AIRRAW_PRO_SECRET
   || process.env.SUPABASE_SERVICE_ROLE_KEY
   || (process.env.NODE_ENV === "production" ? "" : "airraw-dev-secret")
 
-export function mintProToken(untilMs: number): string {
+export function mintProToken(untilMs: number, minutes = 6000): string {
   if (!SECRET) throw new Error("AIRRAW_PRO_SECRET not configured — refusing to mint with an empty secret")
-  // adult18:true records that the user affirmed 18+ at payment time (S1 age attestation).
-  const payload = Buffer.from(JSON.stringify({ until: untilMs, v: 1, adult18: true })).toString("base64")
+  // The ONE pass: adult18 (S1 age attestation) + minutes (the voice allowance). Both live
+  // INSIDE the HMAC-signed payload so an anonymous buyer's allowance can't be forged.
+  const payload = Buffer.from(JSON.stringify({ until: untilMs, v: 1, adult18: true, minutes })).toString("base64")
   const sig = createHmac("sha256", SECRET).update(payload).digest("hex")
   return `${payload}.${sig}`
 }
 
 /** Verified claims from a Pro token, or null if invalid/expired/unsigned. */
-export function proTokenClaims(token?: string | null): { until: number; v: number; adult18?: boolean } | null {
+export function proTokenClaims(token?: string | null): { until: number; v: number; adult18?: boolean; minutes?: number } | null {
   if (!token || !SECRET) return null
   const [payload, sig] = token.split(".")
   if (!payload || !sig) return null

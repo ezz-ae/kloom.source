@@ -22,6 +22,17 @@ function tokenUntil(token: string | null): number {
 /** ms epoch the current pass runs until (0 if none). */
 export function proUntil(): number { return tokenUntil(getProToken()) }
 
+/** Voice minutes the current pass carries (0 if no active pass). Read from the signed
+ *  token payload; the ONE pass grants 6000. Used by voice-credits to honour the pass. */
+export function proMinutes(): number {
+  const token = getProToken()
+  if (!token || proUntil() <= Date.now()) return 0
+  try {
+    const json = JSON.parse(atob(token.split(".")[0]))
+    return typeof json.minutes === "number" ? json.minutes : 0
+  } catch { return 0 }
+}
+
 export function isPro(): boolean {
   if (typeof window === "undefined") return false
   try {

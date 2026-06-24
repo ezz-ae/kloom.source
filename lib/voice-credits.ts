@@ -33,10 +33,12 @@ export const LAUNCH_UNLIMITED =
 
 // ── unlimited pass ──
 import { hasActivePass } from "@/lib/pricing"
+import { isPro } from "@/lib/airroom/pro"
 
 export function hasUnlimited(): boolean {
   if (LAUNCH_UNLIMITED) return true
-  if (hasActivePass()) return true   // Dayuse / Holyweek / Super30 — unlimited voice
+  if (isPro()) return true           // the ONE pass (anonymous airraw_pro token) — voice incl.
+  if (hasActivePass()) return true   // legacy kloom pass — unlimited voice
   try { return localStorage.getItem(UNLIMITED_KEY) === "1" } catch { return false }
 }
 export function setUnlimited(on: boolean) {
@@ -47,6 +49,7 @@ export function setUnlimited(on: boolean) {
  *  thing the daily fair-use cap applies to. Deliberately EXCLUDES launch mode,
  *  which is the pre-billing "everything free" state and is uncapped by design. */
 function hasPassUnlimited(): boolean {
+  if (isPro()) return true           // the ONE pass — metered against the daily fair-use cap
   if (hasActivePass()) return true
   try { return localStorage.getItem(UNLIMITED_KEY) === "1" } catch { return false }
 }

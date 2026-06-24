@@ -446,10 +446,12 @@ export function Planet() {
       else if (cam.s < 6 && nearDeepRef.current) { nearDeepRef.current = false; setNearDeep(false) }
       const join: Join | null = (baseRm && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: co.f, adult: !!co.adult, c: bc } : null
       let crumb: string, altl: string, hear: string
-      if (cam.s < 3.2) { crumb = "from orbit · the whole now"; altl = "orbit"; hear = "the hum of the whole now · thousands of voices" }
-      else if (cam.s < 11) { crumb = `${co.v} · a region of the now`; altl = "atmosphere"; hear = `drifting through ${co.v}` }
-      else if (!facesVisible) { crumb = `${co.v} · a block`; altl = "rooftops"; hear = `a block of ${co.v} · ${nearestRoom ? nearestRoom.count : 0} inside · zoom in to land` }
-      else { crumb = `${co.v} · on the floor`; altl = "the floor"; hear = actChar ? `hearing · ${actChar.host} — “${actChar.lines[0]}”` : "lean closer" }
+      // Three chips, three non-overlapping jobs: crumb = WHERE you are, altl = the DEPTH
+      // tier, hear = the SOUND. No repeated phrases across them (was 3x "the whole now").
+      if (cam.s < 3.2) { crumb = "the whole now"; altl = "orbit"; hear = "thousands of voices, all at once" }
+      else if (cam.s < 11) { crumb = co.v; altl = "region"; hear = `drifting through ${co.v}` }
+      else if (!facesVisible) { crumb = co.v; altl = "block"; hear = `${nearestRoom ? nearestRoom.count : 0} inside · zoom in to land` }
+      else { crumb = co.v; altl = "floor"; hear = actChar ? `${actChar.host} · “${actChar.lines[0]}”` : "lean closer" }
       const sig = crumb + "|" + altl + "|" + hear + "|" + (join ? `${join.n}:${join.seed}` : "0")
       if (sig !== lastHud) { lastHud = sig; setHud({ crumb, alt: altl, hearing: hear, join }) }
     }
@@ -508,14 +510,19 @@ export function Planet() {
               <button type="submit" style={{ flex: "0 0 auto", fontSize: 15, fontWeight: 600, minHeight: 52, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "0 18px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>dive →</button>
             </form>
             <button onClick={() => { openingRef.current = ""; startFnRef.current() }} style={{ marginTop: 16, fontSize: 13, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>or just look around →</button>
+            <div style={{ marginTop: 22, fontSize: 11, color: "#5f7080", letterSpacing: 0.5 }}>
+              <a href="/airraw/privacy" style={{ color: "#6b7d8e", textDecoration: "none" }}>privacy</a>
+              <span style={{ opacity: 0.4, margin: "0 9px" }}>·</span>
+              <a href="/airraw/terms" style={{ color: "#6b7d8e", textDecoration: "none" }}>terms</a>
+            </div>
           </div>
         </div>
       )}
 
       {started && (
       <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 54px)", left: 16, right: 16, display: "flex", justifyContent: "space-between", gap: 10, pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-        <div style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, color: "#9fb2c4", letterSpacing: 1, background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hud.crumb}</div>
-        <div style={{ flex: "0 0 auto", fontSize: 11, color: "#6b7d8e", background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, whiteSpace: "nowrap" }}>altitude — {hud.alt}</div>
+        <div style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, color: "#9fb2c4", letterSpacing: 1, background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ color: "#7fd6c0", fontWeight: 700, letterSpacing: 2 }}>AIRRAW</span><span style={{ opacity: 0.4 }}>{"   ·   "}</span>{hud.crumb}</div>
+        <div style={{ flex: "0 0 auto", fontSize: 11, color: "#6b7d8e", background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, whiteSpace: "nowrap" }}>{hud.alt}</div>
       </div>
       )}
 

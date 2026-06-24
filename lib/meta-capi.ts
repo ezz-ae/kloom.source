@@ -40,6 +40,11 @@ export async function metaPurchase(opts: {
           user_data,
           custom_data: { value: opts.value, currency: opts.currency || "USD" },
         }],
+        // Temporary end-to-end test hook: when META_TEST_EVENT_CODE is set, this real
+        // server event routes to Events Manager → Test Events (and is NOT counted as a
+        // live conversion). Use it to prove the server path, then UNSET it in production —
+        // otherwise real purchases keep landing in Test Events and stop optimizing ads.
+        ...(process.env.META_TEST_EVENT_CODE ? { test_event_code: process.env.META_TEST_EVENT_CODE } : {}),
       }),
       signal: AbortSignal.timeout(8000),
     })

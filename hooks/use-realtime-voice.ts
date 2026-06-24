@@ -442,7 +442,7 @@ export function useRealtimeVoice({
         console.log("Barge-in detected — stopping AI, processing:", userText)
         stopAI()
         // Brief pause so audio element fully stops before we start a new turn
-        await new Promise((r) => setTimeout(r, 50))
+        await new Promise((r) => setTimeout(r, 80))
       }
 
       onTranscript?.(userText, "user" as const)
@@ -483,9 +483,11 @@ export function useRealtimeVoice({
           console.error("Conversation error:", err)
         }
       } finally {
-        // Grace period so any speaker echo decays before mic reopens. 200ms is enough
-        // with browser echo-cancellation on; lower = the user can speak back sooner (was 350).
-        await new Promise((r) => setTimeout(r, 200))
+        // Grace period so the AI's own audio fully decays before the mic reopens —
+        // otherwise the (loud, clear) ElevenLabs voice echoes back in and the AI hears
+        // itself, repeats, and talks over the user. 400ms is deliberately generous now
+        // that the voice is ElevenLabs, not quieter Fish (was 350 pre-EL, 200 was too low).
+        await new Promise((r) => setTimeout(r, 400))
 
         isSpeakingRef.current = false
         setIsSpeaking(false)

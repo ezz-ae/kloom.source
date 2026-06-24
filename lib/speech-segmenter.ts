@@ -62,8 +62,8 @@ export class SpeechSegmenter {
 
   constructor(options: SegmenterOptions) {
     this.opts = {
-      silenceMs: 650,      // end-of-speech after this much silence — lower = snappier reply (was 850; ~200ms faster, still clears natural sentence pauses)
-      minSpeechMs: 300,    // ignore blips shorter than real speech (coughs, clicks, a breath); lets short real words ("yeah","no") through (was 420)
+      silenceMs: 850,      // end-of-speech after this much silence. Reverted from 650 — 650 cut people off mid-thought AND let the louder ElevenLabs voice echo back in.
+      minSpeechMs: 420,    // ignore blips shorter than real speech (coughs, clicks, a breath). Reverted from 300 — 300 let echo fragments register as user speech (feedback loop).
       startRms: 0.02,      // require a bit more energy to START → quiet background won't trigger silence-hallucinations
       endRms: 0.01,
       ...options,

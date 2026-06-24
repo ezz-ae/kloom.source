@@ -292,16 +292,6 @@ async function realismPass(input: Buffer): Promise<Buffer> {
 }
 
 export async function POST(request: Request) {
-  // Cost guard: image generation bills FAL per request and the cache key is
-  // caller-supplied (name/seed), so a loop varying the name forces unlimited fresh
-  // generations. Gate it like the other billable endpoints. globalGate is the daily
-  // kill-cap; the per-IP limit stops a single abuser's tight loop. (A hard FAL.ai
-  // dashboard spend limit is still the real dollar backstop.)
-  const gate = globalGate()
-  if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
-  const rl = rateLimit(`img:${clientIp(request)}`, 40, 60_000)
-  if (!rl.ok) return Response.json({ error: "slow down" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
-
   let name = "", gender = "", world = "", desc = "", slug = "", seedKey = ""
   let diverse = false, providerOverride = ""
   try {
@@ -391,6 +381,19 @@ export async function POST(request: Request) {
   // face. A broken render (no face / two faces / artifacts) gets retried with a new
   // diffusion seed for the SAME persona, so a bad face never gets cached. The face
   // check is fail-open, so it can never block generation.
+  //
+  // Cost guard — placed HERE (after the cache HEAD check), NOT at the top of the
+  // handler: a planet viewport loads MANY faces at once and almost all are cache hits
+  // (make-once, deterministic by name), so gating the whole endpoint 429'd legit face
+  // loads and made faces vanish/repeat on the floor. Only a real GENERATION (cache miss)
+  // is billable, so only it is gated: globalGate = daily kill-cap; the per-IP limit
+  // stops an abuser varying the name to force fresh renders. (Hard FAL dashboard spend
+  // limit is still the real dollar backstop.)
+  const gate = globalGate()
+  if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
+  const rl = rateLimit(`imggen:${clientIp(request)}`, 30, 60_000)
+  if (!rl.ok) return Response.json({ error: "slow down" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
+
   let bytes: Buffer | null = null
   const MAX_TRIES = dp ? 3 : 1
   for (let attempt = 0; attempt < MAX_TRIES; attempt++) {

@@ -5,6 +5,7 @@ import { useState } from "react"
 import { EXPERTS, EXPERT_GROUP_LABELS, type ExpertGroup } from "@/lib/experts"
 import { ROOMS } from "@/lib/rooms"
 import { adultEnabled } from "@/lib/variant"
+import { RoomFace } from "@/components/RoomFace"
 import {
   Mic, MessageSquare, Users, Sparkles, Shield, Zap, Globe,
   ChevronRight, Check, GraduationCap, Bot, ArrowRight, Play,
@@ -313,21 +314,24 @@ export default function LandingPage() {
           )}
         </div>
 
-        <div className="space-y-10">
+        <div className="space-y-12">
           {visibleGroups.map((g) => (
             <div key={g}>
-              <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground/35 mb-4 border-b border-white/8 pb-2">
+              <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground/35 mb-5 border-b border-white/8 pb-2">
                 {EXPERT_GROUP_LABELS[g]}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {EXPERTS.filter((e) => e.group === g).map((e) => (
-                  <div key={e.id}
-                    className="flex items-baseline justify-between gap-4 border-b border-white/[0.04] pb-3">
-                    <div className="min-w-0">
-                      <span className="font-bold text-[15px]">{e.name}</span>
-                      <span className="text-foreground/50 text-sm"> — {e.domain}</span>
+                  <Link key={e.id} href="/app/create" className="group/e block">
+                    <div className="aspect-square rounded-2xl overflow-hidden bg-stone-900 border border-white/8 mb-2 relative">
+                      <RoomFace name={e.name} gender={e.gender}
+                        className="w-full h-full object-cover group-hover/e:scale-[1.04] transition-transform duration-300"
+                        alt={e.name} />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
                     </div>
-                  </div>
+                    <div className="font-bold text-sm leading-tight truncate">{e.name}</div>
+                    <div className="text-foreground/45 text-xs truncate">{e.domain}</div>
+                  </Link>
                 ))}
               </div>
             </div>

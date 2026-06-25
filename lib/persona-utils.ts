@@ -35,6 +35,10 @@ const AURAS: Array<[string, string]> = [
 
 import { PORTRAIT_SLUGS } from "@/lib/cast-portraits"
 
+// Bump when curated /cast/*.jpg files are re-shot, so the same URL doesn't serve a
+// browser-cached stale (robotic) face. v5 = the FAL flux/dev candid re-shoot.
+const CAST_VERSION = "5"
+
 /** Same slug rule as the portrait generation pipeline — keep in sync. */
 export function portraitSlug(name: string): string {
   return name.toLowerCase().replace(/\(.*?\)/g, "").trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
@@ -51,7 +55,7 @@ export function imageFor(persona: { name: string; photoUrl?: string }): string {
   if (persona.photoUrl) return persona.photoUrl
   const name = persona.name || "?"
   const slug = portraitSlug(name)
-  if (PORTRAIT_SLUGS.has(slug)) return `/cast/${slug}.jpg`
+  if (PORTRAIT_SLUGS.has(slug)) return `/cast/${slug}.jpg?v=${CAST_VERSION}`
   const h = nameHash(name)
   const [c1, c2] = AURAS[h % AURAS.length]
   // Aura position drifts per identity so cards don't look stamped.

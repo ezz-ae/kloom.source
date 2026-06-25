@@ -442,13 +442,14 @@ export function Planet() {
       if (cam.s > 8.5 && co.adult && !verifiedRef.current) { if (!nearDeepRef.current) { nearDeepRef.current = true; setNearDeep(true) } }
       else if (cam.s < 6 && nearDeepRef.current) { nearDeepRef.current = false; setNearDeep(false) }
       const join: Join | null = (baseRm && cam.s > 3.2) ? { n: joinSize(cam.s, loc), seed: loc, f: co.f, adult: !!co.adult, c: bc } : null
-      let crumb: string, altl: string, hear: string
-      // Three chips, three non-overlapping jobs: crumb = WHERE you are, altl = the DEPTH
-      // tier, hear = the SOUND. No repeated phrases across them (was 3x "the whole now").
-      if (cam.s < 3.2) { crumb = "the whole now"; altl = "orbit"; hear = "thousands of voices, all at once" }
-      else if (cam.s < 11) { crumb = co.v; altl = "region"; hear = `drifting through ${co.v}` }
-      else if (!facesVisible) { crumb = co.v; altl = "block"; hear = `${nearestRoom ? nearestRoom.count : 0} inside · zoom in to land` }
-      else { crumb = co.v; altl = "floor"; hear = actChar ? `${actChar.host} · “${actChar.lines[0]}”` : "lean closer" }
+      // crumb/altl are kept as internal state only (no longer painted as HUD chrome);
+      // the ONE line we still surface is the live overhear of a specific nearby voice —
+      // a real teaser of a real line, not atmospheric flavor.
+      let crumb: string, altl: string, hear = ""
+      if (cam.s < 3.2) { crumb = "the whole now"; altl = "orbit" }
+      else if (cam.s < 11) { crumb = co.v; altl = "region" }
+      else if (!facesVisible) { crumb = co.v; altl = "block" }
+      else { crumb = co.v; altl = "floor"; if (actChar) hear = `${actChar.host} · “${actChar.lines[0]}”` }
       const sig = crumb + "|" + altl + "|" + hear + "|" + (join ? `${join.n}:${join.seed}` : "0")
       if (sig !== lastHud) { lastHud = sig; setHud({ crumb, alt: altl, hearing: hear, join }) }
     }
@@ -512,13 +513,6 @@ export function Planet() {
         </div>
       )}
 
-      {started && (
-      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 54px)", left: 16, right: 16, display: "flex", justifyContent: "space-between", gap: 10, pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-        <div style={{ flex: "1 1 auto", minWidth: 0, fontSize: 12, color: "#9fb2c4", letterSpacing: 1, background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ color: "#7fd6c0", fontWeight: 700, letterSpacing: 2 }}>AIRRAW</span><span style={{ opacity: 0.4 }}>{"   ·   "}</span>{hud.crumb}</div>
-        <div style={{ flex: "0 0 auto", fontSize: 11, color: "#6b7d8e", background: "rgba(4,5,11,.5)", padding: "5px 10px", borderRadius: 9, whiteSpace: "nowrap" }}>{hud.alt}</div>
-      </div>
-      )}
-
       {/* The main act: join the group at this scale. The number shrinks as you descend. */}
       {started && hud.join && !selected && !group && !preview && (
         <button onClick={() => joinGroup(hud.join!)}
@@ -527,7 +521,7 @@ export function Planet() {
         </button>
       )}
 
-      {started && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
+      {started && hud.hearing && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
 
       {started && (
       <div style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", display: "flex", flexDirection: "column", gap: 8 }}>

@@ -13,7 +13,7 @@ import {
 const NAV: Array<{ label: string; href: string; icon: typeof Home; badge?: string; badgeColor?: string }> = [
   { label: "Home",          href: "/app",        icon: Home },
   { label: "Rooms",         href: "/app/rooms",  icon: DoorOpen },
-  { label: "Create a room", href: "/app/create", icon: Plus },
+  { label: "Create", href: "/app/create", icon: Plus },
   { label: "You",           href: "/app/you",    icon: User },
 ]
 
@@ -21,7 +21,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="glass flex flex-col h-full w-60 border-r border-white/[0.06] py-5 px-3 shrink-0">
+    <aside className="bg-black flex flex-col h-full w-60 border-r border-white/[0.06] py-5 px-3 shrink-0">
       {/* Logo */}
       <Link href="/app" className="flex items-center gap-2.5 px-2 mb-7 group">
         <div className="w-9 h-9 rounded-2xl brand-gradient flex items-center justify-center brand-glow group-hover:scale-105 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] p-1.5">
@@ -70,18 +70,13 @@ export function Sidebar() {
       <div className="mt-4 space-y-3 px-1">
         <Link
           href="/app/settings?tab=billing"
-          className="relative block rounded-3xl overflow-hidden p-4 border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-orange-500/[0.04] to-transparent group">
-          <div className="absolute -top-8 -right-6 w-24 h-24 rounded-full bg-amber-500/20 blur-2xl pointer-events-none" />
-          <div className="relative text-[10px] uppercase tracking-[0.28em] text-amber-200/70 font-bold">Full access</div>
-          <div className="relative mt-1.5 text-lg font-black tracking-tight">Every model, unrestricted</div>
-          <span className="relative inline-flex items-center gap-1.5 mt-3 rounded-full brand-gradient px-3.5 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-950 brand-glow group-hover:scale-[1.03] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
-            <Plus size={12} /> Get a pass
-          </span>
+          className="flex items-center justify-center gap-1.5 rounded-2xl brand-gradient px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-stone-950 brand-glow hover:scale-[1.02] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
+          <Plus size={13} /> Get a pass
         </Link>
 
         <Link
           href="/app/settings"
-          className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition ${
+          className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-semibold transition ${
             pathname === "/app/settings"
               ? "bg-amber-500/[0.14] text-foreground"
               : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"

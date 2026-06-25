@@ -44,6 +44,16 @@ function personaFor(c: Cluster, lang?: string, pro = false) {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// The exit is a hand-off, never a dead end — on the way out the host opens a loop that
+// pulls the user back, instead of letting them close into silence.
+const PARTING = [
+  "wait — don't disappear on me. i'm still chewing on what you said. come back and finish the thought.",
+  "leaving already? fine. but you're gonna think about this later, i can tell. find me when you do.",
+  "go on, then. but you started something here — you don't get to leave it unfinished. come back to me.",
+  "take it with you, whatever we just stirred up. i'll be right here on the floor when it clicks.",
+  "okay, drift off. but that thing you said? it's not done. come tell me how it ends.",
+]
+
 export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang = "English" }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string; lang?: string }) {
   const [msgs, setMsgs] = useState<Msg[]>([{ who: "host", text: cluster.lines[0] }])
   const [input, setInput] = useState("")
@@ -53,6 +63,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [handsFree, setHandsFree] = useState(false)    // continuous mode
   const [trouble, setTrouble] = useState(false)     // backend unreachable — show retry, don't fake a reply
   const [speaking, setSpeaking] = useState(false)   // host is talking aloud → pulse the call ring
+  const [leaving, setLeaving] = useState(false)     // mid hand-off (the host's parting line)
   const [chatOpen, setChatOpen] = useState(false)   // the words keep being written; this reveals/types them
   const [micHint, setMicHint] = useState("")        // surface mic-permission/availability instead of dying silently
   const [muted, setMuted] = useState(false)         // mute their voice (text keeps flowing)
@@ -193,6 +204,18 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   // silently discard what you said). The continuous path (below) is MediaRecorder +
   // server Whisper, so it works in the Instagram / in-app browsers too.
   const onTalk = () => { setMicHint(""); lastActivityRef.current = Date.now(); startCallAmbience(); setHandsFree((h) => !h) }
+
+  // Leaving is a hand-off, not a dead end: if they actually talked, the host gets one
+  // parting line that opens a loop, then the call closes. A second tap leaves immediately.
+  const leaveCall = () => {
+    if (leaving || msgs.length <= 1) { onClose(); return }
+    setLeaving(true)
+    setHandsFree(false)
+    const parting = PARTING[(msgs.length + cluster.host.length) % PARTING.length]
+    setMsgs((m) => [...m, { who: "host", text: parting }])
+    speak(parting)
+    setTimeout(() => onClose(), 4500)
+  }
 
   // hands-free: keep the mic open and auto-send each finished utterance. Primary
   // path is MediaRecorder + server Whisper (SpeechSegmenter) — it stays live across
@@ -335,7 +358,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28 }}>
           <button onClick={() => setChatOpen(true)} aria-label="open the text / type" style={optBtn}>text</button>
           <button onClick={sttOk ? onTalk : () => setChatOpen(true)} aria-label={sttOk ? "talk" : "type"} style={{ width: 84, height: 84, borderRadius: "50%", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 16, color: handsFree ? "#06201a" : "#1a0d08", background: handsFree ? "#7fd6c0" : "#ef7a4d", boxShadow: handsFree ? "0 14px 40px -12px rgba(127,214,192,.65)" : "0 14px 40px -12px rgba(239,122,77,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .15s" }}>{!sttOk ? "type" : handsFree ? "live" : "talk"}</button>
-          <button onClick={onClose} aria-label="leave the call" style={{ ...optBtn, background: "rgba(224,82,75,.2)", borderColor: "rgba(224,82,75,.5)", color: "#ff9d96" }}>leave</button>
+          <button onClick={leaveCall} aria-label="leave the call" style={{ ...optBtn, background: "rgba(224,82,75,.2)", borderColor: "rgba(224,82,75,.5)", color: "#ff9d96" }}>{leaving ? "leave now" : "leave"}</button>
         </div>
       </div>
 

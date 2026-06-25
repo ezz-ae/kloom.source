@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useState } from "react"
 import { EXPERTS, EXPERT_GROUP_LABELS, type ExpertGroup } from "@/lib/experts"
 import { ROOMS } from "@/lib/rooms"
 import {
@@ -22,7 +23,7 @@ const PILLARS = [
     icon: GraduationCap,
     title: "Your cast",
     accent: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    body: "Pick characters from the roster or invent your own. Every one speaks with a real voice — and you can clone any voice straight from a YouTube link.",
+    body: "Pick characters from the roster or invent your own. Every one speaks with a real voice — and you can clone any voice from a YouTube link in about 30 seconds.",
     highlight: "Clone any voice",
   },
   {
@@ -44,13 +45,22 @@ const PILLARS = [
 // ── How it works ──────────────────────────────────────────────────────────────
 const STEPS = [
   { n: "01", title: "Pick a world", body: "Trading floor, fantasy realm, deep talk, the workshop — every world has its own rooms, rules and cast." },
-  { n: "02", title: "Build the cast & voices", body: "Choose characters or invent them, give each one a real voice — or clone a voice from any YouTube video." },
+  { n: "02", title: "Build the cast & voices", body: "Choose characters or invent them, give each a real voice — or paste a YouTube link and clone a voice in about 30 seconds. No files, no training wait." },
   { n: "03", title: "Open the doors", body: "Send one link and friends walk straight in. Voice or text, live tools, the best models." },
 ]
 
 export default function LandingPage() {
   // Group experts for the showcase
   const groups = Array.from(new Set(EXPERTS.map((e) => e.group))) as ExpertGroup[]
+  // Let visitors self-select their reason for being here; keep the adult roster OPT-IN
+  // so a business/dev visitor isn't hit with intimacy personas next to "Launch War Room".
+  const ADULT: ExpertGroup = "intimacy"
+  const [activeGroup, setActiveGroup] = useState<ExpertGroup | "all">("all")
+  const [show18, setShow18] = useState(false)
+  const chipGroups = groups.filter((g) => g !== ADULT || show18)          // 18+ chip appears only once opted in
+  const visibleGroups = activeGroup === "all"
+    ? groups.filter((g) => g !== ADULT || show18)                         // 18+ section hidden from "All" until opted in
+    : [activeGroup]
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
@@ -86,7 +96,7 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-3xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-2 bg-foreground/5 border border-border rounded-full px-4 py-1.5 text-xs font-medium text-foreground/70">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Claude · Gemini · GPT · 100+ characters · free to chat
+            Claude · Gemini · GPT · {EXPERTS.length} characters · free to chat
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-[1.05]">
@@ -156,9 +166,9 @@ export default function LandingPage() {
         </div>
 
         <p className="text-center text-foreground/60 text-lg leading-relaxed max-w-2xl mx-auto mt-10">
-          Invite a partner, a co-founder or a friend into a next-level multi-character AI voice room — over{" "}
-          <span className="text-foreground font-semibold">100 different characters</span> across the trading floor,
-          the workshop, deep talk and <span className="text-foreground">community-built worlds</span>.
+          Invite a partner, a co-founder or a friend into a next-level multi-character AI voice room —{" "}
+          <span className="text-foreground font-semibold">{EXPERTS.length} expert characters</span> across the trading floor,
+          the workshop and deep talk — <span className="text-foreground">plus your own, built in seconds</span>.
         </p>
         <div className="flex justify-center mt-7">
           <Link href="/app/rooms" className="inline-flex items-center gap-2 bg-foreground text-background font-bold px-8 py-4 rounded-2xl hover:bg-foreground/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-base">
@@ -254,13 +264,22 @@ export default function LandingPage() {
 
       {/* ── Character roster — every expert is a room character now ── */}
       <section id="experts" className="max-w-5xl mx-auto px-6 py-16">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">{EXPERTS.length} characters. Real depth.</h2>
           <p className="text-foreground/50 mt-2">Each one masters a craft — pick them for your cast or meet them in the rooms.</p>
         </div>
 
+        {/* category filter — visitors self-select; 18+ is opt-in, never in your face */}
+        <div className="flex flex-wrap justify-center gap-2 mb-9">
+          <button onClick={() => setActiveGroup("all")} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeGroup === "all" ? "bg-foreground text-background" : "bg-foreground/5 border border-border text-foreground/70 hover:bg-foreground/10"}`}>All</button>
+          {chipGroups.map((g) => (
+            <button key={g} onClick={() => setActiveGroup(g)} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeGroup === g ? "bg-foreground text-background" : "bg-foreground/5 border border-border text-foreground/70 hover:bg-foreground/10"}`}>{EXPERT_GROUP_LABELS[g]}</button>
+          ))}
+          <button onClick={() => { setShow18((v) => !v); if (show18 && activeGroup === ADULT) setActiveGroup("all") }} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-1.5 ${show18 ? "bg-rose-500/20 border border-rose-500/40 text-rose-200" : "bg-foreground/5 border border-border text-foreground/45 hover:bg-foreground/10"}`}>{show18 ? <><EyeOff size={12} /> Hide 18+</> : <><Flame size={12} /> Show 18+</>}</button>
+        </div>
+
         <div className="space-y-10">
-          {groups.map((g) => (
+          {visibleGroups.map((g) => (
             <div key={g}>
               <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-foreground/35 mb-4 border-b border-white/8 pb-2">
                 {EXPERT_GROUP_LABELS[g]}
@@ -310,7 +329,7 @@ export default function LandingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {[
             { icon: Shield, title: "Private by default", body: "Chat free with no signup. Your conversations live on your device, not our servers." },
-            { icon: Zap, title: "Live tools, real output", body: "Charts, prices, code, plans — the AI does the work, not just talk." },
+            { icon: Zap, title: "Live tools, real output", body: "Speak an idea out loud and watch real charts, code blocks and plans appear in the room's shared chat — the AI builds, not just talks." },
             { icon: Globe, title: "Voice in 50+ languages", body: "Natural real-time calls that interrupt and respond like a person." },
           ].map((f) => (
             <div key={f.title} className="text-center">
@@ -373,7 +392,7 @@ export default function LandingPage() {
       {/* ── Final CTA ── */}
       <section className="max-w-2xl mx-auto px-6 py-24 text-center space-y-6">
         <h2 className="text-4xl sm:text-5xl font-black tracking-tight">Ready when you are.</h2>
-        <p className="text-foreground/55 text-lg">Connect your wallet and start a conversation in seconds.</p>
+        <p className="text-foreground/55 text-lg">Text chat is free — no signup, nothing to connect. Add an account only when you&apos;re ready for live voice.</p>
         <Link href="/app" className="inline-flex items-center gap-2 bg-foreground text-background font-bold px-10 py-4 rounded-2xl hover:bg-foreground/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-base">
           <Play size={18} /> Open Kloom
         </Link>

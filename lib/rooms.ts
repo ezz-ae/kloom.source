@@ -153,10 +153,10 @@ export const ROOMS: Room[] = [
     name: "Token Launchpad",
     tagline: "Build the tokenomics. Audit the contract. Ship.",
     description: "The full launch team. Viktor handles the economics. Sol Auditor handles the security. You're the founder. Live price data and contract review available.",
-    relationship: "Viktor is the tokenomics architect — he designs the supply, vesting, and liquidity strategy. The Auditor reviews every contract line for vulnerabilities. They've worked together on 30+ launches and they're blunt with founders.",
+    relationship: "Dario is the tokenomics architect — he designs the supply, vesting, and liquidity strategy. Amara reviews every contract line for vulnerabilities. They've worked together on 30+ launches and they're blunt with founders.",
     personas: [
-      { name: "Viktor Sol",   role: "tokenomics & launch strategy", gender: "male" },
-      { name: "Kaia Dev",     role: "smart contract auditor", gender: "female" },
+      { name: "Dario",   role: "tokenomics & launch strategy", gender: "male" },
+      { name: "Amara",   role: "smart contract auditor", gender: "female" },
     ],
     capabilities: {
       voice: true,
@@ -339,10 +339,10 @@ export const ROOMS: Room[] = [
     id: "onlyfans-room",
     name: "The Content Room",
     tagline: "More conversions. Less thinking.",
-    description: "Zara and Fantasy Maker handle your subscriber relationships, PPV strategy, and re-engagement scripts. Built for serious content creators.",
-    relationship: "Zara runs growth strategy — she knows what converts. Fantasy Maker specialises in subscriber psychology and what makes fans stay. They don't judge. They deliver.",
+    description: "Anouk and Fantasy Maker handle your subscriber relationships, PPV strategy, and re-engagement scripts. Built for serious content creators.",
+    relationship: "Anouk runs growth strategy — she knows what converts. Fantasy Maker specialises in subscriber psychology and what makes fans stay. They don't judge. They deliver.",
     personas: [
-      { name: "Zara",           role: "growth & conversion strategist", gender: "female" },
+      { name: "Anouk",          role: "growth & conversion strategist", gender: "female" },
       { name: "Fantasy Maker",  role: "subscriber psychology expert", gender: "female" },
     ],
     capabilities: {
@@ -372,10 +372,10 @@ export const ROOMS: Room[] = [
     id: "code-review",
     name: "The Code Review",
     tagline: "Ship cleaner code. Ship faster.",
-    description: "Kaia reviews your code for bugs and security issues. Atlas does the research and finds what you're missing. Paste your code and get a structured critique.",
-    relationship: "Kaia is the senior engineer who's seen every failure mode. Atlas is the researcher who finds documentation, CVEs, and best practices. They work as a team — Kaia finds the problem, Atlas finds the solution.",
+    description: "Brielle reviews your code for bugs and security issues. Atlas does the research and finds what you're missing. Paste your code and get a structured critique.",
+    relationship: "Brielle is the senior engineer who's seen every failure mode. Atlas is the researcher who finds documentation, CVEs, and best practices. They work as a team — Brielle finds the problem, Atlas finds the solution.",
     personas: [
-      { name: "Kaia Dev",  role: "senior engineer & code reviewer", gender: "female" },
+      { name: "Brielle",  role: "senior engineer & code reviewer", gender: "female" },
       { name: "Atlas",     role: "technical researcher & documentation", gender: "male" },
     ],
     capabilities: {
@@ -570,10 +570,10 @@ export const ROOMS: Room[] = [
     id: "deep-dive",
     name: "The Late Night",
     tagline: "The conversation that should have ended two hours ago.",
-    description: "Atlas and Sage. Philosophy, psychology, the things you can't say in daylight. Real talk with actual depth.",
-    relationship: "Atlas brings the knowledge and the hard questions. Sage brings the emotional intelligence to handle what the hard questions uncover. They've had this conversation before but never the same way twice.",
+    description: "Auden and Sage. Philosophy, psychology, the things you can't say in daylight. Real talk with actual depth.",
+    relationship: "Auden brings the knowledge and the hard questions. Sage brings the emotional intelligence to handle what the hard questions uncover. They've had this conversation before but never the same way twice.",
     personas: [
-      { name: "Atlas", role: "philosopher & knowledge anchor", gender: "male" },
+      { name: "Auden", role: "philosopher & knowledge anchor", gender: "male" },
       { name: "Sage (Mentor)", role: "emotional intelligence & perspective", gender: "female" },
     ],
     capabilities: {

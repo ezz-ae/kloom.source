@@ -115,6 +115,19 @@ export default function RoomsPage() {
     .sort((a, b) => ((b as Room & { _clones?: number })._clones || 0) - ((a as Room & { _clones?: number })._clones || 0))
     .slice(0, 8)
   const showTop = filter === "all" && !debounced && topRooms.length >= 4
+  // The grid must NOT re-show the rooms already in the Top rail above it — that double-
+  // render is what made the feed look so repetitive. Also collapse rooms that share the
+  // exact same cast (community clones) so the same faces don't carpet the page.
+  const topIds = new Set(showTop ? topRooms.map((r) => r.id) : [])
+  const castSig = (r: Room) => r.personas.map((p) => p.name).sort().join("|")
+  const seenCast = new Set<string>(showTop ? topRooms.map(castSig) : [])
+  const gridRooms = all.filter((r) => {
+    if (topIds.has(r.id)) return false
+    const sig = castSig(r)
+    if (seenCast.has(sig)) return false
+    seenCast.add(sig)
+    return true
+  })
 
   return (
     <div className="min-h-full text-foreground">
@@ -214,7 +227,7 @@ export default function RoomsPage() {
         {all.length > 0 ? (
           <>
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-3">
-              {all.map((r) => (
+              {gridRooms.map((r) => (
                 <RoomCard key={r.id} room={r}
                   onEnter={(t) => router.push(t ? `/app/rooms/${r.id}?t=${t}` : `/app/rooms/${r.id}`)}
                   onClone={() => { bumpRoomClones(r.id); const id = cloneRoom(r); router.push(`/app/rooms/${id}`) }} />

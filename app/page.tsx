@@ -382,8 +382,8 @@ export default function LandingPage() {
           <p className="text-foreground/60 text-lg mt-4 max-w-xl mx-auto leading-relaxed">
             Claude, Gemini, and every expert — free to text, forever. Fill a room with AIs,
             invite your friends, no card needed. You only pay when you want to
-            <span className="text-foreground"> talk out loud</span>: voice calls are pay-as-you-go,
-            by the minute.
+            <span className="text-foreground"> talk out loud</span> — and that&apos;s one flat pass,
+            no subscription, no per-minute meter.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-8 text-left max-w-3xl mx-auto">
@@ -397,15 +397,15 @@ export default function LandingPage() {
             <div className="flex items-start gap-2.5 bg-foreground/[0.03] border border-border rounded-2xl p-4">
               <Mic size={16} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <div className="font-bold text-sm">Voice from $1</div>
-                <div className="text-xs text-foreground/50 mt-0.5">First 5 min free · then by the minute · or $60 unlimited</div>
+                <div className="font-bold text-sm">Live voice</div>
+                <div className="text-xs text-foreground/50 mt-0.5">Talk out loud with every expert — real voices, real time</div>
               </div>
             </div>
             <div className="flex items-start gap-2.5 bg-amber-500/[0.07] border border-amber-500/25 rounded-2xl p-4">
               <Sparkles size={16} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <div className="font-bold text-sm flex items-center gap-1.5">Full access <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30">from $7.93</span></div>
-                <div className="text-xs text-foreground/50 mt-0.5">Unlimited voice + every premium model · day, week or month passes</div>
+                <div className="font-bold text-sm flex items-center gap-1.5">One pass <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30">$9</span></div>
+                <div className="text-xs text-foreground/50 mt-0.5">90 days · 6000 voice minutes · every premium model · unrestricted</div>
               </div>
             </div>
           </div>

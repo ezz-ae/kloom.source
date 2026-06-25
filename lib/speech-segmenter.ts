@@ -33,6 +33,10 @@ export interface SegmenterOptions {
   startRms?: number
   /** RMS (0–1) below which we consider it silence. Default 0.008. */
   endRms?: number
+  /** Hard cap (ms) on one utterance — flush even if a continuous noise floor means
+   *  silence never registers (otherwise the recorder stays open forever and nothing is
+   *  ever transcribed). Default 13000. */
+  maxUtteranceMs?: number
 }
 
 function pickMimeType(): string | undefined {
@@ -65,10 +69,11 @@ export class SpeechSegmenter {
 
   constructor(options: SegmenterOptions) {
     this.opts = {
-      silenceMs: 850,      // end-of-speech after this much silence. Reverted from 650 — 650 cut people off mid-thought AND let the louder ElevenLabs voice echo back in.
-      minSpeechMs: 420,    // ignore blips shorter than real speech (coughs, clicks, a breath). Reverted from 300 — 300 let echo fragments register as user speech (feedback loop).
-      startRms: 0.02,      // require a bit more energy to START → quiet background won't trigger silence-hallucinations
-      endRms: 0.01,
+      silenceMs: 800,      // end-of-speech after this much silence.
+      minSpeechMs: 350,    // ignore blips shorter than real speech (coughs, clicks, a breath).
+      startRms: 0.015,     // start-of-speech energy. 0.02 was too high: quieter mics/voices never crossed it, so capture never began while the visualizer still danced ("reads the mic but nothing sends"). Echo is handled by PAUSING the mic while the host speaks — not by a high gate.
+      endRms: 0.008,
+      maxUtteranceMs: 13000,
       ...options,
     }
   }
@@ -155,9 +160,14 @@ export class SpeechSegmenter {
       return
     }
 
-    // In an utterance: track when we last heard voice; flush on sustained silence.
+    // In an utterance: flush on sustained silence OR when it has simply run too long.
+    // A continuous noise floor (room tone, a fan, music, mic echo) can keep level above
+    // endRms forever — without the hard cap the recorder never stops and nothing is ever
+    // transcribed ("I talk but nothing goes there").
     if (level >= this.opts.endRms) this.lastVoiceAt = now
-    if (now - this.lastVoiceAt >= this.opts.silenceMs) {
+    const silent = now - this.lastVoiceAt >= this.opts.silenceMs
+    const tooLong = now - this.speechStartedAt >= this.opts.maxUtteranceMs
+    if (silent || tooLong) {
       const duration = now - this.speechStartedAt
       this.speaking = false
       if (duration >= this.opts.minSpeechMs) this.flushRecorder()

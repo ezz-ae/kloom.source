@@ -43,8 +43,11 @@ export function VoiceWave({
         if (!el) continue
         const center = 1 - Math.abs(i - (n - 1) / 2) / (n / 2) // 0..1, peaks in the middle
         const sine = (Math.sin(t + i * 0.55) + 1) / 2          // 0..1 travelling wave
-        const idle = 0.1 + center * 0.05 + sine * 0.04          // gentle resting shimmer
-        const h = on ? idle + smooth * (0.2 + center * 0.8) * (0.5 + sine * 0.5) : 0.07
+        // Keep the resting shimmer FAINT — an animated idle was masquerading as "I hear
+        // you" even when nothing was being captured. Real mic level must dominate so the
+        // bars only truly jump when your voice is registering.
+        const idle = 0.06 + sine * 0.025
+        const h = on ? idle + smooth * (0.7 + center * 0.7) : 0.07
         el.style.transform = `scaleY(${Math.max(0.06, Math.min(1, h))})`
         el.style.opacity = String(on ? 0.45 + h * 0.55 : 0.25)
       }

@@ -894,7 +894,7 @@ function RoomContent() {
                     Multi-AI room — each reply comes from a different model working together.
                   </p>
                 )}
-                <p className="text-[11px] text-foreground/20">Start the conversation or join the voice call</p>
+                <p className="text-[11px] text-foreground/45">Start the conversation or join the voice call</p>
               </div>
             )}
 
@@ -922,7 +922,7 @@ function RoomContent() {
                   <div className="max-w-[80%]">
                     {!isMe && msg.speaker && (
                       <div className="flex items-center gap-2 mb-1 ml-1">
-                        <span className="text-[11px] font-bold tracking-wide" style={{ color: isOther ? otherColor : "rgba(255,255,255,0.6)" }}>{msg.speaker}</span>
+                        <span className="text-[11px] font-bold tracking-wide" style={{ color: isOther ? otherColor : "rgba(255,255,255,0.82)" }}>{msg.speaker}</span>
                         {effectiveSeatModel(rp?.model) !== "local" && (
                           <span className={`text-[9px] font-black tracking-widest uppercase px-1.5 py-0.5 rounded-full border ${BACKEND_BADGE[effectiveSeatModel(rp?.model)].cls} shadow-inner`}>
                             {BACKEND_BADGE[effectiveSeatModel(rp?.model)].label}
@@ -1033,7 +1033,7 @@ function RoomContent() {
                     </div>
                     <div className="text-center mt-1">
                       <div className="text-sm font-black tracking-wide text-foreground">{rp.name.split(" ")[0]}</div>
-                      <div className="text-[10px] text-muted-foreground/70 uppercase tracking-widest mt-0.5">{rp.role}</div>
+                      <div className="text-[10px] text-foreground/55 uppercase tracking-widest mt-0.5">{rp.role}</div>
                       {effectiveSeatModel(rp.model) !== "local" && (
                         <span className={`text-[9px] font-bold px-1 py-px rounded border mt-0.5 inline-block ${b.cls}`}>{b.label}</span>
                       )}

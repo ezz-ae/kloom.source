@@ -23,9 +23,35 @@ function CalcBlock({ expression, result }: { expression?: string; result?: strin
   )
 }
 
+// Some models (esp. local/dolphin seats) ECHO their tool calls as plain text —
+// "kloom_get_crypto_price(symbol='BTCUSD')" — before the actual answer, which dumps a
+// wall of code into the conversation. Strip any kloom_<name>(...) invocation, scanning
+// for the balanced close paren so nested args (calc expressions) are removed cleanly.
+function stripToolCalls(s: string): string {
+  if (!s.includes("kloom_")) return s
+  let out = ""
+  let i = 0
+  while (i < s.length) {
+    const m = /kloom_\w+\(/.exec(s.slice(i))
+    if (!m) { out += s.slice(i); break }
+    out += s.slice(i, i + m.index)
+    let j = i + m.index + m[0].length
+    let depth = 1
+    while (j < s.length && depth > 0) { const c = s[j]; if (c === "(") depth++; else if (c === ")") depth--; j++ }
+    i = j
+  }
+  // Malformed echoes (unbalanced quotes/parens) can leave orphaned "05')" / "')" residue.
+  // We only run this when a kloom_ call was present, so it can't touch normal prose.
+  return out
+    .replace(/(?:^|\s)[\d.]*'?\)(?=\s|$)/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n[ \t]*\n[ \t]*\n+/g, "\n\n")
+    .trim()
+}
+
 function TextBlock({ content }: { content: string }) {
-  // Render inline bold/italic
-  const rendered = content
+  // Render inline bold/italic (with raw tool-call echoes stripped first)
+  const rendered = stripToolCalls(content)
     .replace(/\*\*(.+?)\*\*/g, '<strong class="text-foreground font-bold">$1</strong>')
     .replace(/\*(.+?)\*/g,    '<em class="text-foreground/80 italic">$1</em>')
     .replace(/`(.+?)`/g,      '<code class="bg-white/10 px-1 py-0.5 rounded text-[12px] font-mono text-emerald-300">$1</code>')

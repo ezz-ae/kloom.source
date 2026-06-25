@@ -6,6 +6,7 @@ import { EXPERTS, EXPERT_GROUP_LABELS, type ExpertGroup } from "@/lib/experts"
 import { ROOMS } from "@/lib/rooms"
 import { adultEnabled } from "@/lib/variant"
 import { RoomFace } from "@/components/RoomFace"
+import { HeroConversation } from "@/components/HeroConversation"
 import {
   Mic, MessageSquare, Users, Sparkles, Shield, Zap, Globe,
   ChevronRight, Check, GraduationCap, Bot, ArrowRight, Play,
@@ -114,21 +115,9 @@ export default function LandingPage() {
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-foreground/60 max-w-xl mx-auto leading-relaxed">
-            Build a cast of AI characters with real voices — or clone any voice from YouTube.
-            Drop friends into the same room with one link. Voice and chat, live,
-            across <span className="text-foreground">distinct worlds</span> from the trading floor to deep talk.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-3 items-center justify-center pt-2">
-            <Link href="/app/create" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-foreground text-background font-bold px-8 py-4 rounded-2xl hover:bg-foreground/90 transition-all hover:scale-[1.02] active:scale-[0.98] text-base">
-              <Play size={16} /> Create a room
-            </Link>
-            <Link href="/app/rooms" className="w-full sm:w-auto flex items-center justify-center gap-2 border border-white/15 text-foreground/80 font-semibold px-8 py-4 rounded-2xl hover:bg-foreground/5 transition-colors text-base">
-              See the rooms
-            </Link>
-          </div>
-          <p className="text-xs text-foreground/35">Premium models · no email to chat · full privacy · pay only for voice</p>
+          {/* The live demo IS the pitch — type and three minds answer together, then go voice. */}
+          <div className="pt-3"><HeroConversation /></div>
+          <p className="text-xs text-foreground/35">Free to chat · no email · they answer in real voices when you join the call</p>
         </div>
       </section>
 

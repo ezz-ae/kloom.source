@@ -262,8 +262,8 @@ export default function CreateRoomPage() {
                 <KloomerCard onAdd={addMember} world={category ?? ""} disabled={members.length >= 4}
                   onPhoto={(n, u) => setMembers((prev) => prev.map((m) => (m.name === n ? { ...m, photoUrl: u } : m)))} />
 
-                {/* Cast bar */}
-                <div className="sticky bottom-4 mt-8 rounded-2xl border border-border/60 bg-background/80 backdrop-blur-md p-3.5 flex items-center gap-3">
+                {/* Cast bar — lifted above the mobile nav bar (lg has no bottom nav) */}
+                <div className="sticky bottom-24 lg:bottom-4 mt-8 rounded-2xl border border-border/60 bg-background/80 backdrop-blur-md p-3.5 flex items-center gap-3">
                   <div className="flex -space-x-2 min-w-0">
                     {members.length === 0 && <span className="text-xs text-muted-foreground px-1">Pick at least one character</span>}
                     {members.map((m, i) => {

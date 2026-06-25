@@ -15,11 +15,11 @@ const TABS = [
 export function MobileNav() {
   const pathname = usePathname()
 
-  // Hide on immersive full-screen routes (they have their own back nav and
-  // bottom inputs the fixed bar would cover): a live room, the create wizard,
-  // an expert session.
+  // Hide on immersive full-screen routes that have their own bottom inputs the
+  // fixed bar would cover: a live room, an expert session. The create wizard KEEPS
+  // the menu (its one sticky action bar is lifted above the bar) so the page feels
+  // part of the app instead of a dead-end flow.
   const immersive =
-    pathname === "/app/create" ||
     /^\/app\/rooms\/(?!c\/)[^/]+$/.test(pathname) ||
     /^\/app\/experts\/[^/]+$/.test(pathname)
   if (immersive) return null

@@ -288,7 +288,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "radial-gradient(125% 90% at 50% 0%, #122231 0%, #070b12 58%, #04050b 100%)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#eef4f8" }}>
-      <style>{`@keyframes airpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.18);opacity:0}100%{transform:scale(1.18);opacity:0}}@keyframes aireq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}`}</style>
+      <style>{`@keyframes airpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.18);opacity:0}100%{transform:scale(1.18);opacity:0}}@keyframes aireq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes airblink{0%,50%{opacity:1}51%,100%{opacity:0}}`}</style>
 
       {/* top bar — sound indicator + mute + leave */}
       <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(18px, env(safe-area-inset-right)) 6px max(18px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -345,7 +345,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         <div style={{ width: "min(92vw, 430px)", height: 78, textAlign: "center", overflow: "hidden" }}>
           {last && <>
             <div style={{ fontSize: 11, color: "#5f7283", marginBottom: 5 }}>{last.who === "you" ? "you" : cluster.host}</div>
-            <div style={{ fontSize: 16, lineHeight: 1.5, color: last.who === "you" ? "#bfe9d8" : "#e7eef4", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden" }}>&ldquo;{last.text}&rdquo;</div>
+            <div style={{ fontSize: 15.5, lineHeight: 1.55, letterSpacing: -0.2, color: last.who === "you" ? "#bfe9d8" : "#e7eef4", fontFamily: "var(--font-geist-mono), ui-monospace, 'SF Mono', Menlo, monospace", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden" }}>{last.text}{speaking && last.who !== "you" && <span style={{ marginLeft: 1, opacity: 0.85, animation: "airblink 1s step-end infinite" }}>▍</span>}</div>
           </>}
         </div>
       </div>

@@ -253,14 +253,23 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       const canRecord = typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia
       if (!canRecord) { startBrowserFallback(); return }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        // Match the proven rooms path EXACTLY — autoGainControl boosts a quiet mic over
+        // the start gate (bare {audio:true} left soft voices uncaptured), echo/noise
+        // suppression keep the recording clean.
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
       } catch { setMicHint("allow mic access to talk — or tap the keypad to type"); setHandsFree(false); return }   // mic denied
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
       seg = new SpeechSegmenter({
         stream,
         getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
         onLevel: (l) => { micLevelRef.current = l },   // feed the live mic visualizer
-        onText: (t) => { if (hostSpeakingRef.current) return; if (busyRef.current) { pendingRef.current = t; return } send(t) },
+        // Confirm the mic actually recorded — distinguishes "never heard you" (no flash)
+        // from "heard you but STT came back empty" (flash lingers).
+        onCapture: () => { if (!hostSpeakingRef.current) setMicHint("heard you — one sec…") },
+        onText: (t) => { if (hostSpeakingRef.current) return; setMicHint(""); if (busyRef.current) { pendingRef.current = t; return } send(t) },
+        // Surface STT failures instead of swallowing them silently (the old gap that made
+        // a broken mic look identical to a working-but-quiet one).
+        onError: (m) => setMicHint(`couldn’t catch that (${m.slice(0, 40)}) — try again`),
         // No STT key / model access → fall back to the browser recognizer.
         onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!cancelled) startBrowserFallback() },
       })

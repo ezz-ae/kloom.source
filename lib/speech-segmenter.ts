@@ -25,6 +25,11 @@ export interface SegmenterOptions {
   /** Live mic level (RMS 0–1) each frame while listening — drives the voice visualizer
    *  so the user can SEE the mic is connected and picking up their voice. */
   onLevel?: (level: number) => void
+  /** Fired when a real utterance was captured and is about to be sent to STT (with the
+   *  recorded byte size). Lets the UI confirm the mic actually recorded audio — so a
+   *  silent "nothing happened" (never recorded) can be told apart from "recorded fine but
+   *  the transcript came back empty". */
+  onCapture?: (bytes: number) => void
   /** Silence (ms) after speech that ends an utterance. Default 850. */
   silenceMs?: number
   /** Ignore utterances shorter than this (ms) — coughs, clicks. Default 300. */
@@ -49,7 +54,7 @@ function pickMimeType(): string | undefined {
 }
 
 export class SpeechSegmenter {
-  private opts: Required<Omit<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage" | "onLevel">> & Pick<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage" | "onLevel">
+  private opts: Required<Omit<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage" | "onLevel" | "onCapture">> & Pick<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage" | "onLevel" | "onCapture">
   private ctx: AudioContext | null = null
   private analyser: AnalyserNode | null = null
   private source: MediaStreamAudioSourceNode | null = null
@@ -198,7 +203,7 @@ export class SpeechSegmenter {
     rec.onstop = () => {
       const blob = new Blob(this.chunks, { type: mime })
       this.chunks = []
-      if (blob.size > 0) this.transcribe(blob)
+      if (blob.size > 0) { this.opts.onCapture?.(blob.size); this.transcribe(blob) }
     }
     try { rec.stop() } catch { this.chunks = [] }
   }

@@ -438,7 +438,9 @@ export async function POST(req: NextRequest) {
   // but left mcp-chat running Supabase-only verification (S4 audit item).
   const proTokenGranted = proTokenValid(proToken)
   const allowExplicit = wantsEscalation ? (proTokenGranted || await verifiedUnrestricted(req)) : false
-  const unrestrictedActive = allowExplicit && (!!unrestricted || isUnrestrictedPersona(persona))
+  // A verified-paid caller gets the FULL unrestricted register regardless of the advisory
+  // `unrestricted` flag — so once someone subscribes they're never half-gated or nagged.
+  const unrestrictedActive = allowExplicit && (!!unrestricted || isUnrestrictedPersona(persona) || proTokenGranted)
 
   // Inline unlock moment — anyone NOT entitled who asks for explicit content (in
   // ANY room, dark/fantasy included) gets the upsell instead of the content.

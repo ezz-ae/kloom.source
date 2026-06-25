@@ -22,6 +22,9 @@ export interface SegmenterOptions {
   onUnavailable?: (reason: string) => void
   /** Optional ISO-639-1 language hint ("en", "ar", …) for Whisper. */
   getLanguage?: () => string | undefined
+  /** Live mic level (RMS 0–1) each frame while listening — drives the voice visualizer
+   *  so the user can SEE the mic is connected and picking up their voice. */
+  onLevel?: (level: number) => void
   /** Silence (ms) after speech that ends an utterance. Default 850. */
   silenceMs?: number
   /** Ignore utterances shorter than this (ms) — coughs, clicks. Default 300. */
@@ -42,7 +45,7 @@ function pickMimeType(): string | undefined {
 }
 
 export class SpeechSegmenter {
-  private opts: Required<Omit<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage">> & Pick<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage">
+  private opts: Required<Omit<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage" | "onLevel">> & Pick<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage" | "onLevel">
   private ctx: AudioContext | null = null
   private analyser: AnalyserNode | null = null
   private source: MediaStreamAudioSourceNode | null = null
@@ -140,6 +143,7 @@ export class SpeechSegmenter {
 
     const now = performance.now()
     const level = this.rms()
+    this.opts.onLevel?.(level)   // feed the live visualizer (only while listening, i.e. not paused)
 
     if (!this.speaking) {
       if (level >= this.opts.startRms) {

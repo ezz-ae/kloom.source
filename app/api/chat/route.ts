@@ -113,7 +113,10 @@ export async function POST(request: Request) {
 
   const llmMessages: LLMMessage[] = [
     { role: "system", content: systemPrompt },
-    ...(others.length === 0 ? FEW_SHOT : []),
+    // The FEW_SHOT examples are English — injecting them forces non-English personas
+    // back to English (prior-turn examples set language harder than any instruction).
+    // Only seed them when the persona actually speaks English.
+    ...(others.length === 0 && (!persona.language || persona.language === "English" || persona.language === "en") ? FEW_SHOT : []),
     ...openaiMessages,
   ]
 

@@ -13,6 +13,7 @@ import type { Cluster } from "@/lib/airroom/roster"
 import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { canListen } from "@/lib/voice-once"
 import { Face } from "@/components/airroom/Face"
+import { VoiceWave } from "@/components/airroom/VoiceWave"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
@@ -73,6 +74,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const hostSpeakingRef = useRef(false)
   const onceRecRef = useRef<any>(null)
   const segRef = useRef<SpeechSegmenter | null>(null)   // hands-free recorder (iOS-proof)
+  const micLevelRef = useRef(0)                          // live mic RMS → the VoiceWave visualizer
   const hfRef = useRef(false)
   const talkedRef = useRef(false)   // fire onTalked once, on the first thing the user says
   const speakTokenRef = useRef(0)   // serialize TTS — a new line invalidates the previous one's resume
@@ -220,6 +222,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       seg = new SpeechSegmenter({
         stream,
         getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
+        onLevel: (l) => { micLevelRef.current = l },   // feed the live mic visualizer
         onText: (t) => { if (hostSpeakingRef.current) return; if (busyRef.current) { pendingRef.current = t; return } send(t) },
         // No STT key / model access → fall back to the browser recognizer.
         onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!cancelled) startBrowserFallback() },
@@ -292,6 +295,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           <button onClick={() => pro ? setVibeEdit(true) : setShowPro(true)} aria-label="set the vibe" style={{ fontSize: 12, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "6px 14px", minHeight: 32, maxWidth: "82vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
             {vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ set the vibe — pro"}
           </button>
+        )}
+        {/* live mic visualizer — bars dance to YOUR voice so you can see the mic is on & hearing you */}
+        {handsFree && !muted && (
+          <VoiceWave getLevel={() => micLevelRef.current} active={handsFree && !speaking && !muted} hue={165} />
         )}
         <div style={{ fontSize: 13, color: handsFree ? "#7fd6c0" : "#9fb2c4", minHeight: 18 }}>{status}</div>
         {/* live caption — FIXED height so the portrait/options never jump as lines change */}

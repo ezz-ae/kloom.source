@@ -13,7 +13,7 @@ import { CATEGORY_META, isAdultRoom } from "@/lib/category-meta"
 import { adultEnabled, memoryEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
-import { isSubscribed, hasUnrestricted } from "@/lib/account"
+import { isSubscribed, hasUnrestricted, keepMemory } from "@/lib/account"
 import { getProToken } from "@/lib/airroom/pro"
 import { passCoversVoice } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
@@ -76,8 +76,8 @@ interface OptionValues {
 const CHAT_STORAGE = "kloom_room_chats_v1"
 
 function loadRoomChats(roomId: string): ChatMessage[] {
-  // .fun is memoryless by design — nothing is ever persisted or restored.
-  if (!memoryEnabled()) return []
+  // .fun is memoryless by design; the user can also turn off on-device memory.
+  if (!memoryEnabled() || !keepMemory()) return []
   try {
     const all = JSON.parse(localStorage.getItem(CHAT_STORAGE) ?? "{}")
     return all[roomId] ?? []
@@ -85,7 +85,7 @@ function loadRoomChats(roomId: string): ChatMessage[] {
 }
 
 function saveRoomChats(roomId: string, msgs: ChatMessage[]) {
-  if (!memoryEnabled()) return
+  if (!memoryEnabled() || !keepMemory()) return
   try {
     const all = JSON.parse(localStorage.getItem(CHAT_STORAGE) ?? "{}")
     all[roomId] = msgs.slice(-100)

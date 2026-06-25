@@ -27,6 +27,19 @@ export function setUnrestricted(on: boolean) {
   try { on ? localStorage.setItem(UNREST_KEY, "1") : localStorage.removeItem(UNREST_KEY) } catch {}
 }
 
+// On-device chat memory — keep full conversation history on THIS device (default ON).
+// Turning it off stops new saves AND wipes what's stored. Independent of the variant gate.
+const MEM_KEY = "kloom_keep_memory"
+export function keepMemory(): boolean {
+  try { return localStorage.getItem(MEM_KEY) !== "0" } catch { return true }
+}
+export function setKeepMemory(on: boolean) {
+  try {
+    if (on) localStorage.removeItem(MEM_KEY)
+    else { localStorage.setItem(MEM_KEY, "0"); localStorage.removeItem("kloom_room_chats_v1") }
+  } catch {}
+}
+
 export function isSubscribed(): boolean {
   try {
     if (localStorage.getItem(SUB_KEY) === "1") return true

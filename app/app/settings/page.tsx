@@ -6,6 +6,7 @@ import { useWallet } from "@solana/wallet-adapter-react"
 import { useWalletModal } from "@solana/wallet-adapter-react-ui"
 import { useSolCredits } from "@/hooks/use-sol-credits"
 import { TopUpSlider } from "@/components/widgets/TopUpSlider"
+import { keepMemory, setKeepMemory } from "@/lib/account"
 import { ZiinaCheckout } from "@/components/widgets/ZiinaCheckout"
 import { hasUnlimited } from "@/lib/voice-credits"
 import { AuthGate } from "@/components/widgets/AuthGate"
@@ -71,6 +72,9 @@ function SettingsContent() {
   const [wellnessOn, setWellnessOn] = useState(true)
   const [wellnessErased, setWellnessErased] = useState(false)
   useEffect(() => { setWellnessOn(isWellnessEnabled()) }, [])
+  const [memOn, setMemOn] = useState(true)
+  useEffect(() => { setMemOn(keepMemory()) }, [])
+  const toggleMemory = () => { const n = !memOn; setMemOn(n); setKeepMemory(n) }
   const toggleWellness = () => {
     const next = !wellnessOn
     setWellnessOn(next)
@@ -320,6 +324,24 @@ function SettingsContent() {
 
               {/* Wellness & privacy — the consented, on-device mood signal */}
               <div className="bg-foreground/5 border border-border/50 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Shield size={16} className="text-sky-400 shrink-0" />
+                    <div>
+                      <div className="text-sm font-medium">Keep chat history on this device</div>
+                      <div className="text-xs text-foreground/35 mt-0.5">
+                        Remembers your conversations <span className="text-foreground/60">locally</span> so rooms pick up where you left off. Turn off to chat with a clean slate — it also <span className="text-foreground/60">wipes</span> what&apos;s stored.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleMemory}
+                    aria-label="toggle on-device memory"
+                    className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${memOn ? "bg-sky-500" : "bg-white/15"}`}
+                  >
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${memOn ? "translate-x-4" : "translate-x-0.5"}`} />
+                  </button>
+                </div>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <HeartHandshake size={16} className="text-emerald-400 shrink-0" />

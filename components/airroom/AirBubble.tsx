@@ -14,6 +14,7 @@ import { SpeechSegmenter } from "@/lib/speech-segmenter"
 import { canListen } from "@/lib/voice-once"
 import { Face } from "@/components/airroom/Face"
 import { VoiceWave } from "@/components/airroom/VoiceWave"
+import { startCallAmbience, stopCallAmbience, setCallAmbienceMuted } from "@/lib/airroom/call-ambience"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
@@ -75,6 +76,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const onceRecRef = useRef<any>(null)
   const segRef = useRef<SpeechSegmenter | null>(null)   // hands-free recorder (iOS-proof)
   const micLevelRef = useRef(0)                          // live mic RMS → the VoiceWave visualizer
+  const lastActivityRef = useRef(Date.now())             // last user activity → idle-timeout the mic
   const hfRef = useRef(false)
   const talkedRef = useRef(false)   // fire onTalked once, on the first thing the user says
   const speakTokenRef = useRef(0)   // serialize TTS — a new line invalidates the previous one's resume
@@ -119,6 +121,20 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   useEffect(() => { speak(cluster.lines[0]) }, []) // greet on open
 
+  // Call ambience (a faint room-tone that masks TTS micro-artifacts) + an idle timeout
+  // that pauses the open mic after 5 min of no activity, so a walked-away session doesn't
+  // quietly burn voice minutes. Wake it by tapping talk again.
+  useEffect(() => {
+    startCallAmbience()
+    const idle = setInterval(() => {
+      if (hfRef.current && Date.now() - lastActivityRef.current > 300_000) {
+        setHandsFree(false)
+        setMicHint("paused to save your minutes — tap talk to wake it up")
+      }
+    }, 30_000)
+    return () => { clearInterval(idle); stopCallAmbience() }
+  }, [])
+
   // Ask for the next reply using whatever's currently in the transcript. Both
   // send() and retry() go through here, so a retry never re-adds the user's line.
   const requestReply = async () => {
@@ -151,6 +167,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const send = async (override?: string) => {
     const text = (override ?? input).trim()
     if (!text || busyRef.current) return
+    lastActivityRef.current = Date.now()   // user spoke/typed → reset the idle timer
     setInput("")
     if (!talkedRef.current) { talkedRef.current = true; onTalked?.() }   // the aha — they actually spoke
     const next: Msg[] = [...msgsRef.current, { who: "you", text }]
@@ -175,7 +192,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   // per-utterance tapping, no hidden double-tap (that old model let a "stop" tap
   // silently discard what you said). The continuous path (below) is MediaRecorder +
   // server Whisper, so it works in the Instagram / in-app browsers too.
-  const onTalk = () => { setMicHint(""); setHandsFree((h) => !h) }
+  const onTalk = () => { setMicHint(""); lastActivityRef.current = Date.now(); startCallAmbience(); setHandsFree((h) => !h) }
 
   // hands-free: keep the mic open and auto-send each finished utterance. Primary
   // path is MediaRecorder + server Whisper (SpeechSegmenter) — it stays live across
@@ -262,7 +279,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           <span style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{muted ? "muted · text only" : "on air · just you two"}</span>
         </div>
         <div style={{ flex: "0 0 auto" }}>
-          <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }} aria-label={muted ? "unmute" : "mute"} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 44, padding: "0 14px", borderRadius: 12, fontSize: 13, fontWeight: 500, color: muted ? "#ffb59c" : "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{muted ? "🔇 muted" : "🔊 sound"}</button>
+          <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; setCallAmbienceMuted(n); if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }} aria-label={muted ? "unmute" : "mute"} style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 44, padding: "0 14px", borderRadius: 12, fontSize: 13, fontWeight: 500, color: muted ? "#ffb59c" : "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{muted ? "🔇 muted" : "🔊 sound"}</button>
         </div>
       </div>
 

@@ -585,6 +585,7 @@ function VoiceSheet({ member, currentId, previewing, onPreview, onPick }: {
             {cloneState === "working" ? "Cloning…" : "Clone"}
           </button>
         </div>
+        <p className="text-[10.5px] mt-2 text-muted-foreground/70 leading-snug">Works best with a clean, solo-speaker video under ~10 minutes — no music or crowd noise. We grab a short sample, not the whole video.</p>
         {cloneMsg && <p className={`text-[11px] mt-2 ${cloneState === "error" ? "text-rose-400" : cloneState === "done" ? "text-emerald-400" : "text-muted-foreground"}`}>{cloneMsg}</p>}
       </div>
     </div>

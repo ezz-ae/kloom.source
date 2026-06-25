@@ -6,7 +6,7 @@
  * planet can claim the pass when the buyer returns (?pro_ok=1).
  */
 import { useState, useEffect } from "react"
-import { setPendingIntent } from "@/lib/airroom/pro"
+import { setPendingIntent, setProToken, isPro, clearPro } from "@/lib/airroom/pro"
 import { track } from "@/lib/track"
 
 const PERKS: [string, string][] = [
@@ -19,6 +19,19 @@ const PERKS: [string, string][] = [
 export function ProSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState("")
+  const [restoring, setRestoring] = useState(false)
+  const [code, setCode] = useState("")
+  const [rErr, setRErr] = useState("")
+
+  // Restore a pass bought on another device/browser. The pass is a portable signed
+  // token, so pasting the saved restore code re-activates it with no account.
+  const restore = () => {
+    const c = code.trim()
+    if (!c) return
+    setProToken(c)
+    if (isPro()) { onClose(); window.location.reload() }
+    else { clearPro(); setRErr("that code looks invalid or expired — copy the whole thing") }
+  }
   // The pass offer is on screen — mid-funnel intent signal (→ Meta AddToCart).
   useEffect(() => { try { track("paywall_view", { value: 9, currency: "USD", kind: "pass" }) } catch { /* */ } }, [])
 
@@ -58,6 +71,16 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
           <button onClick={go} disabled={busy} style={{ width: "100%", minHeight: 52, fontSize: 16, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", border: "none", borderRadius: 14, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{busy ? "opening checkout…" : "unlock — $9"}</button>
           <button onClick={onClose} style={{ width: "100%", minHeight: 44, fontSize: 13, color: "#9fb2c4", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>not now</button>
           <div style={{ fontSize: 11, color: "#6b7d8e", textAlign: "center", marginTop: 2 }}>secure checkout · card / apple pay · one-time, 90 days</div>
+          {/* restore on a new device/browser — paste the code you saved when you bought it */}
+          {!restoring ? (
+            <button onClick={() => setRestoring(true)} style={{ marginTop: 4, fontSize: 12, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>already paid? restore it</button>
+          ) : (
+            <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 7 }}>
+              <input value={code} onChange={(e) => { setCode(e.target.value); setRErr("") }} placeholder="paste your restore code" aria-label="restore code" style={{ fontSize: 13, color: "#eef4f8", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "11px 13px", outline: "none" }} />
+              {rErr && <div style={{ fontSize: 11.5, color: "#ffb59c", textAlign: "center" }}>{rErr}</div>}
+              <button onClick={restore} disabled={!code.trim()} style={{ minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 12, cursor: code.trim() ? "pointer" : "default", opacity: code.trim() ? 1 : 0.6, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>restore my pass</button>
+            </div>
+          )}
         </div>
       </div>
     </div>

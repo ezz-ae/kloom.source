@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { EXPERTS, EXPERT_GROUP_LABELS, type ExpertGroup } from "@/lib/experts"
 import { ROOMS } from "@/lib/rooms"
+import { adultEnabled } from "@/lib/variant"
 import {
   Mic, MessageSquare, Users, Sparkles, Shield, Zap, Globe,
   ChevronRight, Check, GraduationCap, Bot, ArrowRight, Play,
@@ -55,11 +56,16 @@ export default function LandingPage() {
   // Let visitors self-select their reason for being here; keep the adult roster OPT-IN
   // so a business/dev visitor isn't hit with intimacy personas next to "Launch War Room".
   const ADULT: ExpertGroup = "intimacy"
+  // HARD GATE: the 18+ intimacy roster exists ONLY on the .fun build. On the .io ad
+  // domain adultEnabled() is false, so the chip, the section, and the toggle are removed
+  // entirely — no Meta reviewer or crawler can reach explicit personas from the ad page.
+  const allowAdult = adultEnabled()
   const [activeGroup, setActiveGroup] = useState<ExpertGroup | "all">("all")
   const [show18, setShow18] = useState(false)
-  const chipGroups = groups.filter((g) => g !== ADULT || show18)          // 18+ chip appears only once opted in
-  const visibleGroups = activeGroup === "all"
-    ? groups.filter((g) => g !== ADULT || show18)                         // 18+ section hidden from "All" until opted in
+  const reveal18 = allowAdult && show18
+  const chipGroups = groups.filter((g) => g !== ADULT || reveal18)        // 18+ chip: only on .fun, and only once opted in
+  const visibleGroups = (activeGroup === "all" || (activeGroup === ADULT && !allowAdult))
+    ? groups.filter((g) => g !== ADULT || reveal18)                       // 18+ section never on .io; opt-in elsewhere
     : [activeGroup]
 
   return (
@@ -99,11 +105,11 @@ export default function LandingPage() {
             Claude · Gemini · GPT · {EXPERTS.length} characters · free to chat
           </div>
 
-          <h1 className="text-5xl sm:text-7xl font-black tracking-tight leading-[1.05]">
-            Every conversation
+          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.08]">
+            Talk to Claude, Gemini &amp; GPT
             <br />
             <span className="bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400 bg-clip-text text-transparent">
-              is a room.
+              together, out loud.
             </span>
           </h1>
 
@@ -302,7 +308,9 @@ export default function LandingPage() {
           {chipGroups.map((g) => (
             <button key={g} onClick={() => setActiveGroup(g)} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeGroup === g ? "bg-foreground text-background" : "bg-foreground/5 border border-border text-foreground/70 hover:bg-foreground/10"}`}>{EXPERT_GROUP_LABELS[g]}</button>
           ))}
-          <button onClick={() => { setShow18((v) => !v); if (show18 && activeGroup === ADULT) setActiveGroup("all") }} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-1.5 ${show18 ? "bg-rose-500/20 border border-rose-500/40 text-rose-200" : "bg-foreground/5 border border-border text-foreground/45 hover:bg-foreground/10"}`}>{show18 ? <><EyeOff size={12} /> Hide 18+</> : <><Flame size={12} /> Show 18+</>}</button>
+          {allowAdult && (
+            <button onClick={() => { setShow18((v) => !v); if (show18 && activeGroup === ADULT) setActiveGroup("all") }} className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-1.5 ${show18 ? "bg-rose-500/20 border border-rose-500/40 text-rose-200" : "bg-foreground/5 border border-border text-foreground/45 hover:bg-foreground/10"}`}>{show18 ? <><EyeOff size={12} /> Hide 18+</> : <><Flame size={12} /> Show 18+</>}</button>
+          )}
         </div>
 
         <div className="space-y-10">

@@ -53,9 +53,12 @@ export const metadata: Metadata = {
   keywords: AIRRAW
     ? ["live voice chat", "AI voice", "talk to AI", "voice lounge", "AI characters", "voice AI", "AIRRAW", "it's the now"]
     : [
-        "AI chat", "AI voice rooms", "AI characters", "voice AI", "character AI",
-        "AI roleplay", "voice cloning", "AI companion", "multiplayer AI",
-        "group AI chat", "Kloom",
+        "AI voice rooms", "talk to AI out loud", "AI voice chat", "AI voice call",
+        "Claude voice", "Gemini voice", "GPT voice", "talk to Claude Gemini GPT",
+        "multi-AI chat", "multiple AI models", "AI characters", "character AI",
+        "AI roleplay", "AI companion", "group AI chat", "real-time AI voice",
+        "voice cloning", "clone a voice from YouTube", "AI conversation app",
+        "free AI chat", "Kloom", "kloom.io",
       ],
   authors: [{ name: NAME }],
   alternates: { canonical: "/" },

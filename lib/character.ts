@@ -14,6 +14,9 @@ export interface UserCharacter {
   vibe: "" | "chill" | "playful" | "intense" | "deep"
   /** Room categories the user wants surfaced first. */
   preferredCategories: RoomCategory[]
+  /** The chat-direction prompt the Vibes quiz produced — how the user wants rooms to talk
+   *  to them. Carried into the AI as a steer. Empty until they take the quiz. */
+  chatDirection?: string
 }
 
 const KEY = "kloom_user_character_v1"
@@ -29,6 +32,7 @@ export function getCharacter(): UserCharacter {
       interests: Array.isArray(raw.interests) ? raw.interests : [],
       vibe: ["chill", "playful", "intense", "deep"].includes(raw.vibe) ? raw.vibe : "",
       preferredCategories: Array.isArray(raw.preferredCategories) ? raw.preferredCategories : [],
+      chatDirection: typeof raw.chatDirection === "string" ? raw.chatDirection : "",
     }
   } catch { return EMPTY }
 }

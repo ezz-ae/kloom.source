@@ -95,10 +95,10 @@ export function Planet() {
 
   const verifiedRef = useRef(false)
   const inCallRef = useRef(false)
-  // Sky-first entry: the very first view is just sky + a place to write. The blocks
-  // only appear once you begin (type & dive, or scroll/drag/zoom the sky).
+  // Raw entry: the very first view is just the sky + one way in — no marketing copy,
+  // no input that promises routing it can't deliver. The blocks appear once you begin
+  // (tap to fall in, or scroll/drag/zoom the sky).
   const [started, setStarted] = useState(false)
-  const [intent, setIntent] = useState("")      // what you write on the sky
   const [opening, setOpening] = useState("")     // handed to the first room you enter as your first line
   const [intro, setIntro] = useState(false)      // cold-open is opt-in (?intro=1); default lands on the write box
   const skipIntro = () => { try { localStorage.setItem("airraw_intro_seen", "1") } catch { /* */ } setIntro(false) }
@@ -226,9 +226,6 @@ export function Planet() {
     const p = pending, pj = pendingJoin; setPending(null); setPendingJoin(null)
     if (p) { takeOpening(); setSelected(p) } else if (pj) { takeOpening(); setGroup({ seed: pj.seed, f: pj.f, count: pj.n }) }
   }
-  // write-box "dive": remember what they wrote (seeds their first room), then begin.
-  const dive = () => { openingRef.current = intent.trim(); startFnRef.current() }
-
   // ── the engine ──
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return
@@ -498,23 +495,19 @@ export function Planet() {
         </div>
       )}
 
-      {/* The very first view: only sky + a place to write. No boxes yet. */}
+      {/* The very first view: raw. The sky is already live behind this — no marketing
+          copy, no input that fakes routing. Just the name and one way in. */}
       {!started && !intro && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-          <div style={{ pointerEvents: "auto", width: "min(88vw, 460px)", textAlign: "center", color: "#eef4f8", animation: "skyOpen .8s ease both" }}>
+          <div style={{ pointerEvents: "auto", textAlign: "center", color: "#eef4f8", animation: "skyOpen .8s ease both" }}>
             <div style={{ fontSize: 12, letterSpacing: 4, color: "#7fd6c0", textTransform: "uppercase" }}>airraw</div>
-            <div style={{ fontSize: "clamp(25px, 7.5vw, 36px)", fontWeight: 500, lineHeight: 1.18, margin: "14px 0 8px" }}>it&apos;s the now.</div>
-            <div style={{ fontSize: 15, lineHeight: 1.5, color: "#9fb2c4", marginBottom: 22 }}>say what&apos;s on your mind — then dive into a sky full of voices.</div>
-            <form onSubmit={(e) => { e.preventDefault(); dive() }} style={{ display: "flex", gap: 8 }}>
-              <input value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="type anything…" aria-label="say something to the now" style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.22)", borderRadius: 14, padding: "14px 16px", minHeight: 52, boxSizing: "border-box", outline: "none" }} />
-              <button type="submit" style={{ flex: "0 0 auto", fontSize: 15, fontWeight: 600, minHeight: 52, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "0 18px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>dive →</button>
-            </form>
-            <button onClick={() => { openingRef.current = ""; startFnRef.current() }} style={{ marginTop: 16, fontSize: 13, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>or just look around →</button>
-            <div style={{ marginTop: 22, fontSize: 11, color: "#5f7080", letterSpacing: 0.5 }}>
-              <a href="/airraw/privacy" style={{ color: "#6b7d8e", textDecoration: "none" }}>privacy</a>
-              <span style={{ opacity: 0.4, margin: "0 9px" }}>·</span>
-              <a href="/airraw/terms" style={{ color: "#6b7d8e", textDecoration: "none" }}>terms</a>
-            </div>
+            <div style={{ fontSize: "clamp(26px, 8vw, 38px)", fontWeight: 500, lineHeight: 1.15, margin: "13px 0 28px" }}>it&apos;s the now.</div>
+            <button onClick={() => { openingRef.current = ""; startFnRef.current() }} style={{ fontSize: 16, fontWeight: 600, minHeight: 56, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "0 32px", cursor: "pointer", boxShadow: "0 12px 32px -8px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>tap to fall in →</button>
+          </div>
+          <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 18px)", left: 0, right: 0, textAlign: "center", pointerEvents: "auto", fontSize: 11, color: "#5f7080", letterSpacing: 0.5 }}>
+            <a href="/airraw/privacy" style={{ color: "#6b7d8e", textDecoration: "none" }}>privacy</a>
+            <span style={{ opacity: 0.4, margin: "0 9px" }}>·</span>
+            <a href="/airraw/terms" style={{ color: "#6b7d8e", textDecoration: "none" }}>terms</a>
           </div>
         </div>
       )}

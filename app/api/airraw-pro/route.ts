@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server"
 import { createPaymentIntent, getPaymentIntent, usdToMinor, ziinaConfigured } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
 import { mintProToken } from "@/lib/airraw-pro-token"
-import { metaPurchase } from "@/lib/meta-capi"
+import { metaPurchase, metaEvent } from "@/lib/meta-capi"
+import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 
 // AIRRAW Pro — anonymous one-time 30-day pass via Ziina hosted checkout.
 //   POST { action: "checkout" }            → { url, intentId }  (redirect the user to url)
@@ -40,6 +41,23 @@ export async function POST(req: NextRequest) {
       })
       const url = intent.redirect_url || intent.embedded_url
       if (!url) return Response.json({ error: "no checkout url from provider" }, { status: 502 })
+      // Record the intent so the webhook can confirm payment + report the Meta conversion
+      // even if the buyer never returns to claim (closed tab / cleared localStorage). The
+      // anonymous pass has no account, so the webhook is the only GUARANTEED capture point —
+      // without this row the webhook sees "unknown_intent" and the paid conversion is lost.
+      try {
+        if (hasAdmin()) await getAdminClient().from("ziina_payments").insert({
+          id: intent.id, wallet: null, credits: 0, kind: "airraw_pass",
+          amount: intent.amount ?? null, currency: intent.currency_code ?? null, status: "pending",
+        })
+      } catch { /* never block checkout on the bookkeeping row */ }
+      // Mirror InitiateCheckout server-side (event_id=intent.id → de-duped against the
+      // browser fbq IC). The browser IC is the one most lost to iOS/ITP/ad-blockers, so a
+      // server copy keeps the dense mid-funnel signal a low-AOV pixel optimizes on.
+      metaEvent({
+        eventName: "InitiateCheckout", value: PRICE_USD, currency: "USD", eventId: intent.id,
+        clientIp: clientIp(req), userAgent: req.headers.get("user-agent") || undefined, fbp, fbc,
+      }).catch(() => {})
       return Response.json({ url, intentId: intent.id, price: PRICE_USD, days: DAYS })
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : "checkout failed" }, { status: 502 })

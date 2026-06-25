@@ -16,6 +16,8 @@ import { NextRequest, NextResponse } from "next/server"
 import crypto from "crypto"
 import { getPaymentIntent } from "@/lib/ziina"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
+import { metaPurchase } from "@/lib/meta-capi"
+import { clientIp } from "@/lib/rate-limit"
 
 const SECRET = process.env.ZIINA_WEBHOOK_SECRET || ""
 const SIG_HEADERS = ["x-ziina-signature", "ziina-signature", "x-signature"]
@@ -63,6 +65,25 @@ export async function POST(req: NextRequest) {
     const { data: row } = await sb.from("ziina_payments").select("status,wallet,kind").eq("id", intentId).maybeSingle()
     if (!row)                       return NextResponse.json({ ok: false, error: "unknown_intent" })
     if (row.status === "completed") return NextResponse.json({ ok: true, skipped: "already_processed" })
+
+    // Anonymous AIRRAW/Kloom $9 pass: there's no account, so the browser claim (which
+    // fires the browser + server Purchase) is the only place the conversion is normally
+    // reported — and it's skipped entirely if the buyer lost localStorage or never came
+    // back. This webhook is the guaranteed capture point: fire the server Purchase here,
+    // event_id=intentId so Meta DE-DUPES it against any browser/claim Purchase (never
+    // double-counted). Reports USD 9 to match the browser pixel value. Then mark the row
+    // completed so a replayed webhook can't re-report.
+    if (row.kind === "airraw_pass") {
+      await metaPurchase({
+        value: Number(process.env.AIRRAW_PRO_USD || 9),
+        currency: "USD",
+        eventId: intentId,
+        clientIp: clientIp(req),
+        userAgent: req.headers.get("user-agent") || undefined,
+      }).catch(() => {})
+      await sb.from("ziina_payments").update({ status: "completed" }).eq("id", intentId)
+      return NextResponse.json({ ok: true, kind: row.kind, purchaseReported: true })
+    }
 
     // The webhook does NOT grant. The authoritative grant into kloom_entitlements
     // (the only store the app reads) happens via the authed reconcile — ziina-verify,

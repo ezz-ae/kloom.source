@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       // Server-side Purchase to Meta (reliable) — same event_id the browser fires
       // so Meta de-dupes. Best-effort; never blocks.
       const value = kind === "credits" ? usdForMinutes(credits)
-                  : kind === "unrestricted" ? 10
+                  : kind === "unrestricted" ? 9   // the one-pass price — was a stale $10
                   : (def?.priceUsd ?? 0)
       metaPurchase({ value, currency: "USD", email, eventId: String(row.id), clientIp: ip, userAgent: ua }).catch(() => {})
       grants.push({ credits, kind, eventId: String(row.id) })

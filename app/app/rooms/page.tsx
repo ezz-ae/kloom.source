@@ -8,9 +8,10 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { VISIBLE_ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
+import { ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
 import { CATEGORY_META, CATEGORY_ORDER, isAdultRoom } from "@/lib/category-meta"
 import { adultEnabled, isIo, funLive } from "@/lib/variant"
+import { getShowAdult, hasUnrestricted } from "@/lib/account"
 import { funHandoffUrl } from "@/lib/sso"
 import { listCustomRooms, deleteCustomRoom, cloneRoom } from "@/lib/custom-rooms"
 import { fetchCommunityFeed, bumpRoomClones, type FeedSort } from "@/lib/rooms-db"
@@ -33,6 +34,10 @@ export default function RoomsPage() {
   const [filter, setFilter] = useState<Filter>("all")
   const [sort, setSort] = useState<FeedSort>("trending")
   const [mine, setMine] = useState<Room[]>([])
+  // Adult rooms surface only when the variant allows it, OR a subscribed user has
+  // explicitly opted in on the You page (getShowAdult + hasUnrestricted). Default false
+  // (SSR-safe) so the logged-out / ad-landing feed is always clean.
+  const [allowAdult, setAllowAdult] = useState(false)
 
   const [feed, setFeed] = useState<Room[]>([])
   const [offset, setOffset] = useState<number | null>(0)
@@ -40,7 +45,10 @@ export default function RoomsPage() {
   const [loading, setLoading] = useState(true)
   const seen = useRef<Set<string>>(new Set())
 
-  useEffect(() => { setMine(listCustomRooms()) }, [])
+  useEffect(() => {
+    setMine(listCustomRooms())
+    setAllowAdult(adultEnabled() || (getShowAdult() && hasUnrestricted()))
+  }, [])
 
   // Seed the search from ?q= (the sitelinks search box / shared search links).
   useEffect(() => {
@@ -56,7 +64,8 @@ export default function RoomsPage() {
 
   // Curated built-ins that match the current filter + search — always shown
   // first, deduped against the community feed.
-  const curated = VISIBLE_ROOMS.filter((r) => {
+  const curated = ROOMS.filter((r) => {
+    if (!allowAdult && isAdultRoom(r)) return false
     if (filter !== "all" && r.category !== filter) return false
     if (debounced && !`${r.name} ${r.tagline}`.toLowerCase().includes(debounced.toLowerCase())) return false
     return true
@@ -67,14 +76,14 @@ export default function RoomsPage() {
     setLoading(true)
     seen.current = new Set(curated.map((r) => r.id))
     const { rooms, nextOffset } = await fetchCommunityFeed({ category: filter, search: debounced, sort, limit: 24, offset: 0 })
-    const fresh = rooms.filter((r) => !seen.current.has(r.id) && (adultEnabled() || !isAdultRoom(r)))
+    const fresh = rooms.filter((r) => !seen.current.has(r.id) && (allowAdult || !isAdultRoom(r)))
     fresh.forEach((r) => seen.current.add(r.id))
     setFeed(fresh)
     setOffset(nextOffset)
     setHasMore(nextOffset !== null)
     setLoading(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, debounced, sort])
+  }, [filter, debounced, sort, allowAdult])
 
   useEffect(() => { reload() }, [reload])
 
@@ -88,7 +97,7 @@ export default function RoomsPage() {
       if (!entries[0].isIntersecting || loadingMore.current || offset === null) return
       loadingMore.current = true
       const { rooms, nextOffset } = await fetchCommunityFeed({ category: filter, search: debounced, sort, limit: 24, offset })
-      const fresh = rooms.filter((r) => !seen.current.has(r.id) && (adultEnabled() || !isAdultRoom(r)))
+      const fresh = rooms.filter((r) => !seen.current.has(r.id) && (allowAdult || !isAdultRoom(r)))
       fresh.forEach((r) => seen.current.add(r.id))
       setFeed((prev) => [...prev, ...fresh])
       setOffset(nextOffset)
@@ -97,7 +106,7 @@ export default function RoomsPage() {
     }, { rootMargin: "600px" })
     io.observe(el)
     return () => io.disconnect()
-  }, [offset, hasMore, filter, debounced, sort])
+  }, [offset, hasMore, filter, debounced, sort, allowAdult])
 
   const all = [...curated, ...feed]
 

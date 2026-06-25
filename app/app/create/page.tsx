@@ -12,7 +12,7 @@ import { useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createCustomRoom, getCustomRoom, type BuilderMember, type Gender } from "@/lib/custom-rooms"
 import { publishRoom } from "@/lib/rooms-db"
-import { CATEGORY_META } from "@/lib/category-meta"
+import { CATEGORY_META, isAdultRoom } from "@/lib/category-meta"
 import { buildInviteUrl, FUN_ORIGIN } from "@/lib/room-share"
 import { isIo } from "@/lib/variant"
 import { makeSessionId } from "@/lib/room-session"
@@ -108,13 +108,14 @@ export default function CreateRoomPage() {
       name: name.trim(), topic: chosen?.angle?.trim() || idea.trim(), category,
       members: members.map(({ emoji: _e, ...m }) => ({ ...m, name: m.name.trim() })),
     })
-    // Adult rooms always go to the shared directory so they surface on Kloom.fun
-    // (and never on .io). Otherwise honor the user's publish toggle.
+    // A sexual / 18+ room is NEVER published to the public community directory — it
+    // stays private to its creator (publishRoom refuses adult rooms as a backstop). Only
+    // non-adult rooms publish, and only when the user keeps the publish toggle on. Adult
+    // rooms built on .io still travel privately to the creator via their Kloom.fun link.
+    const room = getCustomRoom(roomId)
+    const adult = room ? isAdultRoom(room) : false
     let published = false
-    if (publish || funMode) {
-      const room = getCustomRoom(roomId)
-      if (room) published = await publishRoom(room)
-    }
+    if (publish && room && !adult) published = await publishRoom(room)
     setCreated({ roomId, sessionId: makeSessionId(), published, fun: funMode })
   }
 

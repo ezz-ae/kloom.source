@@ -10,6 +10,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import type { Room, RoomCategory } from "@/lib/rooms"
 import { decodeRoomPayload, encodeRoomPayload } from "@/lib/room-share"
+import { isAdultRoom } from "@/lib/category-meta"
 
 // Same Supabase project as the rest of the app (payments, realtime sessions).
 // The anon key is publishable by design; RLS limits access to public-room
@@ -35,6 +36,10 @@ export interface CommunityRoomRow {
 /** Publish a room to its world. Returns true on success. */
 export async function publishRoom(room: Room, creator?: string): Promise<boolean> {
   try {
+    // Sexual / 18+ rooms are NEVER published to the public directory — they stay
+    // private to their creator. This is the hard backstop behind the create flow's
+    // own check, so an adult room can never leak into the community feed.
+    if (isAdultRoom(room)) return false
     // Round-trip through the share codec — guarantees what we store is exactly
     // what an invitee's client would accept.
     const safe = decodeRoomPayload(encodeRoomPayload(room))

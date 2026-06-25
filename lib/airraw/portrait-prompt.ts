@@ -93,15 +93,20 @@ const HAIR = [
 const BASE =
   "candid amateur snapshot of a real ordinary person, shot on a cheap phone camera, completely photorealistic, " +
   "true-to-life, natural imperfect skin with visible pores, blemishes, fine lines and slight blotchiness, " +
-  "real human face, slightly uneven everyday lighting, head and shoulders, fully clothed in plain everyday clothes, " +
-  "looking at the camera, totally authentic, unedited, no filter, not a model, not professional, not posed"
+  "one single real human face with two clear, symmetric, correctly-placed eyes and natural undistorted features, " +
+  "slightly uneven everyday lighting, head and shoulders, fully clothed in a plain crew-neck top or shirt with " +
+  "shoulders and chest completely covered, looking at the camera, totally authentic, unedited, no filter, " +
+  "not a model, not professional, not posed"
 
 export const PORTRAIT_NEG =
-  "shirtless, bare chest, topless, underwear, lingerie, cleavage, revealing, suggestive, in bed, nude, nsfw, child, " +
+  "shirtless, bare chest, bare shoulders, bare skin, sleeveless, tank top, spaghetti straps, off-shoulder, " +
+  "topless, underwear, lingerie, cleavage, revealing, suggestive, in bed, nude, nsfw, child, " +
   "cartoon, anime, illustration, drawing, painting, 3d render, cgi, doll, plastic skin, waxy skin, smooth skin, " +
   "flawless skin, airbrushed, retouched, beauty filter, instagram filter, glamour, fashion model, magazine, " +
-  "professional photoshoot, studio backdrop, studio lighting, perfect, symmetrical, overly sharp, hdr, " +
-  "AI-generated, fake, text, watermark, logo, deformed, extra fingers, bad anatomy, lowres, blurry"
+  "professional photoshoot, studio backdrop, studio lighting, perfect, overly sharp, hdr, " +
+  "AI-generated, fake, text, watermark, logo, deformed, disfigured, distorted face, melted features, " +
+  "asymmetric eyes, misaligned eyes, extra eye, third eye, mutated, glitch, double face, extra fingers, " +
+  "bad anatomy, lowres, blurry"
 
 function genderLooks(gender?: string, seed = ""): { pool: string[]; word: string } {
   const g = (gender || "").toLowerCase()

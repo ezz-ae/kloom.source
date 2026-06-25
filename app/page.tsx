@@ -438,13 +438,40 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-border/50 px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-foreground/30">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500" />
-          <span className="font-bold text-foreground/50">Kloom</span>
+      <footer className="border-t border-border/50 px-6 pt-12 pb-10">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-10">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500" />
+              <span className="font-black text-foreground/70">Kloom</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-12 gap-y-7 text-sm">
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-foreground/35">Product</div>
+                <a href="#rooms" className="block text-foreground/55 hover:text-foreground transition-colors">Rooms</a>
+                <Link href="/app/create" className="block text-foreground/55 hover:text-foreground transition-colors">Create a room</Link>
+                <a href="#experts" className="block text-foreground/55 hover:text-foreground transition-colors">Characters</a>
+                <a href="#free" className="block text-foreground/55 hover:text-foreground transition-colors">Pricing</a>
+              </div>
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-foreground/35">Company</div>
+                <a href="#how" className="block text-foreground/55 hover:text-foreground transition-colors">How it works</a>
+                <Link href="/app" className="block text-foreground/55 hover:text-foreground transition-colors">Open app</Link>
+              </div>
+              <div className="space-y-2.5">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-foreground/35">Legal</div>
+                <a href="/legal/terms" className="block text-foreground/55 hover:text-foreground transition-colors">Terms</a>
+                <a href="/legal/privacy" className="block text-foreground/55 hover:text-foreground transition-colors">Privacy</a>
+                <a href="/legal/payments" className="block text-foreground/55 hover:text-foreground transition-colors">Payments</a>
+                <a href="/legal/cookies" className="block text-foreground/55 hover:text-foreground transition-colors">Cookies</a>
+              </div>
+            </div>
+          </div>
+          <div className="mt-10 pt-6 border-t border-border/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-foreground/35">
+            <p>Multi-AI voice rooms · Claude · Gemini · GPT · community-built</p>
+            <p>© 2026 Kloom. All rights reserved.</p>
+          </div>
         </div>
-        <p>Multi-AI voice rooms · Claude · Gemini · GPT · community-built</p>
-        <p>© 2026 Kloom</p>
       </footer>
     </div>
   )

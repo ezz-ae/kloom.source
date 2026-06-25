@@ -73,7 +73,7 @@ export function Sidebar() {
           className="relative block rounded-3xl overflow-hidden p-4 border border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-orange-500/[0.04] to-transparent group">
           <div className="absolute -top-8 -right-6 w-24 h-24 rounded-full bg-amber-500/20 blur-2xl pointer-events-none" />
           <div className="relative text-[10px] uppercase tracking-[0.28em] text-amber-200/70 font-bold">Full access</div>
-          <div className="relative mt-1.5 text-lg font-black tracking-tight">Unlimited &amp; unrestricted</div>
+          <div className="relative mt-1.5 text-lg font-black tracking-tight">Every model, unrestricted</div>
           <span className="relative inline-flex items-center gap-1.5 mt-3 rounded-full brand-gradient px-3.5 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-950 brand-glow group-hover:scale-[1.03] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
             <Plus size={12} /> Get a pass
           </span>

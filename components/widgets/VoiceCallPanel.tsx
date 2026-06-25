@@ -62,7 +62,7 @@ export function VoiceCallPanel({
           {isConnecting ? <Loader2 size={24} className="text-foreground animate-spin" /> : isConnected ? <PhoneOff size={24} className="text-foreground" /> : <Phone size={24} className="text-foreground" />}
         </button>
       </div>
-      <p className="text-[11px] text-foreground/30">Voice calls are billed by the minute · first 5 min free</p>
+      <p className="text-[11px] text-foreground/30">The Pass · $9 · 90 days · 6000 voice minutes</p>
     </div>
   )
 }

@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSolCredits } from "@/hooks/use-sol-credits"
-import { isSubscribed } from "@/lib/account"
+import { isSubscribed, hasUnrestricted, getShowAdult, setShowAdult } from "@/lib/account"
+import { getProToken, proUntil } from "@/lib/airroom/pro"
 import { accountMinutes, hydrateEntitlement } from "@/lib/auth"
 import { TopUpSlider } from "@/components/widgets/TopUpSlider"
 import { listCustomRooms, deleteCustomRoom } from "@/lib/custom-rooms"
@@ -12,7 +13,7 @@ import { getCharacter, saveCharacter, type UserCharacter } from "@/lib/character
 import { imageFor } from "@/lib/persona-utils"
 import { isWellnessEnabled, setWellnessEnabled, clearWellnessData } from "@/lib/wellness"
 import {
-  Wallet, Plus, Trash2,
+  Wallet, Plus, Trash2, Flame, Copy, Mail,
   HeartHandshake, Shield, User, Tag, X as XIcon, Check, Users as UsersIcon,
 } from "lucide-react"
 
@@ -54,14 +55,50 @@ export default function YouPage() {
   const [saved, setSaved]       = useState(false)
   const [wellnessOn, setWellnessOn] = useState(true)
   const [erased, setErased]     = useState(false)
+  const [proToken, setProTok]   = useState<string | null>(null)
+  const [passUntil, setPassUntil] = useState(0)
+  const [copied, setCopied]     = useState(false)
+  const [restoreEmail, setRestoreEmail] = useState("")
+  const [emailState, setEmailState] = useState<"" | "sending" | "sent" | "err">("")
+  const [emailErr, setEmailErr] = useState("")
+  const [showAdult, setShowAdultState] = useState(false)
 
   useEffect(() => {
     setPremium(isSubscribed())
     setRooms(listCustomRooms())
     setChar(getCharacter())
     setWellnessOn(isWellnessEnabled())
+    setProTok(getProToken())
+    setPassUntil(proUntil())
+    setShowAdultState(getShowAdult())
     hydrateEntitlement().then(() => setAccountMin(accountMinutes()))
   }, [])
+
+  const copyCode = () => {
+    if (!proToken) return
+    navigator.clipboard?.writeText(proToken)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1600) })
+      .catch(() => {})
+  }
+  const emailCode = async () => {
+    const email = restoreEmail.trim()
+    if (!email || !proToken || emailState === "sending") return
+    setEmailState("sending"); setEmailErr("")
+    try {
+      const r = await fetch("/api/send-restore-code", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, token: proToken }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (r.ok && d?.ok) setEmailState("sent")
+      else { setEmailState("err"); setEmailErr(d?.error || "Couldn't send — try again.") }
+    } catch { setEmailState("err"); setEmailErr("Network hiccup — try again.") }
+  }
+  const toggleAdult = () => {
+    if (!premium) { setTopUpOpen(true); return }   // unlock with the pass
+    const next = !showAdult
+    setShowAdultState(next); setShowAdult(next)
+  }
 
   const removeRoom = (id: string) => { deleteCustomRoom(id); setRooms(listCustomRooms()) }
 
@@ -96,18 +133,47 @@ export default function YouPage() {
       <div className="max-w-3xl mx-auto px-6 lg:px-8 py-6 pb-28 lg:pb-10 space-y-5">
 
         {/* ── Voice minutes — the single balance, the single top-up ── */}
-        <Section icon={Wallet} title="Voice minutes" sub="Pay-as-you-go. Top up or grab a pass.">
+        <Section icon={Wallet} title="Voice minutes" sub="The pass — $9 · 90 days · 6000 minutes.">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <div className="text-3xl font-black">{premium ? "Unlimited" : <>{accountMin + balance}<span className="text-lg text-muted-foreground"> min</span></>}</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">{premium ? "Pass active" : "First 5 minutes free"}</div>
+              <div className="text-3xl font-black">{premium ? <>6000<span className="text-lg text-muted-foreground"> min</span></> : <>{accountMin + balance}<span className="text-lg text-muted-foreground"> min</span></>}</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{premium ? "Pass active · 90 days" : "First 5 minutes free"}</div>
             </div>
             <button onClick={() => setTopUpOpen(true)}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm px-4 py-2.5 rounded-xl transition-all">
-              <Plus size={15} /> Top up
+              <Plus size={15} /> {premium ? "Manage" : "Get the pass"}
             </button>
           </div>
         </Section>
+
+        {/* ── Restore purchase — the pass is anonymous, so the code IS the receipt ── */}
+        {proToken && (
+          <Section icon={Shield} title="Restore purchase" sub="Your pass code — paste it on any browser to restore.">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <code className="flex-1 min-w-0 truncate text-[11px] font-mono bg-foreground/5 border border-border/50 rounded-xl px-3 py-2.5 text-muted-foreground">{proToken}</code>
+                <button onClick={copyCode}
+                  className="flex items-center gap-1.5 bg-foreground/10 hover:bg-foreground/15 text-xs font-bold px-3 py-2.5 rounded-xl shrink-0 transition-all">
+                  {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <input value={restoreEmail} onChange={(e) => { setRestoreEmail(e.target.value); setEmailState("") }} type="email" inputMode="email"
+                  placeholder="email it to me…"
+                  className="flex-1 min-w-0 bg-foreground/5 border border-border/50 rounded-xl px-3 py-2.5 text-sm focus:border-amber-400/50 focus:outline-none" />
+                <button onClick={emailCode} disabled={emailState === "sending" || !restoreEmail.trim()}
+                  className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold px-3 py-2.5 rounded-xl shrink-0 transition-all disabled:opacity-60">
+                  <Mail size={14} /> {emailState === "sending" ? "Sending…" : emailState === "sent" ? "Sent ✓" : "Email me"}
+                </button>
+              </div>
+              {emailState === "err" && <p className="text-[11px] text-red-400">{emailErr}</p>}
+              {passUntil > 0 && <p className="text-[11px] text-muted-foreground">Pass valid until {new Date(passUntil).toISOString().slice(0, 10)}.</p>}
+              <p className="text-[11px] text-muted-foreground/70 flex items-start gap-1.5">
+                <Shield size={12} className="text-amber-400/70 shrink-0 mt-0.5" /> Anyone with this code can unlock your pass — keep it private.
+              </p>
+            </div>
+          </Section>
+        )}
 
         {/* ── My created rooms ── */}
         <Section icon={UsersIcon} title="My created rooms" sub={`${rooms.length} room${rooms.length === 1 ? "" : "s"} you built`}>
@@ -200,6 +266,21 @@ export default function YouPage() {
             <button onClick={save}
               className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-sm px-4 py-2.5 rounded-xl transition-all">
               {saved ? <><Check size={15} /> Saved</> : "Save character"}
+            </button>
+          </div>
+        </Section>
+
+        {/* ── Adult content — opt-in, and only effective with the pass ── */}
+        <Section icon={Flame} title="Adult content" sub="18+ rooms — off by default.">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {premium
+                ? <>Show <span className="text-foreground/70">18+ rooms</span> in your feed. Turn it off anytime.</>
+                : <>18+ rooms unlock with <span className="text-foreground/70">The Pass</span> ($9 / 90 days).</>}
+            </p>
+            <button onClick={toggleAdult} aria-label="toggle adult content"
+              className={`w-10 h-6 rounded-full transition-colors relative shrink-0 ${showAdult && premium ? "bg-rose-500" : "bg-white/15"}`}>
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${showAdult && premium ? "translate-x-4" : "translate-x-0.5"}`} />
             </button>
           </div>
         </Section>

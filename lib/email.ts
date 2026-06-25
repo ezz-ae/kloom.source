@@ -70,6 +70,22 @@ export async function sendReceipt(opts: {
   return send(opts.to, `Your Kloom receipt — ${opts.itemName}`, shell("Payment confirmed", body))
 }
 
+// ── Restore code (the pass token) ─────────────────────────────────────────────
+// The pass is anonymous — the signed token IS the proof of purchase. Mailing it to
+// the buyer lets them restore on any browser. It's a credential, so the body warns to
+// keep it private. `expires` is a human date string (optional).
+export async function sendRestoreCode(opts: { to: string; token: string; expires?: string }): Promise<boolean> {
+  const body = `
+    <p>Here's your Kloom pass code. Paste it on the <a href="${APP_URL}/app/you" style="color:#f59e0b;">You page</a> (Restore purchase) in any browser to unlock your pass again.</p>
+    <div style="margin:22px 0;padding:16px 18px;border:1px solid rgba(245,158,11,0.25);border-radius:14px;background:rgba(245,158,11,0.06);">
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#f59e0b;font-weight:700;margin-bottom:8px;">Your pass code</div>
+      <code style="display:block;word-break:break-all;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;color:#f5f3f0;">${opts.token}</code>
+    </div>
+    ${opts.expires ? `<p style="font-size:13px;color:rgba(245,243,240,0.55);">Valid until <strong>${opts.expires}</strong>.</p>` : ""}
+    <p style="font-size:12px;color:rgba(245,243,240,0.5);"><strong>Keep this code private</strong> — anyone who has it can unlock your pass.</p>`
+  return send(opts.to, "Your Kloom pass code", shell("Restore your pass", body))
+}
+
 // ── Welcome on account creation ──────────────────────────────────────────────
 export async function sendWelcome(to: string): Promise<boolean> {
   const body = `

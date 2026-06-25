@@ -27,6 +27,18 @@ export function setUnrestricted(on: boolean) {
   try { on ? localStorage.setItem(UNREST_KEY, "1") : localStorage.removeItem(UNREST_KEY) } catch {}
 }
 
+// Show adult content — an explicit opt-in to surface 18+ rooms in the feed. Off by
+// default; only takes effect when the user also holds the pass (hasUnrestricted). So the
+// default + logged-out + ad-landing experience stays clean; only a subscribed user who
+// deliberately turns this on ever sees adult rooms.
+const ADULT_KEY = "kloom_show_adult"
+export function getShowAdult(): boolean {
+  try { return localStorage.getItem(ADULT_KEY) === "1" } catch { return false }
+}
+export function setShowAdult(on: boolean) {
+  try { on ? localStorage.setItem(ADULT_KEY, "1") : localStorage.removeItem(ADULT_KEY) } catch {}
+}
+
 // On-device chat memory — keep full conversation history on THIS device (default ON).
 // Turning it off stops new saves AND wipes what's stored. Independent of the variant gate.
 const MEM_KEY = "kloom_keep_memory"

@@ -33,7 +33,7 @@ const PLANS = [
     name: "Dayuse",
     price: 7.93,
     period: "24h",
-    features: ["Unlimited voice calls", "All premium models — Claude, Gemini, GPT", "1 invitation", "Full access to every world"],
+    features: ["6000 voice minutes", "All premium models — Claude, Gemini, GPT", "1 invitation", "Full access to every world"],
     highlight: false,
   },
   {
@@ -41,7 +41,7 @@ const PLANS = [
     name: "Holyweek",
     price: 13.32,
     period: "7 days",
-    features: ["Unlimited voice calls", "All premium models — Claude, Gemini, GPT", "3 invitations", "Full access to every world"],
+    features: ["6000 voice minutes", "All premium models — Claude, Gemini, GPT", "3 invitations", "Full access to every world"],
     highlight: false,
   },
   {
@@ -49,7 +49,7 @@ const PLANS = [
     name: "Super30",
     price: 21,
     period: "mo",
-    features: ["Unlimited voice calls", "All premium models — Claude, Gemini, GPT", "Unlimited invitations", "Full access to every world"],
+    features: ["6000 voice minutes", "All premium models — Claude, Gemini, GPT", "Unlimited invitations", "Full access to every world"],
     highlight: true,
   },
 ]

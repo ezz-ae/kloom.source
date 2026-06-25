@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { isSubscribed, hasUnrestricted } from "@/lib/account"
 import { getProToken } from "@/lib/airroom/pro"
+import { getChatDirection } from "@/lib/character"
 import { consumeVoice, voiceAvailable, LAUNCH_UNLIMITED, getFreeRemainingSec } from "@/lib/voice-credits"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { accountMinutes, setAccountMinutes, spendMinutes, authHeader } from "@/lib/auth"
@@ -327,6 +328,7 @@ export function useRealtimeVoice({
             proToken:     getProToken(),      // AIRRAW Pro token — accepted as entitlement proof
             partners:     others.length > 0 ? others : undefined,
             relationship: others.length > 0 ? relationshipRef.current : undefined,
+            userSteer:    getChatDirection(),  // how the user asked to be talked to (Vibes quiz)
             messages,
           }),
         })

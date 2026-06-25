@@ -15,6 +15,7 @@ import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
 import { isSubscribed, hasUnrestricted, keepMemory } from "@/lib/account"
 import { getProToken } from "@/lib/airroom/pro"
+import { getChatDirection } from "@/lib/character"
 import { passCoversVoice } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
 import { track } from "@/lib/track"
@@ -367,7 +368,7 @@ function RoomContent() {
     try {
       const res = await fetch("/api/mcp-chat", {
         method: "POST", headers: { "Content-Type": "application/json", ...(await authHeader()) },
-        body: JSON.stringify({ mode: "chat", persona: member, premium: isSubscribed(), unrestricted: hasUnrestricted(), proToken: getProToken(), messages: next }),
+        body: JSON.stringify({ mode: "chat", persona: member, premium: isSubscribed(), unrestricted: hasUnrestricted(), proToken: getProToken(), userSteer: getChatDirection(), messages: next }),
       })
       const reader = res.body!.getReader(); const dec = new TextDecoder(); let full = ""
       while (true) { const { done, value } = await reader.read(); if (done) break; full += dec.decode(value, { stream: true }); setDmStream(full) }
@@ -478,6 +479,7 @@ function RoomContent() {
             roomName: room.name,
             relationship: sceneRelationship,
             partners: others,
+            userSteer: getChatDirection(),
             messages: running.map((m) => ({
               role:    m.role,
               content: m.role === "assistant" && m.speaker ? `[${m.speaker}]: ${m.content}` : m.content,
@@ -576,6 +578,7 @@ function RoomContent() {
           partners: room.category === "co-intelligence" ? room.personas : undefined,
           roomName: room.name,
           relationship: room.relationship,
+          userSteer: getChatDirection(),
           messages: [{
             role:    "user",
             content: `Use the ${toolId} tool with these settings: ${JSON.stringify(args)}. Return only the tool output and a concise summary.`,

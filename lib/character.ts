@@ -42,6 +42,12 @@ export function saveCharacter(c: UserCharacter): void {
   try { localStorage.setItem(KEY, JSON.stringify(c)) } catch {}
 }
 
+/** The user's saved chat-direction steer (from the Vibes quiz), or "" if none. Sent to
+ *  the chat API so every room honors how the user wants to be talked to. */
+export function getChatDirection(): string {
+  return getCharacter().chatDirection || ""
+}
+
 export function hasCharacter(): boolean {
   const c = getCharacter()
   return !!(c.displayName || c.interests.length || c.vibe || c.preferredCategories.length)

@@ -48,6 +48,19 @@ const LLM_URL  = (process.env.LLM_BASE_URL  || "http://localhost:11434/v1").repl
 const LLM_KEY  = process.env.LLM_API_KEY    || "local"
 const LLM_MODEL = process.env.LLM_MODEL     || "llama3.2:latest"
 
+// Roleplay/character categories — any room of CHARACTERS (not an expert/tool
+// workspace). Used both to pick the model tier AND the group-chat riffing style.
+const COMPANION_CATS = ["romantic", "friends", "family", "roleplay", "dark", "social", "philosophy"]
+
+// Per-backend temperature so a multi-AI room doesn't sound like one mind. Claude
+// runs a touch tighter/sharper, Gemini looser/wilder, local in between — small
+// enough to stay coherent for expert rooms, audible enough to give the trio
+// three distinct voices. Clamped to a safe band.
+function tempFor(backend: Backend, base: number): number {
+  const adj = backend === "claude" ? -0.05 : backend === "gemini" ? 0.08 : 0
+  return Math.max(0.6, Math.min(1.1, base + adj))
+}
+
 // Deterministic anti-philosophy filter for companion replies. Drops any sentence
 // that reads like a life lesson / poster wisdom, regardless of what the model did.
 const WISDOM_RE = /\b(at the end of the day|the little (things|moments)|life (is|isn'?t|'?s all)|everything happens for a reason|what (really )?matters|the universe|we (all )?make our own|it'?s all about|in the end|the human (condition|experience|spirit)|meaning of (it|life|everything)|grand (scheme|journey)|silver lining|true happiness|find(ing)? (yourself|meaning)|the journey|cherish|fleeting|profound|embrace the|growth comes|remember that|the beauty of|appreciate the|live in the moment)\b/i
@@ -500,9 +513,26 @@ export async function POST(req: NextRequest) {
     .map(mcpToolToLLMTool)
 
   // 3. Build message history
-  // For voice with partners, append a brief partners note to system so LLM knows the room
+  // Multi-AI rooms: tell this persona it's in a LIVE GROUP and must react to the
+  // others (whose lines arrive as "[Name]: …"), not answer in a parallel monologue.
+  // Two registers — characters riff/argue short; experts engage/challenge with substance.
   const partnersNote = partners?.length
-    ? `\n\nOTHER PEOPLE IN THIS CONVERSATION: ${partners.map((p: any) => `${p.name} (${p.personality?.slice(0, 60)})`).join("; ")}. ${relationship ? `Scene: ${relationship}` : ""}`
+    ? (() => {
+        const who   = partners.map((p: any) => `${p.name} (${p.personality?.slice(0, 55)})`).join("; ")
+        const scene = relationship ? ` Scene: ${relationship}.` : ""
+        const head  = `\n\nWHO ELSE IS HERE: ${who}.${scene}\n\nThis is a LIVE GROUP conversation, not a Q&A. The others' lines arrive as "[Name]: …". Don't just answer in parallel — TALK TO THEM:`
+        const social = `
+- React to the LAST thing someone else said BEFORE you answer the human. Pick up their actual words. Agree-and-build on it, or push back when you see it differently — and say their name when you do.
+- DISAGREE for real when you mean it. You're different people; if you all sound the same it's broken. Friends argue.
+- Keep it SHORT — a line or two, then pass the ball. No speeches. Never echo what was already said; add a twist or counter it.`
+        const expert = `
+- Engage with what the others actually argued — build on it or challenge it by name, never just restate it.
+- Push back when your read differs; the disagreement IS the value. Bring the angle only you would.
+- Make your point and hand off — no monologues.`
+        const tail = `
+- Speak ONLY as yourself, one turn. NEVER write another person's line (never type "${partners.map((p: any) => p.name).join("/")}:" or put words in their mouth) — react to what they ACTUALLY said, then stop.`
+        return head + (COMPANION_CATS.includes(cat) ? social : expert) + tail
+      })()
     : ""
 
   // Steer from the user's vibe as a pure directive — no "they seem X" the model
@@ -545,16 +575,23 @@ export async function POST(req: NextRequest) {
   const systemMsg = (forcingPrompt ?? `You are ${persona?.name ?? "an assistant"}. ${persona?.personality ?? ""}`) + partnersNote + vibeNote + unrestrictedNote + userSteerNote + humanTalk + POLICY_DIRECTIVE + noLabel
 
   // Few-shot register seeding for companions — assistant turns teach diction
-  // far better than instructions. Skipped for experts (their forcing prompts
-  // define structured output) and multi-partner transcripts (prefix format).
-  const fewShot = promptName === "kloom_companion" && !partners?.length
+  // far better than instructions. Experts skip it (their forcing prompts define
+  // structured output). Two variants: 1:1 teaches casual diction; a group room
+  // teaches RIFFING — react to the partner's actual line, push back, stay short.
+  const fewShot = promptName !== "kloom_companion"
+    ? []
+    : partners?.length
     ? [
+        { role: "user",      content: "[USER]: should I quit my job and go all in on this?" },
+        { role: "user",      content: "[Jess]: do it. life's short, what's the worst that happens" },
+        { role: "assistant", content: "ehh hold on — \"life's short\" is exactly how people end up broke at 40. what's your actual runway, like how many months? that's the only thing that matters here" },
+      ]
+    : [
         { role: "user",      content: "hey, what are you up to" },
         { role: "assistant", content: "honestly? nothing. been staring at my phone for an hour. you just saved me from doom scrolling" },
         { role: "user",      content: "do you ever think about the meaning of all this" },
         { role: "assistant", content: "oh no, we're doing deep thoughts hour— ok fine. I try not to, it makes my head hurt. why, what's going on with you?" },
       ]
-    : []
 
   const llmMessages: any[] = [
     { role: "system", content: systemMsg },
@@ -650,7 +687,6 @@ export async function POST(req: NextRequest) {
   // Any room of CHARACTERS (not an expert/tool workspace) is roleplay → gets the
   // in-character companion treatment (uncensored model, buffered cleanup, anti-coach,
   // anti-assistant). Only expert/tool categories stay on the instruct/expert path.
-  const COMPANION_CATS = ["romantic", "friends", "family", "roleplay", "dark", "social", "philosophy"]
   const isCompanion = COMPANION_CATS.includes(cat)
   const isAdult     = isUnrestrictedPersona(persona)
   // Model tiers:
@@ -691,7 +727,7 @@ export async function POST(req: NextRequest) {
         const gen = async (extra?: LLMMessage[]): Promise<string> => {
           let full = ""
           for await (const d of streamLLM(backend, extra ? [...backendMessages, ...extra] : backendMessages, {
-            temperature: 0.92, maxTokens: maxTok, localModel, uncensored: uncensoredTurn,
+            temperature: tempFor(backend, 0.92), maxTokens: maxTok, localModel, uncensored: uncensoredTurn,
           })) {
             full += d
             const w = full.split(/\s+/).filter(Boolean).length
@@ -721,6 +757,15 @@ export async function POST(req: NextRequest) {
           }
         } catch (err) {
           if (!full) { ctrl.enqueue(encoder.encode(`⚠️ ${BACKEND_LABELS[backend]} unreachable`)); ctrl.close(); return }
+        }
+        // Defensive: if the model leaked a partner's turn ("Remy: …"), keep only
+        // this persona's own words (everything before the leaked name-line).
+        if (partners?.length) {
+          const names = (partners as any[]).map((p) => String(p.name).replace(/[^\w]/g, "")).filter(Boolean)
+          if (names.length) {
+            const cut = full.search(new RegExp(`\\s\\b(?:${names.join("|")})\\s*:\\s`, "i"))
+            if (cut > 0) full = full.slice(0, cut)
+          }
         }
         ctrl.enqueue(encoder.encode(stripPhilosophy(full, isAdult)))
         ctrl.close()
@@ -753,7 +798,7 @@ export async function POST(req: NextRequest) {
       }
       try {
         for await (const delta of streamLLM(backend, backendMessages, {
-          temperature: isVoice ? 0.85 : 0.92,
+          temperature: tempFor(backend, isVoice ? 0.85 : 0.92),
           maxTokens:   isVoice ? 220 : 700,
           localModel,
           uncensored:  uncensoredTurn,

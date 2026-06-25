@@ -322,6 +322,12 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       generationConfig: {
         temperature:     opts.temperature ?? 0.9,
         maxOutputTokens: opts.maxTokens   ?? 700,
+        // gemini-2.5-flash is a THINKING model: it spends maxOutputTokens on hidden
+        // reasoning first, so a 160-token companion cap left ~5 tokens for the actual
+        // reply → every answer truncated mid-word ("hmm remy's got…", finishReason
+        // MAX_TOKENS). Disable thinking: full budget goes to the visible reply, and
+        // it's faster (no reasoning latency) — exactly right for a real-time room.
+        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
   })

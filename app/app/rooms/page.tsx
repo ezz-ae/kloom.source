@@ -16,7 +16,7 @@ import { funHandoffUrl } from "@/lib/sso"
 import { listCustomRooms, deleteCustomRoom, cloneRoom } from "@/lib/custom-rooms"
 import { fetchCommunityFeed, bumpRoomClones, type FeedSort } from "@/lib/rooms-db"
 import { getTopics } from "@/lib/topics"
-import { imageFor } from "@/lib/persona-utils"
+import { RoomFace } from "@/components/RoomFace"
 import { Plus, Search, Copy, ArrowRight, Trash2, Loader2, Check, Flame, Clock, TrendingUp } from "lucide-react"
 
 type Filter = "all" | RoomCategory
@@ -109,6 +109,12 @@ export default function RoomsPage() {
   }, [offset, hasMore, filter, debounced, sort, allowAdult])
 
   const all = [...curated, ...feed]
+  // Top rooms — the standouts, pulled to a featured rail above the full grid. Ranked by
+  // clones when the data's there; otherwise the curated order (hand-picked best first).
+  const topRooms = [...all]
+    .sort((a, b) => ((b as Room & { _clones?: number })._clones || 0) - ((a as Room & { _clones?: number })._clones || 0))
+    .slice(0, 8)
+  const showTop = filter === "all" && !debounced && topRooms.length >= 4
 
   return (
     <div className="min-h-full text-foreground">
@@ -181,10 +187,30 @@ export default function RoomsPage() {
           </div>
         )}
 
+        {/* Top rooms — a featured rail of standouts you can swipe through */}
+        {showTop && (
+          <div className="mb-8">
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <Flame size={13} className="text-amber-400" />
+              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Top rooms</h2>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 snap-x scrollbar-hide">
+              {topRooms.map((r) => (
+                <div key={`top-${r.id}`} className="snap-start shrink-0 w-72">
+                  <RoomCard room={r} featured
+                    onEnter={(t) => router.push(t ? `/app/rooms/${r.id}?t=${t}` : `/app/rooms/${r.id}`)}
+                    onClone={() => { bumpRoomClones(r.id); const id = cloneRoom(r); router.push(`/app/rooms/${id}`) }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* The feed — masonry so every room sizes to its own topics; cards are
             clusters of scenes, not uniform e-commerce tiles. Curated rooms paint
             instantly; the community half streams in and only shows skeletons when
             there's nothing on screen yet. */}
+        {showTop && <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">All rooms</h2>}
         {all.length > 0 ? (
           <>
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-3">
@@ -239,87 +265,98 @@ function FunTap() {
   )
 }
 
-function RoomCard({ room, onEnter, onClone, onDelete, owned }: {
+// The cast as a wide face banner — the faces ARE the room. Real photos (generated once,
+// cached forever), tiled to fill the top of the card so each room reads as a place full
+// of people, not an e-commerce tile.
+function FaceBanner({ room, tall }: { room: Room; tall?: boolean }) {
+  const meta = CATEGORY_META[room.category]
+  const cast = room.personas.slice(0, 3)
+  return (
+    <div className={`relative ${tall ? "h-36" : "h-28"} flex overflow-hidden bg-stone-900`}>
+      {cast.map((p, i) => (
+        <RoomFace key={`${p.name}-${i}`} name={p.avatarSeed ?? p.name} gender={p.gender} photoUrl={p.photoUrl}
+          seed={p.avatarSeed ?? p.name} alt={p.name}
+          className="flex-1 min-w-0 h-full object-cover" />
+      ))}
+      {/* category tint for cohesion + a scrim so the title below always reads */}
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-t ${room.gradient} opacity-30 mix-blend-soft-light`} />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background via-background/50 to-transparent" />
+      <span className="absolute top-2.5 left-2.5 text-[9.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-background/65 backdrop-blur-md border border-white/10 text-foreground/90">
+        {meta?.label ?? room.category}
+      </span>
+    </div>
+  )
+}
+
+function RoomCard({ room, onEnter, onClone, onDelete, owned, featured }: {
   room: Room
   onEnter: (topicSlug?: string) => void
   onClone?: () => void
   onDelete?: () => void
   owned?: boolean
+  featured?: boolean
 }) {
-  const meta = CATEGORY_META[room.category]
   const [cloned, setCloned] = useState(false)
   // The doors inside this room — concrete scenes, not just a name. This is what
   // makes a room read as "many topics" instead of one boring tile.
-  const topics = getTopics(room.id, room.category).slice(0, owned ? 3 : 5)
+  const topics = getTopics(room.id, room.category).slice(0, owned ? 3 : 4)
   const clones = (room as Room & { _clones?: number })._clones
 
   return (
-    <div className="group mb-3 break-inside-avoid rounded-2xl border border-border/60 bg-foreground/[0.02] hover:border-foreground/25 hover:bg-foreground/[0.04] transition-all p-4 flex flex-col">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {meta?.label ?? room.category}
-        </span>
-        {owned && onDelete && (
-          <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400 transition-all"><Trash2 size={13} /></button>
-        )}
-      </div>
-
-      <button onClick={() => onEnter()} className="text-left">
-        <h3 className="font-semibold tracking-tight leading-snug">{room.name}</h3>
-        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 leading-snug">{room.tagline}</p>
+    <div className="group mb-3 break-inside-avoid rounded-2xl border border-border/60 bg-foreground/[0.02] hover:border-foreground/30 hover:bg-foreground/[0.04] transition-all overflow-hidden flex flex-col">
+      {/* Hero — the faces */}
+      <button onClick={() => onEnter()} className="block text-left">
+        <FaceBanner room={room} tall={featured} />
       </button>
 
-      {/* Cast */}
-      <div className="flex items-center gap-2 mt-3">
-        <div className="flex -space-x-1.5">
-          {room.personas.slice(0, 4).map((p) => {
-            const img = imageFor({ name: p.name, photoUrl: p.photoUrl })
-            return (
-              <div key={`${p.name}-${p.role}`} title={p.name} className="w-6 h-6 rounded-full border-2 border-background bg-foreground/10 overflow-hidden flex items-center justify-center">
-                {img ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={img} alt={p.name} className="w-full h-full object-cover" />
-                ) : <span className="text-[9px] font-semibold">{p.name[0]}</span>}
-              </div>
-            )
-          })}
-        </div>
-        <span className="text-[10px] text-muted-foreground truncate flex-1">
-          {room.personas.map((p) => p.name.split(" ")[0]).slice(0, 3).join(", ")}
-        </span>
-        {typeof clones === "number" && clones > 0 && (
-          <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground shrink-0">
-            <Copy size={10} /> {clones}
-          </span>
-        )}
-      </div>
-
-      {/* Topics — the doors inside. Each one drops you straight into that scene. */}
-      {topics.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          {topics.map((tp) => (
-            <button key={tp.slug} onClick={() => onEnter(tp.slug)}
-              className="group/t flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full border border-border/50 bg-background/30 text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-foreground/[0.06] transition-all">
-              {tp.heat === 3 && <Flame size={10} className="text-rose-400/80" />}
-              {tp.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 mt-3.5">
-        <button onClick={() => onEnter()}
-          className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold py-2 rounded-lg bg-foreground/[0.06] hover:bg-foreground/10 transition-colors">
-          Enter <ArrowRight size={12} />
-        </button>
-        {onClone && (
-          <button onClick={() => { setCloned(true); onClone() }}
-            title="Clone into your rooms"
-            className="flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all">
-            {cloned ? <Check size={12} /> : <Copy size={12} />} Clone
+      <div className="px-4 pt-3 pb-4 flex flex-col">
+        <div className="flex items-start justify-between gap-2">
+          <button onClick={() => onEnter()} className="text-left min-w-0">
+            <h3 className="font-bold text-[15px] tracking-tight leading-snug">{room.name}</h3>
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-snug">{room.tagline}</p>
           </button>
+          {owned && onDelete && (
+            <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400 transition-all shrink-0 mt-0.5"><Trash2 size={13} /></button>
+          )}
+        </div>
+
+        {/* Cast names + clone count */}
+        <div className="flex items-center gap-2 mt-2.5 text-[10px] text-muted-foreground">
+          <span className="truncate flex-1">
+            {room.personas.map((p) => p.name.split(" ")[0]).slice(0, 3).join(" · ")}
+          </span>
+          {typeof clones === "number" && clones > 0 && (
+            <span className="flex items-center gap-1 font-semibold shrink-0"><Copy size={10} /> {clones}</span>
+          )}
+        </div>
+
+        {/* Topics — the doors inside. Each one drops you straight into that scene. */}
+        {topics.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {topics.map((tp) => (
+              <button key={tp.slug} onClick={() => onEnter(tp.slug)}
+                className="flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full border border-border/50 bg-background/30 text-muted-foreground hover:text-foreground hover:border-foreground/30 hover:bg-foreground/[0.06] transition-all">
+                {tp.heat === 3 && <Flame size={10} className="text-rose-400/80" />}
+                {tp.title}
+              </button>
+            ))}
+          </div>
         )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 mt-3.5">
+          <button onClick={() => onEnter()}
+            className="flex-1 flex items-center justify-center gap-1 text-xs font-semibold py-2 rounded-lg bg-foreground/[0.06] hover:bg-foreground/10 transition-colors">
+            Enter <ArrowRight size={12} />
+          </button>
+          {onClone && (
+            <button onClick={() => { setCloned(true); onClone() }}
+              title="Clone into your rooms"
+              className="flex items-center justify-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border/60 text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-all">
+              {cloned ? <Check size={12} /> : <Copy size={12} />} Clone
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

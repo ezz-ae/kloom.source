@@ -84,6 +84,19 @@ function loadRoomChats(roomId: string): ChatMessage[] {
   } catch { return [] }
 }
 
+// A role-aware "working" verb so the processing wait reads as a live collaboration
+// event ("reading the market…") instead of a frozen UI with three dots.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function thinkingVerb(p: any): string {
+  const c = (p?.category as string) || ""
+  if (c === "trading") return "reading the market"
+  if (c === "professional" || c === "workshop") return "writing the code"
+  if (c === "creator") return "drafting it"
+  if (c === "co-intelligence" || c === "zero-memory") return "pulling live data"
+  if (c === "expert" || p?.domain) return "working it through"
+  return "thinking"
+}
+
 function saveRoomChats(roomId: string, msgs: ChatMessage[]) {
   if (!memoryEnabled() || !keepMemory()) return
   try {
@@ -947,7 +960,10 @@ function RoomContent() {
                   <div className="bg-foreground/5 border border-border/30 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-foreground/90 leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-sm">
                     {streamText
                       ? <MessageRenderer content={streamText} />
-                      : <span className="flex gap-1.5 py-1">{[0,1,2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/50 animate-bounce inline-block" style={{animationDelay:`${i*0.15}s`}}/>)}</span>}
+                      : <span className="flex items-center gap-2 py-0.5 text-xs italic text-foreground/45">
+                          {thinkingVerb(roomPersonas.find((p) => p.name === activeResponder))}…
+                          <span className="flex gap-1">{[0,1,2].map((i) => <span key={i} className="w-1.5 h-1.5 rounded-full bg-amber-500/50 animate-bounce inline-block" style={{animationDelay:`${i*0.15}s`}}/>)}</span>
+                        </span>}
                   </div>
                 </div>
               </div>

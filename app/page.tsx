@@ -125,6 +125,33 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── Why three models — the synergy, shown not told ── */}
+      <section className="max-w-3xl mx-auto px-6 pt-12 pb-8">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Why three models in one room?</h2>
+          <p className="text-foreground/55 mt-2 max-w-xl mx-auto">They don&apos;t parrot each other — they build on each other, on one shared context. A real handoff:</p>
+        </div>
+        <div className="rounded-3xl border border-border/60 bg-foreground/[0.03] p-5 sm:p-7">
+          <div className="text-[11px] uppercase tracking-widest text-foreground/30 mb-4">Launch War Room · live</div>
+          <div className="space-y-4">
+            {[
+              { who: "GPT", avatar: "bg-emerald-500/15 border-emerald-500/30 text-emerald-300", name: "text-emerald-300", text: "Here's the raw strategy — a greedy matcher that ranks leads by fit in O(n log n)." },
+              { who: "Claude", avatar: "bg-amber-500/15 border-amber-500/30 text-amber-300", name: "text-amber-300", text: "Refactored that into a clean, modular pipeline — testable, swappable, no dead paths." },
+              { who: "Gemini", avatar: "bg-sky-500/15 border-sky-500/30 text-sky-300", name: "text-sky-300", text: "Pulled live trend data on that structure: demand's up 34% this quarter — here's the chart." },
+            ].map((b, i) => (
+              <div key={i} className="flex gap-3 items-start">
+                <span className={`shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-[11px] font-black border ${b.avatar}`}>{b.who[0]}</span>
+                <div className="min-w-0 rounded-2xl rounded-tl-sm bg-foreground/[0.05] border border-border/40 px-4 py-2.5">
+                  <div className={`text-[11px] font-bold mb-0.5 ${b.name}`}>{b.who}</div>
+                  <p className="text-sm text-foreground/75 leading-snug">{b.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="text-center text-foreground/40 text-sm mt-5">One context, three minds compounding — that&apos;s the whole point of a room.</p>
+      </section>
+
       {/* ── Multi-character voice chat ── */}
       <section id="voice" className="max-w-5xl mx-auto px-6 py-20">
         <div className="text-center mb-12">

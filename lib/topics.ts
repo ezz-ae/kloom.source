@@ -161,7 +161,11 @@ export const CATEGORY_TOPICS: Record<RoomCategory, Topic[]> = {
 // Empty by default: every room now inherits the rich, hooky CATEGORY_TOPICS
 // above, so the whole feed reads as live conversation hooks. Add an entry here
 // only to override a specific flagship room with bespoke topics.
-export const ROOM_TOPICS: Record<string, Topic[]> = {}
+export const ROOM_TOPICS: Record<string, Topic[]> = {
+  // Flagship "bring anything" rooms — no preset doors, no subtext. You bring the topic.
+  "round-table": [],
+  "the-debate": [],
+}
 
 /** Topics for a room — its own set if defined, else its category's. Never empty. */
 export function getTopics(roomId: string, category: RoomCategory): Topic[] {

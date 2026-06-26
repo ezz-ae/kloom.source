@@ -650,8 +650,8 @@ function RoomContent() {
               <h1 className="text-xl font-black">{room.name}</h1>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-rose-500/40 text-rose-300 bg-rose-500/10">18+ LOCKED</span>
             </div>
-            <p className="text-sm text-foreground/55 mt-1">{room.tagline}</p>
-            <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{room.description}</p>
+            {room.tagline && <p className="text-sm text-foreground/55 mt-1">{room.tagline}</p>}
+            {room.description && <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{room.description}</p>}
             <div className="mt-4 rounded-xl bg-black/30 border border-border/50 px-3 py-2 text-xs text-muted-foreground">
               This is an adult room. Free accounts can see it, but going in needs <span className="text-rose-300 font-semibold">Unrestricted</span> —
               one pass unlocks every adult room <span className="text-foreground">and</span> removes restrictions across the whole platform.
@@ -890,7 +890,7 @@ function RoomContent() {
                 </div>
                 <div>
                   <p className="font-bold">{room.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">{room.tagline}</p>
+                  {room.tagline && <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">{room.tagline}</p>}
                 </div>
                 {roomPersonas.some((rp) => effectiveSeatModel(rp.model) !== "local") && (
                   <p className="text-[11px] text-orange-300/70 max-w-xs">

@@ -270,7 +270,7 @@ export default function LandingPage() {
                   <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-200">Gemini</span>
                 </div>
                 <h3 className="font-bold text-lg leading-snug">{r.name}</h3>
-                <p className="text-sm text-foreground/45 mt-2 flex-1">{r.tagline}</p>
+                {r.tagline && <p className="text-sm text-foreground/45 mt-2 flex-1">{r.tagline}</p>}
                 <span className="inline-flex items-center gap-1.5 text-orange-300 text-sm font-semibold mt-4 group-hover:gap-2.5 transition-all">
                   Join the call <ArrowRight size={14} />
                 </span>

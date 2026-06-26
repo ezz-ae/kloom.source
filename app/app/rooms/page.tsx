@@ -120,9 +120,14 @@ export default function RoomsPage() {
   // exact same cast (community clones) so the same faces don't carpet the page.
   const topIds = new Set(showTop ? topRooms.map((r) => r.id) : [])
   const castSig = (r: Room) => r.personas.map((p) => p.name).sort().join("|")
-  const seenCast = new Set<string>(showTop ? topRooms.map(castSig) : [])
+  const curatedIds = new Set(curated.map((r) => r.id))
+  // Seed with the featured rail + every curated cast so community CLONES of those
+  // casts collapse — but curated rooms themselves are ALWAYS shown (intentional),
+  // even when two share a cast (the Claude/Gemini/GPT flagship rooms).
+  const seenCast = new Set<string>([...(showTop ? topRooms.map(castSig) : []), ...curated.map(castSig)])
   const gridRooms = all.filter((r) => {
     if (topIds.has(r.id)) return false
+    if (curatedIds.has(r.id)) return true
     const sig = castSig(r)
     if (seenCast.has(sig)) return false
     seenCast.add(sig)
@@ -326,7 +331,7 @@ function RoomCard({ room, onEnter, onClone, onDelete, owned, featured }: {
         <div className="flex items-start justify-between gap-2">
           <button onClick={() => onEnter()} className="text-left min-w-0">
             <h3 className="font-bold text-[15px] tracking-tight leading-snug">{room.name}</h3>
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-snug">{room.tagline}</p>
+            {room.tagline && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-snug">{room.tagline}</p>}
           </button>
           {owned && onDelete && (
             <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400 transition-all shrink-0 mt-0.5"><Trash2 size={13} /></button>

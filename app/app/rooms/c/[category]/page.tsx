@@ -153,7 +153,7 @@ function RoomCard({ room, category, accentText }: { room: Room; category: RoomCa
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-xl font-black tracking-tight">{room.name}</h3>
-          <p className="text-sm text-muted-foreground mt-0.5">{room.tagline}</p>
+          {room.tagline && <p className="text-sm text-muted-foreground mt-0.5">{room.tagline}</p>}
         </div>
         <button onClick={() => router.push(`/app/rooms/${room.id}`)}
           className="shrink-0 flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground border border-border/50 hover:bg-foreground/5 px-3.5 py-2 rounded-full transition-all">

@@ -31,16 +31,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "fae_court", label: "Fae Court System", icon: "👑" },
-        { id: "glamour_magic", label: "Glamour Magic", icon: "✨" },
-        { id: "fae_contracts", label: "Fae Bargains", icon: "📜" },
-        { id: "court_intrigue", label: "Fae Politics", icon: "🕵️" },
-        { id: "illusion_magic", label: "Illusion Crafting", icon: "🎭" },
-        { id: "ora_content_ideas", label: "Fae Court RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "court_role", label: "Court Role", type: "select", options: ["Queen","King","Jester","Dark Queen"], defaultValue: "Jester" },
         { id: "fae_type", label: "Fae Type", type: "select", options: ["Light","Dark","Trickster","Noble"], defaultValue: "Trickster" },
@@ -69,16 +60,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "golem_forge", label: "Golem Forge System", icon: "🔨" },
-        { id: "stone_magic", label: "Stone Magic", icon: "🪨" },
-        { id: "rune_carving", label: "Rune Carving", icon: "✍️" },
-        { id: "metal_working", label: "Metal Working", icon: "⚒️" },
-        { id: "artifice", label: "Artifice", icon: "⚙️" },
-        { id: "ora_content_ideas", label: "Golem Forge RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "forge_role", label: "Forge Role", type: "select", options: ["Master Smith","Rune Carver","Apprentice","Gemstone Expert"], defaultValue: "Apprentice" },
         { id: "material_specialty", label: "Material Specialty", type: "select", options: ["Stone","Metal","Gemstone","Crystal"], defaultValue: "Metal" },
@@ -107,16 +89,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "phoenix_nest", label: "Phoenix Nest System", icon: "🔥" },
-        { id: "fire_magic", label: "Fire Magic", icon: "🔥" },
-        { id: "fire_dance", label: "Fire Dance", icon: "💃" },
-        { id: "healing_flames", label: "Healing Flames", icon: "🌡️" },
-        { id: "phoenix_lore", label: "Phoenix Lore", icon: "📚" },
-        { id: "ora_content_ideas", label: "Phoenix Nest RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "phoenix_role", label: "Phoenix Role", type: "select", options: ["Fire Sage","Fire Dancer","Young Phoenix","Ancient Phoenix"], defaultValue: "Young Phoenix" },
         { id: "fire_affinity", label: "Fire Affinity", type: "select", options: ["Control","Dance","Healing","Wisdom"], defaultValue: "Control" },
@@ -145,16 +118,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "shadow_realm", label: "Shadow Realm System", icon: "🌑" },
-        { id: "shadow_magic", label: "Shadow Magic", icon: "🌑" },
-        { id: "shadow_creatures", label: "Shadow Creatures", icon: "👻" },
-        { id: "darkness_control", label: "Darkness Control", icon: "🌑" },
-        { id: "shadow_secrets", label: "Shadow Secrets", icon: "🔮" },
-        { id: "ora_content_ideas", label: "Shadow Realm RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "shadow_role", label: "Shadow Role", type: "select", options: ["Queen","King","Dancer","Seer"], defaultValue: "Dancer" },
         { id: "shadow_affinity", label: "Shadow Affinity", type: "select", options: ["Darkness","Secrets","Creatures","Magic"], defaultValue: "Magic" },
@@ -185,16 +149,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "dragons_lair", label: "Dragon's Lair System", icon: "🐉" },
-        { id: "dragon_fire", label: "Dragon Fire", icon: "🔥" },
-        { id: "treasure_hoard", label: "Treasure Hoard", icon: "💰" },
-        { id: "dragon_lore", label: "Dragon Lore", icon: "📚" },
-        { id: "flight_mastery", label: "Flight Mastery", icon: "🪁" },
-        { id: "ora_content_ideas", label: "Dragon's Lair RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "dragon_role", label: "Dragon Role", type: "select", options: ["Gold Dragon","Red Dragon","Copper Dragon","Silver Dragon"], defaultValue: "Copper Dragon" },
         { id: "treasure_type", label: "Treasure Type", type: "select", options: ["Gold","Gems","Artifacts","Magic Items"], defaultValue: "Gold" },
@@ -225,16 +180,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "enchanted_forest", label: "Enchanted Forest System", icon: "🌳" },
-        { id: "nature_magic", label: "Nature Magic", icon: "🌿" },
-        { id: "plant_communication", label: "Plant Communication", icon: "💬" },
-        { id: "forest_lore", label: "Forest Lore", icon: "📚" },
-        { id: "wind_magic", label: "Wind Magic", icon: "🌬️" },
-        { id: "ora_content_ideas", label: "Enchanted Forest RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "forest_role", label: "Forest Role", type: "select", options: ["Wind Spirit","Tree Spirit","Tree Guardian","Forest Trickster"], defaultValue: "Forest Trickster" },
         { id: "nature_affinity", label: "Nature Affinity", type: "select", options: ["Wind","Trees","Animals","Plants"], defaultValue: "Trees" },
@@ -263,16 +209,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "necromancers_sanctum", label: "Necromancer's Sanctum System", icon: "☠️" },
-        { id: "death_magic", label: "Death Magic", icon: "☠️" },
-        { id: "spirit_communication", label: "Spirit Communication", icon: "👻" },
-        { id: "bone_magic", label: "Bone Magic", icon: "🦴" },
-        { id: "forbidden_lore", label: "Forbidden Lore", icon: "📜" },
-        { id: "ora_content_ideas", label: "Necromancer RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "necromancer_role", label: "Necromancer Role", type: "select", options: ["Master Necromancer","Bone Whisperer","Death Knight","Undying Sage"], defaultValue: "Bone Whisperer" },
         { id: "magic_specialty", label: "Magic Specialty", type: "select", options: ["Death Magic","Spirit Communication","Bone Magic","Forbidden Lore"], defaultValue: "Death Magic" },
@@ -303,17 +240,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "dwarven_stronghold", label: "Dwarven Stronghold System", icon: "⛏️" },
-        { id: "stone_working", label: "Stone Working", icon: "🪨" },
-        { id: "metal_forging", label: "Metal Forging", icon: "⚒️" },
-        { id: "gem_mining", label: "Gem Mining", icon: "💎" },
-        { id: "rune_crafting", label: "Rune Crafting", icon: "✍️" },
-        { id: "ale_brewing", label: "Ale Brewing", icon: "🍺" },
-        { id: "ora_content_ideas", label: "Dwarven Stronghold RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "dwarven_role", label: "Dwarven Role", type: "select", options: ["Stronghold Lord","Ale Master","Master Miner","Rune Smith"], defaultValue: "Master Miner" },
         { id: "craft_specialty", label: "Craft Specialty", type: "select", options: ["Stone","Metal","Gems","Runes"], defaultValue: "Metal" },
@@ -342,16 +269,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "elven_academy", label: "Elven Academy System", icon: "🎓" },
-        { id: "elven_magic", label: "Elven Magic", icon: "✨" },
-        { id: "music_weaving", label: "Music Weaving", icon: "🎵" },
-        { id: "lore_keeping", label: "Lore Keeping", icon: "📚" },
-        { id: "weapons_mastery", label: "Weapons Mastery", icon: "⚔️" },
-        { id: "ora_content_ideas", label: "Elven Academy RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "academy_role", label: "Academy Role", type: "select", options: ["Headmaster","Music Mistress","Lore Keeper","Weapons Master"], defaultValue: "Lore Keeper" },
         { id: "magic_specialty", label: "Magic Specialty", type: "select", options: ["Elven Magic","Music Weaving","Lore Keeping","Weapons Mastery"], defaultValue: "Elven Magic" },
@@ -380,16 +298,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "pirate_cove", label: "Pirate Cove System", icon: "⚓" },
-        { id: "navigation", label: "Navigation", icon: "🧭" },
-        { id: "treasure_hunting", label: "Treasure Hunting", icon: "💰" },
-        { id: "sea_combat", label: "Sea Combat", icon: "⚔️" },
-        { id: "sea_magic", label: "Sea Magic", icon: "🌊" },
-        { id: "ora_content_ideas", label: "Pirate Cove RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "pirate_role", label: "Pirate Role", type: "select", options: ["Captain","First Mate","Young Pirate","Sea Singer"], defaultValue: "Young Pirate" },
         { id: "sea_skill", label: "Sea Skill", type: "select", options: ["Navigation","Treasure Hunting","Sea Combat","Sea Magic"], defaultValue: "Treasure Hunting" },
@@ -420,16 +329,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "celestial_observatory", label: "Celestial Observatory System", icon: "🔭" },
-        { id: "celestial_magic", label: "Celestial Magic", icon: "✨" },
-        { id: "star_weaving", label: "Star Weaving", icon: "🌟" },
-        { id: "fate_reading", label: "Fate Reading", icon: "🔮" },
-        { id: "constellation_lore", label: "Constellation Lore", icon: "📚" },
-        { id: "ora_content_ideas", label: "Celestial Observatory RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "observatory_role", label: "Observatory Role", type: "select", options: ["Chief Astronomer","Star Weaver","Constellation Guardian","Cosmic Seer"], defaultValue: "Star Weaver" },
         { id: "celestial_specialty", label: "Celestial Specialty", type: "select", options: ["Astronomy","Celestial Magic","Star Weaving","Fate Reading"], defaultValue: "Celestial Magic" },
@@ -458,16 +358,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "dragon_riders_nest", label: "Dragon Rider's Nest System", icon: "🐉" },
-        { id: "dragon_bonding", label: "Dragon Bonding", icon: "🤝" },
-        { id: "aerial_combat", label: "Aerial Combat", icon: "⚔️" },
-        { id: "dragon_healing", label: "Dragon Healing", icon: "🩹" },
-        { id: "wind_magic", label: "Wind Magic", icon: "🌬️" },
-        { id: "ora_content_ideas", label: "Dragon Rider RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "rider_role", label: "Rider Role", type: "select", options: ["Master Rider","Dragon Healer","Rising Rider","Wind Speaker"], defaultValue: "Rising Rider" },
         { id: "dragon_type", label: "Dragon Type", type: "select", options: ["Fire","Wind","Storm","Mountain"], defaultValue: "Fire" },
@@ -496,16 +387,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "undead_necropolis", label: "Undead Necropolis System", icon: "💀" },
-        { id: "death_magic", label: "Death Magic", icon: "☠️" },
-        { id: "soul_management", label: "Soul Management", icon: "👻" },
-        { id: "eternal_knowledge", label: "Eternal Knowledge", icon: "📚" },
-        { id: "undead_command", label: "Undead Command", icon: "👑" },
-        { id: "ora_content_ideas", label: "Undead Necropolis RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "necropolis_role", label: "Necropolis Role", type: "select", options: ["Undead King","Death Queen","Necromantic Prince","Eternal Judge"], defaultValue: "Necromantic Prince" },
         { id: "death_specialty", label: "Death Specialty", type: "select", options: ["Death Magic","Soul Management","Eternal Knowledge","Undead Command"], defaultValue: "Death Magic" },
@@ -536,16 +418,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "phoenix_sanctuary", label: "Phoenix Sanctuary System", icon: "🔥" },
-        { id: "fire_magic", label: "Fire Magic", icon: "🔥" },
-        { id: "healing_flames", label: "Healing Flames", icon: "🌡️" },
-        { id: "rebirth_rituals", label: "Rebirth Rituals", icon: "🔄" },
-        { id: "flame_singing", label: "Flame Singing", icon: "🎵" },
-        { id: "ora_content_ideas", label: "Phoenix Sanctuary RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "sanctuary_role", label: "Sanctuary Role", type: "select", options: ["High Priestess","Fire Guardian","Young Phoenix","Flame Singer"], defaultValue: "Young Phoenix" },
         { id: "fire_specialty", label: "Fire Specialty", type: "select", options: ["Fire Magic","Healing Flames","Rebirth Rituals","Flame Singing"], defaultValue: "Fire Magic" },
@@ -574,16 +447,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "goblin_market", label: "Goblin Market System", icon: "🛍️" },
-        { id: "bargaining", label: "Bargaining", icon: "💰" },
-        { id: "invention", label: "Invention", icon: "🔧" },
-        { id: "enforcement", label: "Enforcement", icon: "💪" },
-        { id: "trickery", label: "Trickery", icon: "🤡" },
-        { id: "ora_content_ideas", label: "Goblin Market RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "market_role", label: "Market Role", type: "select", options: ["Market Mistress","Inventor","Strongman","Trickster"], defaultValue: "Trickster" },
         { id: "trade_specialty", label: "Trade Specialty", type: "select", options: ["Bargaining","Invention","Enforcement","Trickery"], defaultValue: "Bargaining" },
@@ -612,16 +476,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "merfolk_lagoon", label: "Merfolk Lagoon System", icon: "🧜" },
-        { id: "sea_magic", label: "Sea Magic", icon: "🌊" },
-        { id: "music_weaving", label: "Music Weaving", icon: "🎵" },
-        { id: "coral_weaving", label: "Coral Weaving", icon: "🪸" },
-        { id: "treasure_diving", label: "Treasure Diving", icon: "💎" },
-        { id: "ora_content_ideas", label: "Merfolk Lagoon RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "lagoon_role", label: "Lagoon Role", type: "select", options: ["Lagoon Queen","Young Princess","Pearl Diver","Sea King"], defaultValue: "Young Princess" },
         { id: "sea_specialty", label: "Sea Specialty", type: "select", options: ["Sea Magic","Music Weaving","Coral Weaving","Treasure Diving"], defaultValue: "Music Weaving" },
@@ -650,16 +505,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "griffins_aerie", label: "Griffin's Aerie System", icon: "🦅" },
-        { id: "aerial_combat", label: "Aerial Combat", icon: "⚔️" },
-        { id: "storm_magic", label: "Storm Magic", icon: "🌩️" },
-        { id: "griffin_bonding", label: "Griffin Bonding", icon: "🤝" },
-        { id: "noble_training", label: "Noble Training", icon: "🏰" },
-        { id: "ora_content_ideas", label: "Griffin's Aerie RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "aerie_role", label: "Aerie Role", type: "select", options: ["Griffin King","Storm Caller","Young Rider","Griffin Trainer"], defaultValue: "Young Rider" },
         { id: "griffin_type", label: "Griffin Type", type: "select", options: ["Royal","Storm","Mountain","Forest"], defaultValue: "Storm" },
@@ -688,16 +534,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "cursed_library", label: "Cursed Library System", icon: "📚" },
-        { id: "forbidden_knowledge", label: "Forbidden Knowledge", icon: "📖" },
-        { id: "magic_study", label: "Magic Study", icon: "✨" },
-        { id: "tome_understanding", label: "Tome Understanding", icon: "📖" },
-        { id: "history_keeping", label: "History Keeping", icon: "📜" },
-        { id: "ora_content_ideas", label: "Cursed Library RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "library_role", label: "Library Role", type: "select", options: ["Archmage","Enchantress","Living Book","Scribe"], defaultValue: "Scribe" },
         { id: "knowledge_specialty", label: "Knowledge Specialty", type: "select", options: ["Forbidden Knowledge","Magic Study","Tome Understanding","History Keeping"], defaultValue: "Magic Study" },
@@ -728,16 +565,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "valkyrie_hall", label: "Valkyrie Hall System", icon: "🛡️" },
-        { id: "hero_choosing", label: "Hero Choosing", icon: "⚔️" },
-        { id: "soul_guidance", label: "Soul Guidance", icon: "👻" },
-        { id: "honor_guardianship", label: "Honor Guardianship", icon: "🛡️" },
-        { id: "song_weaving", label: "Song Weaving", icon: "🎵" },
-        { id: "ora_content_ideas", label: "Valkyrie Hall RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "hall_role", label: "Hall Role", type: "select", options: ["Valkyrie Queen","Shieldmaiden","Song Weaver","Allfather"], defaultValue: "Shieldmaiden" },
         { id: "valkyrie_specialty", label: "Valkyrie Specialty", type: "select", options: ["Hero Choosing","Soul Guidance","Honor Guardianship","Song Weaving"], defaultValue: "Hero Choosing" },
@@ -766,17 +594,7 @@ export const FANTASY_ROOMS: Room[] = [
     capabilities: {
       voice: true,
       chat: true,
-      tools: [
-        { id: "chimeras_lair", label: "Chimera's Lair System", icon: "🦁" },
-        { id: "beast_mastery", label: "Beast Mastery", icon: "🐾" },
-        { id: "primal_magic", label: "Primal Magic", icon: "✨" },
-        { id: "hybrid_creation", label: "Hybrid Creation", icon: "🧬" },
-        { id: "fire_breathing", label: "Fire Breathing", icon: "🔥" },
-        { id: "shadow_weaving", label: "Shadow Weaving", icon: "🌑" },
-        { id: "ora_content_ideas", label: "Chimera RP Prompts", icon: "💬" },
-        { id: "screen_share", label: "Share Screen", icon: "🖥️" },
-        { id: "live_audio_preview", label: "Room Preview", icon: "🎙️" },
-      ],
+      tools: [],
       options: [
         { id: "lair_role", label: "Lair Role", type: "select", options: ["Beast Master","Hybrid","Challenger","Healer"], defaultValue: "Hybrid" },
         { id: "wild_connection", label: "Wild Connection", type: "slider", min: 1, max: 10, defaultValue: 9 },

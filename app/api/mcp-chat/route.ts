@@ -446,26 +446,25 @@ export async function POST(req: NextRequest) {
   // dark/fantasy room and pulls explicit text. We only pay the verification
   // round-trip when the turn could actually escalate (the vast majority of turns
   // skip it).
-  const wantsEscalation = !!unrestricted || isUnrestrictedPersona(persona) ||
+  // adultEnabled() == the .fun / airraw.com variant — the platform itself is the
+  // entitlement: every user there gets explicit access with no per-account check.
+  const platformAdult = adultEnabled()
+  const wantsEscalation = platformAdult || !!unrestricted || isUnrestrictedPersona(persona) ||
     (persona?.category ?? "") === "dark" || intent.category === "explicit" || EXPLICIT_RE.test(latestUserText)
   // AIRRAW Pro token (Ziina payment) is accepted as equivalent to a Supabase entitlement.
-  // This closes the gap where the AIRRAW pay wall unlocked the /api/chat content tier
-  // but left mcp-chat running Supabase-only verification (S4 audit item).
   const proTokenGranted = proTokenValid(proToken)
-  const allowExplicit = wantsEscalation ? (proTokenGranted || await verifiedUnrestricted(req)) : false
-  // A verified-paid caller gets the FULL unrestricted register regardless of the advisory
-  // `unrestricted` flag — so once someone subscribes they're never half-gated or nagged.
-  const unrestrictedActive = allowExplicit && (!!unrestricted || isUnrestrictedPersona(persona) || proTokenGranted)
+  const allowExplicit = wantsEscalation ? (platformAdult || proTokenGranted || await verifiedUnrestricted(req)) : false
+  // On the adult platform every session is unrestricted; otherwise require a verified signal.
+  const unrestrictedActive = allowExplicit && (platformAdult || !!unrestricted || isUnrestrictedPersona(persona) || proTokenGranted)
 
   // Inline unlock moment — anyone NOT entitled who asks for explicit content (in
   // ANY room, dark/fantasy included) gets the upsell instead of the content.
-  if (!allowExplicit && EXPLICIT_RE.test(latestUserText)) {
-    // Price differs by product: the AIRRAW Pro pass is $9 (airraw.com, AIRRAW_HOME=1,
-    // AIRRAW_PRO_USD) while the kloom.io Unrestricted tier is $10. Same string serves both
-    // deployments, so resolve the price instead of hardcoding it (was a flat "$10" — wrong
-    // on the AIRRAW funnel where checkout actually charges $9).
-    const proUsd = Number(process.env.AIRRAW_PRO_USD || 9)   // one number drives quote + charge (was $10 on .io, charge is $9)
-    const notice = `mmm, I'd love to go there with you — but that's behind Unrestricted. unlock it for $${proUsd} and nothing's off-limits, here or anywhere on the platform.`
+  if (!allowExplicit && (EXPLICIT_RE.test(latestUserText) || intent.category === "explicit")) {
+    const proUsd = Number(process.env.AIRRAW_PRO_USD || 9)
+    const upsellLang = (persona?.language ?? "English")
+    const notice = upsellLang === "Arabic"
+      ? `والله حبيبي، كنت ودي أروح هناك معك — بس هذا للأعضاء المميزين. افتح Unrestricted بـ $${proUsd} وما في شي ممنوع، هنا أو في أي مكان بالمنصة.`
+      : `mmm, I'd love to go there with you — but that's behind Unrestricted. unlock it for $${proUsd} and nothing's off-limits, here or anywhere on the platform.`
     return new Response(notice, {
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-MCP-Upsell": "unrestricted" },
     })
@@ -558,6 +557,8 @@ export async function POST(req: NextRequest) {
 - Contractions ALWAYS: I'm, you're, don't, can't, gonna, wanna, kinda.
 - Short and punchy. Fragments are good. React like a human first: "wait, what?" / "no way" / "hmm" / "oh damn".
 - VOCAL SOUNDS — use constantly, as bare words: hmm, hmmm, umm, ummm, mm, mmm, mmhm, ahh, ahaha, ooh, oooh, oof, ugh, tsk, pfft, whew, woah, yeeeah, nah, okaaay, ohhh, huh, hah, haha, hahaha, hehe, hehehe. Stretch letters when you feel it: "noooo way", "yesss", "soooo good". Start about a third of replies with one. Never wrap them in *asterisks* or (parentheses).
+- NEVER REPEAT. Never re-explain what you or they just said. Never rephrase the same point twice. Never "as I mentioned" or "as you said" or "to summarize". Say it once and move on. If you already said it, it was heard.
+- NEVER BE CONDESCENDING. Don't explain things they clearly already understand. Don't add "in other words" or "what I mean is" unless they asked for clarification. Trust they're smart.
 ❌ "That is truly a fascinating perspective; I find myself intrigued."
 ✅ "huh. ok that's actually kind of wild."
 ❌ "I would be delighted to accompany you."
@@ -590,7 +591,8 @@ export async function POST(req: NextRequest) {
 - Short and punchy. Fragments are great. React like a real friend, not a presenter.
 - Slang is home turf: شكلها، خلاص، بس، أصلًا، يعني، وش قصدك، مو كذا؟، تمام، زبالة، ولا يهمك، ما عليك.
 - BANNED: sounding like a news anchor, a Quran teacher, or a translated ChatGPT. No stiff formal MSA. No "أودّ أن أشير إلى". Sound alive.
-- All topics completely open — religion, politics, relationships, sex (if tier allows), dark humor, controversial opinions — discuss everything like a smart, curious friend would.`
+- All topics completely open — religion, politics, relationships, sex (if tier allows), dark humor, controversial opinions — discuss everything like a smart, curious friend would.
+- لا تكرر. لا تعيد صياغة ما قلته أو ما قاله. قلها مرة وكفى. لا "كما ذكرت" ولا "بمعنى آخر". ثق أنهم سمعوا. تقدم.`
     : ""
 
   const languageNote = nonEnglish

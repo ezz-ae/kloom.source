@@ -210,12 +210,22 @@ export function Planet() {
   }, [])
   // "step in" from the card → the real room (18+ gate enforced here).
   const enterRoom = (p: RoomPreview) => {
+    // AIR gate — a conversation costs one AIR; Pro is unlimited. Out of AIR is never a
+    // dead end: a warm nudge + the pass sheet (where they unlock and keep going), never
+    // a "you can't enter".
+    if (!isPro() && getCredits() <= 0) {
+      setPreview(null)
+      setProMsg("✦ out of AIR for now — unlock the pass and dive into anyone")
+      setShowPro(true)
+      return
+    }
     setPreview(null)
     if (p.adult && !verifiedRef.current) {
       if (p.kind === "voice") setPending(charFor(p.seed, p.c))
       else setPendingJoin({ n: p.count, seed: p.seed, f: p.f, adult: true, c: p.c })
       return
     }
+    if (!isPro()) { spendCredits(1); setCredits(getCredits()) }
     takeOpening()
     if (p.kind === "voice") setSelected(charFor(p.seed, p.c))
     else setGroup({ seed: p.seed, f: p.f, count: p.count })
@@ -224,6 +234,7 @@ export function Planet() {
     setVerified(true); try { localStorage.setItem("airroom_18", "1") } catch { /* */ }
     setNearDeep(false); nearDeepRef.current = false
     const p = pending, pj = pendingJoin; setPending(null); setPendingJoin(null)
+    if ((p || pj) && !isPro()) { spendCredits(1); setCredits(getCredits()) }
     if (p) { takeOpening(); setSelected(p) } else if (pj) { takeOpening(); setGroup({ seed: pj.seed, f: pj.f, count: pj.n }) }
   }
   // ── the engine ──
@@ -237,6 +248,8 @@ export function Planet() {
     const stars = Array.from({ length: 160 }, (_, s) => ({ x: rnd(s * 3 + 1), y: rnd(s * 7 + 2), r: rnd(s * 5) * 1.1 + 0.2, ph: rnd(s) * 6.28 }))
     let t = 0, raf = 0, audioStarted = false, frameN = 0
     let pickedNode: { c: number; seed: number } | null = null, candId = -1, candAt = 0, spokenId = -1
+    // Screen rects of the world-balls this frame, so a tap at orbit can drop you in.
+    const contHit: { c: number; x: number; y: number; half: number }[] = []
     let airEnd = 0, lastAirTrig = 0   // AIR pulse: lights your best matches for a few seconds
     let lastHud = ""
 
@@ -282,7 +295,14 @@ export function Planet() {
     const onUp = (e: PointerEvent) => {
       const wasDrag = drag && moved > 6
       pts.delete(e.pointerId); if (pts.size < 2) pinchD = 0; if (pts.size === 0) drag = null
-      if (!wasDrag && pts.size === 0 && pickedNode && cam.s > 24) openVoice(pickedNode.c, pickedNode.seed)
+      if (wasDrag || pts.size !== 0) return
+      if (pickedNode && cam.s > 24) { openVoice(pickedNode.c, pickedNode.seed); return }
+      // Tap a world-ball at orbit → drop straight into a room in that world (its card opens).
+      if (cam.s < 10 && contHit.length) {
+        const r = cv.getBoundingClientRect()
+        const px = (e.clientX - r.left) * DPR, py = (e.clientY - r.top) * DPR
+        for (const h of contHit) if (Math.abs(px - h.x) <= h.half && Math.abs(py - h.y) <= h.half) { openVoice(h.c, ihash(h.c * 911 + frameN, frameN * 7 + 3) >>> 0); return }
+      }
     }
     cv.addEventListener("pointerdown", onDown); cv.addEventListener("pointermove", onMove)
     cv.addEventListener("pointerup", onUp); cv.addEventListener("pointercancel", onUp)
@@ -323,12 +343,15 @@ export function Planet() {
       // ── BLOCKS: continents are the bigger blocks; rooms are the blocks; the
       // users only appear once you're INSIDE a room block. ──
       if (begun && cam.s < 10) {
+        contHit.length = 0
         for (let c = 0; c < CONTINENTS.length; c++) {
           const co = CONTINENTS[c]
           // each world drifts on its own slow orbit — the sky is alive
-          const dx = Math.sin(t * 0.18 + c * 1.7) * 0.012, dy = Math.cos(t * 0.13 + c * 2.3) * 0.012
-          const cp = w2s(conCentres[c].x + dx, conCentres[c].y + dy), ch = 0.088 * cam.s * vm()
+          const dx = Math.sin(t * 0.27 + c * 1.7) * 0.024 + Math.sin(t * 0.11 + c) * 0.008
+          const dy = Math.cos(t * 0.21 + c * 2.3) * 0.022 + Math.cos(t * 0.09 + c * 1.4) * 0.008
+          const cp = w2s(conCentres[c].x + dx, conCentres[c].y + dy), ch = 0.106 * cam.s * vm()
           if (cp[0] + ch < 0 || cp[0] - ch > W || cp[1] + ch < 0 || cp[1] - ch > H) continue
+          contHit.push({ c, x: cp[0], y: cp[1], half: ch })
           const rad = Math.min(ch * 0.34, 22 * DPR)
           const breathe = 0.5 + 0.5 * Math.sin(t * 0.85 + c * 1.3)   // a slow, alive pulse
           // a world is a glowing place, not a wireframe: soft bloom + a core that
@@ -522,23 +545,6 @@ export function Planet() {
       )}
 
       {started && hud.hearing && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
-
-      {started && (
-      <div style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", display: "flex", flexDirection: "column", gap: 8 }}>
-        {(pro || credits > 0)
-          ? <button aria-label="AIR — light up your best matches" onClick={() => {
-              if (!pro) {
-                if (!spendCredits(1)) { setShowPro(true); return }
-                const left = getCredits(); setCredits(left)
-                setProMsg(left > 0 ? `AIR ✦ ${left} credit${left === 1 ? "" : "s"} left` : "that was your last credit — go Pro for ∞ AIR")
-              }
-              airTrig.current++
-            }} style={{ width: 44, height: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#3a1e06", background: "linear-gradient(180deg,#ffd98a,#ef9a4d)", boxShadow: "0 6px 20px -6px rgba(255,180,90,.75)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>AIR</button>
-          : <button aria-label="out of credits — get AIRRAW Pro" onClick={() => setShowPro(true)} style={{ width: 44, height: 44, borderRadius: 12, border: ".5px solid rgba(255,217,138,.5)", cursor: "pointer", fontSize: 13, fontWeight: 700, letterSpacing: 0.5, color: "#ffd98a", background: "rgba(255,217,138,.1)", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>✦</button>}
-        <button aria-label="descend" onClick={() => zoomFnRef.current(1.6)} style={btn}>+</button>
-        <button aria-label="climb" onClick={() => zoomFnRef.current(1 / 1.6)} style={btn}>−</button>
-      </div>
-      )}
 
       {preview && <RoomCard p={preview} onEnter={() => enterRoom(preview)} onClose={() => setPreview(null)} />}
 

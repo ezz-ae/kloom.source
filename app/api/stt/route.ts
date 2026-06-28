@@ -27,8 +27,13 @@ const HALLUCINATIONS = new Set([
 ])
 function cleanTranscript(text: string | null | undefined): string {
   const t = (text || "").trim()
+  if (!t) return ""
+  // Strip non-ASCII to check against English hallucination phrases.
+  // If nothing remains after stripping, the text is non-Latin (Arabic, Chinese, etc.)
+  // — skip the hallucination filter entirely so real speech isn't silently dropped.
   const n = t.toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim()
-  if (!n || HALLUCINATIONS.has(n)) return ""
+  if (!n) return t
+  if (HALLUCINATIONS.has(n)) return ""
   return t
 }
 

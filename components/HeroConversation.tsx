@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import { RoomFace } from "@/components/RoomFace"
 import { createCustomRoom } from "@/lib/custom-rooms"
 import { track } from "@/lib/track"
-import { detectLanguage, LANGUAGE_TO_BCP47, LANGUAGES } from "@/lib/languages"
+import { detectLanguage, LANGUAGE_TO_BCP47, LANGUAGES, isoForLanguage } from "@/lib/languages"
+import { listenOnce, canListen } from "@/lib/voice-once"
+import type { VoiceOnceHandle } from "@/lib/voice-once"
 import { Mic, Send, Loader2, Square, Sparkles, Globe } from "lucide-react"
 
 // The hero's live trio — three distinct minds who reply, riff, and disagree, OUT LOUD.
@@ -65,7 +67,7 @@ export function HeroConversation() {
   const [turns, setTurns] = useState(0)          // user turns → reveal the register CTA
   const [micOk, setMicOk] = useState(true)       // live STT available? (false in iOS Safari + in-app webviews)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const recRef = useRef<any>(null)
+  const recRef = useRef<VoiceOnceHandle | null>(null)
   const scroller = useRef<HTMLDivElement | null>(null)
   const langRef = useRef("English")
   const busyRef = useRef(false)
@@ -74,15 +76,14 @@ export function HeroConversation() {
 
   useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
   useEffect(() => { langRef.current = lang }, [lang])
-  useEffect(() => { const w = window as any; setMicOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, [])
+  useEffect(() => { setMicOk(canListen()) }, [])
   const onPick = (l: string) => {
     pickedRef.current = true; setLang(l); setMicErr("")
-    // If the user is currently recording in a different language, stop and restart
-    // so the new language takes effect immediately (the old SR keeps its original lang).
-    if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false) }
+    // If the user is currently recording, cancel — next tap starts fresh with the new language.
+    if (listening) { recRef.current?.cancel(); recRef.current = null; setListening(false) }
   }
   useEffect(() => { scroller.current?.scrollTo({ top: 1e9, behavior: "smooth" }) }, [msgs, speaking])
-  useEffect(() => () => { try { recRef.current?.stop?.() } catch { /* */ } try { audioRef.current?.pause() } catch { /* */ } }, [])
+  useEffect(() => () => { recRef.current?.cancel(); try { audioRef.current?.pause() } catch { /* */ } }, [])
 
   // speak a line aloud and wait for it to finish — so the three talk in turn, not over each other
   const speak = useCallback(async (text: string, persona: (typeof TRIO)[number]) => {
@@ -136,34 +137,24 @@ export function HeroConversation() {
     setSpeaking(""); busyRef.current = false; setBusy(false)
   }, [msgs, speak])
 
-  // tap the mic → say one line → it goes to the trio. Browser speech (no key needed); types still work.
+  // tap the mic → say one line → it goes to the trio.
+  // Primary: MediaRecorder → RunPod Whisper (works on iOS Safari, Instagram, Arabic).
+  // Fallback: browser webkitSpeechRecognition (desktop Chrome).
   const toggleMic = useCallback(() => {
-    if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false); return }
+    if (listening) { recRef.current?.cancel(); recRef.current = null; setListening(false); return }
     setMicErr("")
-    if (!pickedRef.current) langRef.current = detectLanguage()   // listen in their language
-    const w = window as any
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) { ask(SEEDS[(Math.random() * SEEDS.length) | 0]); return }   // no mic (iOS webview) → fire a moment so the tap still lands
-    try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* unlock audio on this gesture */ }
-    const bcp47 = LANGUAGE_TO_BCP47[langRef.current] || "en-US"
-    const rec = new SR()
-    rec.lang = bcp47
-    rec.interimResults = false; rec.continuous = false
-    let gotResult = false
-    rec.onresult = (e: any) => { gotResult = true; const t = e.results?.[0]?.[0]?.transcript?.trim(); if (t) ask(t) }
-    rec.onend = () => {
-      setListening(false)
-      if (!gotResult && !busyRef.current) setMicErr("nothing heard — try again or type below")
-    }
-    rec.onerror = (e: any) => {
-      setListening(false)
-      const code: string = e.error || ""
-      if (code === "not-allowed" || code === "permission-denied") setMicErr("mic blocked — allow microphone access and try again")
-      else if (code === "language-not-supported") setMicErr(`${langRef.current} not supported by your browser — type below`)
-      else if (code !== "no-speech" && code !== "aborted") setMicErr("mic error — try typing")
-    }
-    recRef.current = rec; setListening(true)
-    try { rec.start() } catch { setListening(false); setMicErr("could not start mic — try typing") }
+    if (!pickedRef.current) langRef.current = detectLanguage()
+    if (!canListen()) { ask(SEEDS[(Math.random() * SEEDS.length) | 0]); return }
+    // Unlock audio on this gesture so the spoken replies can play (iOS autoplay policy).
+    try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* */ }
+    setListening(true)
+    recRef.current = listenOnce({
+      lang:  isoForLanguage(langRef.current),
+      bcp47: LANGUAGE_TO_BCP47[langRef.current] || "en-US",
+      onText: (t) => { recRef.current = null; setListening(false); ask(t) },
+      onState: (s) => { if (s === "thinking") setMicErr("heard you — one sec…") },
+      onError: (msg) => { recRef.current = null; setListening(false); setMicErr(msg) },
+    })
   }, [listening, ask])
 
   const joinLive = () => {

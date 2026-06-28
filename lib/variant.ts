@@ -35,14 +35,22 @@ export const isAbuseday = () => VARIANT === "abuseday"
  *  Off until kloom.fun is live, so the "no-limits" tap stays hidden until then. */
 export const funLive = () => process.env.NEXT_PUBLIC_FUN_LIVE === "1"
 
-/** Adult / sexual / zero-restriction content only exists on .fun. */
-export const adultEnabled = () => VARIANT === "fun"
+/**
+ * Adult / sexual / zero-restriction content. Lives on .fun AND on Abuseday —
+ * Abuseday is fully unrestricted by design (every topic, taboo and explicitness
+ * level flows, in any language). The only hard blocks are CSAM + real-world
+ * operational harm, enforced for ALL variants in lib/intent.ts — "unrestricted"
+ * never lifts those. Unrestricted/adult turns route to UNCENSORED_LLM_BASE_URL.
+ */
+export const adultEnabled = () => VARIANT === "fun" || VARIANT === "abuseday"
 
-/** .fun is anonymous: no account gate, no persisted memory. (.me TBD → safe io default.) */
+/** .fun is anonymous: no account gate, no persisted memory. Abuseday keeps
+ *  accounts + memory (it's the premium, signed-in unrestricted brand). */
 export const requiresAccountForPay = () => VARIANT !== "fun"
 export const memoryEnabled = () => VARIANT !== "fun"
 
-/** .fun runs serverless open weights only — premium model seats fall back. */
+/** .fun runs serverless open weights only — premium model seats fall back.
+ *  Abuseday keeps the premium models (Claude/Gemini/GPT). */
 export const premiumModelsEnabled = () => VARIANT !== "fun"
 
 export const SITE = {

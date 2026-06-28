@@ -269,7 +269,7 @@ function RoomCard({ room, onEnter, onClone, onDelete, owned }: {
       <div className="flex items-center gap-2 mt-3">
         <div className="flex -space-x-1.5">
           {room.personas.slice(0, 4).map((p) => {
-            const img = imageFor({ name: p.name, photoUrl: p.photoUrl })
+            const img = imageFor({ name: p.name, photoUrl: p.photoUrl, gender: p.gender })
             return (
               <div key={`${p.name}-${p.role}`} title={p.name} className="w-6 h-6 rounded-full border-2 border-background bg-foreground/10 overflow-hidden flex items-center justify-center">
                 {img ? (

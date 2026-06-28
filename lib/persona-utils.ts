@@ -34,6 +34,14 @@ const AURAS: Array<[string, string]> = [
 ]
 
 import { PORTRAIT_SLUGS } from "@/lib/cast-portraits"
+import { isAbuseday } from "@/lib/variant"
+
+/** Best-effort gender guess when a persona doesn't carry one (for the human
+ *  portrait fallback): the female-leaning roster wins, else hash to a side. */
+function guessFemale(name: string, hash: number): boolean {
+  if (FEMALE_PERSONAS.has(name)) return true
+  return hash % 2 === 0
+}
 
 /** Same slug rule as the portrait generation pipeline — keep in sync. */
 export function portraitSlug(name: string): string {
@@ -46,13 +54,22 @@ export function portraitSlug(name: string): string {
  * deep radial aura in a curated duotone, soft ring, serif monogram —
  * as an SVG data URI. Both work directly as <img src>.
  */
-export function imageFor(persona: { name: string; photoUrl?: string }): string {
+export function imageFor(persona: { name: string; photoUrl?: string; gender?: string }): string {
   // An explicit generated photo (Supabase Storage url) always wins.
   if (persona.photoUrl) return persona.photoUrl
   const name = persona.name || "?"
   const slug = portraitSlug(name)
   if (PORTRAIT_SLUGS.has(slug)) return `/cast/${slug}.jpg`
   const h = nameHash(name)
+
+  // Abuseday: every face is 100% human. Personas without a generated portrait
+  // get a real photographic face — gender-aware and deterministic per persona,
+  // so the same character always looks the same. (Kloom keeps the monogram
+  // identity card below, unchanged.)
+  if (isAbuseday()) {
+    const female = persona.gender ? persona.gender === "female" : guessFemale(name, h)
+    return `https://randomuser.me/api/portraits/${female ? "women" : "men"}/${h % 100}.jpg`
+  }
   const [c1, c2] = AURAS[h % AURAS.length]
   // Aura position drifts per identity so cards don't look stamped.
   const cx = 30 + (h % 41)            // 30–70

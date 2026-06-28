@@ -115,9 +115,9 @@ export default function LandingPage() {
             </span>
           </h1>
 
-          {/* The live demo IS the pitch — type and three minds answer together, then go voice. */}
+          {/* The live demo IS the pitch — tap a moment and three minds answer OUT LOUD, then go deeper. */}
           <div className="pt-3"><HeroConversation /></div>
-          <p className="text-xs text-foreground/35">Free to chat · no email · they answer in real voices when you join the call</p>
+          <p className="text-xs text-foreground/35">Free · no email · tap a moment and hear all three answer, out loud</p>
         </div>
       </section>
 

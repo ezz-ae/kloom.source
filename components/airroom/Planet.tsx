@@ -344,14 +344,21 @@ export function Planet() {
       // users only appear once you're INSIDE a room block. ──
       if (begun && cam.s < 10) {
         contHit.length = 0
+        // the "hovered" world = whichever sits nearest the centre of your view — only it
+        // wears a crisp frame; the rest are soft glows, so the sky reads as nebulae not boxes.
+        const wdrift = (c: number): [number, number] => [
+          Math.sin(t * 0.27 + c * 1.7) * 0.024 + Math.sin(t * 0.11 + c) * 0.008,
+          Math.cos(t * 0.21 + c * 2.3) * 0.022 + Math.cos(t * 0.09 + c * 1.4) * 0.008,
+        ]
+        let nearestC = -1, nearestCD = Infinity
+        for (let c = 0; c < CONTINENTS.length; c++) { const [ax, ay] = wdrift(c); const p = w2s(conCentres[c].x + ax, conCentres[c].y + ay); const d = Math.hypot(p[0] - W / 2, p[1] - H / 2); if (d < nearestCD) { nearestCD = d; nearestC = c } }
         for (let c = 0; c < CONTINENTS.length; c++) {
           const co = CONTINENTS[c]
-          // each world drifts on its own slow orbit — the sky is alive
-          const dx = Math.sin(t * 0.27 + c * 1.7) * 0.024 + Math.sin(t * 0.11 + c) * 0.008
-          const dy = Math.cos(t * 0.21 + c * 2.3) * 0.022 + Math.cos(t * 0.09 + c * 1.4) * 0.008
-          const cp = w2s(conCentres[c].x + dx, conCentres[c].y + dy), ch = 0.106 * cam.s * vm()
+          const [dx, dy] = wdrift(c)
+          const cp = w2s(conCentres[c].x + dx, conCentres[c].y + dy), ch = 0.12 * cam.s * vm()
           if (cp[0] + ch < 0 || cp[0] - ch > W || cp[1] + ch < 0 || cp[1] - ch > H) continue
           contHit.push({ c, x: cp[0], y: cp[1], half: ch })
+          const active = c === nearestC
           const rad = Math.min(ch * 0.34, 22 * DPR)
           const breathe = 0.5 + 0.5 * Math.sin(t * 0.85 + c * 1.3)   // a slow, alive pulse
           // a world is a glowing place, not a wireframe: soft bloom + a core that
@@ -366,8 +373,9 @@ export function Planet() {
           ctx.fillStyle = grd
           rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.fill()
           ctx.restore()
-          // a crisp thin rim on top of the bloom
-          ctx.strokeStyle = `hsla(${co.h},74%,72%,${0.30 + 0.18 * breathe})`; ctx.lineWidth = 1.1 * DPR
+          // soft by default; the centred (hovered) world gets a crisp bright frame
+          ctx.strokeStyle = active ? `hsla(${co.h},80%,78%,${0.44 + 0.28 * breathe})` : `hsla(${co.h},60%,66%,0.07)`
+          ctx.lineWidth = (active ? 1.8 : 0.7) * DPR
           rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.stroke()
           // life inside: a scatter of voices drifting and twinkling — "thousands of voices"
           const vn = 7
@@ -540,7 +548,7 @@ export function Planet() {
       {started && hud.join && !selected && !group && !preview && (
         <button onClick={() => joinGroup(hud.join!)}
           style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
-          {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? "talk 1:1 →" : `join this room · ${hud.join.n} here →`}
+          {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? `Call ${charFor(hud.join.seed, hud.join.c).host} →` : "Enter →"}
         </button>
       )}
 

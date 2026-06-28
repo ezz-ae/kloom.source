@@ -100,7 +100,7 @@ export function RoomCard({ p, onEnter, onClose }: { p: RoomPreview; onEnter: () 
         {/* the threshold — step into a place, not buy a product */}
         <div style={{ padding: "12px 20px 20px", display: "flex", flexDirection: "column", gap: 9 }}>
           <button onClick={onEnter} style={{ width: "100%", minHeight: 50, fontSize: 15, fontWeight: 600, color: "#eef4f8", background: `hsla(${p.hue},60%,52%,.22)`, border: `.5px solid hsla(${p.hue},72%,66%,.5)`, borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", backdropFilter: "blur(4px)" }}>
-            {isVoice ? `say hi to ${lead.host}` : "drift in"}
+            {isVoice ? `Call ${lead.host}` : "Enter"}
           </button>
           <button onClick={onClose} style={{ width: "100%", minHeight: 44, fontSize: 13, color: "#9fb2c4", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>not now</button>
         </div>

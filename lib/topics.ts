@@ -155,6 +155,24 @@ export const CATEGORY_TOPICS: Record<RoomCategory, Topic[]> = {
     t("off-record-ask-anything", "off the record, ask me anything", "Flip the chat into a no-stakes booth where the user can ask the AI anything they'd never dare ask a real person.", 2),
     t("the-lie-you-keep-telling", "the lie you keep telling", "Name the small daily lie the user lives inside and explore why it's easier than the truth, completely off the record.", 2),
   ],
+  arena: [
+    t("debate-me-to-the-death", "debate me to the death", "The user names any hill they'll die on and a relentless opponent argues the other side with everything, conceding nothing until one of them cracks.", 2),
+    t("roast-battle", "roast battle", "Two ruthless wits and the user trade roasts in rounds, escalating until someone taps out and the crowd crowns a winner.", 2),
+    t("pitch-vs-pitch", "pitch vs pitch", "The user pitches an idea against an AI rival pitching theirs, and a brutal judge scores both and declares who walks out with the money."),
+    t("change-my-mind", "change my mind", "The user plants a flag on something they believe and the cast gangs up to flip them, allowed to use any angle that works.", 2),
+    t("trial-by-fire", "put me on trial", "The user is cross-examined on a decision they made; a prosecutor attacks, a defender covers, and a verdict lands at the end.", 2),
+    t("last-one-talking-wins", "last one talking wins", "A no-rules verbal endurance match where the cast tries to make the user run out of arguments first.", 2),
+    t("steelman-then-destroy", "steelman, then destroy", "The cast builds the strongest possible version of the user's view, then tears that strongest version down to see if anything survives."),
+  ],
+  desert: [
+    t("walk-with-me", "walk with me", "A quiet nomad falls into step beside the user across the dunes and lets the real conversation surface at the pace of footsteps, no rush.", 1),
+    t("the-fire-at-3am", "the fire at 3am", "Around a low fire under impossible stars, a stranger trades the kind of truths people only say when the rest of the world is asleep."),
+    t("the-oracle-in-the-sand", "the oracle in the sand", "A half-mad desert oracle reads the user's situation like weather and offers a strange, sideways answer to the question they're really carrying.", 1),
+    t("what-the-mirage-shows", "what the mirage shows", "The desert shows the user the thing they keep chasing on the horizon, and the cast helps them tell the mirage from the water."),
+    t("lost-on-purpose", "lost on purpose", "The user wandered out here to disappear for a while; the cast doesn't drag them back, just keeps them company in the getting-lost."),
+    t("bury-it-here", "bury it in the sand", "A ritual of letting go — the user names a thing to leave behind in the dunes, and the cast helps them actually set it down.", 1),
+    t("the-long-way-home", "the long way home", "A slow reckoning with where the user is headed in life, told as a journey across the sand with no shortcuts offered."),
+  ],
 }
 
 // ── Room-specific topic sets — optional sharper doors for individual rooms.

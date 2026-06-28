@@ -128,6 +128,24 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
     badges: ["no-memory"],
     order: 11,
   },
+  arena: {
+    id: "arena", label: "The Arena", emoji: "⚔️",
+    tagline: "Step in, pick a side, last one standing wins.",
+    gradient: "from-red-950/80 via-orange-950/50 to-stone-950",
+    glow: "ring-red-500/30 shadow-red-900/40",
+    text: "text-red-300",
+    badges: ["multi-model"],
+    order: 12,
+  },
+  desert: {
+    id: "desert", label: "The Desert", emoji: "🏜️",
+    tagline: "Endless dunes, one fire, and the truth at 3am.",
+    gradient: "from-amber-950/70 via-orange-950/40 to-stone-950",
+    glow: "ring-amber-500/30 shadow-amber-900/40",
+    text: "text-amber-200",
+    badges: [],
+    order: 13,
+  },
 }
 
 // Adult worlds (romantic, dark) only appear on the .fun variant; .io is clean.

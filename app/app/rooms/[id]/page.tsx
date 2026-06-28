@@ -19,7 +19,7 @@ import { getChatDirection } from "@/lib/character"
 import { passCoversVoice } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
 import { track } from "@/lib/track"
-import { detectLanguage } from "@/lib/languages"
+import { detectLanguage, LANGUAGES } from "@/lib/languages"
 import { hydrateEntitlement, authHeader } from "@/lib/auth"
 import { PERSONALITY_PRESETS } from "@/components/persona-editor"
 import { imageFor } from "@/lib/persona-utils"
@@ -40,7 +40,7 @@ import "@solana/wallet-adapter-react-ui/styles.css"
 import {
   Mic, MicOff, PhoneOff, Phone, Send, MessageSquare,
   Zap, Settings2, ChevronLeft, Loader2, Copy, Check,
-  Volume2, VolumeX, UserPlus, Link2, Bot, X as XIcon,
+  Volume2, VolumeX, UserPlus, Link2, Bot, X as XIcon, Globe,
 } from "lucide-react"
 
 // Keyed on SeatModel so every backend has a badge — a missing key is now a
@@ -48,6 +48,7 @@ import {
 const BACKEND_BADGE: Record<SeatModel, { label: string; cls: string }> = {
   claude:  { label: "Claude",  cls: "bg-orange-500/15 text-orange-300 border-orange-500/25" },
   gemini:  { label: "Gemini",  cls: "bg-sky-500/15 text-sky-300 border-sky-500/25" },
+  openai:  { label: "GPT",     cls: "bg-teal-500/15 text-teal-300 border-teal-500/25" },
   mistral: { label: "Mistral", cls: "bg-rose-500/15 text-rose-300 border-rose-500/25" },
   dolphin: { label: "Dolphin", cls: "bg-violet-500/15 text-violet-300 border-violet-500/25" },
   local:   { label: "Kloom",   cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
@@ -193,6 +194,15 @@ function RoomContent() {
   const [vibeEdits, setVibeEdits]       = useState<Record<string, string[]>>({})
   const [resettingAI, setResettingAI]   = useState<string | null>(null)
 
+  // Language switch — user can change mid-conversation; override persona language in mcp-chat
+  const [userLang, setUserLang]         = useState(() => detectLanguage())
+  const userLangRef                     = useRef(detectLanguage())
+  useEffect(() => { userLangRef.current = userLang }, [userLang])
+
+  // Ambient audio — wired to the room's sound_style + ai_sounds options
+  const ambientCtxRef = useRef<AudioContext | null>(null)
+  const ambientSrcRef = useRef<AudioBufferSourceNode | null>(null)
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef  = useRef<AbortController | null>(null)
@@ -213,7 +223,7 @@ function RoomContent() {
   // ── Speak AI replies aloud during a group voice call ──
   const aiVoiceOnRef = useRef(false)
   const aiAudioRef   = useRef<HTMLAudioElement | null>(null)
-  const speakAi = useCallback((text: string, voice: string, personaName?: string, voiceId?: string, gender?: string, language?: string) => {
+  const speakAi = useCallback((text: string, voice: string, personaName?: string, voiceId?: string, gender?: string, language?: string, elevenId?: string) => {
     if (!aiVoiceOnRef.current) return
     // Strip widget markers + markdown so TTS reads only spoken words
     const clean = text
@@ -233,7 +243,7 @@ function RoomContent() {
       })
     }
 
-    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: clean, voice, personaName, voiceId, gender, language }) })
+    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: clean, voice, personaName, voiceId, elevenId, gender, language }) })
       .then((r) => r.ok ? r.blob() : null)
       .then((blob) => {
         if (!blob) return
@@ -246,6 +256,33 @@ function RoomContent() {
   useEffect(() => {
     if (room) setChatMsgs(loadRoomChats(roomId))
   }, [roomId, room])
+
+  // Ambient sound — generates Web Audio noise when the room's sound_style option is active
+  useEffect(() => {
+    const style   = optionValues.sound_style as string | undefined
+    const enabled = optionValues.ai_sounds   as boolean | undefined
+    ambientSrcRef.current?.stop()
+    ambientSrcRef.current = null
+    ambientCtxRef.current?.close()
+    ambientCtxRef.current = null
+    if (!enabled || !style) return
+    if (typeof AudioContext === "undefined") return
+    const ctx  = new AudioContext()
+    ambientCtxRef.current = ctx
+    const buf  = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+    const filt = ctx.createBiquadFilter()
+    if (style === "Whispers")       { filt.type = "bandpass"; filt.frequency.value = 3000; filt.Q.value = 0.8 }
+    else if (style === "Ambient scene") { filt.type = "lowpass"; filt.frequency.value = 320 }
+    else                            { filt.type = "lowpass";  filt.frequency.value = 1100 }
+    const gain = ctx.createGain(); gain.gain.value = 0.028
+    const src  = ctx.createBufferSource(); src.buffer = buf; src.loop = true
+    ambientSrcRef.current = src
+    src.connect(filt); filt.connect(gain); gain.connect(ctx.destination)
+    src.start()
+    return () => { src.stop(); ctx.close(); ambientSrcRef.current = null; ambientCtxRef.current = null }
+  }, [optionValues.ai_sounds, optionValues.sound_style])
 
   // Count this open as an "entry" — the strongest live signal for trending.
   // Once per mount, community/custom rooms only.
@@ -291,7 +328,7 @@ function RoomContent() {
         // Speak AI replies that arrived from another participant's turn
         if (m.kind === "ai") {
           const seat = [...(room?.personas ?? []), ...extraAI].find((p) => p.name === m.handle)
-          speakAi(m.content, (seat as any)?.voice ?? "sage", m.handle, (seat as any)?.voiceId, (seat as any)?.gender, (seat as any)?.language)
+          speakAi(m.content, (seat as any)?.voice ?? "sage", m.handle, (seat as any)?.voiceId, (seat as any)?.gender, (seat as any)?.language, (seat as any)?.elevenId)
         }
       },
       onPresence: setParticipants,
@@ -470,6 +507,7 @@ function RoomContent() {
             mode:    "chat",
             persona: {
               ...speaker,
+              language: userLangRef.current,
               category: room.category,
               adult: optionValues.restriction_mode === true ? "yes" : (speaker as any).adult,
               vibe_tags: vibeEdits[speaker.name] || []
@@ -514,7 +552,7 @@ function RoomContent() {
         // Share this AI reply with everyone else in the session
         broadcastRef.current?.({ id: aiMsg.id, kind: "ai", handle: speaker.name, content: aiMsg.content, ts: aiMsg.ts })
         // Speak it aloud locally if group voice is active
-        speakAi(aiMsg.content, speaker.voice ?? "sage", speaker.name, (speaker as any).voiceId, (speaker as any).gender, (speaker as any).language)
+        speakAi(aiMsg.content, speaker.voice ?? "sage", speaker.name, (speaker as any).voiceId, (speaker as any).gender, (speaker as any).language, (speaker as any).elevenId)
 
         // Single-persona rooms: only one turn. Multi-AI rooms: all respond.
         if (voicePersonas.length === 1) break
@@ -752,6 +790,21 @@ function RoomContent() {
             <UserPlus size={13} /> <span className="hidden md:inline">{invite.mode === "one" ? "Invite partner" : "Invite"}</span>
           </button>
         )}
+
+        {/* Language picker — changes the language the AI responds in mid-conversation */}
+        <div className="relative flex items-center shrink-0">
+          <Globe size={12} className="absolute left-2 text-muted-foreground/50 pointer-events-none" />
+          <select
+            value={userLang}
+            onChange={(e) => setUserLang(e.target.value)}
+            title="Reply language"
+            className="pl-6 pr-2 py-1.5 bg-foreground/5 border border-border/50 hover:bg-foreground/10 rounded-xl text-xs font-semibold text-foreground/60 cursor-pointer appearance-none focus:ring-0 focus:outline-none transition-colors"
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l.name} value={l.name}>{l.name}</option>
+            ))}
+          </select>
+        </div>
 
         {/* Panel tabs — icon-only on phones, labeled on desktop */}
         <div className="flex gap-1 bg-foreground/5 rounded-xl p-1 shadow-inner shrink-0">

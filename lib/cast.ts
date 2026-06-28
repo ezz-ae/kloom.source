@@ -735,7 +735,10 @@ export const CAST: Record<RoomCategory, CastMember[]> = {
       emoji: "🧵",
       vibe: ["Poetic", "Warm"]
     }
-  ]
+  ],
+
+  // Famous rooms use the room's own fixed personas; this satisfies the exhaustive Record type.
+  famous: [],
 }
 
 /** Roster for a world — never empty (falls back to the social cast). */
@@ -743,6 +746,7 @@ export function castFor(world: RoomCategory): CastMember[] {
   const c = CAST[world]
   return c && c.length > 0 ? c : CAST.social
 }
+
 
 export function castMember(id: string): CastMember | undefined {
   for (const list of Object.values(CAST)) {

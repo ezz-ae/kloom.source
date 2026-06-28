@@ -124,6 +124,15 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
     badges: ["no-memory"],
     order: 11,
   },
+  famous: {
+    id: "famous", label: "Famous Rooms", emoji: "⭐",
+    tagline: "AI-imagined characters inspired by public figures.",
+    gradient: "from-yellow-950 via-amber-900/60 to-zinc-900",
+    glow: "ring-yellow-500/30 shadow-yellow-900/40",
+    text: "text-yellow-300",
+    badges: [],
+    order: 12,
+  },
 }
 
 // Adult worlds (romantic, dark) only appear on the .fun variant; .io is clean.

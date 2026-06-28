@@ -12,6 +12,7 @@
  */
 
 import { FANTASY_ROOMS } from "./rooms-fantasy"
+import { FAMOUS_ROOMS } from "./rooms-famous"
 
 export type RoomCategory =
   | "trading"
@@ -25,6 +26,7 @@ export type RoomCategory =
   | "workshop"       // multi-model collaborative work rooms
   | "co-intelligence" // premium decision making
   | "zero-memory"     // untracked, no history rooms
+  | "famous"          // AI-imagined famous character rooms
 
 export type SeatModel = "local" | "claude" | "gemini" | "openai" | "mistral" | "dolphin"
 
@@ -38,6 +40,7 @@ export interface RoomPersona {
   speakingStyle?: string
   voice?: "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse"
   voiceId?: string     // concrete Fish voice id — fixed per persona so it never shifts
+  elevenId?: string    // ElevenLabs Voice Library ID — overrides gender pool for specific character voices
   gender: "female" | "male" | "nonbinary"  // authoritative for voice selection
   avatarSeed?: string  // for dicebear fallback avatar
   unrestricted?: boolean // persona starts in unrestricted mode
@@ -672,6 +675,9 @@ export const ROOMS: Room[] = [
 
   // ── FANTASY WORLDS (migrated immersive roleplay rooms) ───────────────────────
   ...FANTASY_ROOMS,
+
+  // ── FAMOUS ROOMS (AI-imagined celebrity character rooms) ─────────────────────
+  ...FAMOUS_ROOMS,
 ]
 
 // Lookup helpers
@@ -717,6 +723,7 @@ export const ROOM_CATEGORY_LABELS: Record<RoomCategory, string> = {
   philosophy:   "Deep Talk",
   "co-intelligence": "Co-Intelligence",
   "zero-memory":     "ZERO MEMORY",
+  famous:            "Famous Rooms",
 }
 
 export const ROOM_CATEGORY_COLORS: Record<RoomCategory, string> = {
@@ -731,6 +738,7 @@ export const ROOM_CATEGORY_COLORS: Record<RoomCategory, string> = {
   philosophy:   "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
   "co-intelligence": "text-emerald-400 bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]",
   "zero-memory":     "text-stone-300 bg-stone-900 border-white/10",
+  famous:            "text-yellow-400 bg-yellow-500/10 border-yellow-500/20",
 }
 
 

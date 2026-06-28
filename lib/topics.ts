@@ -143,6 +143,13 @@ export const CATEGORY_TOPICS: Record<RoomCategory, Topic[]> = {
     t("what-am-i-not-seeing", "What am I not seeing?", "The user lays out a situation and the cast surfaces the blind spot, bias or detail they're conveniently ignoring.", 2),
     t("two-ais-better-than-your-therapist", "Two AIs are better than your therapist", "Hot take: a panel of AIs claims it can untangle the user's overthinking faster than a human ever could, and they prove it on whatever's stuck in the user's head.", 2),
   ],
+  "famous": [
+    t("change-my-mind", "change my mind", "Each character picks one thing they believe strongly and tries to change the user's position on it — no backing down."),
+    t("off-the-record", "off the record", "No press, no PR — the characters say what they actually think about each other, their industries, and the world."),
+    t("roast-each-other", "roast each other", "The characters go in on each other, the user can join, and nothing is off-limits as a subject of affectionate destruction."),
+    t("what-went-wrong", "what went wrong", "Each character names the one decision they'd undo — the real one, not the acceptable public version."),
+    t("bet-on-the-future", "bet on the future", "Everyone at the table names one prediction for 10 years from now and puts a real stake on it. Disagreement encouraged."),
+  ],
   "zero-memory": [
     t("burn-after-reading", "burn this after reading", "Treat the chat as a match that lights once and vanishes, daring the user to dump the one thing they need gone forever.", 2),
     t("never-google-this", "the thing you'd never Google", "Be the safe booth for the question too embarrassing to type into a search bar, and answer it straight without flinching.", 2),

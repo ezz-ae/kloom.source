@@ -14,10 +14,11 @@ export async function POST(request: Request) {
   const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  const { text, voice, voiceId, personaName, gender, language } = (await request.json()) as {
+  const { text, voice, voiceId, elevenId, personaName, gender, language } = (await request.json()) as {
     text: string
     voice?: string
     voiceId?: string
+    elevenId?: string
     personaName?: string
     gender?: string
     language?: string
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   // still sound like different people (the planet's "many close voices").
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
-    const el = await elevenTTS(ttsText, elKey, personaName, gender)
+    const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId)
     if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs" } })
     // fall through to CosyVoice / Fish
   }
@@ -255,9 +256,9 @@ function elVoiceFor(name?: string, gender?: string): string {
   let h = 0; const s = name || "x"; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
   return pool[h % pool.length]
 }
-async function elevenTTS(text: string, key: string, name?: string, gender?: string): Promise<ArrayBuffer | null> {
+async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string): Promise<ArrayBuffer | null> {
   try {
-    const voice = elVoiceFor(name, gender)
+    const voice = elevenId?.trim() || elVoiceFor(name, gender)
     // multilingual_v2 = the most natural/emotional voice. For a snappier live call,
     // set ELEVENLABS_MODEL=eleven_turbo_v2_5 (faster, still very natural).
     const model = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2"

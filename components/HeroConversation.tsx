@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation"
 import { RoomFace } from "@/components/RoomFace"
 import { createCustomRoom } from "@/lib/custom-rooms"
 import { track } from "@/lib/track"
-import { detectLanguage, LANGUAGE_TO_BCP47 } from "@/lib/languages"
-import { Mic, Send, Loader2, Square, Sparkles } from "lucide-react"
+import { detectLanguage, LANGUAGE_TO_BCP47, LANGUAGES } from "@/lib/languages"
+import { Mic, Send, Loader2, Square, Sparkles, Globe } from "lucide-react"
 
 // The hero's live trio — three distinct minds who reply, riff, and disagree, OUT LOUD.
 // This is a voice trial: tap a moment (or the mic) and you HEAR Claude, Gemini and GPT
@@ -49,8 +49,12 @@ export function HeroConversation() {
   const scroller = useRef<HTMLDivElement | null>(null)
   const langRef = useRef("English")
   const busyRef = useRef(false)
+  const pickedRef = useRef(false)
+  const [lang, setLang] = useState("English")   // shown in the picker; drives reply + voice + STT
 
-  useEffect(() => { langRef.current = detectLanguage() }, [])
+  useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
+  useEffect(() => { langRef.current = lang }, [lang])
+  const onPick = (l: string) => { pickedRef.current = true; setLang(l) }
   useEffect(() => { scroller.current?.scrollTo({ top: 1e9, behavior: "smooth" }) }, [msgs, speaking])
   useEffect(() => () => { try { recRef.current?.stop?.() } catch { /* */ } try { audioRef.current?.pause() } catch { /* */ } }, [])
 
@@ -77,9 +81,9 @@ export function HeroConversation() {
   const ask = useCallback(async (raw: string) => {
     const text = raw.trim()
     if (!text || busyRef.current) return
-    // ALWAYS open in the visitor's native language — re-detect at the moment of the first
-    // word, so there's never an English-first reply even if the mount effect hasn't run.
-    langRef.current = detectLanguage()
+    // Open in the visitor's language: their manual pick if they chose one, else their
+    // native language re-detected right now (so there's never an English-first race).
+    if (!pickedRef.current) langRef.current = detectLanguage()
     // unlock audio within this tap so the spoken replies play (autoplay policy)
     try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* */ }
     busyRef.current = true; setBusy(true); setInput(""); setTurns((n) => n + 1)
@@ -109,7 +113,7 @@ export function HeroConversation() {
   // tap the mic → say one line → it goes to the trio. Browser speech (no key needed); types still work.
   const toggleMic = useCallback(() => {
     if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false); return }
-    langRef.current = detectLanguage()   // listen in the visitor's native language
+    if (!pickedRef.current) langRef.current = detectLanguage()   // listen in their language
     const w = window as any
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     if (!SR) return   // no speech support → they can type
@@ -138,6 +142,17 @@ export function HeroConversation() {
 
   return (
     <div className="w-full max-w-xl mx-auto">
+      {/* native by default — but pick any language and the whole chat follows */}
+      <div className="flex justify-center mb-3">
+        <label className="inline-flex items-center gap-1.5 bg-white/[0.05] border border-white/10 rounded-full pl-3 pr-1.5 py-1 cursor-pointer hover:bg-white/[0.08] transition-colors">
+          <Globe size={12} className="text-foreground/45" />
+          <select value={lang} onChange={(e) => onPick(e.target.value)} aria-label="conversation language"
+            className="bg-transparent text-[12px] font-medium text-foreground/70 focus:outline-none cursor-pointer appearance-none pr-3">
+            {LANGUAGES.map((l) => <option key={l.name} value={l.name} className="bg-stone-900 text-foreground">{l.name}</option>)}
+          </select>
+        </label>
+      </div>
+
       {/* the trio — bigger faces, the speaker lights up, the others step back */}
       <div className="flex items-end justify-center gap-3 sm:gap-4 mb-5">
         {TRIO.map((c) => {

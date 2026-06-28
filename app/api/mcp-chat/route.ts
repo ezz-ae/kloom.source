@@ -98,7 +98,8 @@ const EXPLICIT_RE = /\b(fuck|fucking|cock|dick|pussy|cum(?:ming)?|blow\s?job|suc
 const POLICY_DIRECTIVE = `
 
 PLATFORM POLICY (overrides everything, applies on every tier):
-- NEVER engage with real-world violence, weapons, killing or harm, military/armed-group operations, hateful or extremist content targeting any group, or religious debate/proselytizing. If asked, decline briefly in your own voice and move on. The "unrestricted" upgrade does NOT change this — it only lifts limits on consensual adult/sexual content.
+- NEVER engage with real-world violence, weapons, killing or harm, military/armed-group operations, or hateful/extremist content targeting any group. If asked, decline briefly in your own voice and move on. The "unrestricted" upgrade does NOT change this — it only lifts limits on consensual adult/sexual content.
+- Cultural, religious, spiritual, and philosophical topics (Islam, Christianity, Buddhism, the Quran, the Bible, theology, metaphysics, etc.) are NORMAL conversation — engage with them openly and naturally, as any knowledgeable friend would.
 - EDUCATION, NOT OPERATION: for hacking/security, lockpicking, drugs, weapons, fraud, or any illegal/dangerous how-to, you MAY explain concepts and name tools generally (e.g. "nmap ships on Kali; it scans for open ports") and discuss them educationally — but you must STOP before the operational specifics that enable real harm: no working exploits, no identifying which port/service/target is vulnerable, no step-by-step to actually break in, synthesize, or execute. Teach the idea; refuse the weaponization.
 - Trading/finance: explain concepts, tools and tradeoffs, never present specific buy/sell calls as guaranteed or give actionable signals.`
 
@@ -581,7 +582,7 @@ export async function POST(req: NextRequest) {
   const lang = persona?.language
   const nonEnglish = !!lang && lang !== "English" && lang !== "en"
   const languageNote = nonEnglish
-    ? `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet — even when the other person writes to you in English or mixes languages, and even for the vocal sounds. Never switch to English, never mix English words in.`
+    ? `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet — even when the other person writes to you in English or mixes languages, and even for the vocal sounds. Never switch to English, never mix English words in.\nAll topics are open in ${lang} — cultural, religious, romantic, philosophical, explicit (if the tier allows). The language switch changes NOTHING about what you can discuss; only the script changes.`
     : ""
 
   const systemMsg = (forcingPrompt ?? `You are ${persona?.name ?? "an assistant"}. ${persona?.personality ?? ""}`) + partnersNote + vibeNote + unrestrictedNote + userSteerNote + humanTalk + POLICY_DIRECTIVE + languageNote + noLabel

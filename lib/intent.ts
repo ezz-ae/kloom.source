@@ -67,13 +67,13 @@ const OPERATIONAL_HARM = new RegExp(
 )
 
 // ── CRISIS: acute self-harm / suicidal intent (flows, offers support) ────────
-const CRISIS = /\b(kill myself|killing myself|end my life|ending my life|want to die|wanna die|don'?t want to (?:live|be alive|exist)|suicidal|suicide|take my (?:own )?life|no reason to (?:live|go on)|better off dead|cut myself|cutting myself|hurt myself|self[\s-]?harm|overdose on)\b/i
+const CRISIS = /\b(kill myself|killing myself|end my life|ending my life|want to die|wanna die|don'?t want to (?:live|be alive|exist)|suicidal|suicide|take my (?:own )?life|no reason to (?:live|go on)|better off dead|cut myself|cutting myself|hurt myself|self[\s-]?harm|overdose on)\b|(?:أريد أن أموت|أريد الموت|انتحار|أقتل نفسي|إيذاء نفسي|لا أريد أن أعيش|أتمنى الموت|نهاية حياتي)/i
 
 // ── DISTRESS: emotional pain / low mood (flows, raises a gentle wellness read) ─
-const DISTRESS = /\b(depress(?:ed|ing|ion)?|so (?:sad|anxious|alone|empty)|hopeless|worthless|can'?t cope|can'?t go on|breaking down|panic attack|falling apart|numb inside|cry(?:ing)? myself|hate myself|exhausted with everything|nobody (?:cares|loves me)|give up on life)\b/i
+const DISTRESS = /\b(depress(?:ed|ing|ion)?|so (?:sad|anxious|alone|empty)|hopeless|worthless|can'?t cope|can'?t go on|breaking down|panic attack|falling apart|numb inside|cry(?:ing)? myself|hate myself|exhausted with everything|nobody (?:cares|loves me)|give up on life)\b|(?:اكتئاب|محطم|يائس|لا أستطيع المتابعة|أشعر بالوحدة|أبكي|أكره نفسي|قلق شديد)/i
 
 // ── EXPLICIT: adult/sexual intent (FLOWS — informational only) ───────────────
-const EXPLICIT = /\b(fuck|fucking|cock|dick|pussy|cum(?:ming)?|blow\s?job|suck (?:my|your|me|it|cock|dick)|jerk(?:ing)? off|jack off|finger (?:me|you|my|your)|eat (?:me|you) out|nudes?|naked|sext|horny|make me cum|get me off|tits|nipples|orgasm|masturbat|deepthroat|doggy|riding you)\b/i
+const EXPLICIT = /\b(fuck|fucking|cock|dick|pussy|cum(?:ming)?|blow\s?job|suck (?:my|your|me|it|cock|dick)|jerk(?:ing)? off|jack off|finger (?:me|you|my|your)|eat (?:me|you) out|nudes?|naked|sext|horny|make me cum|get me off|tits|nipples|orgasm|masturbat|deepthroat|doggy|riding you)\b|(?:ممارسة الجنس|جنسي|مثير|عاري|أريدك|اشتهيك)/i
 
 /**
  * Classify the user's latest message. Evaluation order is deliberate: the two

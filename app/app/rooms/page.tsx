@@ -9,14 +9,14 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { VISIBLE_ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
-import { CATEGORY_META, CATEGORY_ORDER, isAdultRoom } from "@/lib/category-meta"
-import { adultEnabled, isIo, funLive } from "@/lib/variant"
+import { CATEGORY_META, CATEGORY_ORDER, isAdultRoom, isVipRoom } from "@/lib/category-meta"
+import { adultEnabled, isIo, funLive, LEX } from "@/lib/variant"
 import { funHandoffUrl } from "@/lib/sso"
 import { listCustomRooms, deleteCustomRoom, cloneRoom } from "@/lib/custom-rooms"
 import { fetchCommunityFeed, bumpRoomClones, type FeedSort } from "@/lib/rooms-db"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
-import { Plus, Search, Copy, ArrowRight, Trash2, Loader2, Check, Flame, Clock, TrendingUp } from "lucide-react"
+import { Plus, Search, Copy, ArrowRight, Trash2, Loader2, Check, Flame, Clock, TrendingUp, Crown } from "lucide-react"
 
 type Filter = "all" | RoomCategory
 
@@ -108,8 +108,8 @@ export default function RoomsPage() {
         {/* Header */}
         <div className="flex items-end justify-between gap-4 mb-5">
           <div>
-            <h1 className="text-3xl font-semibold tracking-[-0.02em]">Rooms</h1>
-            <p className="text-muted-foreground text-sm mt-1">Every room the community has built. Enter one, or clone it and make it yours.</p>
+            <h1 className="text-3xl font-semibold tracking-[-0.02em]">{LEX.UnitPlural}</h1>
+            <p className="text-muted-foreground text-sm mt-1">Every {LEX.unit} the community has built. {LEX.enter} one, or clone it and make it yours.</p>
           </div>
           <button onClick={() => router.push("/app/create")}
             className="shrink-0 flex items-center gap-1.5 bg-foreground text-background font-semibold text-sm px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
@@ -125,7 +125,7 @@ export default function RoomsPage() {
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
           <input value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search rooms…"
+            placeholder={`Search ${LEX.unitPlural}…`}
             className="w-full bg-foreground/[0.03] border border-border/60 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:border-foreground/30 transition-colors" />
         </div>
 
@@ -159,7 +159,7 @@ export default function RoomsPage() {
         {/* Your rooms */}
         {mine.length > 0 && filter === "all" && !debounced && (
           <div className="mb-7">
-            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">Your rooms</h2>
+            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">Your {LEX.unitPlural}</h2>
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide">
               {mine.map((r) => (
                 <div key={r.id} className="snap-start shrink-0 w-64">
@@ -199,7 +199,7 @@ export default function RoomsPage() {
           </div>
         ) : (
           <div className="text-center py-20">
-            <p className="text-muted-foreground">No rooms match that yet.</p>
+            <p className="text-muted-foreground">No {LEX.unitPlural} match that yet.</p>
             <button onClick={() => router.push("/app/create")} className="mt-3 text-sm font-semibold text-foreground hover:opacity-80">Build the first one →</button>
           </div>
         )}
@@ -247,8 +247,13 @@ function RoomCard({ room, onEnter, onClone, onDelete, owned }: {
   return (
     <div className="group mb-3 break-inside-avoid rounded-2xl border border-border/60 bg-foreground/[0.02] hover:border-foreground/25 hover:bg-foreground/[0.04] transition-all p-4 flex flex-col">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {meta?.label ?? room.category}
+          {isVipRoom(room) && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25 tracking-normal">
+              <Crown size={9} /> VIP
+            </span>
+          )}
         </span>
         {owned && onDelete && (
           <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400 transition-all"><Trash2 size={13} /></button>

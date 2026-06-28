@@ -2,19 +2,23 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { isAbuseday, LEX } from "@/lib/variant"
 import {
   Home,
   Plus,
   Settings,
   DoorOpen,
+  Globe2,
   User,
+  Rocket,
 } from "lucide-react"
 
+// Vocabulary is variant-aware: Kloom says "Rooms", Abuseday says "Planets".
 const NAV: Array<{ label: string; href: string; icon: typeof Home; badge?: string; badgeColor?: string }> = [
-  { label: "Home",          href: "/app",        icon: Home },
-  { label: "Rooms",         href: "/app/rooms",  icon: DoorOpen },
-  { label: "Create a room", href: "/app/create", icon: Plus },
-  { label: "You",           href: "/app/you",    icon: User },
+  { label: "Home",                       href: "/app",        icon: Home },
+  { label: LEX.UnitPlural,               href: "/app/rooms",  icon: isAbuseday() ? Globe2 : DoorOpen },
+  { label: `Create a ${LEX.unit}`,       href: "/app/create", icon: Plus },
+  { label: "You",                        href: "/app/you",    icon: User },
 ]
 
 export function Sidebar() {
@@ -24,10 +28,23 @@ export function Sidebar() {
     <aside className="glass flex flex-col h-full w-60 border-r border-white/[0.06] py-5 px-3 shrink-0">
       {/* Logo */}
       <Link href="/app" className="flex items-center gap-2.5 px-2 mb-7 group">
-        <div className="w-9 h-9 rounded-2xl brand-gradient flex items-center justify-center brand-glow group-hover:scale-105 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] p-1.5">
-          <img src="/kloom-mark.png" alt="Kloom" className="w-full h-full object-contain" />
-        </div>
-        <img src="/kloom-wordmark.png" alt="Kloom" className="h-4 object-contain object-left" />
+        {isAbuseday() ? (
+          <>
+            <div className="w-9 h-9 rounded-2xl brand-gradient flex items-center justify-center brand-glow group-hover:scale-105 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]">
+              <Rocket size={18} className="text-stone-950" />
+            </div>
+            <span className="font-black text-lg tracking-tight">Abuseday</span>
+          </>
+        ) : (
+          <>
+            <div className="w-9 h-9 rounded-2xl brand-gradient flex items-center justify-center brand-glow group-hover:scale-105 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] p-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/kloom-mark.png" alt="Kloom" className="w-full h-full object-contain" />
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/kloom-wordmark.png" alt="Kloom" className="h-4 object-contain object-left" />
+          </>
+        )}
         <span className="text-[9px] font-bold bg-amber-500/15 border border-amber-500/25 text-amber-300 px-1.5 py-0.5 rounded-full ml-auto">
           BETA
         </span>

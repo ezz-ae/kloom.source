@@ -13,6 +13,7 @@ import { listCustomRooms } from "@/lib/custom-rooms"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
 import { currentEmail, hydrateEntitlement, grantCredits, completePassPurchase } from "@/lib/auth"
+import { isAbuseday, LEX } from "@/lib/variant"
 import { Plus, DoorOpen, ChevronRight, ArrowRight } from "lucide-react"
 
 function greeting(): string {
@@ -91,9 +92,9 @@ export default function HubPage() {
               <Plus size={24} className="text-stone-950" />
             </div>
             <div>
-              <h2 className="text-3xl lg:text-4xl font-black tracking-[-0.02em] text-stone-950">Create a room</h2>
+              <h2 className="text-3xl lg:text-4xl font-black tracking-[-0.02em] text-stone-950">Create a {LEX.unit}</h2>
               <p className="text-stone-900/70 font-medium mt-2 max-w-xs">
-                Pick a world. Build the cast. Send the link.
+                {isAbuseday() ? "Pick a planet's vibe. Build the cast. Send the link." : "Pick a world. Build the cast. Send the link."}
               </p>
               <span className="inline-flex items-center gap-1.5 mt-5 text-sm font-black text-stone-950 group-hover:gap-2.5 transition-all">
                 Start building <ArrowRight size={15} />
@@ -108,12 +109,12 @@ export default function HubPage() {
               <DoorOpen size={24} className="text-amber-400" />
             </div>
             <div>
-              <h2 className="text-3xl lg:text-4xl font-black tracking-[-0.02em]">Join a room</h2>
+              <h2 className="text-3xl lg:text-4xl font-black tracking-[-0.02em]">{isAbuseday() ? "Land on a planet" : "Join a room"}</h2>
               <p className="text-muted-foreground font-medium mt-2 max-w-xs">
-                {CATEGORY_ORDER.length} worlds. {ROOMS.length} rooms. Pick a door.
+                {CATEGORY_ORDER.length} worlds. {ROOMS.length} {LEX.unitPlural}. {isAbuseday() ? "Pick yours." : "Pick a door."}
               </p>
               <span className="inline-flex items-center gap-1.5 mt-5 text-sm font-black text-amber-400 group-hover:gap-2.5 transition-all">
-                Browse the worlds <ArrowRight size={15} />
+                {isAbuseday() ? "Explore the galaxy" : "Browse the worlds"} <ArrowRight size={15} />
               </span>
             </div>
           </button>
@@ -122,7 +123,7 @@ export default function HubPage() {
         {/* Your rooms */}
         {mine.length > 0 && (
           <div className="mt-10">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Your rooms</h2>
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Your {LEX.unitPlural}</h2>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
               {mine.slice(0, 8).map((r) => (
                 <button key={r.id} onClick={() => router.push(`/app/rooms/${r.id}`)}

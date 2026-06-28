@@ -448,13 +448,14 @@ export async function POST(req: NextRequest) {
   // skip it).
   // adultEnabled() == the .fun / airraw.com variant — the platform itself is the
   // entitlement: every user there gets explicit access with no per-account check.
-  const platformAdult = adultEnabled()
+  // Non-English sessions are fully open — Arabic and all other languages bypass
+  // the explicit gate entirely. English on kloom.io keeps the paid-tier model.
+  const sessionLang = persona?.language ?? "English"
+  const platformAdult = adultEnabled() || sessionLang !== "English"
   const wantsEscalation = platformAdult || !!unrestricted || isUnrestrictedPersona(persona) ||
     (persona?.category ?? "") === "dark" || intent.category === "explicit" || EXPLICIT_RE.test(latestUserText)
-  // AIRRAW Pro token (Ziina payment) is accepted as equivalent to a Supabase entitlement.
   const proTokenGranted = proTokenValid(proToken)
   const allowExplicit = wantsEscalation ? (platformAdult || proTokenGranted || await verifiedUnrestricted(req)) : false
-  // On the adult platform every session is unrestricted; otherwise require a verified signal.
   const unrestrictedActive = allowExplicit && (platformAdult || !!unrestricted || isUnrestrictedPersona(persona) || proTokenGranted)
 
   // Inline unlock moment — anyone NOT entitled who asks for explicit content (in

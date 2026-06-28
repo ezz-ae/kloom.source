@@ -12,7 +12,7 @@ import { Mic, Send, Loader2, Square, Sparkles, Globe } from "lucide-react"
 // This is a voice trial: tap a moment (or the mic) and you HEAR Claude, Gemini and GPT
 // talk it out together; you can talk back or type. The same three are waiting inside.
 const TRIO = [
-  { name: "Claude", gender: "male", model: "claude", role: "sharp", voice: "onyx" as const,
+  { name: "Claude", gender: "male", model: "claude", role: "sharp", voice: "alloy" as const,
     personality: "Sharp and decisive. Cuts to what matters and pressure-tests every idea. Warm, but never wastes a word." },
   { name: "Gemini", gender: "male", model: "gemini", role: "wild", voice: "echo" as const,
     personality: "Playful and lateral. Riffs, jokes, finds the angle nobody saw. Brings the energy and the wild ideas." },

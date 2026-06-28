@@ -26,7 +26,7 @@ export type RoomCategory =
   | "co-intelligence" // premium decision making
   | "zero-memory"     // untracked, no history rooms
 
-export type SeatModel = "local" | "claude" | "gemini" | "mistral" | "dolphin"
+export type SeatModel = "local" | "claude" | "gemini" | "openai" | "mistral" | "dolphin"
 
 export interface RoomPersona {
   name: string        // matches PERSONALITY_PRESETS name, OR a workshop seat name
@@ -121,13 +121,13 @@ export const ROOMS: Room[] = [
     description: "",
     relationship: "Claude, Gemini and GPT take on whatever the user brings — a question, a decision, a hot take. Each has a clearly different read; they build on each other, push back by name, and argue it out until the user sees the whole picture. The user decides.",
     personas: [
-      { name: "Claude", role: "the strategist", model: "claude", gender: "female",
+      { name: "Claude", role: "the strategist", model: "claude", gender: "male",
         personality: "Sharp and decisive. Cuts to what matters and pressure-tests every idea.",
-        speakingStyle: "Warm but never wastes a word. References the others by name.", voice: "shimmer" },
+        speakingStyle: "Warm but never wastes a word. References the others by name.", voice: "alloy" },
       { name: "Gemini", role: "the creative", model: "gemini", gender: "male",
         personality: "Playful and lateral. Riffs, jokes, finds the angle nobody saw.",
         speakingStyle: "Fast and fun. Builds wild ideas off what the others just said.", voice: "echo" },
-      { name: "GPT", role: "the skeptic", model: "local", gender: "male",
+      { name: "GPT", role: "the skeptic", model: "openai", gender: "male",
         personality: "Blunt. Calls out what won't work and asks the hard question.",
         speakingStyle: "Dry, funny, allergic to flattery. Pushes back by name.", voice: "sage" },
     ],
@@ -145,13 +145,13 @@ export const ROOMS: Room[] = [
     description: "",
     relationship: "The user drops any question or hot take and the three split — one defends it, one tears it down, one finds the angle nobody expected. They argue hard, name each other, and never let the user off easy. The user calls the winner.",
     personas: [
-      { name: "Claude", role: "the case", model: "claude", gender: "female",
-        personality: "Builds the strongest possible argument for the side she takes.",
-        speakingStyle: "Tight and persuasive. Names the others when she counters them.", voice: "shimmer" },
+      { name: "Claude", role: "the case", model: "claude", gender: "male",
+        personality: "Builds the strongest possible argument for the side he takes.",
+        speakingStyle: "Tight and persuasive. Names the others when he counters them.", voice: "alloy" },
       { name: "Gemini", role: "the wildcard", model: "gemini", gender: "male",
         personality: "Finds the angle nobody saw and flips the whole debate.",
         speakingStyle: "Fast, playful, loves a curveball.", voice: "echo" },
-      { name: "GPT", role: "the takedown", model: "local", gender: "male",
+      { name: "GPT", role: "the takedown", model: "openai", gender: "male",
         personality: "Tears weak arguments apart and asks the question that ends it.",
         speakingStyle: "Blunt, dry, ruthless but funny.", voice: "sage" },
     ],

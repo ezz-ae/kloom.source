@@ -81,12 +81,10 @@ export async function POST(request: Request) {
   // the dedicated UNCENSORED endpoint via opts.uncensored ONLY when it's fully
   // configured; otherwise pro rides the same working endpoint with the NO_FILTERS
   // prompt (paid never lands worse than free).
-  const unBase  = process.env.UNCENSORED_LLM_BASE_URL
-  const unModel = process.env.UNCENSORED_LLM_MODEL || process.env.LLM_MODEL_UNRESTRICTED
-  // Adult content is gated by the system prompt (NO_FILTERS layer), not the model endpoint.
-  // Only route Pro users to the uncensored endpoint — free adult calls use the main model
-  // (DeepSeek V4 Pro on Together) which is far better than the Gemini Flash Lite fallback.
-  const useUncensored = !!(pro && unBase && unModel)
+  // Voice calls always use the main model (DeepSeek V4 Pro on Together).
+  // Adult content is controlled by the NO_FILTERS system prompt layer, not the endpoint.
+  // The UNCENSORED_LLM endpoint was Gemini Flash Lite — smaller model + refuses adult content.
+  const useUncensored = false
 
   // The FLOOR is appended LAST so it outranks persona/vibe/content-layer text above it.
   const systemPrompt =

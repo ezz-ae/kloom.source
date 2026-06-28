@@ -154,7 +154,9 @@ export function Planet() {
   useEffect(() => { if (!proMsg) return; const t = setTimeout(() => setProMsg(""), 5000); return () => clearTimeout(t) }, [proMsg])
   // the planet speaks your language — detect the visitor's, let them change it
   const [lang, setLang] = useState("English")
-  useEffect(() => { setLang(detectLanguage()) }, [])
+  const langRef = useRef("English")
+  useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
+  useEffect(() => { langRef.current = lang }, [lang])
   useEffect(() => { verifiedRef.current = verified }, [verified])
   useEffect(() => { inCallRef.current = !!selected || !!group }, [selected, group])
 
@@ -185,7 +187,7 @@ export function Planet() {
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: char.lines[0], personaName: char.host, gender: char.gender, language: "English", voiceId: char.voiceId }),
+        body: JSON.stringify({ text: char.lines[0], personaName: char.host, gender: char.gender, language: langRef.current, voiceId: char.voiceId }),
       })
       if (!res.ok || speakTok.current !== tok) return
       const url = URL.createObjectURL(await res.blob())

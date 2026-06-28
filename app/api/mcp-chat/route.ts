@@ -462,7 +462,7 @@ export async function POST(req: NextRequest) {
     // AIRRAW_PRO_USD) while the kloom.io Unrestricted tier is $10. Same string serves both
     // deployments, so resolve the price instead of hardcoding it (was a flat "$10" — wrong
     // on the AIRRAW funnel where checkout actually charges $9).
-    const proUsd = process.env.AIRRAW_HOME === "1" ? Number(process.env.AIRRAW_PRO_USD || 9) : 10
+    const proUsd = Number(process.env.AIRRAW_PRO_USD || 9)   // one number drives quote + charge (was $10 on .io, charge is $9)
     const notice = `mmm, I'd love to go there with you — but that's behind Unrestricted. unlock it for $${proUsd} and nothing's off-limits, here or anywhere on the platform.`
     return new Response(notice, {
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store", "X-MCP-Upsell": "unrestricted" },

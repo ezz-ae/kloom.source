@@ -18,9 +18,16 @@ import { registerComputeTools }  from "@/mcp-server/src/tools/compute"
 import { registerCreatorTools }  from "@/mcp-server/src/tools/creator"
 import { registerAdvancedTools } from "@/mcp-server/src/tools/advanced"
 import { registerPrompts }       from "@/mcp-server/src/prompts/index"
+import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
+import { adultEnabled } from "@/lib/variant"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
+
+// Tools that only belong on the adult (.fun) build. Filtered from tools/list and
+// refused on tools/call on the safe (.io/.me) deployments, so the SFW product
+// never surfaces or runs sexual-content tooling.
+const ADULT_TOOLS = new Set(["kloom_onlyfans_dm"])
 
 function buildServer(): McpServer {
   const server = new McpServer({ name: "kloom-mcp-server", version: "1.0.0" })
@@ -34,6 +41,14 @@ function buildServer(): McpServer {
 }
 
 export async function POST(request: Request) {
+  // Same protections as the room-chat endpoint: a global spend ceiling / kill-switch
+  // and a per-IP rate limit. Without these this route is an uncapped cost + abuse
+  // vector (every call can fan out to paid model/tool work).
+  const gate = globalGate()
+  if (!gate.ok) return new Response("the floor's at capacity right now — back in a bit.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8", "Retry-After": "120" } })
+  const rl = rateLimit(`mcp:${clientIp(request)}`, 45, 60_000)
+  if (!rl.ok) return new Response("Slow down a sec.", { status: 429, headers: { "Content-Type": "text/plain; charset=utf-8", "Retry-After": String(rl.retryAfter) } })
+
   let rpc: { jsonrpc?: string; id?: number | string | null; method?: string; params?: Record<string, unknown> }
   try {
     rpc = await request.json()
@@ -43,6 +58,9 @@ export async function POST(request: Request) {
 
   const { id = null, method, params = {} } = rpc
   if (!method) return rpcError(id, -32600, "Missing method")
+
+  // On the SFW builds, never advertise or run adult tooling.
+  const allowAdult = adultEnabled()
 
   // Fresh server + client pair per request (stateless; setup is ~ms).
   const server = buildServer()
@@ -54,12 +72,21 @@ export async function POST(request: Request) {
 
     let result: unknown
     switch (method) {
-      case "tools/list":
-        result = await client.listTools()
+      case "tools/list": {
+        const listed = await client.listTools()
+        result = allowAdult
+          ? listed
+          : { ...listed, tools: (listed.tools ?? []).filter((t) => !ADULT_TOOLS.has(t.name)) }
         break
-      case "tools/call":
+      }
+      case "tools/call": {
+        const callName = (params as { name?: string }).name
+        if (!allowAdult && callName && ADULT_TOOLS.has(callName)) {
+          return rpcError(id, -32601, `Tool not available: ${callName}`)
+        }
         result = await client.callTool(params as { name: string; arguments?: Record<string, unknown> })
         break
+      }
       case "prompts/list":
         result = await client.listPrompts()
         break

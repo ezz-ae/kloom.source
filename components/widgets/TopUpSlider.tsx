@@ -7,7 +7,7 @@
  * layout. Replaces the old FlexiCalls slider + tiered passes + account gate.
  */
 import { useState } from "react"
-import { setPendingIntent } from "@/lib/airroom/pro"
+import { setPendingIntent, fbCookies } from "@/lib/airroom/pro"
 import { track } from "@/lib/track"
 
 interface TopUpSliderProps { onDone?: () => void }
@@ -25,7 +25,7 @@ export function TopUpSlider({ onDone: _onDone }: TopUpSliderProps) {
   const go = async () => {
     setBusy(true); setErr("")
     try {
-      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout" }) })
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", ...fbCookies() }) })
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || "couldn't start checkout — try again"); setBusy(false); return }
       setPendingIntent(d.intentId)

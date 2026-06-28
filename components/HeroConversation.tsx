@@ -21,6 +21,24 @@ const TRIO = [
 ]
 const REL = "three friends riffing live on whatever the visitor brings — fast, funny, building on and teasing each other, each a clear distinct voice. Keep every reply to ONE short spoken sentence."
 
+// The hero is a teaser: keep every spoken line clean and short. Strip any stray
+// markup/markdown the model emits, collapse whitespace, and cap to one short line
+// so a runaway reply can't blow out the bubble or the TTS clip.
+function clean(s: string): string {
+  let t = (s || "")
+    .replace(/<[^>]*>/g, " ")          // any HTML tags
+    .replace(/[*_`#>]+/g, "")          // markdown emphasis / headings
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1") // [label](url) → label
+    .replace(/\s+/g, " ")
+    .trim()
+  if (t.length > 180) {
+    const cut = t.slice(0, 180)
+    const stop = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"))
+    t = (stop > 80 ? cut.slice(0, stop + 1) : cut.slice(0, cut.lastIndexOf(" "))).trim()
+  }
+  return t
+}
+
 // Moments, not prompts — each one should make you grin and want to hear what they'd say.
 const SEEDS = [
   "hype me up — big day tomorrow",
@@ -44,6 +62,7 @@ export function HeroConversation() {
   const [busy, setBusy] = useState(false)
   const [listening, setListening] = useState(false)
   const [turns, setTurns] = useState(0)          // user turns → reveal the register CTA
+  const [micOk, setMicOk] = useState(true)       // live STT available? (false in iOS Safari + in-app webviews)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const recRef = useRef<any>(null)
   const scroller = useRef<HTMLDivElement | null>(null)
@@ -54,6 +73,7 @@ export function HeroConversation() {
 
   useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
   useEffect(() => { langRef.current = lang }, [lang])
+  useEffect(() => { const w = window as any; setMicOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, [])
   const onPick = (l: string) => { pickedRef.current = true; setLang(l) }
   useEffect(() => { scroller.current?.scrollTo({ top: 1e9, behavior: "smooth" }) }, [msgs, speaking])
   useEffect(() => () => { try { recRef.current?.stop?.() } catch { /* */ } try { audioRef.current?.pause() } catch { /* */ } }, [])
@@ -103,7 +123,7 @@ export function HeroConversation() {
         })
         let full = ""
         if (res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }
-        full = full.trim()
+        full = clean(full)
         if (full) { convo = [...convo, { who: c.name, gender: c.gender, text: full }]; setMsgs(convo); setSpeaking(c.name); await speak(full, c) }
       } catch { /* skip a stumble, keep the banter moving */ }
     }
@@ -116,7 +136,7 @@ export function HeroConversation() {
     if (!pickedRef.current) langRef.current = detectLanguage()   // listen in their language
     const w = window as any
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) return   // no speech support → they can type
+    if (!SR) { ask(SEEDS[(Math.random() * SEEDS.length) | 0]); return }   // no mic (iOS webview) → fire a moment so the tap still lands
     try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* unlock audio on this gesture */ }
     const rec = new SR()
     rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"
@@ -194,7 +214,7 @@ export function HeroConversation() {
           {/* the headline action: VOICE. one tap and you hear them. */}
           <button onClick={toggleMic}
             className="w-full flex items-center justify-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 font-bold text-[15px] py-4 rounded-2xl transition-all hover:scale-[1.01] shadow-[0_10px_30px_-8px_rgba(245,158,11,.6)]">
-            <Mic size={18} /> Talk to them — they answer out loud
+            {micOk ? <Mic size={18} /> : <Sparkles size={18} />} {micOk ? "Talk to them — they answer out loud" : "Tap to hear them — out loud"}
           </button>
 
           {/* moments — tap one and just listen */}

@@ -26,6 +26,9 @@ type Props = Record<string, string | number | boolean>
 // optimize toward them and value-based bidding works on `purchase`.
 const STD: Record<string, { fb?: string; tt?: string; ga?: string }> = {
   start_voice:       { fb: "ViewContent",      tt: "ViewContent",     ga: "select_content" },
+  // the landing hero's engaged moments — the densest top-of-funnel signal Meta can optimize on
+  hero_voice:        { fb: "ViewContent",      tt: "ViewContent",     ga: "select_content" },
+  hero_join_live:    { fb: "Lead",             tt: "ClickButton",     ga: "select_content" },
   paywall_view:      { fb: "AddToCart",        tt: "AddToCart",       ga: "add_to_cart" },
   initiate_checkout: { fb: "InitiateCheckout", tt: "InitiateCheckout", ga: "begin_checkout" },
   purchase:          { fb: "Purchase",         tt: "CompletePayment", ga: "purchase" },

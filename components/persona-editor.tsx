@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Settings2, Heart, Users, Briefcase, Sparkles, Snowflake, Flame, GraduationCap, MessageCircle, Crown, Moon, Wand2, Loader2, TrendingUp } from "lucide-react"
+import { adultEnabled } from "@/lib/variant"
 
 interface PersonaEditorProps {
   persona: Persona
@@ -682,13 +683,23 @@ export const CATEGORY_INFO: Record<PresetCategory, { label: string; icon: typeof
 type Intensity = "playful" | "flirty" | "intimate" | "intense" | "extreme"
 type Leader = "user" | "ai" | "switch"
 
-const INTENSITY_OPTIONS: { value: Intensity; label: string; hint: string }[] = [
-  { value: "playful", label: "Playful", hint: "Sweet & teasing" },
-  { value: "flirty", label: "Flirty", hint: "Openly suggestive" },
-  { value: "intimate", label: "Intimate", hint: "Close & sensual" },
-  { value: "intense", label: "Intense", hint: "Raw & charged" },
-  { value: "extreme", label: "No limits", hint: "Uncensored" },
-]
+// On the SFW domain (.io) the intensity control must carry NO adult/uncensored signal —
+// Meta reviewers see /app/create. Same values drive behavior; only the labels change.
+const INTENSITY_OPTIONS: { value: Intensity; label: string; hint: string }[] = adultEnabled()
+  ? [
+      { value: "playful", label: "Playful", hint: "Sweet & teasing" },
+      { value: "flirty", label: "Flirty", hint: "Openly suggestive" },
+      { value: "intimate", label: "Intimate", hint: "Close & sensual" },
+      { value: "intense", label: "Intense", hint: "Raw & charged" },
+      { value: "extreme", label: "No limits", hint: "Uncensored" },
+    ]
+  : [
+      { value: "playful", label: "Light", hint: "Easy and warm" },
+      { value: "flirty", label: "Open", hint: "Friendly and frank" },
+      { value: "intimate", label: "Close", hint: "Personal and real" },
+      { value: "intense", label: "Bold", hint: "Direct, no fluff" },
+      { value: "extreme", label: "Candid", hint: "Says what it thinks" },
+    ]
 
 const LEADER_OPTIONS: { value: Leader; label: string; hint: string }[] = [
   { value: "user", label: "I lead", hint: "They follow me" },

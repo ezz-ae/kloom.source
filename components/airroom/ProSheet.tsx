@@ -6,7 +6,7 @@
  * planet can claim the pass when the buyer returns (?pro_ok=1).
  */
 import { useState, useEffect } from "react"
-import { setPendingIntent, setProToken, isPro, clearPro } from "@/lib/airroom/pro"
+import { setPendingIntent, setProToken, isPro, clearPro, fbCookies } from "@/lib/airroom/pro"
 import { track } from "@/lib/track"
 
 const PERKS: [string, string][] = [
@@ -38,7 +38,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
   const go = async () => {
     setBusy(true); setErr("")
     try {
-      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout" }) })
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", ...fbCookies() }) })
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || "couldn’t start checkout — try again"); setBusy(false); return }
       setPendingIntent(d.intentId)

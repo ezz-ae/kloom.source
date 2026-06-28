@@ -406,7 +406,7 @@ export default function LandingPage() {
               <Sparkles size={16} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <div className="font-bold text-sm flex items-center gap-1.5">One pass <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30">$9</span></div>
-                <div className="text-xs text-foreground/50 mt-0.5">90 days · 6000 voice minutes · every premium model · unrestricted</div>
+                <div className="text-xs text-foreground/50 mt-0.5">90 days · 6000 voice minutes · every premium model · all rooms</div>
               </div>
             </div>
           </div>

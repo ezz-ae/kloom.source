@@ -32,12 +32,12 @@ const TITLE = AIRRAW
   ? "AIRRAW — tap a face, talk right now"
   : isFun()
     ? "Kloom.fun — No rules. No signup. Just fun."
-    : "Kloom — Every conversation is a room"
+    : "Talk to Claude, Gemini & GPT together — out loud · Kloom"
 const DESC = AIRRAW
   ? "A live voice lounge full of characters. Tap anyone and talk out loud — in a real voice, right now. Some are AI, real people drift in, and you can't always tell. It's the now."
   : isFun()
     ? "Anonymous AI voice rooms — no signup, no memory, no limits. Build a cast of AI characters with real voices and jump straight in."
-    : "Multi-AI voice rooms with Claude, Gemini and GPT. Build a cast of AI characters with real voices, or clone any voice from a video, and drop friends into the same room with one link — voice and chat, live, across worlds from the trading floor to deep talk."
+    : "Put Claude, Gemini and GPT in one room and hear all three answer out loud, in your language — they riff, disagree and crack you up. Free, no email. Build your own cast, clone a voice, drop friends in with one link."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

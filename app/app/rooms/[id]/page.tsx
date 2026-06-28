@@ -194,6 +194,7 @@ function RoomContent() {
   const [resettingAI, setResettingAI]   = useState<string | null>(null)
 
   const bottomRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef  = useRef<AbortController | null>(null)
 
   // ── Group session (multi-human) ──
@@ -396,7 +397,7 @@ function RoomContent() {
   useEffect(() => { hydrateEntitlement() }, [])
 
   const { isConnected, isConnecting, isSpeaking, activeSpeaker, error,
-          connect, disconnect, stopAI, submitText,
+          connect, disconnect, stopAI,
           outOfMinutes, minutesLeft, dismissOutOfMinutes } = useRealtimeVoice(
     primaryPersona
       ? {
@@ -979,6 +980,7 @@ function RoomContent() {
             <div className="flex gap-2 items-end max-w-4xl mx-auto">
               <div className="flex-1 bg-foreground/5 border border-border/50 rounded-2xl px-4 py-2.5 focus-within:border-amber-500/50 focus-within:ring-1 focus-within:ring-amber-500/30 transition-all shadow-inner">
                 <textarea
+                  ref={chatInputRef}
                   rows={1}
                   placeholder={`Message ${room.personas[0].name}…`}
                   value={input}
@@ -1095,7 +1097,7 @@ function RoomContent() {
               )}
               {isConnected && (
                 <button
-                  onClick={() => submitText("...")}
+                  onClick={() => { setActivePanel("chat"); setTimeout(() => chatInputRef.current?.focus(), 0) }}
                   className="w-10 h-10 rounded-full bg-foreground/10 border border-border/20 flex items-center justify-center text-muted-foreground hover:bg-foreground/20 transition-all"
                   title="Type instead"
                 >

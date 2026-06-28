@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next"
 import { CATEGORY_ORDER } from "@/lib/category-meta"
 
 const AIRRAW = process.env.AIRRAW_HOME === "1"
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || (AIRRAW ? "https://airraw.com" : "https://www.kloom.io")
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || (AIRRAW ? "https://airraw.com" : "https://kloom.io")
 
 export default function sitemap(): MetadataRoute.Sitemap {
   if (AIRRAW) {

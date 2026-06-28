@@ -9,7 +9,7 @@
  */
 import { useState, useEffect } from "react"
 import { hasUnrestricted } from "@/lib/account"
-import { setPendingIntent } from "@/lib/airroom/pro"
+import { setPendingIntent, fbCookies } from "@/lib/airroom/pro"
 import { track } from "@/lib/track"
 import { Flame, Check, X } from "lucide-react"
 
@@ -32,7 +32,7 @@ export function UnrestrictedUpsell({ context = "this" }: { context?: string }) {
   const go = async () => {
     setBusy(true); setErr("")
     try {
-      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout" }) })
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", ...fbCookies() }) })
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || "couldn't start checkout — try again"); setBusy(false); return }
       setPendingIntent(d.intentId)

@@ -77,6 +77,9 @@ export function HeroConversation() {
   const ask = useCallback(async (raw: string) => {
     const text = raw.trim()
     if (!text || busyRef.current) return
+    // ALWAYS open in the visitor's native language — re-detect at the moment of the first
+    // word, so there's never an English-first reply even if the mount effect hasn't run.
+    langRef.current = detectLanguage()
     // unlock audio within this tap so the spoken replies play (autoplay policy)
     try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* */ }
     busyRef.current = true; setBusy(true); setInput(""); setTurns((n) => n + 1)
@@ -106,6 +109,7 @@ export function HeroConversation() {
   // tap the mic → say one line → it goes to the trio. Browser speech (no key needed); types still work.
   const toggleMic = useCallback(() => {
     if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false); return }
+    langRef.current = detectLanguage()   // listen in the visitor's native language
     const w = window as any
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     if (!SR) return   // no speech support → they can type

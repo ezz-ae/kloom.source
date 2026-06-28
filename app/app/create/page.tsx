@@ -14,7 +14,7 @@ import { createCustomRoom, getCustomRoom, type BuilderMember, type Gender } from
 import { publishRoom } from "@/lib/rooms-db"
 import { CATEGORY_META } from "@/lib/category-meta"
 import { buildInviteUrl, FUN_ORIGIN } from "@/lib/room-share"
-import { isIo } from "@/lib/variant"
+import { isIo, isAbuseday, LEX } from "@/lib/variant"
 import { makeSessionId } from "@/lib/room-session"
 import { VOICE_CATALOG, resolveVoiceId, voiceLabelFor } from "@/lib/voices"
 import { imageFor } from "@/lib/persona-utils"
@@ -102,7 +102,7 @@ export default function CreateRoomPage() {
   const create = async () => {
     setErr(null)
     if (!category) return
-    if (!name.trim()) { setErr("Give the room a name."); return }
+    if (!name.trim()) { setErr(`Give the ${LEX.unit} a name.`); return }
     if (members.length < 1) { setErr("Add at least one character."); return }
     const roomId = createCustomRoom({
       name: name.trim(), topic: chosen?.angle?.trim() || idea.trim(), category,
@@ -146,8 +146,8 @@ export default function CreateRoomPage() {
         {/* ── INTENT ────────────────────────────────────────────────── */}
         {phase === "intent" && !created && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-2">What&apos;s the room about?</h1>
-            <p className="text-muted-foreground mb-7">A topic, an idea, a vibe — anything. We&apos;ll shape it into a room.</p>
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-2">{isAbuseday() ? "What's your planet about?" : "What's the room about?"}</h1>
+            <p className="text-muted-foreground mb-7">A topic, an idea, a vibe — anything. We&apos;ll shape it into a {LEX.unit}.</p>
 
             <div className="rounded-2xl border border-border/60 bg-foreground/[0.03] focus-within:border-foreground/30 transition-colors p-1.5">
               <textarea
@@ -163,7 +163,7 @@ export default function CreateRoomPage() {
                 <button onClick={propose} disabled={!idea.trim() || suggesting}
                   className="flex items-center gap-1.5 bg-foreground text-background font-semibold text-sm px-4 py-2 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40">
                   {suggesting ? <Loader2 size={14} className="animate-spin" /> : <ArrowUpRight size={14} />}
-                  Publish a room
+                  Publish a {LEX.unit}
                 </button>
               </div>
             </div>
@@ -357,7 +357,7 @@ export default function CreateRoomPage() {
 
             <button onClick={create}
               className="mt-8 w-full bg-foreground text-background font-semibold text-base py-3.5 rounded-xl hover:opacity-90 transition-opacity">
-              Create the room
+              Create the {LEX.unit}
             </button>
           </div>
         )}
@@ -391,7 +391,7 @@ function KloomerCard({ onAdd, onPhoto, world, disabled }: {
       })
       const c = await res.json()
       if (!res.ok || !c.name) { setMsg({ text: c.error || "Couldn't build that — try again.", ok: false }); return }
-      onAdd({ name: c.name, gender: c.gender, personality: c.personality, speakingStyle: c.speakingStyle, relation: c.relation || c.tagline || "member of the room", voiceId: c.voiceId })
+      onAdd({ name: c.name, gender: c.gender, personality: c.personality, speakingStyle: c.speakingStyle, relation: c.relation || c.tagline || `member of the ${LEX.unit}`, voiceId: c.voiceId })
       setMsg({ text: c.voiceCloned ? `${c.name} added — generating photo…` : `${c.name} added — generating photo…`, ok: true })
       setInput("")
       // Generate a real portrait on demand and patch it onto the character.
@@ -413,7 +413,7 @@ function KloomerCard({ onAdd, onPhoto, world, disabled }: {
     <div className="mt-4 rounded-2xl border border-dashed border-border/60 p-4">
       <div className="flex items-center gap-2 mb-1">
         <Sparkles size={14} className="text-foreground/70" />
-        <span className="text-sm font-semibold">Kloomer</span>
+        <span className="text-sm font-semibold">{LEX.summon}</span>
         <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">Bring anyone in</span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">A name, a description, or a link (YouTube also clones the voice).</p>
@@ -426,7 +426,7 @@ function KloomerCard({ onAdd, onPhoto, world, disabled }: {
         <button onClick={kloom} disabled={busy || !input.trim() || disabled}
           className="flex items-center gap-1.5 bg-foreground text-background font-semibold text-sm px-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40">
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-          {busy ? "Building…" : "Kloom it"}
+          {busy ? "Building…" : (isAbuseday() ? "Beam in" : "Kloom it")}
         </button>
       </div>
       {msg && <p className={`text-xs mt-2 ${msg.ok ? "text-emerald-400" : "text-rose-400"}`}>{msg.text}</p>}
@@ -622,7 +622,7 @@ function InvitePanel({ created, guests }: {
       <p className="text-muted-foreground mb-3">
         {created.fun
           ? "Built — and waiting on Kloom.fun. The room travels inside the link."
-          : "The room travels inside the link — anyone who opens it walks straight in."}
+          : `The ${LEX.unit} travels inside the link — anyone who opens it walks straight in.`}
       </p>
       {created.fun ? (
         <p className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-300 bg-amber-500/10 border border-amber-500/25 px-3 py-1.5 rounded-full mb-8">
@@ -661,7 +661,7 @@ function InvitePanel({ created, guests }: {
 
       <button onClick={() => { created.fun ? (window.location.href = mainLink) : router.push(`/app/rooms/${created.roomId}?session=${created.sessionId}`) }}
         className="mt-10 w-full max-w-xl mx-auto flex items-center justify-center gap-2 bg-foreground text-background font-semibold text-base py-3.5 rounded-xl hover:opacity-90 transition-opacity">
-        {created.fun ? <>Open on Kloom.fun <ArrowUpRight size={16} /></> : "Enter your room"}
+        {created.fun ? <>Open on Kloom.fun <ArrowUpRight size={16} /></> : (isAbuseday() ? "Land on your planet" : "Enter your room")}
       </button>
     </div>
   )

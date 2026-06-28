@@ -1,4 +1,6 @@
-export const metadata = { title: "Payments & Refunds — Kloom" }
+import { SITE } from "@/lib/variant"
+
+export const metadata = { title: `Payments & Refunds — ${SITE.name}` }
 
 export default function PaymentsPage() {
   return (

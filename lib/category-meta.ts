@@ -21,6 +21,7 @@ export interface CategoryMeta {
   // Capability badges shown on the door
   badges: Array<"18+" | "multi-model" | "tools" | "canvas" | "haptics" | "no-memory" | "live-data">
   adult?: boolean      // gate behind hasUnrestricted()
+  vip?: boolean        // VIP planet — visible to all, but entry needs an active Pass
   order: number        // display order in the browse grid
 }
 
@@ -97,6 +98,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
     glow: "ring-emerald-400/40 shadow-emerald-900/50",
     text: "text-emerald-300",
     badges: ["multi-model"],
+    vip: true,
     order: 8,
   },
   philosophy: {
@@ -153,6 +155,20 @@ export function isAdultRoom(room: {
   if (room.personas?.some((p) => p.unrestricted)) return true
   if (room.capabilities?.options?.some((o) => o.id === "haptic_sync" || o.id === "vibration")) return true
   return false
+}
+
+/** True for VIP planets — the whole Co-Intelligence planet is behind the rope. */
+export function isVipCategory(c: RoomCategory): boolean {
+  return !!CATEGORY_META[c]?.vip
+}
+
+/**
+ * True for any planet behind the velvet rope — a VIP category, or a single
+ * room flagged `vip`. VIP planets are visible to everyone but require an
+ * active Pass (hasUnrestricted) to enter — the core monetization hook.
+ */
+export function isVipRoom(room: { category: RoomCategory; vip?: boolean }): boolean {
+  return !!room.vip || isVipCategory(room.category)
 }
 
 export const BADGE_LABELS: Record<CategoryMeta["badges"][number], string> = {

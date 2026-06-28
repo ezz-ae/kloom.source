@@ -126,9 +126,16 @@ export default function LandingPage() {
               className={`group relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br ${p.gradient} p-6 hover:border-white/25 transition-all hover:-translate-y-0.5`}>
               <div className="flex items-center justify-between mb-4">
                 <span className="text-3xl">{p.emoji}</span>
-                {p.badges.includes("18+") && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30">18+</span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {p.vip && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-500/30">
+                      <Crown size={10} /> VIP
+                    </span>
+                  )}
+                  {p.badges.includes("18+") && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-500/30">18+</span>
+                  )}
+                </div>
               </div>
               <h3 className={`font-bold text-xl tracking-tight ${p.text}`}>{p.label}</h3>
               <p className="text-sm text-foreground/55 mt-1.5 leading-snug">{p.tagline}</p>
@@ -217,6 +224,9 @@ export default function LandingPage() {
                   <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200">Claude</span>
                   <span className="text-foreground/30">×</span>
                   <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-200">Gemini</span>
+                  {r.vip && (
+                    <span className="ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200"><Crown size={9} /> VIP</span>
+                  )}
                 </div>
                 <h3 className="font-bold text-lg leading-snug">{r.name}</h3>
                 <p className="text-sm text-foreground/45 mt-2 flex-1">{r.tagline}</p>

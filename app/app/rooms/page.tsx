@@ -9,14 +9,14 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { VISIBLE_ROOMS, type Room, type RoomCategory } from "@/lib/rooms"
-import { CATEGORY_META, CATEGORY_ORDER, isAdultRoom } from "@/lib/category-meta"
+import { CATEGORY_META, CATEGORY_ORDER, isAdultRoom, isVipRoom } from "@/lib/category-meta"
 import { adultEnabled, isIo, funLive } from "@/lib/variant"
 import { funHandoffUrl } from "@/lib/sso"
 import { listCustomRooms, deleteCustomRoom, cloneRoom } from "@/lib/custom-rooms"
 import { fetchCommunityFeed, bumpRoomClones, type FeedSort } from "@/lib/rooms-db"
 import { getTopics } from "@/lib/topics"
 import { imageFor } from "@/lib/persona-utils"
-import { Plus, Search, Copy, ArrowRight, Trash2, Loader2, Check, Flame, Clock, TrendingUp } from "lucide-react"
+import { Plus, Search, Copy, ArrowRight, Trash2, Loader2, Check, Flame, Clock, TrendingUp, Crown } from "lucide-react"
 
 type Filter = "all" | RoomCategory
 
@@ -247,8 +247,13 @@ function RoomCard({ room, onEnter, onClone, onDelete, owned }: {
   return (
     <div className="group mb-3 break-inside-avoid rounded-2xl border border-border/60 bg-foreground/[0.02] hover:border-foreground/25 hover:bg-foreground/[0.04] transition-all p-4 flex flex-col">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {meta?.label ?? room.category}
+          {isVipRoom(room) && (
+            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25 tracking-normal">
+              <Crown size={9} /> VIP
+            </span>
+          )}
         </span>
         {owned && onDelete && (
           <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-rose-400 transition-all"><Trash2 size={13} /></button>

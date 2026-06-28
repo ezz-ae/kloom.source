@@ -110,6 +110,8 @@ export interface Room {
   gradient: string             // Tailwind gradient classes for room card
   accentColor: string          // for active states
   invite?: InvitePolicy        // override; otherwise derived from category
+  vip?: boolean                // VIP planet — entry needs an active Pass (velvet rope).
+                               // Also derivable per-planet via CATEGORY_META[category].vip.
 }
 
 export const ROOMS: Room[] = [
@@ -221,6 +223,7 @@ export const ROOMS: Room[] = [
     tags: ["Claude", "Gemini", "Multi-AI", "Token launch"],
     gradient: "from-orange-900/50 to-background",
     accentColor: "orange",
+    vip: true,
   },
 
   {
@@ -260,6 +263,7 @@ export const ROOMS: Room[] = [
     tags: ["Claude", "Gemini", "Multi-AI", "Coding"],
     gradient: "from-cyan-900/50 to-background",
     accentColor: "cyan",
+    vip: true,
   },
 
   {
@@ -299,6 +303,7 @@ export const ROOMS: Room[] = [
     tags: ["Claude", "Gemini", "Multi-AI", "Strategy"],
     gradient: "from-orange-900/50 to-background",
     accentColor: "fuchsia",
+    vip: true,
   },
 
   // ── CREATOR ─────────────────────────────────────────────────────────────────

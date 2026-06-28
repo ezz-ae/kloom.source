@@ -9,7 +9,7 @@ import { getCustomRoom, importCustomRoom } from "@/lib/custom-rooms"
 import { roomFromLocationHash, buildInviteUrl } from "@/lib/room-share"
 import { fetchPublishedRoom, bumpRoomEntries } from "@/lib/rooms-db"
 import { findTopic, topicScenePrompt } from "@/lib/topics"
-import { CATEGORY_META, isAdultRoom } from "@/lib/category-meta"
+import { CATEGORY_META, isAdultRoom, isVipRoom } from "@/lib/category-meta"
 import { adultEnabled, memoryEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
@@ -35,6 +35,7 @@ import {
   Mic, MicOff, PhoneOff, Phone, Send, MessageSquare,
   Zap, Settings2, ChevronLeft, Loader2, Copy, Check,
   Volume2, VolumeX, UserPlus, Link2, Bot, X as XIcon,
+  Crown, Sparkles,
 } from "lucide-react"
 
 // Keyed on SeatModel so every backend has a badge — a missing key is now a
@@ -616,6 +617,46 @@ function RoomContent() {
             </div>
           </div>
           <div className="mt-4"><UnrestrictedUpsell context={room.name} /></div>
+        </div>
+      </div>
+    )
+  }
+
+  // VIP planets — visible to everyone, but landing needs an active Pass. You see
+  // the planet, its cast and its tagline, then hit the velvet rope. One Pass
+  // unlocks every VIP planet (and unlimited voice + premium models with it).
+  if (isVipRoom(room) && unrestrictedChecked && !unrestrictedStatus) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-5">
+        <div className="max-w-md w-full">
+          <button onClick={() => router.push("/app/rooms")} className="text-muted-foreground hover:text-foreground text-sm mb-5">← Planets</button>
+          <div className={`rounded-3xl border border-amber-500/25 bg-gradient-to-br ${room.gradient} p-6`}>
+            <div className="flex -space-x-3 mb-4">
+              {room.personas.map((p) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={p.name} src={imageFor({ name: p.avatarSeed ?? p.name, photoUrl: p.photoUrl })}
+                  alt={p.name} className="w-14 h-14 rounded-2xl object-cover ring-2 ring-stone-950 bg-stone-800" />
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black">{room.name}</h1>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10">
+                <Crown size={10} /> VIP LOCKED
+              </span>
+            </div>
+            <p className="text-sm text-foreground/55 mt-1">{room.tagline}</p>
+            <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{room.description}</p>
+            <div className="mt-4 rounded-xl bg-black/30 border border-amber-500/20 px-3 py-2 text-xs text-muted-foreground">
+              This is a <span className="text-amber-300 font-semibold">VIP planet</span>. Anyone can see it —
+              landing needs an active Pass. One Pass unlocks <span className="text-foreground">every VIP planet</span>,
+              plus unlimited voice and the premium models.
+            </div>
+          </div>
+          <button onClick={() => router.push("/app/settings?tab=billing")}
+            className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl brand-gradient brand-glow text-stone-950 font-black py-3.5 hover:scale-[1.01] active:scale-[0.99] transition-transform">
+            <Sparkles size={16} /> Unlock with a Pass
+          </button>
+          <p className="text-center text-xs text-muted-foreground/60 mt-3">Day · week · month — from $7.93</p>
         </div>
       </div>
     )

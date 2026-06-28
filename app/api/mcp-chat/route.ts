@@ -506,6 +506,8 @@ export async function POST(req: NextRequest) {
     ? ["kloom_web_search", "kloom_calculate", "kloom_financial_calc"]
     : cat === "zero-memory"
     ? ["kloom_web_search"]
+    : cat === "famous"
+    ? ["kloom_web_search"]
     : []
 
   const tools = allTools

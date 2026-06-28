@@ -24,6 +24,8 @@ export interface Persona {
   voice: "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse"
   /** Optional explicit Fish Audio reference_id. Overrides the env-based slot lookup. */
   voiceId?: string
+  /** Optional ElevenLabs Voice Library voice ID — overrides the gender-pool pick. */
+  elevenId?: string
   language: string
   /** 0 = cold/professional, 100 = warm/affectionate */
   warmth: number
@@ -228,9 +230,11 @@ export function useRealtimeVoice({
           text: cleaned,
           voice: speakerPersona.voice,
           voiceId: speakerPersona.voiceId,
+          elevenId: speakerPersona.elevenId,
           personaName: speakerPersona.name,
           gender: (speakerPersona as any).gender,
           language: speakerPersona.language,
+          mode: "voice",
         }),
       })
       if (!response.ok) {

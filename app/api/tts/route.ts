@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  const { text, voice, voiceId, elevenId, personaName, gender, language } = (await request.json()) as {
+  const { text, voice, voiceId, elevenId, personaName, gender, language, mode } = (await request.json()) as {
     text: string
     voice?: string
     voiceId?: string
@@ -22,6 +22,7 @@ export async function POST(request: Request) {
     personaName?: string
     gender?: string
     language?: string
+    mode?: string
   }
 
   if (!text || typeof text !== "string") {
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   // still sound like different people (the planet's "many close voices").
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
-    const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId)
+    const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId, mode)
     if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs" } })
     // fall through to CosyVoice / Fish
   }
@@ -256,12 +257,15 @@ function elVoiceFor(name?: string, gender?: string): string {
   let h = 0; const s = name || "x"; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
   return pool[h % pool.length]
 }
-async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string): Promise<ArrayBuffer | null> {
+async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string): Promise<ArrayBuffer | null> {
   try {
     const voice = elevenId?.trim() || elVoiceFor(name, gender)
-    // multilingual_v2 = the most natural/emotional voice. For a snappier live call,
-    // set ELEVENLABS_MODEL=eleven_turbo_v2_5 (faster, still very natural).
-    const model = process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2"
+    // Voice mode (live call): use turbo_v2_5 — lower latency, no choppy gaps between
+    // sentences, still multilingual. Text mode: multilingual_v2 for richer quality.
+    // Override either with ELEVENLABS_MODEL_VOICE / ELEVENLABS_MODEL env vars.
+    const model = mode === "voice"
+      ? (process.env.ELEVENLABS_MODEL_VOICE || "eleven_turbo_v2_5")
+      : (process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2")
     // EXPRESSIVE defaults — user reported the voice felt flat/monotone/robotic. Lower
     // stability = more emotional variation; HIGH style = lively, performed delivery;
     // speaker_boost for presence. (A previous "calm" 0.5/0.75/0.2 read as dead.) These

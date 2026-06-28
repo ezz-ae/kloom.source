@@ -1,36 +1,34 @@
 "use client"
 
 /**
- * AIRROOM — the floor. (showno6 / "it's the now")
+ * AIRRAW — the adult floor.
  *
- * One vertical space: cool WATER up top (study, business, mentors) warming
- * down into the social middle, then dropping into FIRE (the mixer, the party,
- * the deep end). You drift by feel; you hear whoever you're nearest (proximity
- * overhear, simulated here with the snippet bar); the temperature doubles as
- * the age gate (fire is 18+, contained at the bottom). Drag, scroll, or use the
- * arrows. This is the first playable shell — live voice wires in next on the
- * existing room engine.
+ * One vertical space: soft categories up top (stories, romance, roleplay) sliding
+ * down into desire (lesbian, gay, GFE) then dropping into wild territory (groups,
+ * BDSM, no limits). Drift by feel; hear whoever you're nearest. Age gate sits at
+ * 72% depth — verify once, unlocked forever in this browser.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ROSTER, ROSTER_COUNT, type Heat } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { detectLanguage } from "@/lib/languages"
 
-// The floor's cast — ~240 characters in ~37 clusters, generated deterministically
-// from the archetypes and sorted along water→fire (see lib/airroom/roster.ts).
+// The floor's cast — ~200 characters in ~31 clusters, generated deterministically
+// from the adult archetypes and sorted soft→wild (see lib/airroom/roster.ts).
 const CLUSTERS = ROSTER
 
 const DOT: Record<Heat, string> = { w: "#6fd6e6", m: "#ffce7a", f: "#ff7a4d" }
 const LAB: Record<Heat, string> = { w: "#cdeef4", m: "#ffe6bd", f: "#ffc6ad" }
 const FLOOR_H = 5400
-const GATE_F = 0.72   // 18+ below this depth
+const GATE_F = 0.40   // explicit content starts at ~40% depth (groups/BDSM/wild)
 
 function tempLabel(f: number): string {
-  if (f < 0.2) return "water · calm"
-  if (f < 0.42) return "teal · focused"
-  if (f < 0.6) return "warm · social"
-  if (f < 0.78) return "amber · loud"
-  return "fire · wild"
+  if (f < 0.15) return "soft · stories"
+  if (f < 0.32) return "warm · romance"
+  if (f < 0.50) return "flirty · roleplay"
+  if (f < 0.68) return "desire · groups"
+  if (f < 0.85) return "kinky · power"
+  return "wild · no limits"
 }
 
 export default function FloorPage() {
@@ -39,7 +37,7 @@ export default function FloorPage() {
   useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
   useEffect(() => { langRef.current = lang }, [lang])
   const [vh, setVh] = useState(720)
-  const [depth, setDepth] = useState(0.33 * (FLOOR_H - 720))
+  const [depth, setDepth] = useState(0.12 * (FLOOR_H - 720))
   const [entered, setEntered] = useState(false)
   const [soundOn, setSoundOn] = useState(false)
   const [spoken, setSpoken] = useState("")
@@ -207,7 +205,7 @@ export default function FloorPage() {
       <div style={{ position: "absolute", top: 20, left: 24, right: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", pointerEvents: "none" }}>
         <div>
           <div style={{ fontSize: 17, fontWeight: 500, letterSpacing: 4, color: "#eaf2f8" }}>airraw</div>
-          <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, marginTop: 2 }}>it&apos;s the now · {tempLabel(f)}</div>
+          <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, marginTop: 2 }}>18+ · {tempLabel(f)}</div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", pointerEvents: "auto" }}>
           <button onClick={() => setSoundOn((s) => !s)} style={{ fontSize: 12, fontWeight: 500, color: soundOn ? "#06201a" : "#dfeaf2", background: soundOn ? "#7fd6c0" : "rgba(255,255,255,.12)", border: "none", padding: "5px 12px", borderRadius: 20, cursor: "pointer" }}>
@@ -254,9 +252,9 @@ export default function FloorPage() {
       {showGate && !verified && (
         <div style={{ position: "absolute", inset: 0, background: "rgba(20,6,4,.88)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26, zIndex: 30 }}>
           <div style={{ maxWidth: 340, textAlign: "center", color: "#fbeae3" }}>
-            <div style={{ fontSize: 12, letterSpacing: 1, color: "#ff9c73" }}>you&apos;re at the line</div>
-            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>it gets adult below here</div>
-            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#e7c3b6" }}>the fire floor is flirty, late-night, 18+. nothing explicit — but grown. you only go down if you&apos;re old enough.</div>
+            <div style={{ fontSize: 12, letterSpacing: 1, color: "#ff9c73" }}>18+ only below this line</div>
+            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>explicit adult content ahead</div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#e7c3b6" }}>kink, groups, explicit roleplay — everything adults want. confirm your age to keep going.</div>
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
               <button onClick={() => { setVerified(true); setShowGate(false); try { localStorage.setItem("airroom_18", "1") } catch { /* */ } }} style={{ fontSize: 14, fontWeight: 500, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>i&apos;m 18 or older — take me down</button>
               <button onClick={() => setShowGate(false)} style={{ fontSize: 14, color: "#e7c3b6", background: "transparent", border: ".5px solid rgba(255,160,120,.3)", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>keep me up here</button>

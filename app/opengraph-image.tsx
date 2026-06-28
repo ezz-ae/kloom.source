@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og"
 
 export const runtime = "edge"
-export const alt = "Abuseday — A galaxy of planets. Pick yours."
+export const alt = "Kloom — Every conversation is a room"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
 
@@ -30,7 +30,7 @@ export default function OpengraphImage() {
             marginBottom: 24,
           }}
         >
-          Abuseday
+          Kloom
         </div>
         <div
           style={{
@@ -41,7 +41,7 @@ export default function OpengraphImage() {
             letterSpacing: -2,
           }}
         >
-          A galaxy of
+          Every conversation
         </div>
         <div
           style={{
@@ -54,7 +54,7 @@ export default function OpengraphImage() {
             color: "transparent",
           }}
         >
-          planets.
+          is a room.
         </div>
         <div
           style={{
@@ -65,7 +65,7 @@ export default function OpengraphImage() {
             maxWidth: 760,
           }}
         >
-          Each one its own world. Go solo, or beam your friends onto the same planet with one link.
+          AI characters with real voices. Friends in the same room with one link. 11 worlds.
         </div>
       </div>
     ),

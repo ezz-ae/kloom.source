@@ -9,7 +9,7 @@ import { getCustomRoom, importCustomRoom } from "@/lib/custom-rooms"
 import { roomFromLocationHash, buildInviteUrl } from "@/lib/room-share"
 import { fetchPublishedRoom, bumpRoomEntries } from "@/lib/rooms-db"
 import { findTopic, topicScenePrompt } from "@/lib/topics"
-import { CATEGORY_META, isAdultRoom, isVipRoom } from "@/lib/category-meta"
+import { CATEGORY_META, isAdultRoom } from "@/lib/category-meta"
 import { adultEnabled, memoryEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
@@ -35,7 +35,6 @@ import {
   Mic, MicOff, PhoneOff, Phone, Send, MessageSquare,
   Zap, Settings2, ChevronLeft, Loader2, Copy, Check,
   Volume2, VolumeX, UserPlus, Link2, Bot, X as XIcon,
-  Crown, Sparkles, User, UsersRound,
 } from "lucide-react"
 
 // Keyed on SeatModel so every backend has a badge — a missing key is now a
@@ -45,7 +44,7 @@ const BACKEND_BADGE: Record<SeatModel, { label: string; cls: string }> = {
   gemini:  { label: "Gemini",  cls: "bg-sky-500/15 text-sky-300 border-sky-500/25" },
   mistral: { label: "Mistral", cls: "bg-rose-500/15 text-rose-300 border-rose-500/25" },
   dolphin: { label: "Dolphin", cls: "bg-violet-500/15 text-violet-300 border-violet-500/25" },
-  local:   { label: "Abuseday", cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
+  local:   { label: "Kloom",   cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
 }
 
 /** Avatar for any room persona — the identity-card system, app-wide. */
@@ -134,22 +133,6 @@ function RoomContent() {
   const [unrestrictedChecked, setUnrestrictedChecked]   = useState(false)
   useEffect(() => { setUnrestrictedStatus(hasUnrestricted()); setUnrestrictedChecked(true) }, [])
 
-  // Decide whether to offer the solo-vs-crew choice. Only on a fresh direct
-  // landing (not via an invite), only on planets that allow company, and only
-  // once per planet — never a nag.
-  useEffect(() => {
-    if (!room || arrivedViaInvite.current) return
-    if (roomInvite(room).mode === "none") return
-    try { if (localStorage.getItem(`abuseday_entry_${room.id}`) === "1") return } catch {}
-    setShowEntryPicker(true)
-  }, [room])
-
-  const closeEntryPicker = useCallback((crew: boolean) => {
-    setShowEntryPicker(false)
-    if (room) { try { localStorage.setItem(`abuseday_entry_${room.id}`, "1") } catch {} }
-    if (crew) setInviteOpen(true)
-  }, [room])
-
   // Topic — the scene this room was entered with (?t=<slug>). Seeds the cast's
   // context so the conversation opens inside that scene.
   const topicSlug = search.get("t")
@@ -199,10 +182,6 @@ function RoomContent() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [inviteOpen, setInviteOpen]   = useState(false)
   const [linkCopied, setLinkCopied]   = useState(false)
-  // Solo-vs-crew entry picker — shown once per planet on a fresh, direct landing
-  // (no ?session/&name, i.e. you didn't arrive through someone's invite link).
-  const arrivedViaInvite = useRef<boolean>(!!search.get("session") || !!search.get("name"))
-  const [showEntryPicker, setShowEntryPicker] = useState(false)
   const myHandleRef = useRef<string>("")
   const broadcastRef = useRef<((m: WireMessage) => void) | null>(null)
   const seenMsgIds   = useRef<Set<string>>(new Set())
@@ -589,9 +568,9 @@ function RoomContent() {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
         <div className="text-center space-y-3 max-w-sm">
-          <p className="text-muted-foreground">This planet lives on Abuseday.fun.</p>
-          <a href="https://abuseday.fun" className="inline-block text-amber-400 text-sm hover:text-amber-300">Open Abuseday.fun →</a>
-          <div><button onClick={() => router.push("/app/rooms")} className="text-muted-foreground text-sm hover:text-foreground">← Back to planets</button></div>
+          <p className="text-muted-foreground">This room lives on Kloom.fun.</p>
+          <a href="https://kloom.fun" className="inline-block text-amber-400 text-sm hover:text-amber-300">Open Kloom.fun →</a>
+          <div><button onClick={() => router.push("/app/rooms")} className="text-muted-foreground text-sm hover:text-foreground">← Back to rooms</button></div>
         </div>
       </div>
     )
@@ -637,46 +616,6 @@ function RoomContent() {
             </div>
           </div>
           <div className="mt-4"><UnrestrictedUpsell context={room.name} /></div>
-        </div>
-      </div>
-    )
-  }
-
-  // VIP planets — visible to everyone, but landing needs an active Pass. You see
-  // the planet, its cast and its tagline, then hit the velvet rope. One Pass
-  // unlocks every VIP planet (and unlimited voice + premium models with it).
-  if (isVipRoom(room) && unrestrictedChecked && !unrestrictedStatus) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-5">
-        <div className="max-w-md w-full">
-          <button onClick={() => router.push("/app/rooms")} className="text-muted-foreground hover:text-foreground text-sm mb-5">← Planets</button>
-          <div className={`rounded-3xl border border-amber-500/25 bg-gradient-to-br ${room.gradient} p-6`}>
-            <div className="flex -space-x-3 mb-4">
-              {room.personas.map((p) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img key={p.name} src={imageFor({ name: p.avatarSeed ?? p.name, photoUrl: p.photoUrl })}
-                  alt={p.name} className="w-14 h-14 rounded-2xl object-cover ring-2 ring-stone-950 bg-stone-800" />
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black">{room.name}</h1>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10">
-                <Crown size={10} /> VIP LOCKED
-              </span>
-            </div>
-            <p className="text-sm text-foreground/55 mt-1">{room.tagline}</p>
-            <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{room.description}</p>
-            <div className="mt-4 rounded-xl bg-black/30 border border-amber-500/20 px-3 py-2 text-xs text-muted-foreground">
-              This is a <span className="text-amber-300 font-semibold">VIP planet</span>. Anyone can see it —
-              landing needs an active Pass. One Pass unlocks <span className="text-foreground">every VIP planet</span>,
-              plus unlimited voice and the premium models.
-            </div>
-          </div>
-          <button onClick={() => router.push("/app/settings?tab=billing")}
-            className="mt-4 w-full flex items-center justify-center gap-2 rounded-2xl brand-gradient brand-glow text-stone-950 font-black py-3.5 hover:scale-[1.01] active:scale-[0.99] transition-transform">
-            <Sparkles size={16} /> Unlock with a Pass
-          </button>
-          <p className="text-center text-xs text-muted-foreground/60 mt-3">Day · week · month — from $7.93</p>
         </div>
       </div>
     )
@@ -803,38 +742,6 @@ function RoomContent() {
             className="ml-auto text-amber-200/50 hover:text-amber-200 transition-colors shrink-0">
             <XIcon size={13} />
           </button>
-        </div>
-      )}
-
-      {/* ── Solo-vs-crew entry picker ── */}
-      {showEntryPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
-          onClick={() => closeEntryPicker(false)}>
-          <div className={`relative w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-br ${room.gradient} p-6`}
-            onClick={(e) => e.stopPropagation()}>
-            <div className="text-center mb-5">
-              <h3 className="text-xl font-black tracking-tight">How do you want to land?</h3>
-              <p className="text-sm text-foreground/55 mt-1">{room.name} works both ways.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => closeEntryPicker(false)}
-                className="group flex flex-col items-center text-center gap-2 rounded-2xl border border-white/10 bg-black/30 hover:bg-black/40 hover:border-sky-500/40 p-5 transition-all">
-                <span className="w-11 h-11 rounded-xl bg-sky-500/15 border border-sky-500/25 text-sky-300 flex items-center justify-center"><User size={20} /></span>
-                <span className="font-bold text-sm">Land solo</span>
-                <span className="text-[11px] text-foreground/50 leading-snug">Just you and the cast. Private — nothing shared.</span>
-              </button>
-              <button onClick={() => closeEntryPicker(true)}
-                className="group flex flex-col items-center text-center gap-2 rounded-2xl border border-white/10 bg-black/30 hover:bg-black/40 hover:border-amber-500/40 p-5 transition-all">
-                <span className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/25 text-amber-300 flex items-center justify-center"><UsersRound size={20} /></span>
-                <span className="font-bold text-sm">{invite.mode === "one" ? "Bring your partner" : "Bring a crew"}</span>
-                <span className="text-[11px] text-foreground/50 leading-snug">{invite.mode === "one" ? "Invite one person onto the planet." : "Beam friends onto the same planet with one link."}</span>
-              </button>
-            </div>
-            {inviteLocked && (
-              <p className="text-center text-[11px] text-amber-300/80 mt-4">Bringing people in is a Pass perk — you can still go solo free.</p>
-            )}
-            <button onClick={() => closeEntryPicker(false)} className="block mx-auto mt-4 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">Just take me in</button>
-          </div>
         </div>
       )}
 

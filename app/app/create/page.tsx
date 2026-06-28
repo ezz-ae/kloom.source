@@ -56,7 +56,7 @@ export default function CreateRoomPage() {
   const category = chosen?.category ?? null
   const meta = category ? CATEGORY_META[category] : null
   // An adult room described on .io isn't refused — it's built and handed off to
-  // Abuseday.fun, so the user never gets a "no" and no sexual room shows on .io.
+  // Kloom.fun, so the user never gets a "no" and no sexual room shows on .io.
   const funMode = !!meta?.adult && isIo()
 
   // ── Intent → 3 directions ──
@@ -70,7 +70,7 @@ export default function CreateRoomPage() {
       })
       const data = await res.json()
       // Keep adult directions too — on .io they're built and handed off to
-      // Abuseday.fun rather than refused, so the user never hits a "no".
+      // Kloom.fun rather than refused, so the user never hits a "no".
       setSuggestions(data.suggestions ?? [])
     } catch { setSuggestions([]) }
     finally { setSuggesting(false) }
@@ -102,13 +102,13 @@ export default function CreateRoomPage() {
   const create = async () => {
     setErr(null)
     if (!category) return
-    if (!name.trim()) { setErr("Give the planet a name."); return }
+    if (!name.trim()) { setErr("Give the room a name."); return }
     if (members.length < 1) { setErr("Add at least one character."); return }
     const roomId = createCustomRoom({
       name: name.trim(), topic: chosen?.angle?.trim() || idea.trim(), category,
       members: members.map(({ emoji: _e, ...m }) => ({ ...m, name: m.name.trim() })),
     })
-    // Adult rooms always go to the shared directory so they surface on Abuseday.fun
+    // Adult rooms always go to the shared directory so they surface on Kloom.fun
     // (and never on .io). Otherwise honor the user's publish toggle.
     let published = false
     if (publish || funMode) {
@@ -146,8 +146,8 @@ export default function CreateRoomPage() {
         {/* ── INTENT ────────────────────────────────────────────────── */}
         {phase === "intent" && !created && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-2">What&apos;s your planet about?</h1>
-            <p className="text-muted-foreground mb-7">A topic, an idea, a vibe — anything. We&apos;ll shape it into a planet.</p>
+            <h1 className="text-3xl sm:text-4xl font-semibold tracking-[-0.02em] mb-2">What&apos;s the room about?</h1>
+            <p className="text-muted-foreground mb-7">A topic, an idea, a vibe — anything. We&apos;ll shape it into a room.</p>
 
             <div className="rounded-2xl border border-border/60 bg-foreground/[0.03] focus-within:border-foreground/30 transition-colors p-1.5">
               <textarea
@@ -163,7 +163,7 @@ export default function CreateRoomPage() {
                 <button onClick={propose} disabled={!idea.trim() || suggesting}
                   className="flex items-center gap-1.5 bg-foreground text-background font-semibold text-sm px-4 py-2 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40">
                   {suggesting ? <Loader2 size={14} className="animate-spin" /> : <ArrowUpRight size={14} />}
-                  Publish a planet
+                  Publish a room
                 </button>
               </div>
             </div>
@@ -182,7 +182,7 @@ export default function CreateRoomPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-base font-semibold">{s.title}</span>
                             <span className={`text-[10px] font-medium uppercase tracking-wider rounded-full px-1.5 py-0.5 border ${toFun ? "text-amber-300/90 border-amber-500/30 bg-amber-500/10" : "text-muted-foreground/70 border-border/50"}`}>
-                              {toFun ? "Abuseday.fun" : (m?.label ?? s.category)}
+                              {toFun ? "Kloom.fun" : (m?.label ?? s.category)}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1 leading-snug">{s.angle}</p>
@@ -202,7 +202,7 @@ export default function CreateRoomPage() {
         {phase === "build" && chosen && !created && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
-              {funMode ? "Opens on Abuseday.fun" : (meta?.label ?? chosen.category)}
+              {funMode ? "Opens on Kloom.fun" : (meta?.label ?? chosen.category)}
             </div>
             <h1 className="text-3xl font-semibold tracking-[-0.02em] mb-1">{chosen.title}</h1>
             <p className="text-muted-foreground mb-5">{chosen.angle}</p>
@@ -211,8 +211,8 @@ export default function CreateRoomPage() {
               <div className="mb-6 rounded-2xl border border-border/60 bg-foreground/[0.03] p-4 flex items-start gap-3">
                 <ArrowUpRight size={16} className="text-foreground/70 shrink-0 mt-0.5" />
                 <p className="text-sm text-muted-foreground">
-                  This one runs with no limits — so it opens on <span className="text-foreground font-medium">Abuseday.fun</span>.
-                  Build it here; you&apos;ll get a Abuseday.fun link at the end. No signup, no memory there.
+                  This one runs with no limits — so it opens on <span className="text-foreground font-medium">Kloom.fun</span>.
+                  Build it here; you&apos;ll get a Kloom.fun link at the end. No signup, no memory there.
                 </p>
               </div>
             )}
@@ -315,7 +315,7 @@ export default function CreateRoomPage() {
                 <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-foreground/[0.03] p-3.5">
                   <ArrowUpRight size={16} className="text-foreground/70 shrink-0 mt-0.5" />
                   <span className="text-sm text-muted-foreground">
-                    This planet opens on <span className="text-foreground font-medium">Abuseday.fun</span> — you&apos;ll get the link next. It won&apos;t appear anywhere on the main site.
+                    This room opens on <span className="text-foreground font-medium">Kloom.fun</span> — you&apos;ll get the link next. It won&apos;t appear anywhere on Kloom.io.
                   </span>
                 </div>
               ) : (
@@ -357,7 +357,7 @@ export default function CreateRoomPage() {
 
             <button onClick={create}
               className="mt-8 w-full bg-foreground text-background font-semibold text-base py-3.5 rounded-xl hover:opacity-90 transition-opacity">
-              Create the planet
+              Create the room
             </button>
           </div>
         )}
@@ -391,7 +391,7 @@ function KloomerCard({ onAdd, onPhoto, world, disabled }: {
       })
       const c = await res.json()
       if (!res.ok || !c.name) { setMsg({ text: c.error || "Couldn't build that — try again.", ok: false }); return }
-      onAdd({ name: c.name, gender: c.gender, personality: c.personality, speakingStyle: c.speakingStyle, relation: c.relation || c.tagline || "member of the planet", voiceId: c.voiceId })
+      onAdd({ name: c.name, gender: c.gender, personality: c.personality, speakingStyle: c.speakingStyle, relation: c.relation || c.tagline || "member of the room", voiceId: c.voiceId })
       setMsg({ text: c.voiceCloned ? `${c.name} added — generating photo…` : `${c.name} added — generating photo…`, ok: true })
       setInput("")
       // Generate a real portrait on demand and patch it onto the character.
@@ -413,8 +413,8 @@ function KloomerCard({ onAdd, onPhoto, world, disabled }: {
     <div className="mt-4 rounded-2xl border border-dashed border-border/60 p-4">
       <div className="flex items-center gap-2 mb-1">
         <Sparkles size={14} className="text-foreground/70" />
-        <span className="text-sm font-semibold">Beam in</span>
-        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">Bring anyone onto the planet</span>
+        <span className="text-sm font-semibold">Kloomer</span>
+        <span className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/60">Bring anyone in</span>
       </div>
       <p className="text-xs text-muted-foreground mb-3">A name, a description, or a link (YouTube also clones the voice).</p>
       <div className="flex gap-2">
@@ -426,7 +426,7 @@ function KloomerCard({ onAdd, onPhoto, world, disabled }: {
         <button onClick={kloom} disabled={busy || !input.trim() || disabled}
           className="flex items-center gap-1.5 bg-foreground text-background font-semibold text-sm px-4 rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40">
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-          {busy ? "Building…" : "Beam in"}
+          {busy ? "Building…" : "Kloom it"}
         </button>
       </div>
       {msg && <p className={`text-xs mt-2 ${msg.ok ? "text-emerald-400" : "text-rose-400"}`}>{msg.text}</p>}
@@ -603,7 +603,7 @@ function InvitePanel({ created, guests }: {
   const room = getCustomRoom(created.roomId)
   if (!room) return null
 
-  // Adult rooms built on .io live on Abuseday.fun — every link + the Enter button
+  // Adult rooms built on .io live on Kloom.fun — every link + the Enter button
   // point there.
   const origin = created.fun ? FUN_ORIGIN : undefined
   const mainLink = buildInviteUrl({ room, sessionId: created.sessionId, origin })
@@ -621,12 +621,12 @@ function InvitePanel({ created, guests }: {
       <h1 className="text-3xl font-semibold tracking-[-0.02em] mb-2">{room.name} is ready.</h1>
       <p className="text-muted-foreground mb-3">
         {created.fun
-          ? "Built — and waiting on Abuseday.fun. The planet travels inside the link."
-          : "The planet travels inside the link — anyone who opens it lands straight on it."}
+          ? "Built — and waiting on Kloom.fun. The room travels inside the link."
+          : "The room travels inside the link — anyone who opens it walks straight in."}
       </p>
       {created.fun ? (
         <p className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-300 bg-amber-500/10 border border-amber-500/25 px-3 py-1.5 rounded-full mb-8">
-          <ArrowUpRight size={12} /> Opens on Abuseday.fun
+          <ArrowUpRight size={12} /> Opens on Kloom.fun
         </p>
       ) : created.published ? (
         <p className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 px-3 py-1.5 rounded-full mb-8">
@@ -661,7 +661,7 @@ function InvitePanel({ created, guests }: {
 
       <button onClick={() => { created.fun ? (window.location.href = mainLink) : router.push(`/app/rooms/${created.roomId}?session=${created.sessionId}`) }}
         className="mt-10 w-full max-w-xl mx-auto flex items-center justify-center gap-2 bg-foreground text-background font-semibold text-base py-3.5 rounded-xl hover:opacity-90 transition-opacity">
-        {created.fun ? <>Open on Abuseday.fun <ArrowUpRight size={16} /></> : "Land on your planet"}
+        {created.fun ? <>Open on Kloom.fun <ArrowUpRight size={16} /></> : "Enter your room"}
       </button>
     </div>
   )

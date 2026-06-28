@@ -849,9 +849,14 @@ export const ROOM_CATEGORY_COLORS: Record<RoomCategory, string> = {
 
 
 // Rooms visible on this deployment variant — adult rooms are stripped on .io.
-import { isAdultRoom as _isAdultRoom } from "@/lib/category-meta"
-import { adultEnabled as _adultEnabled, premiumModelsEnabled as _premiumModelsEnabled } from "@/lib/variant"
-export const VISIBLE_ROOMS = ROOMS.filter((r) => _adultEnabled() || !_isAdultRoom(r))
+import { isAdultRoom as _isAdultRoom, isAbusedayOnlyCategory as _isAbusedayOnlyCategory } from "@/lib/category-meta"
+import { adultEnabled as _adultEnabled, premiumModelsEnabled as _premiumModelsEnabled, isAbuseday as _isAbuseday } from "@/lib/variant"
+// Adult rooms are stripped on .io; Abuseday-only planets (arena, desert) are
+// stripped on every Kloom variant, so they never surface there.
+export const VISIBLE_ROOMS = ROOMS.filter((r) =>
+  (_adultEnabled() || !_isAdultRoom(r)) &&
+  (_isAbuseday() || !_isAbusedayOnlyCategory(r.category))
+)
 
 /**
  * The model a seat actually runs on this deployment. On .fun (serverless open

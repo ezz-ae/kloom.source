@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'sonner'
-import { isFun, SITE } from '@/lib/variant'
+import { isFun, isAbuseday, SITE } from '@/lib/variant'
 import './globals.css'
 
 // Self-hosted Geist (variable woff2) — no build-time Google Fonts fetch, so the
@@ -22,12 +22,16 @@ const geistMono = localFont({
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || `https://${SITE.domain}`
 const NAME = SITE.name
-const TITLE = isFun()
-  ? "Abuseday.fun — No rules. No signup. No limits."
-  : "Abuseday — A galaxy of planets. Pick yours."
-const DESC = isFun()
-  ? "Anonymous AI voice planets — no signup, no memory, no limits. Build a cast of AI characters with real voices and land on a planet of your own."
-  : "A galaxy of unique AI planets — each one its own world, cast and vibe. Go solo one-on-one, or beam your friends onto the same planet with one link. Live voice and chat with Claude, Gemini and GPT, from the trading floor to deep space."
+const TITLE = isAbuseday()
+  ? "Abuseday — A galaxy of planets. Pick yours."
+  : isFun()
+  ? "Kloom.fun — No rules. No signup. Just fun."
+  : "Kloom — Every conversation is a room"
+const DESC = isAbuseday()
+  ? "A galaxy of unique AI planets — each one its own world, cast and vibe. Go solo one-on-one, or beam your friends onto the same planet with one link. Live voice and chat with Claude, Gemini and GPT, from the trading floor to deep space."
+  : isFun()
+  ? "Anonymous AI voice rooms — no signup, no memory, no limits. Build a cast of AI characters with real voices and jump straight in."
+  : "Multi-AI voice rooms with Claude, Gemini and GPT. Build a cast of AI characters with real voices, or clone any voice from a video, and drop friends into the same room with one link — voice and chat, live, across worlds from the trading floor to deep talk."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -36,11 +40,11 @@ export const metadata: Metadata = {
   applicationName: NAME,
   generator: NAME,
   keywords: [
-    "AI chat", "AI voice planets", "AI characters", "voice AI", "character AI",
+    "AI chat", "AI voice rooms", "AI characters", "voice AI", "character AI",
     "AI roleplay", "voice cloning", "AI companion", "multiplayer AI",
-    "group AI chat", "Abuseday",
+    "group AI chat", "Kloom",
   ],
-  authors: [{ name: "Abuseday" }],
+  authors: [{ name: "Kloom" }],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
@@ -59,8 +63,16 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
-  // Favicon + apple-touch icon are generated on-brand by app/icon.tsx and
-  // app/apple-icon.tsx (Next file-convention) — no stale PNGs to maintain.
+  icons: isAbuseday()
+    ? { icon: '/abuseday-icon.svg', apple: '/abuseday-icon.svg' }
+    : {
+        icon: [
+          { url: '/kloom-icon-32.png', sizes: '32x32', type: 'image/png' },
+          { url: '/kloom-icon-192.png', sizes: '192x192', type: 'image/png' },
+          { url: '/kloom-icon-512.png', sizes: '512x512', type: 'image/png' },
+        ],
+        apple: '/kloom-apple-icon.png',
+      },
 }
 
 // Rich results: Organization + WebSite (with a sitelinks search box) +
@@ -73,7 +85,7 @@ const JSON_LD = {
       "@id": `${SITE_URL}/#organization`,
       name: NAME,
       url: SITE_URL,
-      logo: `${SITE_URL}/apple-icon`,
+      logo: `${SITE_URL}${isAbuseday() ? "/abuseday-icon.svg" : "/kloom-icon-512.png"}`,
       description: DESC,
     },
     {
@@ -107,7 +119,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`bg-background dark ${geist.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`bg-background dark ${isAbuseday() ? "abuseday " : ""}${geist.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }} />
         {children}

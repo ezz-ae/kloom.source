@@ -84,8 +84,12 @@ export function backendAvailable(b: Backend): boolean {
  */
 export function resolveBackend(requested?: Backend): Backend {
   if (!requested || requested === "local") return "local"
-  // .fun runs serverless open weights only — premium hosted seats become local.
-  if (!premiumModelsEnabled() && PREMIUM.includes(requested)) return "local"
+  // .fun normally runs serverless open weights only, but we allow Claude explicitly
+  // for voice calls when the key is present — conversation quality IS the product.
+  if (!premiumModelsEnabled() && PREMIUM.includes(requested)) {
+    if (requested === "claude" && CLAUDE_KEY) return "claude"
+    return "local"
+  }
   if (requested === "mistral" || requested === "dolphin") return requested
   if (backendAvailable(requested)) return requested
   // No key for this premium seat → house model: Gemini if we have it, else local.

@@ -149,7 +149,7 @@ export async function POST(request: Request) {
         if (kept.length) { emittedAny = true; controller.enqueue(encoder.encode(joinSentences(kept) + " ")) }
       }
       try {
-        for await (const delta of streamLLM("local", llmMessages, {
+        for await (const delta of streamLLM("claude", llmMessages, {
           temperature: 0.95,
           maxTokens: 180,
           uncensored: useUncensored,

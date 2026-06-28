@@ -35,7 +35,7 @@ import {
   Mic, MicOff, PhoneOff, Phone, Send, MessageSquare,
   Zap, Settings2, ChevronLeft, Loader2, Copy, Check,
   Volume2, VolumeX, UserPlus, Link2, Bot, X as XIcon,
-  Crown, Sparkles,
+  Crown, Sparkles, User, UsersRound,
 } from "lucide-react"
 
 // Keyed on SeatModel so every backend has a badge — a missing key is now a
@@ -134,6 +134,22 @@ function RoomContent() {
   const [unrestrictedChecked, setUnrestrictedChecked]   = useState(false)
   useEffect(() => { setUnrestrictedStatus(hasUnrestricted()); setUnrestrictedChecked(true) }, [])
 
+  // Decide whether to offer the solo-vs-crew choice. Only on a fresh direct
+  // landing (not via an invite), only on planets that allow company, and only
+  // once per planet — never a nag.
+  useEffect(() => {
+    if (!room || arrivedViaInvite.current) return
+    if (roomInvite(room).mode === "none") return
+    try { if (localStorage.getItem(`abuseday_entry_${room.id}`) === "1") return } catch {}
+    setShowEntryPicker(true)
+  }, [room])
+
+  const closeEntryPicker = useCallback((crew: boolean) => {
+    setShowEntryPicker(false)
+    if (room) { try { localStorage.setItem(`abuseday_entry_${room.id}`, "1") } catch {} }
+    if (crew) setInviteOpen(true)
+  }, [room])
+
   // Topic — the scene this room was entered with (?t=<slug>). Seeds the cast's
   // context so the conversation opens inside that scene.
   const topicSlug = search.get("t")
@@ -183,6 +199,10 @@ function RoomContent() {
   const [participants, setParticipants] = useState<Participant[]>([])
   const [inviteOpen, setInviteOpen]   = useState(false)
   const [linkCopied, setLinkCopied]   = useState(false)
+  // Solo-vs-crew entry picker — shown once per planet on a fresh, direct landing
+  // (no ?session/&name, i.e. you didn't arrive through someone's invite link).
+  const arrivedViaInvite = useRef<boolean>(!!search.get("session") || !!search.get("name"))
+  const [showEntryPicker, setShowEntryPicker] = useState(false)
   const myHandleRef = useRef<string>("")
   const broadcastRef = useRef<((m: WireMessage) => void) | null>(null)
   const seenMsgIds   = useRef<Set<string>>(new Set())
@@ -783,6 +803,38 @@ function RoomContent() {
             className="ml-auto text-amber-200/50 hover:text-amber-200 transition-colors shrink-0">
             <XIcon size={13} />
           </button>
+        </div>
+      )}
+
+      {/* ── Solo-vs-crew entry picker ── */}
+      {showEntryPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
+          onClick={() => closeEntryPicker(false)}>
+          <div className={`relative w-full max-w-md rounded-3xl border border-white/10 bg-gradient-to-br ${room.gradient} p-6`}
+            onClick={(e) => e.stopPropagation()}>
+            <div className="text-center mb-5">
+              <h3 className="text-xl font-black tracking-tight">How do you want to land?</h3>
+              <p className="text-sm text-foreground/55 mt-1">{room.name} works both ways.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => closeEntryPicker(false)}
+                className="group flex flex-col items-center text-center gap-2 rounded-2xl border border-white/10 bg-black/30 hover:bg-black/40 hover:border-sky-500/40 p-5 transition-all">
+                <span className="w-11 h-11 rounded-xl bg-sky-500/15 border border-sky-500/25 text-sky-300 flex items-center justify-center"><User size={20} /></span>
+                <span className="font-bold text-sm">Land solo</span>
+                <span className="text-[11px] text-foreground/50 leading-snug">Just you and the cast. Private — nothing shared.</span>
+              </button>
+              <button onClick={() => closeEntryPicker(true)}
+                className="group flex flex-col items-center text-center gap-2 rounded-2xl border border-white/10 bg-black/30 hover:bg-black/40 hover:border-amber-500/40 p-5 transition-all">
+                <span className="w-11 h-11 rounded-xl bg-amber-500/15 border border-amber-500/25 text-amber-300 flex items-center justify-center"><UsersRound size={20} /></span>
+                <span className="font-bold text-sm">{invite.mode === "one" ? "Bring your partner" : "Bring a crew"}</span>
+                <span className="text-[11px] text-foreground/50 leading-snug">{invite.mode === "one" ? "Invite one person onto the planet." : "Beam friends onto the same planet with one link."}</span>
+              </button>
+            </div>
+            {inviteLocked && (
+              <p className="text-center text-[11px] text-amber-300/80 mt-4">Bringing people in is a Pass perk — you can still go solo free.</p>
+            )}
+            <button onClick={() => closeEntryPicker(false)} className="block mx-auto mt-4 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">Just take me in</button>
+          </div>
         </div>
       )}
 

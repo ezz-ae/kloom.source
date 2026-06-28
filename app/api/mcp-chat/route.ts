@@ -572,13 +572,23 @@ export async function POST(req: NextRequest) {
     ? `\n\nWHAT THIS PERSON ASKED FOR — honor it, in your own character: ${userSteer.trim().replace(/\s+/g, " ").slice(0, 240)}`
     : ""
 
-  const systemMsg = (forcingPrompt ?? `You are ${persona?.name ?? "an assistant"}. ${persona?.personality ?? ""}`) + partnersNote + vibeNote + unrestrictedNote + userSteerNote + humanTalk + POLICY_DIRECTIVE + noLabel
+  // Reply in the visitor's language. Rooms set persona.language from the browser
+  // locale (detectLanguage), but mcp-chat ignored it — so non-English visitors got
+  // English replies. Mirrors languageLine() in /api/chat; placed LAST so it overrides
+  // the English diction examples above, and the English few-shot is dropped below.
+  const lang = persona?.language
+  const nonEnglish = !!lang && lang !== "English" && lang !== "en"
+  const languageNote = nonEnglish
+    ? `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet — even when the other person writes to you in English or mixes languages, and even for the vocal sounds. Never switch to English, never mix English words in.`
+    : ""
+
+  const systemMsg = (forcingPrompt ?? `You are ${persona?.name ?? "an assistant"}. ${persona?.personality ?? ""}`) + partnersNote + vibeNote + unrestrictedNote + userSteerNote + humanTalk + POLICY_DIRECTIVE + languageNote + noLabel
 
   // Few-shot register seeding for companions — assistant turns teach diction
   // far better than instructions. Experts skip it (their forcing prompts define
   // structured output). Two variants: 1:1 teaches casual diction; a group room
   // teaches RIFFING — react to the partner's actual line, push back, stay short.
-  const fewShot = promptName !== "kloom_companion"
+  const fewShot = (promptName !== "kloom_companion" || nonEnglish)
     ? []
     : partners?.length
     ? [

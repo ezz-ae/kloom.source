@@ -1,4 +1,4 @@
-export const metadata = { title: "Privacy Policy — Kloom" }
+export const metadata = { title: "Privacy Policy — Abuseday" }
 
 export default function PrivacyPage() {
   return (
@@ -7,7 +7,7 @@ export default function PrivacyPage() {
       <p className="text-muted-foreground text-sm">Last updated: June 12, 2026</p>
 
       <p>
-        Kloom is built to know as little about you as possible. There is no signup form, no email
+        Abuseday is built to know as little about you as possible. There is no signup form, no email
         requirement, and no account database of your conversations.
       </p>
 
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
 
       <h2>4. Infrastructure</h2>
       <p>
-        Kloom runs on a small set of infrastructure providers — hosting, GPU compute, voice
+        Abuseday runs on a small set of infrastructure providers — hosting, GPU compute, voice
         synthesis, database/realtime, payment processing, and call relay. Each receives only what
         is technically necessary for its function, and none receives your conversation history.
       </p>
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
       <ul>
         <li>Delete any custom room or conversation from the app — it deletes locally and (for published rooms) you can ask us to remove the published copy.</li>
         <li>Use zero-memory rooms for conversations that should never persist.</li>
-        <li>Clearing browser storage removes everything Kloom knows about you on that device.</li>
+        <li>Clearing browser storage removes everything Abuseday knows about you on that device.</li>
       </ul>
 
       <h2>6. Contact</h2>

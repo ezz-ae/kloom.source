@@ -1,7 +1,9 @@
 /**
- * Category identity — every category is a different world with its own door.
- * Single source of truth for the browse grid, category pages, and the
- * create-wizard's step 1, so the whole app agrees on what each world feels like.
+ * Planet identity — every category is its own planet in the Abuseday galaxy,
+ * with its own gravity, cast and rules. Single source of truth for the browse
+ * grid, planet pages, and the create-wizard's step 1, so the whole app agrees
+ * on what each planet feels like. (Internally these are still "categories" /
+ * "worlds"; to the user each is a unique planet.)
  */
 
 import type { RoomCategory } from "@/lib/rooms"
@@ -25,7 +27,7 @@ export interface CategoryMeta {
 export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   fantasy: {
     id: "fantasy", label: "Fantasy Worlds", emoji: "🗡️",
-    tagline: "Twenty realms. Step through, become someone else.",
+    tagline: "Twenty realms on one planet. Step through, become someone else.",
     gradient: "from-violet-950/80 via-indigo-950/60 to-stone-950",
     glow: "ring-violet-500/30 shadow-violet-900/40",
     text: "text-violet-300",
@@ -34,7 +36,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   romantic: {
     id: "romantic", label: "Romance", emoji: "💋",
-    tagline: "Chemistry that remembers you.",
+    tagline: "A planet of chemistry that remembers you.",
     gradient: "from-rose-950/80 via-pink-950/50 to-stone-950",
     glow: "ring-rose-500/30 shadow-rose-900/40",
     text: "text-rose-300",
@@ -44,7 +46,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   dark: {
     id: "dark", label: "After Dark", emoji: "🌑",
-    tagline: "No filters. No judgment. No record.",
+    tagline: "The dark side. No filters. No judgment. No record.",
     gradient: "from-stone-950 via-rose-950/40 to-black",
     glow: "ring-rose-500/20 shadow-black/60",
     text: "text-rose-400",
@@ -54,7 +56,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   social: {
     id: "social", label: "Social Club", emoji: "🎭",
-    tagline: "The group chat that talks back.",
+    tagline: "Bring a crew. The group chat that talks back.",
     gradient: "from-sky-950/70 via-cyan-950/40 to-stone-950",
     glow: "ring-sky-500/30 shadow-sky-900/40",
     text: "text-sky-300",
@@ -63,7 +65,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   trading: {
     id: "trading", label: "Trading Floor", emoji: "📈",
-    tagline: "A live desk with real market tools.",
+    tagline: "A live trading planet with real market tools.",
     gradient: "from-emerald-950/70 via-teal-950/40 to-stone-950",
     glow: "ring-emerald-500/30 shadow-emerald-900/40",
     text: "text-emerald-300",
@@ -72,7 +74,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   workshop: {
     id: "workshop", label: "Workshop", emoji: "🛠️",
-    tagline: "Claude, Gemini and the crew build with you.",
+    tagline: "The build planet — Claude, Gemini and the crew ship with you.",
     gradient: "from-amber-950/70 via-orange-950/40 to-stone-950",
     glow: "ring-amber-500/30 shadow-amber-900/40",
     text: "text-amber-300",
@@ -81,7 +83,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   creator: {
     id: "creator", label: "Creator Studio", emoji: "🎨",
-    tagline: "Growth plans, content, monetization — on call.",
+    tagline: "Your money planet — growth, content, monetization on call.",
     gradient: "from-fuchsia-950/70 via-pink-950/40 to-stone-950",
     glow: "ring-fuchsia-500/30 shadow-fuchsia-900/40",
     text: "text-fuchsia-300",
@@ -90,7 +92,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   "co-intelligence": {
     id: "co-intelligence", label: "Co-Intelligence", emoji: "🧠",
-    tagline: "Three models pressure-test your biggest calls.",
+    tagline: "The war-room planet — three models pressure-test your biggest calls.",
     gradient: "from-emerald-950/80 via-stone-950 to-stone-950",
     glow: "ring-emerald-400/40 shadow-emerald-900/50",
     text: "text-emerald-300",
@@ -99,7 +101,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   philosophy: {
     id: "philosophy", label: "Deep Talk", emoji: "🌌",
-    tagline: "The 3am conversations, any hour.",
+    tagline: "Deep space — the 3am conversations, any hour.",
     gradient: "from-indigo-950/80 via-stone-950 to-stone-950",
     glow: "ring-indigo-500/30 shadow-indigo-900/40",
     text: "text-indigo-300",
@@ -108,7 +110,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   professional: {
     id: "professional", label: "Professional", emoji: "💼",
-    tagline: "Code review, architecture, career moves.",
+    tagline: "The work planet — code review, architecture, career moves.",
     gradient: "from-slate-900/80 via-stone-950 to-stone-950",
     glow: "ring-slate-400/30 shadow-slate-900/40",
     text: "text-slate-300",
@@ -117,7 +119,7 @@ export const CATEGORY_META: Record<RoomCategory, CategoryMeta> = {
   },
   "zero-memory": {
     id: "zero-memory", label: "The Vault", emoji: "👻",
-    tagline: "Nothing stored. Nothing remembered. Ever.",
+    tagline: "The ghost planet. Nothing stored. Nothing remembered. Ever.",
     gradient: "from-stone-950 via-stone-900/60 to-black",
     glow: "ring-stone-500/30 shadow-black/60",
     text: "text-stone-300",

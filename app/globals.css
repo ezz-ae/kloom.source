@@ -200,13 +200,14 @@
   border: 1px solid oklch(1 0 0 / 0.08);
 }
 
-/* Warm brand gradient — the Kloom amber→orange→rose signature. */
-.brand-gradient { background-image: linear-gradient(135deg, #fbbf24, #f97316 55%, #fb7185); }
+/* Abuseday brand gradient — the cosmic-sunset signature: violet→fuchsia→amber,
+   tying the galaxy of planets to the warm app interior. */
+.brand-gradient { background-image: linear-gradient(135deg, #a855f7, #d946ef 50%, #fb923c); }
 .brand-text {
-  background-image: linear-gradient(135deg, #fcd34d, #fb923c 50%, #fb7185);
+  background-image: linear-gradient(135deg, #c084fc, #e879f9 50%, #fbbf24);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.brand-glow { box-shadow: 0 8px 28px -6px oklch(0.7 0.18 50 / 0.55); }
+.brand-glow { box-shadow: 0 8px 28px -6px oklch(0.62 0.24 330 / 0.55); }
 
 /* Subtle Ken Burns pan/zoom for room backdrop photos. Different presets so each
    slide can be assigned a different motion path and they don't all move alike. */

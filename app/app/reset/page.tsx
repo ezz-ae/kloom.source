@@ -41,7 +41,7 @@ export default function ResetPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-5">
       <div className="max-w-sm w-full rounded-3xl border border-border/50 bg-foreground/5 p-7">
-        <div className="text-[13px] tracking-[6px] uppercase font-bold text-amber-400 mb-6">Kloom</div>
+        <div className="text-[13px] tracking-[6px] uppercase font-bold text-amber-400 mb-6">Abuseday</div>
 
         {done ? (
           <div className="text-center py-4">

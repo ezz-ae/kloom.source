@@ -1,8 +1,8 @@
 "use client"
 
 /**
- * The Hub — two doors. Create a room, or walk into one.
- * Everything in Kloom is a room; this is the entryway.
+ * The Hub — two doors. Create a planet, or land on one.
+ * Everything in Abuseday is a planet; this is the launchpad.
  */
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
@@ -91,7 +91,7 @@ export default function HubPage() {
               <Plus size={24} className="text-stone-950" />
             </div>
             <div>
-              <h2 className="text-3xl lg:text-4xl font-black tracking-[-0.02em] text-stone-950">Create a room</h2>
+              <h2 className="text-3xl lg:text-4xl font-black tracking-[-0.02em] text-stone-950">Create a planet</h2>
               <p className="text-stone-900/70 font-medium mt-2 max-w-xs">
                 Pick a world. Build the cast. Send the link.
               </p>
@@ -108,12 +108,12 @@ export default function HubPage() {
               <DoorOpen size={24} className="text-amber-400" />
             </div>
             <div>
-              <h2 className="text-3xl lg:text-4xl font-black tracking-[-0.02em]">Join a room</h2>
+              <h2 className="text-3xl lg:text-4xl font-black tracking-[-0.02em]">Land on a planet</h2>
               <p className="text-muted-foreground font-medium mt-2 max-w-xs">
-                {CATEGORY_ORDER.length} worlds. {ROOMS.length} rooms. Pick a door.
+                {CATEGORY_ORDER.length} worlds. {ROOMS.length} planets. Pick yours.
               </p>
               <span className="inline-flex items-center gap-1.5 mt-5 text-sm font-black text-amber-400 group-hover:gap-2.5 transition-all">
-                Browse the worlds <ArrowRight size={15} />
+                Explore the galaxy <ArrowRight size={15} />
               </span>
             </div>
           </button>
@@ -122,7 +122,7 @@ export default function HubPage() {
         {/* Your rooms */}
         {mine.length > 0 && (
           <div className="mt-10">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Your rooms</h2>
+            <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Your planets</h2>
             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
               {mine.slice(0, 8).map((r) => (
                 <button key={r.id} onClick={() => router.push(`/app/rooms/${r.id}`)}

@@ -108,8 +108,8 @@ export default function RoomsPage() {
         {/* Header */}
         <div className="flex items-end justify-between gap-4 mb-5">
           <div>
-            <h1 className="text-3xl font-semibold tracking-[-0.02em]">Rooms</h1>
-            <p className="text-muted-foreground text-sm mt-1">Every room the community has built. Enter one, or clone it and make it yours.</p>
+            <h1 className="text-3xl font-semibold tracking-[-0.02em]">Planets</h1>
+            <p className="text-muted-foreground text-sm mt-1">Every planet the community has built. Land on one, or clone it and make it yours.</p>
           </div>
           <button onClick={() => router.push("/app/create")}
             className="shrink-0 flex items-center gap-1.5 bg-foreground text-background font-semibold text-sm px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
@@ -125,7 +125,7 @@ export default function RoomsPage() {
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
           <input value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search rooms…"
+            placeholder="Search planets…"
             className="w-full bg-foreground/[0.03] border border-border/60 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:border-foreground/30 transition-colors" />
         </div>
 
@@ -159,7 +159,7 @@ export default function RoomsPage() {
         {/* Your rooms */}
         {mine.length > 0 && filter === "all" && !debounced && (
           <div className="mb-7">
-            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">Your rooms</h2>
+            <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-2.5">Your planets</h2>
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide">
               {mine.map((r) => (
                 <div key={r.id} className="snap-start shrink-0 w-64">
@@ -199,7 +199,7 @@ export default function RoomsPage() {
           </div>
         ) : (
           <div className="text-center py-20">
-            <p className="text-muted-foreground">No rooms match that yet.</p>
+            <p className="text-muted-foreground">No planets match that yet.</p>
             <button onClick={() => router.push("/app/create")} className="mt-3 text-sm font-semibold text-foreground hover:opacity-80">Build the first one →</button>
           </div>
         )}
@@ -223,7 +223,7 @@ function FunTap() {
           No-limits mode
           <span className="ml-1.5 align-middle text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 border border-rose-500/30">18+</span>
         </div>
-        <div className="text-xs text-muted-foreground">Uncensored rooms on Kloom.fun — your account &amp; credits come with you.</div>
+        <div className="text-xs text-muted-foreground">Uncensored planets on Abuseday.fun — your account &amp; credits come with you.</div>
       </div>
       <ArrowRight size={16} className="text-rose-300 group-hover:translate-x-0.5 transition-transform shrink-0" />
     </button>

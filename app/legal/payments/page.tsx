@@ -1,4 +1,4 @@
-export const metadata = { title: "Payments & Refunds — Kloom" }
+export const metadata = { title: "Payments & Refunds — Abuseday" }
 
 export default function PaymentsPage() {
   return (

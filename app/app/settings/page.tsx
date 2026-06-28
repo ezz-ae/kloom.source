@@ -356,7 +356,7 @@ function SettingsContent() {
 
               <div className="bg-foreground/5 border border-border/50 rounded-2xl p-5">
                 <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">App version</div>
-                <div className="text-sm text-foreground/50">Kloom — voice rooms, zero restrictions</div>
+                <div className="text-sm text-foreground/50">Abuseday — voice planets, zero restrictions</div>
                 <div className="text-xs text-muted-foreground/60 mt-1">Built with Next.js · Supabase · Solana</div>
               </div>
             </div>

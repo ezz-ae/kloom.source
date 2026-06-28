@@ -60,7 +60,7 @@ export function WellnessDisclosure({ onAck }: { onAck: () => void }) {
       <Shield size={16} className="text-amber-400 shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-xs text-foreground/60 leading-relaxed">
-          Kloom reads the mood of your chats <span className="text-foreground/80 font-medium">on your device</span> to
+          Abuseday reads the mood of your chats <span className="text-foreground/80 font-medium">on your device</span> to
           respond better and offer support. It&apos;s never uploaded or sold. Turn it off or erase it any time in{" "}
           <span className="text-foreground/80 font-medium">Settings → Preferences</span>.
         </p>

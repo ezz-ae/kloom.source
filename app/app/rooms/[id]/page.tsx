@@ -44,7 +44,7 @@ const BACKEND_BADGE: Record<SeatModel, { label: string; cls: string }> = {
   gemini:  { label: "Gemini",  cls: "bg-sky-500/15 text-sky-300 border-sky-500/25" },
   mistral: { label: "Mistral", cls: "bg-rose-500/15 text-rose-300 border-rose-500/25" },
   dolphin: { label: "Dolphin", cls: "bg-violet-500/15 text-violet-300 border-violet-500/25" },
-  local:   { label: "Kloom",   cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
+  local:   { label: "Abuseday", cls: "bg-amber-500/15 text-amber-300 border-amber-500/25" },
 }
 
 /** Avatar for any room persona — the identity-card system, app-wide. */
@@ -568,9 +568,9 @@ function RoomContent() {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-6">
         <div className="text-center space-y-3 max-w-sm">
-          <p className="text-muted-foreground">This room lives on Kloom.fun.</p>
-          <a href="https://kloom.fun" className="inline-block text-amber-400 text-sm hover:text-amber-300">Open Kloom.fun →</a>
-          <div><button onClick={() => router.push("/app/rooms")} className="text-muted-foreground text-sm hover:text-foreground">← Back to rooms</button></div>
+          <p className="text-muted-foreground">This planet lives on Abuseday.fun.</p>
+          <a href="https://abuseday.fun" className="inline-block text-amber-400 text-sm hover:text-amber-300">Open Abuseday.fun →</a>
+          <div><button onClick={() => router.push("/app/rooms")} className="text-muted-foreground text-sm hover:text-foreground">← Back to planets</button></div>
         </div>
       </div>
     )

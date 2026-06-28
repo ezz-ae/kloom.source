@@ -23,11 +23,11 @@ const geistMono = localFont({
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || `https://${SITE.domain}`
 const NAME = SITE.name
 const TITLE = isFun()
-  ? "Kloom.fun — No rules. No signup. Just fun."
-  : "Kloom — Every conversation is a room"
+  ? "Abuseday.fun — No rules. No signup. No limits."
+  : "Abuseday — A galaxy of planets. Pick yours."
 const DESC = isFun()
-  ? "Anonymous AI voice rooms — no signup, no memory, no limits. Build a cast of AI characters with real voices and jump straight in."
-  : "Multi-AI voice rooms with Claude, Gemini and GPT. Build a cast of AI characters with real voices, or clone any voice from a video, and drop friends into the same room with one link — voice and chat, live, across worlds from the trading floor to deep talk."
+  ? "Anonymous AI voice planets — no signup, no memory, no limits. Build a cast of AI characters with real voices and land on a planet of your own."
+  : "A galaxy of unique AI planets — each one its own world, cast and vibe. Go solo one-on-one, or beam your friends onto the same planet with one link. Live voice and chat with Claude, Gemini and GPT, from the trading floor to deep space."
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -36,11 +36,11 @@ export const metadata: Metadata = {
   applicationName: NAME,
   generator: NAME,
   keywords: [
-    "AI chat", "AI voice rooms", "AI characters", "voice AI", "character AI",
+    "AI chat", "AI voice planets", "AI characters", "voice AI", "character AI",
     "AI roleplay", "voice cloning", "AI companion", "multiplayer AI",
-    "group AI chat", "Kloom",
+    "group AI chat", "Abuseday",
   ],
-  authors: [{ name: "Kloom" }],
+  authors: [{ name: "Abuseday" }],
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",

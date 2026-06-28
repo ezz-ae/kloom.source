@@ -89,7 +89,7 @@ export default function YouPage() {
       <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border px-6 lg:px-8 py-5">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-black tracking-tight">You</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Your billing, rooms, and the character that tunes Kloom to you.</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Your billing, planets, and the character that tunes Abuseday to you.</p>
         </div>
       </div>
 
@@ -148,7 +148,7 @@ export default function YouPage() {
         </Section>
 
         {/* ── Character setup ── */}
-        <Section icon={User} title="Your character" sub="Tune what Kloom surfaces. Rooms get reordered to match.">
+        <Section icon={User} title="Your character" sub="Tune what Abuseday surfaces. Planets get reordered to match.">
           <div className="space-y-4">
             <div>
               <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Display name</label>

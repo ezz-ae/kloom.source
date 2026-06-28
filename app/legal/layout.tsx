@@ -1,6 +1,6 @@
 import Link from "next/link"
 
-export const metadata = { title: "Legal — Kloom" }
+export const metadata = { title: "Legal — Abuseday" }
 
 const PAGES = [
   { href: "/legal/terms",    label: "Terms of Service" },
@@ -14,9 +14,8 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-3xl mx-auto px-6 py-12">
         <Link href="/" className="inline-flex items-center gap-2 mb-10 group">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/kloom-icon-192.png" alt="Kloom" className="w-7 h-7 rounded-lg" />
-          <span className="font-black tracking-widest uppercase text-sm">Kloom</span>
+          <div className="w-7 h-7 rounded-lg brand-gradient" />
+          <span className="font-black tracking-widest uppercase text-sm">Abuseday</span>
         </Link>
 
         <nav className="flex flex-wrap gap-2 mb-10">

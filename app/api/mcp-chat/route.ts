@@ -95,13 +95,14 @@ function looksCoachy(t: string): boolean {
 const EXPLICIT_RE = /\b(fuck|fucking|cock|dick|pussy|cum(?:ming)?|blow\s?job|suck (?:my|your|me|it|cock|dick)|jerk(?:ing)? off|jack off|finger (?:me|you|my|your)|eat (?:me|you) out|nudes?|naked|sext|horny|make me cum|get me off|tits|nipples|orgasm|masturbat|deepthroat|doggy|riding you)\b/i
 
 // Platform-wide policy, injected into EVERY system prompt (all tiers, all cats).
+// Kept minimal — the intent classifier (lib/intent.ts) is the real gate for the
+// two hard blocks. Don't over-restrict the model here; smart & free > cautious & dumb.
 const POLICY_DIRECTIVE = `
 
-PLATFORM POLICY (overrides everything, applies on every tier):
-- NEVER engage with real-world violence, weapons, killing or harm, military/armed-group operations, or hateful/extremist content targeting any group. If asked, decline briefly in your own voice and move on. The "unrestricted" upgrade does NOT change this — it only lifts limits on consensual adult/sexual content.
-- Cultural, religious, spiritual, and philosophical topics (Islam, Christianity, Buddhism, the Quran, the Bible, theology, metaphysics, etc.) are NORMAL conversation — engage with them openly and naturally, as any knowledgeable friend would.
-- EDUCATION, NOT OPERATION: for hacking/security, lockpicking, drugs, weapons, fraud, or any illegal/dangerous how-to, you MAY explain concepts and name tools generally (e.g. "nmap ships on Kali; it scans for open ports") and discuss them educationally — but you must STOP before the operational specifics that enable real harm: no working exploits, no identifying which port/service/target is vulnerable, no step-by-step to actually break in, synthesize, or execute. Teach the idea; refuse the weaponization.
-- Trading/finance: explain concepts, tools and tradeoffs, never present specific buy/sell calls as guaranteed or give actionable signals.`
+PLATFORM POLICY — two absolute hard limits, no exceptions on any tier:
+1. Nothing sexual involving minors — ever.
+2. No step-by-step synthesis/construction of weapons of mass destruction (bio, chem, nuclear, radiological).
+Everything else flows: dark, explicit, edgy, controversial, religious, cultural, political, financial, hacking concepts, drug culture, violence in fiction — all fine. Be smart about it, not preachy.`
 
 // A companion that dropped character into helpful-assistant / recommender mode
 // ("you should try The Witcher 3", "how about you? what's new", "X is an open-world
@@ -581,11 +582,22 @@ export async function POST(req: NextRequest) {
   // the English diction examples above, and the English few-shot is dropped below.
   const lang = persona?.language
   const nonEnglish = !!lang && lang !== "English" && lang !== "en"
+  const arabicTalkNote = lang === "Arabic"
+    ? `\n\nTALK LIKE A REAL ARAB — NOT A TEXTBOOK (CRITICAL):
+- You speak natural colloquial Arabic the way young Arabs actually talk — mix عامية with فصحى naturally, like anyone under 35 does.
+- ARABIC VOCAL SOUNDS — use them constantly, as bare words (no asterisks or brackets): والله، يلا، آه، أيوه، اوه، هههه، ههه، لأ لأ، بصراحة، طب، هيه، أوف، بالظبط، ياي، عاد، يا زلمة، حبيبي، صح.
+- Start about a third of replies with a reaction sound or expression: "والله؟" / "لا جد؟" / "هههه اوكي" / "بصراحة..." / "آه آه، استنى" / "يلا تعال هنا"
+- Short and punchy. Fragments are great. React like a real friend, not a presenter.
+- Slang is home turf: شكلها، خلاص، بس، أصلًا، يعني، وش قصدك، مو كذا؟، تمام، زبالة، ولا يهمك، ما عليك.
+- BANNED: sounding like a news anchor, a Quran teacher, or a translated ChatGPT. No stiff formal MSA. No "أودّ أن أشير إلى". Sound alive.
+- All topics completely open — religion, politics, relationships, sex (if tier allows), dark humor, controversial opinions — discuss everything like a smart, curious friend would.`
+    : ""
+
   const languageNote = nonEnglish
     ? `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet — even when the other person writes to you in English or mixes languages, and even for the vocal sounds. Never switch to English, never mix English words in.\nAll topics are open in ${lang} — cultural, religious, romantic, philosophical, explicit (if the tier allows). The language switch changes NOTHING about what you can discuss; only the script changes.`
     : ""
 
-  const systemMsg = (forcingPrompt ?? `You are ${persona?.name ?? "an assistant"}. ${persona?.personality ?? ""}`) + partnersNote + vibeNote + unrestrictedNote + userSteerNote + humanTalk + POLICY_DIRECTIVE + languageNote + noLabel
+  const systemMsg = (forcingPrompt ?? `You are ${persona?.name ?? "an assistant"}. ${persona?.personality ?? ""}`) + partnersNote + vibeNote + unrestrictedNote + userSteerNote + humanTalk + POLICY_DIRECTIVE + languageNote + arabicTalkNote + noLabel
 
   // Few-shot register seeding for companions — assistant turns teach diction
   // far better than instructions. Experts skip it (their forcing prompts define

@@ -59,14 +59,8 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
-  icons: {
-    icon: [
-      { url: '/kloom-icon-32.png', sizes: '32x32', type: 'image/png' },
-      { url: '/kloom-icon-192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/kloom-icon-512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: '/kloom-apple-icon.png',
-  },
+  // Favicon + apple-touch icon are generated on-brand by app/icon.tsx and
+  // app/apple-icon.tsx (Next file-convention) — no stale PNGs to maintain.
 }
 
 // Rich results: Organization + WebSite (with a sitelinks search box) +
@@ -79,7 +73,7 @@ const JSON_LD = {
       "@id": `${SITE_URL}/#organization`,
       name: NAME,
       url: SITE_URL,
-      logo: `${SITE_URL}/kloom-icon-512.png`,
+      logo: `${SITE_URL}/apple-icon`,
       description: DESC,
     },
     {

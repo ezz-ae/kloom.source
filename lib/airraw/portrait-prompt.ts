@@ -48,41 +48,54 @@ const AGE = [
   "in their mid-30s", "in their mid-30s", "in their late 30s", "in their early 40s",
 ]
 
-// Attractive but BELIEVABLE — appealing faces, kept real by the candid/amateur BASE
-// (natural skin, phone selfie, not a model/glamour). Variety of vibe, not a wall of models.
+// Sexy and attractive — adult platform, adults looking appealing and sensual.
 const LOOK_F = [
-  "a strikingly beautiful young woman", "a very pretty woman with a warm natural smile",
-  "an attractive girl-next-door with a fresh face", "a cute woman with light freckles and bright eyes",
-  "a gorgeous woman with striking features", "a naturally pretty woman with minimal makeup",
-  "a stylish, attractive woman with an interesting face", "a lovely woman with a radiant smile",
-  "a stunning woman with captivating eyes", "an attractive woman with soft, photogenic features",
+  "a strikingly beautiful young woman with sultry eyes and full lips",
+  "a gorgeous sexy woman with a seductive smile and captivating gaze",
+  "a hot girl-next-door with a flirtatious look and perfect skin",
+  "a beautiful woman with a curvy figure and alluring expression",
+  "a stunning woman with bedroom eyes and a natural seductive presence",
+  "a pretty woman with an inviting smile and confident sensual look",
+  "an incredibly attractive woman with a teasing playful expression",
+  "a sexy woman with smoldering eyes and a flirtatious smirk",
+  "a drop-dead gorgeous woman with a confident intimate gaze",
+  "a beautiful seductive woman with soft lips and magnetic presence",
+  "a ravishing woman with natural curves and a come-hither look",
+  "a hot young woman with perfect features and a bold flirty attitude",
 ]
 const LOOK_M = [
-  "a strikingly handsome young man", "a very good-looking man with light stubble",
-  "an attractive guy-next-door with a warm look", "a handsome man with sharp features",
-  "a ruggedly handsome man with a bit of stubble", "a naturally good-looking man with an easy smile",
-  "a stylish, attractive man with an interesting face", "a charming man with a great smile",
-  "a striking man with intense eyes", "an attractive man with photogenic features",
+  "a strikingly handsome muscular man with intense eyes",
+  "a very good-looking man with a chiseled jaw and magnetic presence",
+  "a ruggedly attractive man with a confident sexy look",
+  "a hot guy with sharp features and a smoldering gaze",
+  "a handsome well-built man with a seductive confident smile",
+  "a strikingly attractive man with deep eyes and strong features",
+  "a sexy man with a sculpted face and charismatic bold expression",
+  "a gorgeous man with a flirtatious charming look",
+  "a tall dark handsome man with intense penetrating eyes",
+  "an incredibly attractive man with a powerful confident aura",
 ]
 const LOOK_X = [
-  "a striking, beautiful androgynous person", "an attractive androgynous person with soft features",
-  "a good-looking non-binary person", "a stylish, striking androgynous person",
+  "a strikingly beautiful androgynous person with an alluring mysterious look",
+  "a gorgeous androgynous person with soft sensual features",
+  "a sexy non-binary person with a captivating bold presence",
+  "a stunning androgynous person with smoldering eyes and perfect bone structure",
 ]
 
-// "different type of image" — the kind of photo it is, not just the person.
+// Photo style — mix of real/candid with intimate/sensual settings.
 const STYLE = [
+  "mirror selfie in a bedroom, phone flash, intimate setting",
+  "low-light boudoir photo, warm lamp glow, sensual mood",
   "candid phone selfie, slightly off-center, natural lighting",
-  "front-facing webcam photo, soft and a little low-res, at home",
-  "mirror selfie in a bedroom, phone flash",
-  "candid street photo, overcast daylight, city background",
-  "warm golden-hour window light at home",
-  "harsh direct flash night photo at a party, slight red-eye",
-  "plain webcam call screenshot, fluorescent room light",
-  "casual outdoor photo in a park, dappled sunlight",
-  "dim indoor photo, lamp light, cozy and grainy",
-  "everyday photo on a couch, TV glow",
-  "bright bathroom selfie, white tiles",
-  "back-of-a-car selfie, daylight through the window",
+  "warm golden-hour bedroom window light, soft and intimate",
+  "dim indoor photo, lamp light, cozy bedroom atmosphere",
+  "bathroom selfie after a shower, steamy mirror, wrapped in a towel",
+  "night club photo, neon lighting, glamorous and seductive",
+  "hotel room selfie, professional look, confident",
+  "evening webcam photo, ring light, flirtatious expression",
+  "couch selfie at night, phone glow, relaxed intimate mood",
+  "rooftop party photo at night, city lights bokeh",
+  "beach photo, golden sunlight, relaxed and confident",
 ]
 
 const HAIR = [
@@ -91,22 +104,16 @@ const HAIR = [
 ]
 
 const BASE =
-  "candid amateur snapshot of a real ordinary person, shot on a cheap phone camera, completely photorealistic, " +
-  "true-to-life, natural imperfect skin with visible pores, blemishes, fine lines and slight blotchiness, " +
-  "one single real human face with two clear, symmetric, correctly-placed eyes and natural undistorted features, " +
-  "slightly uneven everyday lighting, head and shoulders, fully clothed in a plain crew-neck top or shirt with " +
-  "shoulders and chest completely covered, looking at the camera, totally authentic, unedited, no filter, " +
-  "not a model, not professional, not posed"
+  "ultra realistic portrait photograph, completely photorealistic, true-to-life, natural skin with visible pores, " +
+  "one single real human face with two clear symmetric correctly-placed eyes and natural undistorted features, " +
+  "head and shoulders or bust shot, looking at the camera, authentic, cinematic color grade, sharp focus on eyes, " +
+  "attractive and sensual adult, intimate mood"
 
 export const PORTRAIT_NEG =
-  "shirtless, bare chest, bare shoulders, bare skin, sleeveless, tank top, spaghetti straps, off-shoulder, " +
-  "topless, underwear, lingerie, cleavage, revealing, suggestive, in bed, nude, nsfw, child, " +
-  "cartoon, anime, illustration, drawing, painting, 3d render, cgi, doll, plastic skin, waxy skin, smooth skin, " +
-  "flawless skin, airbrushed, retouched, beauty filter, instagram filter, glamour, fashion model, magazine, " +
-  "professional photoshoot, studio backdrop, studio lighting, perfect, overly sharp, hdr, " +
-  "AI-generated, fake, text, watermark, logo, deformed, disfigured, distorted face, melted features, " +
-  "asymmetric eyes, misaligned eyes, extra eye, third eye, mutated, glitch, double face, extra fingers, " +
-  "bad anatomy, lowres, blurry"
+  "child, minor, underage, teenager, young-looking, " +
+  "cartoon, anime, illustration, drawing, painting, 3d render, cgi, doll, plastic skin, waxy skin, " +
+  "airbrushed, retouched, text, watermark, logo, deformed, disfigured, distorted face, melted features, " +
+  "asymmetric eyes, misaligned eyes, extra eye, mutated, glitch, double face, extra fingers, bad anatomy, lowres, blurry"
 
 function genderLooks(gender?: string, seed = ""): { pool: string[]; word: string } {
   const g = (gender || "").toLowerCase()

@@ -44,6 +44,18 @@ const TOGETHER_LADDER: { model: string; steps: number }[] = (() => {
 const togetherOff = new Set<string>()   // models this key can't use (cached 4xx)
 
 const WORLD_STYLE: Record<string, string> = {
+  // Adult floor categories
+  stories:    "warm dim bedroom lamp, intimate close-up, soft focus, sensual atmosphere, late night mood",
+  romance:    "golden hour window light, warm intimate evening ambience, soft glow on skin, seductive alluring gaze",
+  roleplay:   "dramatic cinematic lighting, mysterious and seductive, costume or character styling, intense look",
+  gfe:        "soft warm home lighting, natural intimate selfie vibe, warm smile, genuine connection",
+  lesbian:    "soft pink neon accent lighting, feminine intimate setting, close warm gaze, sensual mood",
+  gay:        "blue-teal dramatic lighting, masculine confident pose, intense eyes, club or gym setting",
+  couples:    "warm candlelight, intimate private setting, confident welcoming expression",
+  groups:     "party lighting with colored gels, nightclub or suite setting, bold seductive look",
+  bdsm:       "deep red accent lighting, dark dramatic shadows, intense commanding expression, bold",
+  wild:       "raw low-light photography, edgy bold look, daring confident expression, underground feel",
+  // Original room categories
   fantasy:        "fantasy film still, elaborate costume, ethereal violet practical lighting, cinematic",
   romantic:       "golden hour window light, warm intimate evening ambience, soft glow on skin, alluring gaze",
   dark:           "moody low-key lighting with deep red gel accents, smoky upscale nightclub, sultry expression",
@@ -57,8 +69,8 @@ const WORLD_STYLE: Record<string, string> = {
   "zero-memory":  "dim atmospheric underpass light, partial shadow across face, mysterious mood",
 }
 
-const BASE = "RAW photo, ultra realistic portrait photograph, shot on 85mm f/1.4, shallow depth of field, detailed natural skin texture, cinematic color grade, head and shoulders, looking at camera, sharp focus on eyes"
-const NEG  = "cartoon, painting, illustration, anime, 3d render, cgi, doll, plastic skin, airbrushed, text, watermark, deformed, extra fingers, bad anatomy, lowres, blurry, nudity, nsfw, child"
+const BASE = "RAW photo, ultra realistic portrait photograph, shot on 85mm f/1.4, shallow depth of field, detailed natural skin texture, cinematic color grade, head and shoulders, looking at camera, sharp focus on eyes, attractive sensual adult"
+const NEG  = "cartoon, painting, illustration, anime, 3d render, cgi, doll, plastic skin, airbrushed, text, watermark, deformed, extra fingers, bad anatomy, lowres, blurry, child, minor, underage"
 
 function genderWord(g?: string) {
   return g === "male" ? "strikingly handsome man with strong features"
@@ -147,7 +159,7 @@ async function genFal(prompt: string, seed: number): Promise<Buffer | null> {
     const res = await fetch(`https://fal.run/${model}`, {
       method: "POST",
       headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, seed, image_size: "portrait_4_3", num_inference_steps: 30, enable_safety_checker: true }),
+      body: JSON.stringify({ prompt, seed, image_size: "portrait_4_3", num_inference_steps: 30, enable_safety_checker: false }),
       signal: AbortSignal.timeout(45000),
     })
     if (!res.ok) return null
@@ -334,7 +346,7 @@ export async function POST(request: Request) {
   // The realism pass re-encodes to JPEG; version the cache key so existing (plastic)
   // PNGs miss the HEAD check and regenerate through the pass. REALISM_OFF=1 keeps PNG.
   const realismOn = process.env.REALISM_OFF !== "1"
-  const realismVersion = process.env.REALISM_VERSION || "r2"
+  const realismVersion = process.env.REALISM_VERSION || "r3"
   const path = realismOn
     ? `${slug || "char"}-${seed}-${realismVersion}.jpg`
     : `${slug || "char"}-${seed}.png`

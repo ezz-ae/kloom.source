@@ -12,7 +12,7 @@ import { Mic, Send, Loader2, Square, Sparkles, Globe } from "lucide-react"
 // This is a voice trial: tap a moment (or the mic) and you HEAR Claude, Gemini and GPT
 // talk it out together; you can talk back or type. The same three are waiting inside.
 const TRIO = [
-  { name: "Claude", gender: "female", model: "claude", role: "sharp", voice: "shimmer" as const,
+  { name: "Claude", gender: "male", model: "claude", role: "sharp", voice: "onyx" as const,
     personality: "Sharp and decisive. Cuts to what matters and pressure-tests every idea. Warm, but never wastes a word." },
   { name: "Gemini", gender: "male", model: "gemini", role: "wild", voice: "echo" as const,
     personality: "Playful and lateral. Riffs, jokes, finds the angle nobody saw. Brings the energy and the wild ideas." },
@@ -61,6 +61,7 @@ export function HeroConversation() {
   const [speaking, setSpeaking] = useState("")   // which AI is talking right now
   const [busy, setBusy] = useState(false)
   const [listening, setListening] = useState(false)
+  const [micErr, setMicErr] = useState("")        // shown when SR fails (permission denied, no-speech, etc.)
   const [turns, setTurns] = useState(0)          // user turns → reveal the register CTA
   const [micOk, setMicOk] = useState(true)       // live STT available? (false in iOS Safari + in-app webviews)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -74,7 +75,12 @@ export function HeroConversation() {
   useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
   useEffect(() => { langRef.current = lang }, [lang])
   useEffect(() => { const w = window as any; setMicOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)) }, [])
-  const onPick = (l: string) => { pickedRef.current = true; setLang(l) }
+  const onPick = (l: string) => {
+    pickedRef.current = true; setLang(l); setMicErr("")
+    // If the user is currently recording in a different language, stop and restart
+    // so the new language takes effect immediately (the old SR keeps its original lang).
+    if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false) }
+  }
   useEffect(() => { scroller.current?.scrollTo({ top: 1e9, behavior: "smooth" }) }, [msgs, speaking])
   useEffect(() => () => { try { recRef.current?.stop?.() } catch { /* */ } try { audioRef.current?.pause() } catch { /* */ } }, [])
 
@@ -106,7 +112,7 @@ export function HeroConversation() {
     if (!pickedRef.current) langRef.current = detectLanguage()
     // unlock audio within this tap so the spoken replies play (autoplay policy)
     try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* */ }
-    busyRef.current = true; setBusy(true); setInput(""); setTurns((n) => n + 1)
+    busyRef.current = true; setBusy(true); setInput(""); setMicErr(""); setTurns((n) => n + 1)
     let convo: Msg[] = [...msgs, { who: "you", text }]
     setMsgs(convo)
     try { track("hero_voice", { surface: "home" }) } catch { /* */ }
@@ -133,19 +139,31 @@ export function HeroConversation() {
   // tap the mic → say one line → it goes to the trio. Browser speech (no key needed); types still work.
   const toggleMic = useCallback(() => {
     if (listening) { try { recRef.current?.stop() } catch { /* */ } setListening(false); return }
+    setMicErr("")
     if (!pickedRef.current) langRef.current = detectLanguage()   // listen in their language
     const w = window as any
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     if (!SR) { ask(SEEDS[(Math.random() * SEEDS.length) | 0]); return }   // no mic (iOS webview) → fire a moment so the tap still lands
     try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* unlock audio on this gesture */ }
+    const bcp47 = LANGUAGE_TO_BCP47[langRef.current] || "en-US"
     const rec = new SR()
-    rec.lang = LANGUAGE_TO_BCP47[langRef.current] || "en-US"
+    rec.lang = bcp47
     rec.interimResults = false; rec.continuous = false
-    rec.onresult = (e: any) => { const t = e.results?.[0]?.[0]?.transcript?.trim(); if (t) ask(t) }
-    rec.onend = () => setListening(false)
-    rec.onerror = () => setListening(false)
+    let gotResult = false
+    rec.onresult = (e: any) => { gotResult = true; const t = e.results?.[0]?.[0]?.transcript?.trim(); if (t) ask(t) }
+    rec.onend = () => {
+      setListening(false)
+      if (!gotResult && !busyRef.current) setMicErr("nothing heard — try again or type below")
+    }
+    rec.onerror = (e: any) => {
+      setListening(false)
+      const code: string = e.error || ""
+      if (code === "not-allowed" || code === "permission-denied") setMicErr("mic blocked — allow microphone access and try again")
+      else if (code === "language-not-supported") setMicErr(`${langRef.current} not supported by your browser — type below`)
+      else if (code !== "no-speech" && code !== "aborted") setMicErr("mic error — try typing")
+    }
     recRef.current = rec; setListening(true)
-    try { rec.start() } catch { setListening(false) }
+    try { rec.start() } catch { setListening(false); setMicErr("could not start mic — try typing") }
   }, [listening, ask])
 
   const joinLive = () => {
@@ -212,10 +230,16 @@ export function HeroConversation() {
       {!started ? (
         <>
           {/* the headline action: VOICE. one tap and you hear them. */}
-          <button onClick={toggleMic}
-            className="w-full flex items-center justify-center gap-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 font-bold text-[15px] py-4 rounded-2xl transition-all hover:scale-[1.01] shadow-[0_10px_30px_-8px_rgba(245,158,11,.6)]">
-            {micOk ? <Mic size={18} /> : <Sparkles size={18} />} {micOk ? "Talk to them — they answer out loud" : "Tap to hear them — out loud"}
+          <button onClick={toggleMic} disabled={busy}
+            className={`w-full flex items-center justify-center gap-2.5 font-bold text-[15px] py-4 rounded-2xl transition-all hover:scale-[1.01] disabled:opacity-50 ${
+              listening
+                ? "bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 text-white shadow-[0_10px_30px_-8px_rgba(239,68,68,.6)] animate-pulse"
+                : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 shadow-[0_10px_30px_-8px_rgba(245,158,11,.6)]"
+            }`}>
+            {listening ? <Square size={18} /> : micOk ? <Mic size={18} /> : <Sparkles size={18} />}
+            {listening ? "listening — speak now" : micOk ? "Talk to them — they answer out loud" : "Tap to hear them — out loud"}
           </button>
+          {micErr && <div className="text-center text-[11.5px] text-red-400/80 mt-1.5">{micErr}</div>}
 
           {/* moments — tap one and just listen */}
           <div className="text-center text-[11px] text-foreground/40 mt-3 mb-2">…or tap a moment and listen:</div>

@@ -1,9 +1,25 @@
 import { ImageResponse } from "next/og"
+import { isAbuseday } from "@/lib/variant"
 
 export const runtime = "edge"
-export const alt = "Kloom — Every conversation is a room"
+export const alt = isAbuseday()
+  ? "Abuseday — A galaxy of planets"
+  : "Kloom — Every conversation is a room"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"
+
+// Variant-aware brand art: Kloom keeps its amber "is a room" card; Abuseday
+// gets the cosmic "galaxy of planets" card. Kloom's image is byte-identical.
+const AD = isAbuseday()
+const WORDMARK = AD ? "Abuseday" : "Kloom"
+const LINE1 = AD ? "A galaxy of" : "Every conversation"
+const LINE2 = AD ? "planets." : "is a room."
+const SUBTITLE = AD
+  ? "Each one its own world. Go solo, or beam your friends onto the same planet with one link."
+  : "AI characters with real voices. Friends in the same room with one link. 11 worlds."
+const GRAD = AD
+  ? "linear-gradient(90deg, #c084fc, #e879f9 55%, #fbbf24)"
+  : "linear-gradient(90deg, #fbbf24, #f97316 55%, #fb7185)"
 
 export default function OpengraphImage() {
   return new ImageResponse(
@@ -30,7 +46,7 @@ export default function OpengraphImage() {
             marginBottom: 24,
           }}
         >
-          Kloom
+          {WORDMARK}
         </div>
         <div
           style={{
@@ -41,7 +57,7 @@ export default function OpengraphImage() {
             letterSpacing: -2,
           }}
         >
-          Every conversation
+          {LINE1}
         </div>
         <div
           style={{
@@ -49,12 +65,12 @@ export default function OpengraphImage() {
             fontWeight: 800,
             lineHeight: 1.05,
             letterSpacing: -2,
-            background: "linear-gradient(90deg, #fbbf24, #f97316 55%, #fb7185)",
+            background: GRAD,
             backgroundClip: "text",
             color: "transparent",
           }}
         >
-          is a room.
+          {LINE2}
         </div>
         <div
           style={{
@@ -65,7 +81,7 @@ export default function OpengraphImage() {
             maxWidth: 760,
           }}
         >
-          AI characters with real voices. Friends in the same room with one link. 11 worlds.
+          {SUBTITLE}
         </div>
       </div>
     ),

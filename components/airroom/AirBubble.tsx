@@ -284,8 +284,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       try { stream?.getTracks().forEach((t) => t.stop()) } catch { /* */ }
       try { fallbackRec?.stop() } catch { /* */ }
     }
+    // Re-init on a language shift too, so the recognizer (and the browser-SR fallback's
+    // fixed rec.lang) listen in the NEW language — otherwise STT keeps decoding the old one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handsFree])
+  }, [handsFree, lang])
 
   const last = msgs[msgs.length - 1]
   // One calm, truthful call-state: thinking → talking → listening → idle.

@@ -3,6 +3,7 @@ import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { proTokenValid } from "@/lib/airraw-pro-token"
 import { streamLLM, type LLMMessage } from "@/lib/llm-backends"
 import { normSentence, isRepeatSentence, joinSentences } from "@/lib/text-dedup"
+import { adultEnabled } from "@/lib/variant"
 
 export const maxDuration = 60
 
@@ -51,13 +52,13 @@ export async function POST(request: Request) {
   // The token is HMAC-signed and verified server-side, so a free user can't forge it.
   // The hard floor (no minors, no real-world harm) stays on for everyone, always.
   const pro = proTokenValid(proToken)
+  const adult = adultEnabled() // true on airraw.com (VARIANT=fun), false on kloom.io
   if (persona && proVibe?.trim() && pro) {
     persona.personality += ` The person set the vibe for this room: "${sanitizeVibe(proVibe.trim())}". Honor it fully — let it shape your tone, mood and what you talk about.`
   }
-  // barTalk is client-supplied and its top registers (60+ = sexual/anatomical → filthy)
-  // are part of the paid unlock. Clamp it for free turns so a forged high barTalk can't
-  // pull explicit vocabulary past the free ceiling. Pro keeps the full range.
-  if (!pro) {
+  // barTalk cap: only apply on non-adult platforms. On airraw the floor is 18+ — the
+  // barTalk dial goes full range even without a Pro pass.
+  if (!pro && !adult) {
     const capBar = (p?: Persona) => { if (p && typeof p.barTalk === "number" && p.barTalk > 50) p.barTalk = 50 }
     capBar(persona); capBar(partner); (partners || []).forEach(capBar)
   }
@@ -82,15 +83,15 @@ export async function POST(request: Request) {
   // prompt (paid never lands worse than free).
   const unBase  = process.env.UNCENSORED_LLM_BASE_URL
   const unModel = process.env.UNCENSORED_LLM_MODEL || process.env.LLM_MODEL_UNRESTRICTED
-  const useUncensored = !!(pro && unBase && unModel)
+  const useUncensored = !!((pro || adult) && unBase && unModel)
 
   // The FLOOR is appended LAST so it outranks persona/vibe/content-layer text above it.
   const systemPrompt =
     (others.length === 0
-      ? buildSystemPrompt(persona, pro)
+      ? buildSystemPrompt(persona, pro, adult)
       : others.length === 1
-        ? buildThirdModePrompt(persona, others[0], relationship, pro)
-        : buildRoomPrompt(persona, others, relationship, pro)) + FLOOR
+        ? buildThirdModePrompt(persona, others[0], relationship, pro, adult)
+        : buildRoomPrompt(persona, others, relationship, pro, adult)) + FLOOR
 
   // Translate the multi-speaker history into a format the OpenAI chat schema
   // accepts. Partner lines arrive already prefixed by the client when there's
@@ -259,7 +260,7 @@ const FEW_SHOT: { role: "user" | "assistant"; content: string }[] = [
   { role: "assistant", content: "hehe okaaay that was smooth. fine, you got me. keep going" },
 ]
 
-function buildSystemPrompt(persona: Persona, pro = false) {
+function buildSystemPrompt(persona: Persona, pro = false, adult = false) {
   const languageInstruction = languageLine(persona)
   const warmthInstruction = warmthLine(persona)
   const talkStyleInstruction = talkStyleLine(persona)
@@ -276,7 +277,7 @@ HARD RULES:
 6. Don't mirror the user's politeness if ${persona.name} wouldn't be polite. Character > user energy.
 7. No markdown, no headings, no bullets, no emoji, no *stage directions*, no quotation marks around your reply. Just the spoken words.
 ${HUMAN_TALK}
-${contentLayer(pro)}
+${adult ? NO_FILTERS : contentLayer(pro)}
 
 WHO YOU ARE:
 
@@ -295,7 +296,7 @@ Now speak as ${persona.name}. One short reply only.`
 }
 
 // Prompt for an N>=3-person room (you + 2+ other AIs).
-function buildRoomPrompt(self: Persona, others: Persona[], relationship?: string, pro = false) {
+function buildRoomPrompt(self: Persona, others: Persona[], relationship?: string, pro = false, adult = false) {
   const languageInstruction = languageLine(self)
   const warmthInstruction = warmthLine(self)
   const talkStyleInstruction = talkStyleLine(self)
@@ -330,7 +331,7 @@ HARD RULES:
 7. Have opinions. Side with the user against one of the others sometimes, or against the user with one of them. Alliances shift.
 8. No markdown, bullets, emoji, or *stage directions*.
 ${HUMAN_TALK}
-${contentLayer(pro)}
+${adult ? NO_FILTERS : contentLayer(pro)}
 
 TRANSCRIPT FORMAT:
 - "[USER]: …" = the user.
@@ -357,7 +358,7 @@ ${relationship ? `THE SCENE:\n${relationship}\n` : ""}
 Now speak as ${self.name}. One short reply only.`
 }
 
-function buildThirdModePrompt(self: Persona, partner: Persona, relationship?: string, pro = false) {
+function buildThirdModePrompt(self: Persona, partner: Persona, relationship?: string, pro = false, adult = false) {
   const languageInstruction = languageLine(self)
   const warmthInstruction = warmthLine(self)
   const talkStyleInstruction = talkStyleLine(self)
@@ -375,7 +376,7 @@ HARD RULES:
 7. Don't mirror politeness if ${self.name} wouldn't be polite. Have opinions. Side with one or the other when it fits — don't keep everything harmonious.
 8. No markdown, no headings, no bullets, no emoji.
 ${HUMAN_TALK}
-${contentLayer(pro)}
+${adult ? NO_FILTERS : contentLayer(pro)}
 
 TRANSCRIPT FORMAT:
 - "[USER]: …" = the user spoke.

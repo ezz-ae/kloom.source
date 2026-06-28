@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ROSTER, ROSTER_COUNT, type Heat } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
+import { detectLanguage } from "@/lib/languages"
 
 // The floor's cast — ~240 characters in ~37 clusters, generated deterministically
 // from the archetypes and sorted along water→fire (see lib/airroom/roster.ts).
@@ -33,6 +34,10 @@ function tempLabel(f: number): string {
 }
 
 export default function FloorPage() {
+  const [lang, setLang] = useState("English")
+  const langRef = useRef("English")
+  useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
+  useEffect(() => { langRef.current = lang }, [lang])
   const [vh, setVh] = useState(720)
   const [depth, setDepth] = useState(0.33 * (FLOOR_H - 720))
   const [entered, setEntered] = useState(false)
@@ -104,7 +109,7 @@ export default function FloorPage() {
           const res = await fetch("/api/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: line, personaName: c.host, gender: c.gender, language: "English" }),
+            body: JSON.stringify({ text: line, personaName: c.host, gender: c.gender, language: langRef.current }),
           })
           if (speakTok.current !== tok) return
           if (!res.ok) { await wait(1600); continue }
@@ -243,7 +248,7 @@ export default function FloorPage() {
       </div>
 
       {entered && (
-        <AirBubble cluster={a} tempLabel={tempLabel(f)} onClose={() => setEntered(false)} />
+        <AirBubble cluster={a} tempLabel={tempLabel(f)} lang={lang} onClose={() => setEntered(false)} />
       )}
 
       {showGate && !verified && (

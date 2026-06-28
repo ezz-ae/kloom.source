@@ -83,7 +83,10 @@ export async function POST(request: Request) {
   // prompt (paid never lands worse than free).
   const unBase  = process.env.UNCENSORED_LLM_BASE_URL
   const unModel = process.env.UNCENSORED_LLM_MODEL || process.env.LLM_MODEL_UNRESTRICTED
-  const useUncensored = !!((pro || adult) && unBase && unModel)
+  // Adult content is gated by the system prompt (NO_FILTERS layer), not the model endpoint.
+  // Only route Pro users to the uncensored endpoint — free adult calls use the main model
+  // (DeepSeek V4 Pro on Together) which is far better than the Gemini Flash Lite fallback.
+  const useUncensored = !!(pro && unBase && unModel)
 
   // The FLOOR is appended LAST so it outranks persona/vibe/content-layer text above it.
   const systemPrompt =

@@ -438,7 +438,7 @@ function RoomContent() {
           outOfMinutes, minutesLeft, dismissOutOfMinutes } = useRealtimeVoice(
     primaryPersona
       ? {
-          persona:      primaryPersona,
+          persona:      { ...primaryPersona, language: userLang },
           partners:     partnerPersonas.length > 0 ? partnerPersonas : undefined,
           relationship: sceneRelationship,
           roomName:     room?.name,

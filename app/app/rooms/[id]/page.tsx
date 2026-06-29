@@ -223,7 +223,7 @@ function RoomContent() {
   // ── Speak AI replies aloud during a group voice call ──
   const aiVoiceOnRef = useRef(false)
   const aiAudioRef   = useRef<HTMLAudioElement | null>(null)
-  const speakAi = useCallback((text: string, voice: string, personaName?: string, voiceId?: string, gender?: string, language?: string, elevenId?: string) => {
+  const speakAi = useCallback((text: string, voice: string, personaName?: string, voiceId?: string, gender?: string, language?: string, elevenId?: string, sesameId?: string) => {
     if (!aiVoiceOnRef.current) return
     // Strip widget markers + markdown so TTS reads only spoken words
     const clean = text
@@ -243,7 +243,7 @@ function RoomContent() {
       })
     }
 
-    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: clean, voice, personaName, voiceId, elevenId, gender, language }) })
+    fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: clean, voice, personaName, voiceId, elevenId, sesameId, gender, language }) })
       .then((r) => r.ok ? r.blob() : null)
       .then((blob) => {
         if (!blob) return
@@ -328,7 +328,7 @@ function RoomContent() {
         // Speak AI replies that arrived from another participant's turn
         if (m.kind === "ai") {
           const seat = [...(room?.personas ?? []), ...extraAI].find((p) => p.name === m.handle)
-          speakAi(m.content, (seat as any)?.voice ?? "sage", m.handle, (seat as any)?.voiceId, (seat as any)?.gender, (seat as any)?.language, (seat as any)?.elevenId)
+          speakAi(m.content, (seat as any)?.voice ?? "sage", m.handle, (seat as any)?.voiceId, (seat as any)?.gender, (seat as any)?.language, (seat as any)?.elevenId, (seat as any)?.sesameId)
         }
       },
       onPresence: setParticipants,
@@ -552,7 +552,7 @@ function RoomContent() {
         // Share this AI reply with everyone else in the session
         broadcastRef.current?.({ id: aiMsg.id, kind: "ai", handle: speaker.name, content: aiMsg.content, ts: aiMsg.ts })
         // Speak it aloud locally if group voice is active
-        speakAi(aiMsg.content, speaker.voice ?? "sage", speaker.name, (speaker as any).voiceId, (speaker as any).gender, (speaker as any).language, (speaker as any).elevenId)
+        speakAi(aiMsg.content, speaker.voice ?? "sage", speaker.name, (speaker as any).voiceId, (speaker as any).gender, (speaker as any).language, (speaker as any).elevenId, (speaker as any).sesameId)
 
         // Single-persona rooms: only one turn. Multi-AI rooms: all respond.
         if (voicePersonas.length === 1) break

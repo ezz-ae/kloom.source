@@ -26,6 +26,8 @@ export interface Persona {
   voiceId?: string
   /** Optional ElevenLabs Voice Library voice ID — overrides the gender-pool pick. */
   elevenId?: string
+  /** Optional Sesame CSM cloned-voice id — overrides the gender-pool pick on Sesame. */
+  sesameId?: string
   language: string
   /** 0 = cold/professional, 100 = warm/affectionate */
   warmth: number
@@ -231,6 +233,7 @@ export function useRealtimeVoice({
           voice: speakerPersona.voice,
           voiceId: speakerPersona.voiceId,
           elevenId: speakerPersona.elevenId,
+          sesameId: speakerPersona.sesameId,
           personaName: speakerPersona.name,
           gender: (speakerPersona as any).gender,
           language: speakerPersona.language,

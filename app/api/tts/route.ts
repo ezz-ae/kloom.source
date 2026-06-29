@@ -14,11 +14,12 @@ export async function POST(request: Request) {
   const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  const { text, voice, voiceId, elevenId, personaName, gender, language, mode } = (await request.json()) as {
+  const { text, voice, voiceId, elevenId, sesameId, personaName, gender, language, mode } = (await request.json()) as {
     text: string
     voice?: string
     voiceId?: string
     elevenId?: string
+    sesameId?: string
     personaName?: string
     gender?: string
     language?: string
@@ -34,11 +35,25 @@ export async function POST(request: Request) {
   // so we never send an empty request.
   const ttsText = shapeForSpeech(text) || text.replace(/\s+/g, " ").trim().slice(0, 1000)
 
-  // ── ElevenLabs — premium natural TTS (tier 0) ─────────────────────────────
-  // The most natural voice available; runs first when ELEVENLABS_API_KEY is set,
-  // and falls through to CosyVoice → Fish on any failure. The voice is picked
-  // deterministically per persona from a preset pool, so adjacent characters
-  // still sound like different people (the planet's "many close voices").
+  // ── Sesame CSM — the most human, conversational voice (tier 0) ────────────
+  // Sesame's open CSM-1B (Apache-2.0) served behind an OpenAI-compatible
+  // /v1/audio/speech endpoint. Self-host on a GPU (RunPod / Cerebrium) and set
+  // SESAME_BASE_URL — this then runs FIRST and falls through to ElevenLabs →
+  // CosyVoice → Fish on any failure, so the chain degrades gracefully. This is
+  // the "I want the sesame.com sound" engine: end-to-end speech with natural
+  // pauses, breaths and emotion, not read-aloud TTS.
+  const sesameBase = process.env.SESAME_BASE_URL
+  if (sesameBase) {
+    const ss = await sesameTTS(ttsText, sesameBase, personaName, gender, sesameId)
+    if (ss) return new Response(ss, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "sesame" } })
+    // fall through to ElevenLabs / CosyVoice / Fish
+  }
+
+  // ── ElevenLabs — premium natural TTS (tier 1) ─────────────────────────────
+  // The most natural hosted voice; runs when ELEVENLABS_API_KEY is set (and
+  // Sesame is unset or failed), and falls through to CosyVoice → Fish on any
+  // failure. The voice is picked deterministically per persona from a preset
+  // pool, so adjacent characters still sound like different people.
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
     const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId, mode)
@@ -235,6 +250,48 @@ function shapeForSpeech(input: string): string {
   if (t && !/[.!?…"')\]]$/.test(t)) t += "."
 
   return t.slice(0, 1000).trim()
+}
+
+// ── Sesame CSM (OpenAI-compatible /v1/audio/speech) ──────────────────────────
+// The built-in CSM voices; one is chosen per persona by name hash so neighbours
+// sound distinct. A persona can pin a cloned voice id via `sesameId`, or the
+// whole side can be overridden with SESAME_VOICE_MALE / SESAME_VOICE_FEMALE.
+const SS_FEMALE = ["nova", "shimmer", "alloy"]
+const SS_MALE   = ["onyx", "echo", "fable"]
+function sesameVoiceFor(name?: string, gender?: string, sesameId?: string): string {
+  if (sesameId?.trim()) return sesameId.trim()                 // a cloned CSM voice id
+  const env = gender === "male" ? process.env.SESAME_VOICE_MALE : process.env.SESAME_VOICE_FEMALE
+  if (env) return env
+  const pool = gender === "male" ? SS_MALE : SS_FEMALE
+  let h = 0; const s = name || "x"; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return pool[h % pool.length]
+}
+// Calls the OpenAI-compatible Sesame CSM server. Returns mp3 bytes, or null on
+// any failure (caller falls through to the next engine). SESAME_API_KEY is
+// optional (only if the deployment gates the endpoint).
+async function sesameTTS(text: string, base: string, name?: string, gender?: string, sesameId?: string): Promise<ArrayBuffer | null> {
+  try {
+    const voice = sesameVoiceFor(name, gender, sesameId)
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (process.env.SESAME_API_KEY) headers.Authorization = `Bearer ${process.env.SESAME_API_KEY}`
+    const res = await fetch(`${base.replace(/\/$/, "")}/v1/audio/speech`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: process.env.SESAME_MODEL || "csm-1b",
+        input: text,
+        voice,
+        response_format: "mp3",
+        speed: Number(process.env.SESAME_SPEED ?? 1.0),
+        temperature: Number(process.env.SESAME_TEMPERATURE ?? 0.8),
+      }),
+      // CSM is generative; allow a real cold-start window before falling through.
+      signal: AbortSignal.timeout(45000),
+    })
+    if (!res.ok) { console.error("sesame", res.status, (await res.text()).slice(0, 180)); return null }
+    const buf = await res.arrayBuffer()
+    return buf.byteLength > 0 ? buf : null
+  } catch (e) { console.error("sesame threw", e instanceof Error ? e.message : String(e)); return null }
 }
 
 // ── ElevenLabs (premium natural TTS) ─────────────────────────────────────────

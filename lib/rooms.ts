@@ -41,6 +41,7 @@ export interface RoomPersona {
   voice?: "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse"
   voiceId?: string     // concrete Fish voice id — fixed per persona so it never shifts
   elevenId?: string    // ElevenLabs Voice Library ID — overrides gender pool for specific character voices
+  sesameId?: string    // Sesame CSM cloned-voice id — overrides the gender pool on the Sesame engine
   gender: "female" | "male" | "nonbinary"  // authoritative for voice selection
   avatarSeed?: string  // for dicebear fallback avatar
   unrestricted?: boolean // persona starts in unrestricted mode

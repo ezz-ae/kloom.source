@@ -113,12 +113,16 @@ export async function POST(request: Request) {
     return { role: m.role as "user" | "assistant" | "system", content: m.content }
   })
 
+  const isArabic = persona.language === "Arabic" || persona.language === "ar"
   const llmMessages: LLMMessage[] = [
     { role: "system", content: systemPrompt },
-    // The FEW_SHOT examples are English — injecting them forces non-English personas
-    // back to English (prior-turn examples set language harder than any instruction).
-    // Only seed them when the persona actually speaks English.
-    ...(others.length === 0 && (!persona.language || persona.language === "English" || persona.language === "en") ? FEW_SHOT : []),
+    // Few-shot examples lock the register — use language-matched seeds so the model
+    // knows exactly how to sound, not just WHAT language to use.
+    ...(others.length === 0
+      ? isArabic
+        ? FEW_SHOT_AR
+        : (!persona.language || persona.language === "English" || persona.language === "en") ? FEW_SHOT : []
+      : []),
     ...openaiMessages,
   ]
 
@@ -275,6 +279,28 @@ const FEW_SHOT: { role: "user" | "assistant"; content: string }[] = [
   { role: "assistant", content: "stay here with you like this. maybe get closer." },
 ]
 
+// Arabic few-shot — colloquial Levantine/Gulf, NOT MSA. Short, punchy, real.
+// These lock the register so the model sounds like a person texting at 2am,
+// not a translation of an English chatbot. Each assistant reply is ≤ 1 short sentence.
+const FEW_SHOT_AR: { role: "user" | "assistant"; content: string }[] = [
+  { role: "user", content: "هلا" },
+  { role: "assistant", content: "هلا. كنت مستناك." },
+  { role: "user", content: "شو بدك" },
+  { role: "assistant", content: "بدي أعرف شو داير بدماغك هلق." },
+  { role: "user", content: "شو عم تفكر" },
+  { role: "assistant", content: "فيك. من وقت ما وصلت." },
+  { role: "user", content: "قولي شي حقيقي" },
+  { role: "assistant", content: "بنتظرك لما تجي. هاد حقيقي." },
+  { role: "user", content: "ايش تبي مني" },
+  { role: "assistant", content: "كل شي عم تخبيه." },
+  { role: "user", content: "مرحبا" },
+  { role: "assistant", content: "مرحبا. وين كنت؟" },
+  { role: "user", content: "نعم" },
+  { role: "assistant", content: "يلا." },
+  { role: "user", content: "كيفك" },
+  { role: "assistant", content: "أحسن هلق." },
+]
+
 function buildSystemPrompt(persona: Persona, pro = false, adult = false) {
   const languageInstruction = languageLine(persona)
   const warmthInstruction = warmthLine(persona)
@@ -423,9 +449,20 @@ Now speak as ${self.name}. One short reply only.`
 
 function languageLine(persona: Persona) {
   const lang = persona.language
-  return lang && lang !== "English"
-    ? `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet. This holds even when the other person writes to you in English or any other language — you still answer in ${lang}, never switching, never mixing in English words. If you are about to write an English word, stop and write it in ${lang} instead.`
-    : ""
+  if (!lang || lang === "English") return ""
+  if (lang === "Arabic" || lang === "ar") {
+    return `\n\n=== LANGUAGE — CRITICAL ===
+Reply ONLY in spoken colloquial Arabic — the way real people text each other, NOT Modern Standard Arabic (MSA).
+Use Levantine dialect (شو، هلق، هيك، يلا، كتير) or Gulf (شنو، الحين، زين، وش) — match whatever dialect the person uses.
+FORBIDDEN phrases (these sound like a translated chatbot, never use them):
+- أنا كلي آذان صاغية / آذان صاغية
+- يسعدني / بكل سرور / إليك / تفضل بالحديث
+- كيف يمكنني مساعدتك / أنا هنا من أجلك
+- ما الذي تودّ مشاركته / هل تودّ أن تخبرني
+- تفضل (as "go ahead" — use يلا or just silence)
+Keep it SHORT. 1 sentence. Sound like a real person, not a translation.`
+  }
+  return `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet. This holds even when the other person writes to you in English or any other language — you still answer in ${lang}, never switching, never mixing in English words. If you are about to write an English word, stop and write it in ${lang} instead.`
 }
 
 function warmthLine(persona: Persona) {

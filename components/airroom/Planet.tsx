@@ -262,10 +262,12 @@ export function Planet() {
     const DPR = Math.min(2, window.devicePixelRatio || 1)
     const FF = getComputedStyle(document.body).fontFamily || "system-ui, sans-serif"
     const cam = { x: 0.5, y: 0.5, s: 0.85 }, tgt = { x: 0.5, y: 0.5, s: 0.85 }
+    let vel = { x: 0, y: 0, s: 0 }   // spring velocity for fluffy drag feel
     const imgs = new Map<string, HTMLImageElement | null>()
     const stars = Array.from({ length: 160 }, (_, s) => ({ x: rnd(s * 3 + 1), y: rnd(s * 7 + 2), r: rnd(s * 5) * 1.1 + 0.2, ph: rnd(s) * 6.28 }))
     let t = 0, raf = 0, audioStarted = false, frameN = 0
     let pickedNode: { c: number; seed: number } | null = null, candId = -1, candAt = 0, spokenId = -1
+    let lastMoveT = -999   // updated on any pan/zoom; ring only draws after user settles
     // Screen rects of the world-balls this frame, so a tap at orbit can drop you in.
     const contHit: { c: number; x: number; y: number; half: number }[] = []
     let airEnd = 0, lastAirTrig = 0   // AIR pulse: lights your best matches for a few seconds
@@ -287,7 +289,7 @@ export function Planet() {
     const markStarted = () => { if (!startedRef.current) { startedRef.current = true; setStarted(true); tgt.s = Math.max(tgt.s, 1.6) } }
     startFnRef.current = markStarted
 
-    const onWheel = (e: WheelEvent) => { e.preventDefault(); startAudio(); markStarted(); const r = cv.getBoundingClientRect(); zoomAt((e.clientX - r.left) * DPR, (e.clientY - r.top) * DPR, e.deltaY < 0 ? 1.16 : 1 / 1.16) }
+    const onWheel = (e: WheelEvent) => { e.preventDefault(); startAudio(); markStarted(); lastMoveT = t; const r = cv.getBoundingClientRect(); zoomAt((e.clientX - r.left) * DPR, (e.clientY - r.top) * DPR, e.deltaY < 0 ? 1.16 : 1 / 1.16) }
     cv.addEventListener("wheel", onWheel, { passive: false })
 
     const pts = new Map<number, { x: number; y: number }>()
@@ -303,11 +305,12 @@ export function Planet() {
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY })
       if (pts.size === 2) {
         const p = [...pts.values()], d = Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y)
-        if (pinchD > 0) { const r = cv.getBoundingClientRect(); zoomAt(((p[0].x + p[1].x) / 2 - r.left) * DPR, ((p[0].y + p[1].y) / 2 - r.top) * DPR, d / pinchD) }
+        if (pinchD > 0) { lastMoveT = t; const r = cv.getBoundingClientRect(); zoomAt(((p[0].x + p[1].x) / 2 - r.left) * DPR, ((p[0].y + p[1].y) / 2 - r.top) * DPR, d / pinchD) }
         pinchD = d; return
       }
       if (!drag) return
       const m = vm(), ddx = e.clientX - drag.x, ddy = e.clientY - drag.y; moved += Math.abs(ddx) + Math.abs(ddy)
+      lastMoveT = t
       tgt.x = drag.cx - ddx * DPR / (tgt.s * m); tgt.y = drag.cy - ddy * DPR / (tgt.s * m)
     }
     const onUp = (e: PointerEvent) => {
@@ -327,17 +330,19 @@ export function Planet() {
 
     // Each face shows the cheap fallback instantly, then swaps to its live, diverse,
     // generated photo once it resolves (generated-once, cached forever server-side).
-    const faceFor = (ch: { host: string; gender?: string }): HTMLImageElement | null => {
-      const host = ch.host
-      if (imgs.has(host)) return imgs.get(host) || null
-      if (imgs.size > 260) return null
-      imgs.set(host, null)
-      const setImg = (url: string) => { const im = new Image(); im.onload = () => imgs.set(host, im); im.src = url }
-      const cached = cachedFace({ name: host, gender: ch.gender })
+    // Key by cell seed (fh), not character name — name pool is ~122, planet has thousands
+    // of cells so many cells share a name → same face. Seed is unique per grid position.
+    const faceFor = (fh: number, ch: { host: string; gender?: string }): HTMLImageElement | null => {
+      const key = String(fh)
+      if (imgs.has(key)) return imgs.get(key) || null
+      if (imgs.size > 320) return null
+      imgs.set(key, null)
+      const setImg = (url: string) => { const im = new Image(); im.onload = () => imgs.set(key, im); im.src = url }
+      const cached = cachedFace({ name: ch.host, gender: ch.gender, seed: key })
       if (cached) { setImg(cached) }
       else {
-        setImg(imageFor({ name: host }))   // fallback while the real face generates
-        faceUrl({ name: host, gender: ch.gender }).then((u) => { if (u) setImg(u) })
+        setImg(imageFor({ name: ch.host }))   // monogram fallback while portrait generates
+        faceUrl({ name: ch.host, gender: ch.gender, seed: key }).then((u) => { if (u) setImg(u) })
       }
       return null
     }
@@ -348,7 +353,11 @@ export function Planet() {
       raf = requestAnimationFrame(loop); t += 0.016; frameN++
       if (airTrig.current !== lastAirTrig) { lastAirTrig = airTrig.current; airEnd = t + 4.5 }
       const airOn = t < airEnd
-      cam.x += (tgt.x - cam.x) * 0.15; cam.y += (tgt.y - cam.y) * 0.15; cam.s += (tgt.s - cam.s) * 0.15
+      const SPRING = 0.13, DAMP = 0.73
+      vel.x = (vel.x + (tgt.x - cam.x) * SPRING) * DAMP
+      vel.y = (vel.y + (tgt.y - cam.y) * SPRING) * DAMP
+      vel.s = (vel.s + (tgt.s - cam.s) * SPRING) * DAMP
+      cam.x += vel.x; cam.y += vel.y; cam.s = Math.max(0.6, cam.s + vel.s)
       const W = cv.width, H = cv.height
       ctx.fillStyle = "#04050b"; ctx.fillRect(0, 0, W, H)
       for (const st of stars) { let sx = (st.x * W + cam.x * -12) % W; if (sx < 0) sx += W; let sy = (st.y * H + cam.y * -12) % H; if (sy < 0) sy += H; ctx.globalAlpha = (0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 1.3 + st.ph))) * 0.7; ctx.fillStyle = "#cdd9e3"; ctx.beginPath(); ctx.arc(sx, sy, st.r * DPR, 0, 6.283); ctx.fill() }
@@ -462,7 +471,7 @@ export function Planet() {
               const fhue = co.h + (ifrac(fh) * 26 - 13)
               const ball = () => { ctx.beginPath(); ctx.arc(fs[0], fs[1], r, 0, 6.283) }   // faces are round balls — no name labels
               if (r > 17 && !locked) {
-                const ch = charFor(fh, c), im = faceFor(ch)
+                const ch = charFor(fh, c), im = faceFor(fh, ch)
                 if (im) { ctx.save(); ball(); ctx.clip(); ctx.drawImage(im, fs[0] - r, fs[1] - r, r * 2, r * 2); ctx.restore(); ctx.strokeStyle = `hsla(${fhue},70%,62%,.5)`; ctx.lineWidth = 1.5 * DPR; ball(); ctx.stroke() }
                 else { ctx.fillStyle = `hsl(${fhue},70%,60%)`; ball(); ctx.fill() }
                 // AIR: a gold pulse rings your best matches
@@ -485,8 +494,12 @@ export function Planet() {
       if (act) {
         actChar = charFor(act.seed, act.c)
         const s = w2s(act.x, act.y), hr = Math.max(8, cam.s * vm() * 0.0042 + 6 * DPR)
-        ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.5 * DPR
-        rrect(s[0] - hr, s[1] - hr, hr * 2, hr * 2, hr * 0.3); ctx.stroke()
+        // Only show selection ring when settled (>0.4s since last pan/zoom) — suppresses
+        // the constant flashing ring as it jumps face-to-face during active movement.
+        if (t - lastMoveT > 0.4) {
+          ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.5 * DPR
+          rrect(s[0] - hr, s[1] - hr, hr * 2, hr * 2, hr * 0.3); ctx.stroke()
+        }
         const id = act.seed
         if (id !== candId) { candId = id; candAt = t }
         else if (audioStarted && !inCallRef.current && id !== spokenId && t - candAt > 0.45 && cam.s > 14) { spokenId = id; speak(actChar) }

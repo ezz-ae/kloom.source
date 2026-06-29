@@ -14,6 +14,7 @@ import { canListen } from "@/lib/voice-once"
 import { Face } from "@/components/airroom/Face"
 import { VoiceWave } from "@/components/airroom/VoiceWave"
 import { isPro, getProToken } from "@/lib/airroom/pro"
+import { getCredits } from "@/lib/airroom/credits"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 
@@ -73,6 +74,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [muted, setMuted] = useState(false)
   const [humanNote, setHumanNote] = useState(false)
   const [pro] = useState(() => isPro())
+  const [credits] = useState(() => pro ? Infinity : getCredits())
   const [vibe, setVibe] = useState("")
   const [vibeEdit, setVibeEdit] = useState(false)
   const [showPro, setShowPro] = useState(false)
@@ -200,6 +202,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     const parting = PARTING[(msgs.length + cluster.host.length) % PARTING.length]
     setMsgs((m) => [...m, { who: "host", text: parting }])
     speak(parting)
+    // Catch users at the emotional peak — show the upsell mid-parting when running low
+    if (!pro && credits <= 3) setTimeout(() => setShowPro(true), 1800)
     setTimeout(() => onClose(), 4500)
   }
 
@@ -394,6 +398,20 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </button>
           <button onClick={leaveCall} aria-label="leave the call" style={{ ...optBtn, background: "rgba(251,113,133,.15)", borderColor: "rgba(251,113,133,.4)", color: "#fb7185" }}>{leaving ? "leave now" : "leave"}</button>
         </div>
+
+        {/* AIR credit counter — visible to free users, urgent amber when ≤3 */}
+        {!pro && (
+          <div
+            onClick={() => setShowPro(true)}
+            role="button"
+            style={{ textAlign: "center", fontSize: 11, letterSpacing: 0.5, cursor: "pointer", marginTop: 6,
+              color: credits <= 3 ? "#f59e0b" : "rgba(240,232,255,.25)",
+              animation: credits <= 3 ? "airpulse 2.5s ease-in-out infinite" : undefined,
+            }}
+          >
+            {credits <= 0 ? "out of AIR — unlock to keep going" : credits <= 3 ? `${credits} AIR left` : `${credits} AIR`}
+          </div>
+        )}
       </div>
 
       {/* text transcript overlay */}

@@ -66,7 +66,10 @@ export async function POST(request: Request) {
     if (r.text !== null) {
       return Response.json({ text: cleanTranscript(r.text) }, { headers: { "Cache-Control": "no-store" } })
     }
+    console.error("[stt] fal.ai failed:", r.error)
     // fal failed — fall through to RunPod/OpenAI fallbacks
+  } else {
+    console.error("[stt] FAL_KEY not set — skipping fal.ai")
   }
 
   // ── RunPod Faster-Whisper (secondary) ─────────────────────────────────────

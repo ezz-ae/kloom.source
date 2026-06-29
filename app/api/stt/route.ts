@@ -201,8 +201,9 @@ async function falWhisper(
     if (!uploadRes.ok) {
       return { text: null, error: `fal upload ${uploadRes.status}: ${(await uploadRes.text().catch(() => "")).slice(0, 200)}` }
     }
-    const { url } = (await uploadRes.json()) as { url: string }
-    if (!url) return { text: null, error: "fal upload returned no url" }
+    const uploadData = (await uploadRes.json()) as { url?: string; access_url?: string; file_url?: string }
+    const url = uploadData.url || uploadData.access_url || uploadData.file_url
+    if (!url) return { text: null, error: `fal upload: no url in response ${JSON.stringify(uploadData).slice(0, 200)}` }
 
     // Transcribe using the uploaded URL
     const res = await fetch("https://fal.run/fal-ai/whisper", {

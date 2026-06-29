@@ -100,8 +100,14 @@ export async function POST(request: Request) {
 
   // ── OpenAI-compatible fallback ────────────────────────────────────────────
   const baseUrl = (process.env.STT_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")
-  const apiKey  = process.env.STT_API_KEY || process.env.OPENAI_API_KEY || "local"
+  const apiKey  = process.env.STT_API_KEY || process.env.OPENAI_API_KEY
   const model   = process.env.STT_MODEL || "whisper-1"
+
+  // Don't attempt the call with no key — an anonymous request to OpenAI returns 401,
+  // which the client treats as a permanent failure and destroys the microphone.
+  if (!apiKey) {
+    return Response.json({ error: "STT temporarily unavailable — try again" }, { status: 503 })
+  }
 
   const upstreamForm = new FormData()
   upstreamForm.append("file", file, (file as File).name || "audio.webm")

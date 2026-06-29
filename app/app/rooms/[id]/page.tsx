@@ -1266,18 +1266,14 @@ function RoomContent() {
                     {opt.type === "toggle" && (
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground/60">{(opt.id === 'restriction_mode' || opt.id === 'export_decision') && !unrestrictedStatus ? '(Paid feature)' : ''}</span>
+                          <span />
                           <button
                             onClick={() => {
-                              if ((opt.id === 'restriction_mode' || opt.id === 'export_decision') && !unrestrictedStatus) {
-                                // Show upsell? For now just don't toggle
-                                return
-                              }
                               setOptionValues((prev) => ({ ...prev, [opt.id]: !(optionValues[opt.id] ?? opt.defaultValue) }))
                             }}
-                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 ${
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
                               (optionValues[opt.id] ?? opt.defaultValue) ? "bg-amber-500" : "bg-foreground/10"
-                            } ${(opt.id === 'restriction_mode' || opt.id === 'export_decision') && !unrestrictedStatus ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+                            }`}
                           >
                             <span
                               className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform ${
@@ -1286,6 +1282,9 @@ function RoomContent() {
                             />
                           </button>
                         </div>
+                        {(opt.id === 'restriction_mode' || opt.id === 'export_decision') && !unrestrictedStatus && (optionValues[opt.id] ?? opt.defaultValue) && (
+                          <UnrestrictedUpsell context={room.name} />
+                        )}
                         {opt.id === 'export_decision' && (optionValues.export_decision || (optionValues[opt.id] ?? opt.defaultValue)) && (
                           <button 
                             onClick={generateDecisionPrompt}
@@ -1410,7 +1409,7 @@ function RoomContent() {
                             return next
                           })
                         }}
-                        title={disabledAI.has(rp.name) ? "Enable in turns" : "Disable in turns"}
+                        title={disabledAI.has(rp.name) ? "Unmute — include in replies" : "Mute — skip their turn"}
                         className={`p-1.5 rounded-lg border transition-all ${
                           !unrestrictedStatus ? "opacity-30 grayscale cursor-not-allowed" :
                           disabledAI.has(rp.name) ? "bg-red-500/10 border-red-500/30 text-red-400" : "bg-foreground/5 border-border/50 text-muted-foreground hover:text-foreground"
@@ -1426,7 +1425,7 @@ function RoomContent() {
                           setChatMsgs(prev => prev.filter(m => m.speaker !== rp.name))
                           setTimeout(() => setResettingAI(null), 1000)
                         }}
-                        title="Recognized any problem? Reset character"
+                        title="Clear this character's message history"
                         className="p-1.5 rounded-lg border border-border/50 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
                       >
                         {resettingAI === rp.name ? <Loader2 size={12} className="animate-spin" /> : <XIcon size={12} />}
@@ -1434,44 +1433,12 @@ function RoomContent() {
                     </div>
                   </div>
 
-                  {/* Vibe Tags (Premium) */}
-                  <div className="space-y-2">
-                    <div className="text-[9px] text-muted-foreground/70 uppercase font-semibold">Active Vibes</div>
-                    <div className="flex flex-wrap gap-1">
-                      {(vibeEdits[rp.name] || []).map(tag => (
-                        <span key={tag} className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] px-1.5 py-0.5 rounded-md">
-                          {tag}
-                          <button onClick={() => setVibeEdits(prev => ({...prev, [rp.name]: prev[rp.name].filter(t => t !== tag)}))}>
-                            <XIcon size={8} />
-                          </button>
-                        </span>
-                      ))}
-                      {!unrestrictedStatus ? (
-                        <span className="text-[9px] text-muted-foreground/40">(Premium only)</span>
-                      ) : (
-                        <select 
-                          onChange={(e) => {
-                            const val = e.target.value; if (!val) return
-                            setVibeEdits(prev => ({...prev, [rp.name]: Array.from(new Set([...(prev[rp.name] || []), val]))}))
-                            e.target.value = ""
-                          }}
-                          className="bg-transparent border-none text-[10px] text-amber-500/60 focus:ring-0 cursor-pointer"
-                        >
-                          <option value="">+ Add Vibe</option>
-                          {VIBE_TAGS.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      )}
-                    </div>
-                  </div>
                 </div>
               ))}
 
-              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-                <div className="text-[10px] text-amber-500/70 font-semibold mb-1 italic">Recognized any problem?</div>
-                <p className="text-[9px] text-muted-foreground/60 leading-relaxed">
-                  Reset characters to fix language, volume, or voice drift. Premium vibes override base behaviors.
-                </p>
-              </div>
+              <p className="text-[9px] text-muted-foreground/45 text-center leading-relaxed px-2">
+                mute a character to skip their turn · clear to restart their memory
+              </p>
             </div>
           </div>
         </div>

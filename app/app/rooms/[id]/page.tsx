@@ -31,7 +31,6 @@ import { GroupVoice } from "@/components/widgets/GroupVoice"
 import { TopUpSlider } from "@/components/widgets/TopUpSlider"
 import { UnrestrictedUpsell } from "@/components/widgets/UnrestrictedUpsell"
 import { SolanaWalletProvider } from "@/components/solana-wallet-provider"
-import { EXPERTS } from "@/lib/experts"
 import {
   makeSessionId, resolveHandle, joinSession, colorFor,
   type Participant, type WireMessage,
@@ -40,8 +39,24 @@ import "@solana/wallet-adapter-react-ui/styles.css"
 import {
   Mic, MicOff, PhoneOff, Phone, Send, MessageSquare,
   Zap, Settings2, ChevronLeft, Loader2, Copy, Check,
-  Volume2, VolumeX, UserPlus, Link2, Bot, X as XIcon, Globe,
+  Volume2, VolumeX, UserPlus, Link2, X as XIcon, Globe,
 } from "lucide-react"
+
+// Suggested vibes per room category — shown automatically in the empty state.
+const CATEGORY_VIBES: Record<string, string[]> = {
+  trading:           ["Intense", "Confident", "Brutally Honest", "Stoic", "Aggressive", "Deadpan"],
+  creator:           ["Playful", "Hyper-Active", "Chaotic", "Confident", "Sarcastic", "Bubbly"],
+  professional:      ["Confident", "Stoic", "Brutally Honest", "Proper", "Intense", "Deadpan"],
+  social:            ["Playful", "Warm", "Sarcastic", "Bubbly", "Chaotic", "Flirty"],
+  romantic:          ["Warm", "Flirty", "Seductive", "Nurturing", "Shy", "Intense"],
+  dark:              ["Dominant", "Intense", "Mysterious", "Cold", "Aggressive", "Breathless"],
+  philosophy:        ["Poetic", "Stoic", "Intense", "Mysterious", "Cynical", "Melancholy"],
+  fantasy:           ["Mysterious", "Whimsical", "Dominant", "Intense", "Poetic", "Playful"],
+  workshop:          ["Brutally Honest", "Confident", "Stoic", "Intense", "Proper", "Deadpan"],
+  "co-intelligence": ["Confident", "Brutally Honest", "Intense", "Cynical", "Stoic", "Mysterious"],
+  "zero-memory":     ["Mysterious", "Playful", "Warm", "Intense", "Chaotic", "Confident"],
+  famous:            ["Intense", "Confident", "Poetic", "Chaotic", "Stoic", "Playful"],
+}
 
 // Keyed on SeatModel so every backend has a badge — a missing key is now a
 // compile error instead of a runtime `.cls` crash.
@@ -216,9 +231,11 @@ function RoomContent() {
   const broadcastRef = useRef<((m: WireMessage) => void) | null>(null)
   const seenMsgIds   = useRef<Set<string>>(new Set())
 
-  // ── Invited AI characters (added on top of room.personas) ──
-  const [extraAI, setExtraAI]   = useState<RoomPersona[]>([])
-  const [addAIOpen, setAddAIOpen] = useState(false)
+  // ── Invited AI characters (legacy, no longer surfaced in UI) ──
+  const [extraAI] = useState<RoomPersona[]>([])
+
+  // ── Room-level vibe — applies to all personas in this room ──
+  const [roomVibe, setRoomVibe] = useState<string | null>(null)
 
   // ── Speak AI replies aloud during a group voice call ──
   const aiVoiceOnRef = useRef(false)
@@ -373,7 +390,7 @@ function RoomContent() {
         model:         rp.model          ?? "local",
         gender:        rp.gender         ?? preset?.gender        ?? "female",
         adult:         optionValues.restriction_mode === true ? "yes" : ((rp as any).adult ?? (preset as any)?.adult),
-        vibe_tags:     vibeEdits[rp.name] ?? [],
+        vibe_tags:     [...(vibeEdits[rp.name] ?? []), ...(roomVibe ? [roomVibe] : [])],
         ...( (rp as any).domain ? {
           // expert-style invited seat: pass expert fields through for kloom_expert
           domain: (rp as any).domain, expertise: (rp as any).expertise,
@@ -510,7 +527,7 @@ function RoomContent() {
               language: userLangRef.current,
               category: room.category,
               adult: optionValues.restriction_mode === true ? "yes" : (speaker as any).adult,
-              vibe_tags: vibeEdits[speaker.name] || []
+              vibe_tags: [...(vibeEdits[speaker.name] || []), ...(roomVibe ? [roomVibe] : [])]
             },
             premium: isSubscribed(),
             unrestricted: hasUnrestricted(),
@@ -777,11 +794,13 @@ function RoomContent() {
           </div>
         )}
 
-        {/* Add AI */}
-        <button onClick={() => setAddAIOpen(true)} title="Invite an AI character"
-          className="flex items-center gap-1 text-xs font-semibold bg-foreground/5 border border-border/50 hover:bg-foreground/10 px-2.5 py-1.5 rounded-xl transition-colors text-foreground/70">
-          <Bot size={13} /> <span className="hidden md:inline">Add AI</span>
-        </button>
+        {/* Active room vibe — shows when set; cleared by clicking */}
+        {roomVibe && (
+          <button onClick={() => setRoomVibe(null)} title="Clear room vibe"
+            className="flex items-center gap-1 text-xs font-semibold bg-amber-500/15 border border-amber-500/30 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-300 px-2.5 py-1.5 rounded-xl transition-colors text-amber-300">
+            ✦ <span className="hidden md:inline">{roomVibe}</span>
+          </button>
+        )}
 
         {/* Invite — only when the room's policy allows it */}
         {canInvite && (
@@ -891,37 +910,6 @@ function RoomContent() {
         </div>
       )}
 
-      {/* ── Add AI modal ── */}
-      {addAIOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setAddAIOpen(false)}>
-          <div className="bg-stone-900 border border-border/50 rounded-3xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-bold text-lg flex items-center gap-2"><Bot size={18} className="text-amber-400" /> Invite an AI character</h3>
-              <button onClick={() => setAddAIOpen(false)} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">They join the conversation and respond in turn with everyone else.</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {EXPERTS.filter((e) => !allRoomPersonas.some((p) => p.name === e.name)).map((e) => (
-                <button key={e.id}
-                  onClick={() => {
-                    setExtraAI((prev) => [...prev, {
-                      name: e.name, role: e.tagline, voice: e.voice, model: "local",
-                      personality: e.expertise, speakingStyle: "In-character expert",
-                      // expert fields for kloom_expert routing
-                      ...( { category: "expert", domain: e.domain, expertise: e.expertise, outputFormat: e.outputFormat, forbidden: e.forbidden, tools: e.tools } as any ),
-                    } as RoomPersona])
-                    setAddAIOpen(false)
-                  }}
-                  className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/[0.03] border border-border/30 hover:bg-white/[0.08] hover:border-white/15 transition-all text-center">
-                  <span className="text-2xl">{e.emoji}</span>
-                  <span className="text-xs font-bold leading-tight">{e.name}</span>
-                  <span className="text-[10px] text-muted-foreground line-clamp-1">{e.tagline}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Main content ── */}
       <div className="flex-1 flex overflow-hidden">
@@ -951,6 +939,27 @@ function RoomContent() {
                     Multi-AI room — each reply comes from a different model working together.
                   </p>
                 )}
+
+                {/* Vibe suggestions — surface automatically, no button press needed */}
+                {!roomVibe ? (
+                  <div className="flex flex-col items-center gap-2 mt-1">
+                    <p className="text-[10px] text-foreground/35 uppercase tracking-wider font-semibold">set the vibe</p>
+                    <div className="flex flex-wrap justify-center gap-1.5 max-w-xs">
+                      {(CATEGORY_VIBES[room.category] ?? ["Intense", "Warm", "Playful", "Mysterious", "Confident", "Sarcastic"]).map((v) => (
+                        <button key={v} onClick={() => setRoomVibe(v)}
+                          className="text-[11px] font-semibold px-3 py-1.5 rounded-full bg-foreground/5 border border-border/40 hover:bg-amber-500/15 hover:border-amber-500/40 hover:text-amber-300 transition-all text-foreground/55">
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setRoomVibe(null)}
+                    className="text-[11px] font-semibold px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 hover:bg-red-500/10 hover:border-red-500/20 hover:text-red-300 transition-all text-amber-300">
+                    ✦ {roomVibe} · tap to clear
+                  </button>
+                )}
+
                 <p className="text-[11px] text-foreground/45">Start the conversation or join the voice call</p>
               </div>
             )}

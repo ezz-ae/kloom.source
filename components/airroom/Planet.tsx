@@ -395,23 +395,29 @@ export function Planet() {
           ctx.strokeStyle = active ? `hsla(${co.h},80%,78%,${0.44 + 0.28 * breathe})` : `hsla(${co.h},60%,66%,0.07)`
           ctx.lineWidth = (active ? 1.8 : 0.7) * DPR
           rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.stroke()
-          // life inside: a scatter of voices drifting and twinkling — "thousands of voices"
-          const vn = 7
-          for (let i = 0; i < vn; i++) {
-            const a = (i / vn) * 6.283 + c * 0.9
-            const rr = ch * (0.28 + 0.5 * ifrac(ihash(c * 31 + i, 7)))
-            const vx = cp[0] + Math.cos(a + t * 0.24) * rr
-            const vy = cp[1] + Math.sin(a * 1.27 + t * 0.21) * rr * 0.9
-            const tw = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 2.1 + i * 1.7 + c))
-            ctx.fillStyle = `hsla(${co.h},85%,82%,${tw * 0.8})`
-            ctx.beginPath(); ctx.arc(vx, vy, 1.7 * DPR, 0, 6.283); ctx.fill()
+          // people inside — animated orbs that read as a crowd, not a label
+          const pn = 16
+          for (let i = 0; i < pn; i++) {
+            const ph = ihash(c * 137 + i, i * 29 + c * 11)
+            const baseA = (i / pn) * 6.283 + c * 0.9
+            const driftPh = ifrac(ihash(ph, 3)) * 6.283
+            const radFrac = 0.16 + 0.56 * ifrac(ph)
+            const rr = ch * radFrac
+            const spd = 0.10 + ifrac(ihash(ph, 7)) * 0.16
+            const vx = cp[0] + Math.cos(baseA + t * spd + driftPh) * rr
+            const vy = cp[1] + Math.sin(baseA * 1.27 + t * (spd * 0.85) + driftPh * 0.7) * rr * 0.86
+            const orbR = (3.2 + ifrac(ihash(ph, 17)) * 5.2) * DPR
+            const phue = co.h + (ifrac(ihash(ph, 5)) * 38 - 19)
+            const pulse = 0.52 + 0.48 * Math.sin(t * (1.5 + ifrac(ihash(ph, 13)) * 1.3) + i * 0.85 + c)
+            ctx.fillStyle = `hsla(${phue},80%,72%,${pulse})`
+            ctx.beginPath(); ctx.arc(vx, vy, orbR, 0, 6.283); ctx.fill()
           }
-          // one word — the world's essence (the full vibe lives in the AI, not the sky)
+          // world label: subtle hint at the bottom of the blob, not a title card
           if (cam.s < 8) {
             ctx.textAlign = "center"
-            ctx.fillStyle = `hsla(${co.h},60%,88%,.97)`; ctx.font = `600 ${13 * DPR}px ${FF}`
-            ctx.fillText(co.label, cp[0], cp[1] + 4.5 * DPR)
-            if (co.adult) { ctx.fillStyle = `hsla(${co.h},80%,76%,.92)`; ctx.font = `700 ${9.5 * DPR}px ${FF}`; ctx.fillText("18+", cp[0], cp[1] - 16 * DPR) }
+            if (co.adult) { ctx.fillStyle = `hsla(${co.h},80%,76%,.72)`; ctx.font = `700 ${8.5 * DPR}px ${FF}`; ctx.fillText("18+", cp[0], cp[1] - ch * 0.58) }
+            ctx.fillStyle = `hsla(${co.h},52%,88%,.42)`; ctx.font = `500 ${10.5 * DPR}px ${FF}`
+            ctx.fillText(co.label, cp[0], cp[1] + ch * 0.72)
             ctx.textAlign = "left"
           }
         }
@@ -451,7 +457,7 @@ export function Planet() {
               const fy = ry + ((cyi + 0.5) * chh - BOX / 2) + (ifrac(ihash(fh, i + 11)) - 0.5) * chh * 0.3
               const fs = w2s(fx, fy)
               if (fs[0] < -40 || fs[1] < -40 || fs[0] > W + 40 || fs[1] > H + 40) continue
-              const r = Math.max(2, Math.min(m2 * 0.0040, Math.min(cw, chh) * m2 * 0.42)), fdc = Math.hypot(fs[0] - W / 2, fs[1] - H / 2)
+              const r = Math.max(2.5, Math.min(m2 * 0.0058, Math.min(cw, chh) * m2 * 0.50)), fdc = Math.hypot(fs[0] - W / 2, fs[1] - H / 2)
               if (r > 2.2 && fdc < best) { best = fdc; act = { c, x: fx, y: fy, seed: fh } }
               const fhue = co.h + (ifrac(fh) * 26 - 13)
               const ball = () => { ctx.beginPath(); ctx.arc(fs[0], fs[1], r, 0, 6.283) }   // faces are round balls — no name labels

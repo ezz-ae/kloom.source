@@ -34,7 +34,18 @@ export async function POST(request: Request) {
   // so we never send an empty request.
   const ttsText = shapeForSpeech(text) || text.replace(/\s+/g, " ").trim().slice(0, 1000)
 
-  // ── ElevenLabs — premium natural TTS (tier 0) ─────────────────────────────
+  // ── Sesame CSM-1B (fal.ai) — ultra-realistic conversational voice (tier 0) ──
+  // Activated by SESAME_TTS=1; uses the existing FAL_KEY (same as image gen).
+  // CSM-1B is Sesame's open-source conversational speech model — sounds strikingly
+  // human. Runs first when enabled; ElevenLabs / CosyVoice / Fish are fallbacks.
+  const falKey = process.env.FAL_KEY
+  if (falKey && process.env.SESAME_TTS === "1") {
+    const csm = await sesameCSMTTS(ttsText, falKey, gender)
+    if (csm) return new Response(csm, { status: 200, headers: { "Content-Type": "audio/wav", "Cache-Control": "no-store", "X-TTS-Provider": "sesame-csm" } })
+    // fall through to ElevenLabs
+  }
+
+  // ── ElevenLabs — premium natural TTS (tier 1) ─────────────────────────────
   // The most natural voice available; runs first when ELEVENLABS_API_KEY is set,
   // and falls through to CosyVoice → Fish on any failure. The voice is picked
   // deterministically per persona from a preset pool, so adjacent characters
@@ -298,6 +309,38 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
 // we can see WHY it fell back to Fish (e.g. a 401 missing-permissions) without ever
 // handling the key directly.
 let elDiag = ""
+
+// ── Sesame CSM-1B via fal.ai ──────────────────────────────────────────────────
+// CSM (Conversational Speech Model) generates strikingly human-sounding speech.
+// Uses the sync fal.run endpoint (same as image gen) — blocks until ready (≤30s).
+// speaker_id 0 = female, 1 = male (CSM's two default voices).
+// Returns WAV bytes, or null on any failure (caller falls through to ElevenLabs).
+async function sesameCSMTTS(text: string, falKey: string, gender?: string): Promise<ArrayBuffer | null> {
+  const speakerId = gender === "male" ? 1 : 0
+  try {
+    const res = await fetch("https://fal.run/fal-ai/csm-1b", {
+      method: "POST",
+      headers: { Authorization: `Key ${falKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        scene: [{ text, speaker_id: speakerId }],
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
+    if (!res.ok) {
+      console.error("[tts] sesame-csm failed:", res.status, (await res.text().catch(() => "")).slice(0, 200))
+      return null
+    }
+    const data = await res.json() as { audio?: { url?: string } }
+    const audioUrl = data?.audio?.url
+    if (!audioUrl) { console.error("[tts] sesame-csm: no audio URL in response"); return null }
+    const audioRes = await fetch(audioUrl, { signal: AbortSignal.timeout(15000) })
+    if (!audioRes.ok) return null
+    return audioRes.arrayBuffer()
+  } catch (e) {
+    console.error("[tts] sesame-csm error:", e instanceof Error ? e.message : String(e))
+    return null
+  }
+}
 
 // CosyVoice3 RunPod serverless endpoint.
 // Input:  { tts_text, spk_id, speed }

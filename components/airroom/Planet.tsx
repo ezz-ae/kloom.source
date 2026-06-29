@@ -32,14 +32,16 @@ import { track } from "@/lib/airraw/track"
 // `v` is the full vibe (feeds the AI persona + deeper HUD); `label` is the single
 // word the world wears at orbit — one word, not three, so the sky stays quiet.
 interface Continent { n: string; v: string; label: string; h: number; f: number; adult?: boolean }
+// Worlds are situations, not categories. No labels — the color IS the language.
+// Hues run water (202 cool-blue) → fire (2 deep-red) so the planet is a visual gradient.
 const CONTINENTS: Continent[] = [
-  { n: "still water", v: "study · deep focus", label: "focus", h: 193, f: 0.12 },
-  { n: "the workshop", v: "build · make things", label: "build", h: 150, f: 0.24 },
-  { n: "the trading floor", v: "markets · risk · calls", label: "markets", h: 128, f: 0.33 },
-  { n: "the arena", v: "games · chess · play", label: "play", h: 262, f: 0.40 },
-  { n: "the playground", v: "dares · chaos · fun", label: "chaos", h: 322, f: 0.46 },
-  { n: "the commons", v: "social · warm", label: "warm", h: 45, f: 0.52 },
-  { n: "the late floor", v: "night · close", label: "night", h: 18, f: 0.62 },
+  { n: "a quiet corner", v: "late café · still · no one talking", label: "", h: 202, f: 0.12 },
+  { n: "the side street", v: "3 people standing outside · city noise · waiting", label: "", h: 168, f: 0.24 },
+  { n: "the office, late", v: "few left · heads down · something building", label: "", h: 132, f: 0.33 },
+  { n: "a bar, early", v: "just filling up · easy · not loud yet", label: "", h: 58, f: 0.40 },
+  { n: "a restaurant", v: "close table · it's a date · someone just laughed", label: "", h: 26, f: 0.46 },
+  { n: "a rooftop, late", v: "city below · drinks · strangers feel close tonight", label: "", h: 10, f: 0.52 },
+  { n: "3am", v: "last call · no one going home · nothing to lose", label: "", h: 2, f: 0.62 },
   { n: "the deep", v: "raw · 18+", label: "raw", h: 300, f: 0.86, adult: true },
 ]
 
@@ -52,7 +54,7 @@ const FACES = 14
 const PR = 0.40, CX = 0.5, CY = 0.5
 
 const rnd = (s: number) => { const x = Math.sin(s * 127.1) * 43758.5453; return x - Math.floor(x) }
-function tempLabel(f: number) { if (f < 0.2) return "water · calm"; if (f < 0.42) return "teal · focused"; if (f < 0.6) return "warm · social"; if (f < 0.78) return "amber · loud"; return "the deep · 18+" }
+function tempLabel(f: number) { if (f < 0.3) return "💧"; if (f < 0.48) return "〜"; if (f < 0.64) return "🔶"; return "🔥" }
 
 // The zoom IS the group-size dial: the group you'd join shrinks as you descend.
 // Per-location jitter gives rooms their own sizes (one is 39, the next 52, …).
@@ -573,6 +575,12 @@ export function Planet() {
             <div style={{ fontSize: 12, letterSpacing: 4, color: "#7fd6c0", textTransform: "uppercase" }}>airraw</div>
             <div style={{ fontSize: "clamp(26px, 8vw, 38px)", fontWeight: 500, lineHeight: 1.15, margin: "13px 0 24px" }}>it&apos;s the now.</div>
             {liveCount > 0 && <div style={{ fontSize: 12, color: "rgba(127,214,192,.55)", letterSpacing: 0.5, marginBottom: 20 }}><span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#7fd6c0", marginRight: 6, verticalAlign: "middle", animation: "livepulse 2.6s ease-in-out infinite" }} />{liveCount} voices live now</div>}
+            {/* water → fire gradient — no label, the color teaches itself */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 22 }}>
+              <span style={{ fontSize: 14, opacity: 0.55 }}>💧</span>
+              <div style={{ width: 120, height: 3, borderRadius: 2, background: "linear-gradient(90deg, hsl(202,68%,60%), hsl(168,62%,56%), hsl(132,60%,52%), hsl(58,72%,58%), hsl(26,82%,58%), hsl(10,88%,56%), hsl(2,88%,52%))", opacity: 0.45 }} />
+              <span style={{ fontSize: 14, opacity: 0.55 }}>🔥</span>
+            </div>
             <button onClick={() => { openingRef.current = ""; startFnRef.current() }} style={{ fontSize: 16, fontWeight: 600, minHeight: 56, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "0 32px", cursor: "pointer", boxShadow: "0 12px 32px -8px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>tap to fall in →</button>
           </div>
           <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 18px)", left: 0, right: 0, textAlign: "center", pointerEvents: "auto", fontSize: 11, color: "#5f7080", letterSpacing: 0.5 }}>

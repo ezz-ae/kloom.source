@@ -120,7 +120,7 @@ export function RoomCard({ p, onEnter, onClose, lang }: { p: RoomPreview; onEnte
             <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 8, padding: "32px 16px 13px", background: "linear-gradient(transparent, rgba(4,6,12,.92))" }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: `hsl(${p.hue},65%,78%)` }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: tint, boxShadow: `0 0 8px ${tint}`, animation: "rcbreathe 2.6s ease-in-out infinite" }} />
-                {p.vibe}{p.adult ? " · 18+" : ""}
+                {p.adult ? "18+" : ""}
               </div>
               <div style={{ fontSize: 19, fontWeight: 500, marginTop: 3 }}>{lead.host}</div>
               <div style={{ fontSize: 13, color: "#cfe0ee", fontStyle: "italic", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", transition: "opacity .4s" }}>&ldquo;{overheard}&rdquo;</div>

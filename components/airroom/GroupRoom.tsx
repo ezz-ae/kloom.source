@@ -274,7 +274,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
                 <span key={i} style={{ width: 3, height: 12, borderRadius: 2, background: muted ? "#46586a" : "#7fd6c0", transformOrigin: "center", animation: (speaking && !muted) ? `greq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)" }} />
               ))}
             </span>
-            <span style={{ fontSize: 12, color: "#7f93a5" }}>{muted ? "muted · text only" : tempLabel}</span>
+            <span style={{ fontSize: 14 }}>{muted ? <span style={{ fontSize: 12, color: "#7f93a5" }}>muted · text only</span> : tempLabel}</span>
           </div>
         </div>
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>

@@ -7,7 +7,7 @@
  * Only the lead is named — the crowd stays anonymous. The cast is the SAME deterministic
  * crowd you'll meet inside. "Drift in" / "say hi" opens the real room.
  */
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { Face } from "@/components/airroom/Face"
 
@@ -26,7 +26,7 @@ const BG_SPOTS = [
   { left: 70, top: 56, scale: 0.54, blur: 2.3, z: 1 },
 ]
 
-export function RoomCard({ p, onEnter, onClose }: { p: RoomPreview; onEnter: () => void; onClose: () => void }) {
+export function RoomCard({ p, onEnter, onClose, lang }: { p: RoomPreview; onEnter: () => void; onClose: () => void; lang?: string }) {
   // SAME deterministic crowd you'll meet inside (preserve the seed-derived cast).
   const members = useMemo<Cluster[]>(() => {
     if (p.kind === "voice") return [makeCharacter((p.seed >>> 0) + 7, p.f)]
@@ -49,6 +49,44 @@ export function RoomCard({ p, onEnter, onClose }: { p: RoomPreview; onEnter: () 
   const overheard = lead?.lines?.[lineIdx] ?? lead?.lines?.[0] ?? ""
 
   const tint = `hsl(${p.hue},70%,60%)`
+
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null)
+  const [previewState, setPreviewState] = useState<"idle" | "loading" | "playing">("idle")
+  const previewTokRef = useRef(0)
+
+  const togglePreview = async () => {
+    if (previewState === "playing") {
+      previewAudioRef.current?.pause()
+      previewAudioRef.current = null
+      setPreviewState("idle")
+      return
+    }
+    if (previewState === "loading") return
+    setPreviewState("loading")
+    const tok = ++previewTokRef.current
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: lead.lines[0], personaName: lead.host, gender: lead.gender, language: lang || "English", voiceId: (lead as any).voiceId }),
+      })
+      if (!res.ok || tok !== previewTokRef.current) { setPreviewState("idle"); return }
+      const url = URL.createObjectURL(await res.blob())
+      if (tok !== previewTokRef.current) { URL.revokeObjectURL(url); setPreviewState("idle"); return }
+      const audio = new Audio(url)
+      previewAudioRef.current = audio
+      audio.onended = () => { URL.revokeObjectURL(url); if (tok === previewTokRef.current) setPreviewState("idle") }
+      audio.onerror = () => { URL.revokeObjectURL(url); if (tok === previewTokRef.current) setPreviewState("idle") }
+      await audio.play().catch(() => {})
+      if (tok === previewTokRef.current) setPreviewState("playing")
+    } catch {
+      if (tok === previewTokRef.current) setPreviewState("idle")
+    }
+  }
+
+  useEffect(() => {
+    return () => { previewTokRef.current++; previewAudioRef.current?.pause(); previewAudioRef.current = null }
+  }, [])
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 22, background: "rgba(4,6,12,.74)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", padding: "max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
@@ -102,7 +140,16 @@ export function RoomCard({ p, onEnter, onClose }: { p: RoomPreview; onEnter: () 
           <button onClick={onEnter} style={{ width: "100%", minHeight: 50, fontSize: 15, fontWeight: 600, color: "#eef4f8", background: `hsla(${p.hue},60%,52%,.22)`, border: `.5px solid hsla(${p.hue},72%,66%,.5)`, borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", backdropFilter: "blur(4px)" }}>
             {isVoice ? `Call ${lead.host}` : "Enter"}
           </button>
-          <button onClick={onClose} style={{ width: "100%", minHeight: 44, fontSize: 13, color: "#9fb2c4", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>not now</button>
+          <button onClick={togglePreview} style={{ width: "100%", minHeight: 44, fontSize: 13, color: previewState === "playing" ? tint : "#9fb2c4", background: "transparent", border: `.5px solid ${previewState === "playing" ? `hsla(${p.hue},60%,60%,.35)` : "rgba(255,255,255,.12)"}`, borderRadius: 14, cursor: previewState === "loading" ? "default" : "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, transition: "color .2s, border-color .2s" }}>
+            {previewState === "loading" ? (
+              <><span style={{ display: "inline-block", width: 10, height: 10, border: `1.5px solid rgba(159,178,196,.3)`, borderTopColor: "#9fb2c4", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>loading…</>
+            ) : previewState === "playing" ? (
+              <>■ stop</>
+            ) : (
+              <>▶ hear their voice</>
+            )}
+          </button>
+          <button onClick={onClose} style={{ width: "100%", minHeight: 44, fontSize: 13, color: "#6b7d8e", background: "transparent", border: "none", borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>not now</button>
         </div>
       </div>
     </div>

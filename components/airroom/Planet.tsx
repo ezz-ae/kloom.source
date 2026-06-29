@@ -163,6 +163,22 @@ export function Planet() {
   useEffect(() => { try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ } }, [])
   useEffect(() => { track("airraw_land", { surface: "planet" }) }, [])
 
+  // Live-voices counter — seeded from wall-clock hour so visitors see the same ballpark,
+  // plus a slow local jitter so it feels alive. No server needed.
+  const [liveCount, setLiveCount] = useState(0)
+  useEffect(() => {
+    const compute = () => {
+      const h = Math.floor(Date.now() / 3600000)
+      const base = 24 + (((h * 1234567 + 890123) % 100003) % 52)   // 24–75, stable per hour
+      const tick = Math.floor(Date.now() / 28000)                    // changes every ~28 s
+      const jitter = ((tick * 31337) % 17) - 8                       // −8 to +8
+      return Math.max(14, base + jitter)
+    }
+    setLiveCount(compute())
+    const iv = setInterval(() => setLiveCount(compute()), 28000)
+    return () => clearInterval(iv)
+  }, [])
+
   // Only the 8 continent anchors are fixed; rooms + faces are generated procedurally
   // for whatever's on screen (see the loop), so the world is infinite.
   // The 8 worlds, unboxed: spread across a tall ellipse so they fill the sky on a
@@ -533,9 +549,11 @@ export function Planet() {
           copy, no input that fakes routing. Just the name and one way in. */}
       {!started && !intro && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+          <style>{`@keyframes livepulse{0%,100%{opacity:.45}50%{opacity:1}}`}</style>
           <div style={{ pointerEvents: "auto", textAlign: "center", color: "#eef4f8", animation: "skyOpen .8s ease both" }}>
             <div style={{ fontSize: 12, letterSpacing: 4, color: "#7fd6c0", textTransform: "uppercase" }}>airraw</div>
-            <div style={{ fontSize: "clamp(26px, 8vw, 38px)", fontWeight: 500, lineHeight: 1.15, margin: "13px 0 28px" }}>it&apos;s the now.</div>
+            <div style={{ fontSize: "clamp(26px, 8vw, 38px)", fontWeight: 500, lineHeight: 1.15, margin: "13px 0 24px" }}>it&apos;s the now.</div>
+            {liveCount > 0 && <div style={{ fontSize: 12, color: "rgba(127,214,192,.55)", letterSpacing: 0.5, marginBottom: 20 }}><span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#7fd6c0", marginRight: 6, verticalAlign: "middle", animation: "livepulse 2.6s ease-in-out infinite" }} />{liveCount} voices live now</div>}
             <button onClick={() => { openingRef.current = ""; startFnRef.current() }} style={{ fontSize: 16, fontWeight: 600, minHeight: 56, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "0 32px", cursor: "pointer", boxShadow: "0 12px 32px -8px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>tap to fall in →</button>
           </div>
           <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 18px)", left: 0, right: 0, textAlign: "center", pointerEvents: "auto", fontSize: 11, color: "#5f7080", letterSpacing: 0.5 }}>
@@ -556,7 +574,7 @@ export function Planet() {
 
       {started && hud.hearing && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
 
-      {preview && <RoomCard p={preview} onEnter={() => enterRoom(preview)} onClose={() => setPreview(null)} />}
+      {preview && <RoomCard p={preview} onEnter={() => enterRoom(preview)} onClose={() => setPreview(null)} lang={lang} />}
 
       {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening("") }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 

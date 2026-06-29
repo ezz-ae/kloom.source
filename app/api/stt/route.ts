@@ -26,14 +26,34 @@ const HALLUCINATIONS = new Set([
   "please subscribe", "subscribe", "like and subscribe", "youre welcome",
   "music", "silence", "applause", "foreign", "the end",
 ])
+
+// Arabic Whisper hallucinations — phrases that appear in Arabic YouTube credits,
+// subtitle files, and show endings that Whisper regurgitates on silence.
+// "ترجمة نانسي قنقر" is the most notorious: an actress whose name appeared in
+// thousands of Arabic subtitle credits in training data.
+const ARABIC_HALLUCINATIONS = new Set([
+  "شكرا", "شكراً", "شكرا لكم", "شكراً لكم", "شكرا جزيلا", "شكراً جزيلاً",
+  "شكراً جزيلاً على مشاهدتكم", "شكرا على المشاهدة",
+  "ترجمة نانسي قنقر", "ترجمه نانسي قنقر", "ترجمة: نانسي قنقر",
+  "ترجمة وتعريب نانسي قنقر", "نانسي قنقر",
+  "استمر في المشاهدة", "تابع المشاهدة", "شاهد الجزء الثاني",
+  "اشترك في القناة", "اشترك الآن", "لايك واشترك",
+  "موسيقى", "صوت", "صمت", "تصفيق", "ضحك",
+  "تابعونا", "للمزيد", "نهاية",
+])
+
 function cleanTranscript(text: string | null | undefined): string {
   const t = (text || "").trim()
   if (!t) return ""
   // Strip non-ASCII to check against English hallucination phrases.
-  // If nothing remains after stripping, the text is non-Latin (Arabic, Chinese, etc.)
-  // — skip the hallucination filter entirely so real speech isn't silently dropped.
   const n = t.toLowerCase().replace(/[^a-z\s]/g, "").replace(/\s+/g, " ").trim()
-  if (!n) return t
+  if (!n) {
+    // Pure non-Latin text (Arabic, etc.) — check against language-specific hallucinations.
+    // Normalize whitespace + strip trailing punctuation for a clean match.
+    const normalized = t.replace(/\s+/g, " ").replace(/[.،؟!]+$/, "").trim()
+    if (ARABIC_HALLUCINATIONS.has(normalized)) return ""
+    return t
+  }
   if (HALLUCINATIONS.has(n)) return ""
   return t
 }
@@ -65,7 +85,14 @@ export async function POST(request: Request) {
   if (groqKey) {
     const groqForm = new FormData()
     groqForm.append("file", file, (file as File).name || "audio.webm")
-    groqForm.append("model", process.env.GROQ_STT_MODEL || "whisper-large-v3-turbo")
+    // Arabic needs the full large-v3 model — turbo sacrifices too much accuracy
+    // for non-Latin scripts and produces garbled / wrong transcriptions noticeably
+    // more often. The extra latency (~1-2s) is worth it for correctness.
+    const isArabic = language === "ar"
+    const groqModel = isArabic
+      ? (process.env.GROQ_STT_MODEL_AR || "whisper-large-v3")
+      : (process.env.GROQ_STT_MODEL || "whisper-large-v3-turbo")
+    groqForm.append("model", groqModel)
     groqForm.append("response_format", "json")
     if (language) groqForm.append("language", language)
     try {

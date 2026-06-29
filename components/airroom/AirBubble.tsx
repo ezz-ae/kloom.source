@@ -239,13 +239,24 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
       } catch { setMicHint("allow mic access to talk — or tap the keypad to type"); setHandsFree(false); return }
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
+      let sttErrors = 0
       seg = new SpeechSegmenter({
         stream,
         getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
         onLevel: (l) => { micLevelRef.current = l },
         onCapture: () => { if (!hostSpeakingRef.current) setMicHint("heard you — one sec…") },
-        onText: (t) => { if (hostSpeakingRef.current) return; setMicHint(""); if (busyRef.current) { pendingRef.current = t; return } send(t) },
-        onError: (m) => setMicHint(`couldn't catch that (${m.slice(0, 40)}) — try again`),
+        onText: (t) => { sttErrors = 0; if (hostSpeakingRef.current) return; setMicHint(""); if (busyRef.current) { pendingRef.current = t; return } send(t) },
+        onError: (m) => {
+          sttErrors++
+          if (sttErrors >= 2) {
+            // Server STT keeps failing — switch to browser recognition
+            try { seg?.destroy() } catch { /* */ }
+            seg = null; segRef.current = null
+            if (!cancelled) startBrowserFallback()
+          } else {
+            setMicHint(`couldn't catch that — try again`)
+          }
+        },
         onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!cancelled) startBrowserFallback() },
       })
       segRef.current = seg

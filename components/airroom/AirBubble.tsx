@@ -233,31 +233,28 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     }
 
     ;(async () => {
+      // Browser SpeechRecognition first — instant, free, no server round-trip.
+      // Fall back to SpeechSegmenter (server Whisper) only when browser SR isn't available
+      // (Instagram webview, Firefox, some Android browsers).
+      const w = window as any
+      const SR = w.SpeechRecognition || w.webkitSpeechRecognition
+      if (SR) { startBrowserFallback(); return }
+
+      // No browser SR — use server-side Whisper via SpeechSegmenter
       const canRecord = typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia
-      if (!canRecord) { startBrowserFallback(); return }
+      if (!canRecord) { setMicHint("voice isn't supported on this browser — tap the keypad to type"); setHandsFree(false); return }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
       } catch { setMicHint("allow mic access to talk — or tap the keypad to type"); setHandsFree(false); return }
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
-      let sttErrors = 0
       seg = new SpeechSegmenter({
         stream,
         getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
         onLevel: (l) => { micLevelRef.current = l },
         onCapture: () => { if (!hostSpeakingRef.current) setMicHint("heard you — one sec…") },
-        onText: (t) => { sttErrors = 0; if (hostSpeakingRef.current) return; setMicHint(""); if (busyRef.current) { pendingRef.current = t; return } send(t) },
-        onError: (m) => {
-          sttErrors++
-          if (sttErrors >= 2) {
-            // Server STT keeps failing — switch to browser recognition
-            try { seg?.destroy() } catch { /* */ }
-            seg = null; segRef.current = null
-            if (!cancelled) startBrowserFallback()
-          } else {
-            setMicHint(`couldn't catch that — try again`)
-          }
-        },
-        onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!cancelled) startBrowserFallback() },
+        onText: (t) => { if (hostSpeakingRef.current) return; setMicHint(""); if (busyRef.current) { pendingRef.current = t; return } send(t) },
+        onError: () => setMicHint(`couldn't catch that — try again`),
+        onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null },
       })
       segRef.current = seg
       seg.start()

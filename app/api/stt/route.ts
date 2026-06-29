@@ -225,8 +225,12 @@ async function falWhisper(
       return { text: null, error: `fal whisper ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}` }
     }
 
-    const data = (await res.json()) as { text?: string }
-    if (typeof data.text === "string") return { text: data.text.trim() }
+    const data = await res.json()
+    console.log("[stt] fal.ai response:", JSON.stringify(data).slice(0, 300))
+    const text = typeof data.text === "string" ? data.text
+               : typeof data?.output?.text === "string" ? data.output.text
+               : null
+    if (text !== null) return { text: text.trim() }
     return { text: null, error: `no text in fal response: ${JSON.stringify(data).slice(0, 200)}` }
   } catch (e) {
     return { text: null, error: e instanceof Error ? e.message : String(e) }

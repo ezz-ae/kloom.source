@@ -258,7 +258,16 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         onCapture: () => { if (!hostSpeakingRef.current) setMicHint("heard you — one sec…") },
         onText: (t) => { if (hostSpeakingRef.current) return; setMicHint(""); if (busyRef.current) { pendingRef.current = t; return } send(t) },
         onError: () => setMicHint(`couldn't catch that — try again`),
-        onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!preferWhisper && !cancelled) startBrowserFallback() },
+        onUnavailable: () => {
+          try { seg?.destroy() } catch { /* */ }
+          seg = null; segRef.current = null
+          if (!cancelled) {
+            const w = window as any
+            const SR = w.SpeechRecognition || w.webkitSpeechRecognition
+            if (SR) startBrowserFallback()
+            else { setMicHint("voice unavailable — tap the keypad to type"); setHandsFree(false) }
+          }
+        },
       })
       segRef.current = seg
       seg.start()

@@ -1,6 +1,7 @@
-// Server-side speech-to-text. Two backends supported:
-//   1. RunPod faster-whisper serverless (RUNPOD_STT_ENDPOINT_ID) — primary
-//   2. OpenAI-compatible /audio/transcriptions (STT_BASE_URL) — fallback
+// Server-side speech-to-text. Backend priority:
+//   1. Groq Whisper (GROQ_API_KEY) — fast, direct upload, no cold starts
+//   2. RunPod faster-whisper serverless (RUNPOD_STT_ENDPOINT_ID)
+//   3. OpenAI-compatible /audio/transcriptions (STT_BASE_URL) — last resort
 //
 // Browser STT fallback is handled client-side when NEXT_PUBLIC_STT_BROWSER=1.
 
@@ -59,17 +60,29 @@ export async function POST(request: Request) {
 
   const language = typeof form.get("language") === "string" ? (form.get("language") as string) : undefined
 
-  // ── fal.ai Whisper (primary) ──────────────────────────────────────────────
-  const falKey = process.env.FAL_KEY
-  if (falKey) {
-    const r = await falWhisper(file, falKey, language)
-    if (r.text !== null) {
-      return Response.json({ text: cleanTranscript(r.text) }, { headers: { "Cache-Control": "no-store" } })
+  // ── Groq Whisper (primary — fast, cheap, direct upload, no cold starts) ──
+  const groqKey = process.env.GROQ_API_KEY
+  if (groqKey) {
+    const groqForm = new FormData()
+    groqForm.append("file", file, (file as File).name || "audio.webm")
+    groqForm.append("model", process.env.GROQ_STT_MODEL || "whisper-large-v3-turbo")
+    groqForm.append("response_format", "json")
+    if (language) groqForm.append("language", language)
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${groqKey}` },
+        body: groqForm,
+        signal: AbortSignal.timeout(20000),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as { text?: string }
+        return Response.json({ text: cleanTranscript(data.text) }, { headers: { "Cache-Control": "no-store" } })
+      }
+      console.error("[stt] groq failed:", res.status, (await res.text().catch(() => "")).slice(0, 200))
+    } catch (e) {
+      console.error("[stt] groq error:", e instanceof Error ? e.message : String(e))
     }
-    console.error("[stt] fal.ai failed:", r.error)
-    // fal failed — fall through to RunPod/OpenAI fallbacks
-  } else {
-    console.error("[stt] FAL_KEY not set — skipping fal.ai")
   }
 
   // ── RunPod Faster-Whisper (secondary) ─────────────────────────────────────
@@ -181,58 +194,3 @@ async function runpodWhisper(
   }
 }
 
-// fal.ai Whisper large-v3 — pay-per-use, no cold starts, no idle workers.
-// Step 1: upload audio to fal.ai temp storage to get an HTTPS URL.
-// Step 2: pass that URL to the Whisper transcription endpoint.
-async function falWhisper(
-  file: Blob,
-  key: string,
-  language?: string,
-): Promise<{ text: string | null; error?: string }> {
-  try {
-    const headers = { Authorization: `Key ${key}` }
-
-    // Upload audio blob → get a temporary fal.ai storage URL
-    const uploadForm = new FormData()
-    uploadForm.append("file", file, (file as File).name || "audio.webm")
-    const uploadRes = await fetch("https://storage.fal.ai/upload", {
-      method: "POST",
-      headers,
-      body: uploadForm,
-      signal: AbortSignal.timeout(15000),
-    })
-    if (!uploadRes.ok) {
-      return { text: null, error: `fal upload ${uploadRes.status}: ${(await uploadRes.text().catch(() => "")).slice(0, 200)}` }
-    }
-    const uploadData = (await uploadRes.json()) as { url?: string; access_url?: string; file_url?: string }
-    const url = uploadData.url || uploadData.access_url || uploadData.file_url
-    if (!url) return { text: null, error: `fal upload: no url in response ${JSON.stringify(uploadData).slice(0, 200)}` }
-
-    // Transcribe using the uploaded URL
-    const res = await fetch("https://fal.run/fal-ai/whisper", {
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        audio_url: url,
-        task: "transcribe",
-        chunk_level: "segment",
-        ...(language ? { language } : {}),
-      }),
-      signal: AbortSignal.timeout(30000),
-    })
-
-    if (!res.ok) {
-      return { text: null, error: `fal whisper ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}` }
-    }
-
-    const data = await res.json()
-    console.log("[stt] fal.ai response:", JSON.stringify(data).slice(0, 300))
-    const text = typeof data.text === "string" ? data.text
-               : typeof data?.output?.text === "string" ? data.output.text
-               : null
-    if (text !== null) return { text: text.trim() }
-    return { text: null, error: `no text in fal response: ${JSON.stringify(data).slice(0, 200)}` }
-  } catch (e) {
-    return { text: null, error: e instanceof Error ? e.message : String(e) }
-  }
-}

@@ -38,7 +38,7 @@ function cleanTranscript(text: string | null | undefined): string {
 }
 
 export async function POST(request: Request) {
-  // Cost guard: STT bills RunPod GPU-seconds per utterance on an open mic. Gate it
+  // Cost guard: STT bills GPU-seconds per utterance on an open mic. Gate it
   // like the other billable endpoints (generous limit — a live call fires often).
   const gate = globalGate()
   if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
@@ -59,7 +59,17 @@ export async function POST(request: Request) {
 
   const language = typeof form.get("language") === "string" ? (form.get("language") as string) : undefined
 
-  // ── RunPod Faster-Whisper (primary) ───────────────────────────────────────
+  // ── fal.ai Whisper (primary) ──────────────────────────────────────────────
+  const falKey = process.env.FAL_KEY
+  if (falKey) {
+    const r = await falWhisper(file, falKey, language)
+    if (r.text !== null) {
+      return Response.json({ text: cleanTranscript(r.text) }, { headers: { "Cache-Control": "no-store" } })
+    }
+    // fal failed — fall through to RunPod/OpenAI fallbacks
+  }
+
+  // ── RunPod Faster-Whisper (secondary) ─────────────────────────────────────
   const rpSTTEndpoint = process.env.RUNPOD_STT_ENDPOINT_ID
   const rpKey         = process.env.RUNPOD_API_KEY
   if (rpSTTEndpoint && rpKey) {
@@ -67,12 +77,9 @@ export async function POST(request: Request) {
     if (r.text !== null) {
       return Response.json({ text: cleanTranscript(r.text) }, { headers: { "Cache-Control": "no-store" } })
     }
-    // RunPod is the configured primary — surface WHY it failed instead of masking it
-    // behind the (often keyless) OpenAI fallback.
     if (!process.env.STT_API_KEY && !process.env.OPENAI_API_KEY) {
-      return Response.json({ error: `RunPod STT failed: ${r.error || "unknown"}` }, { status: 502 })
+      return Response.json({ error: `STT failed: ${r.error || "unknown"}` }, { status: 502 })
     }
-    // fall through to OpenAI-compatible fallback (only if a key is actually set)
   }
 
   // ── OpenAI-compatible fallback ────────────────────────────────────────────
@@ -166,6 +173,43 @@ async function runpodWhisper(
 
     if (typeof text === "string") return { text: text.trim() }
     return { text: null, error: `no transcript in output: ${JSON.stringify(o).slice(0, 200)}` }
+  } catch (e) {
+    return { text: null, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+// fal.ai Whisper large-v3 — pay-per-use, no cold starts, no idle workers.
+async function falWhisper(
+  file: Blob,
+  key: string,
+  language?: string,
+): Promise<{ text: string | null; error?: string }> {
+  try {
+    const buf = await file.arrayBuffer()
+    const b64 = Buffer.from(buf).toString("base64")
+    const mime = (file as File).type || "audio/webm"
+    const audioUrl = `data:${mime};base64,${b64}`
+
+    const res = await fetch("https://fal.run/fal-ai/whisper", {
+      method: "POST",
+      headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        audio_url: audioUrl,
+        task: "transcribe",
+        language: language || null,
+        chunk_level: "segment",
+        version: "3",
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (!res.ok) {
+      return { text: null, error: `fal ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}` }
+    }
+
+    const data = (await res.json()) as { text?: string }
+    if (typeof data.text === "string") return { text: data.text.trim() }
+    return { text: null, error: `no text in fal response: ${JSON.stringify(data).slice(0, 200)}` }
   } catch (e) {
     return { text: null, error: e instanceof Error ? e.message : String(e) }
   }

@@ -17,6 +17,7 @@ import { isPro, getProToken } from "@/lib/airroom/pro"
 import { getCredits } from "@/lib/airroom/credits"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
+import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
 
 interface Msg { who: "host" | "you"; text: string }
 
@@ -78,6 +79,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [vibe, setVibe] = useState("")
   const [vibeEdit, setVibeEdit] = useState(false)
   const [showPro, setShowPro] = useState(false)
+  // Style profiling — once per account; 2-word choices reveal HOW the AI should talk
+  const [styleQ, setStyleQ] = useState<StyleQuestion | null>(null)
   const mutedRef = useRef(false)
   const vibeRef = useRef("")
   const langRef = useRef(lang)
@@ -151,7 +154,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ persona: personaFor(cluster, langRef.current, pro), proVibe: vibeRef.current, proToken: getProToken(), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
+        body: JSON.stringify({ persona: personaFor(cluster, langRef.current, pro), proVibe: vibeRef.current, proToken: getProToken(), userStyle: stylePromptLine(getStyle()), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
       if (!res.ok) { setTrouble(true); return }
       let full = ""
@@ -163,6 +166,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       const after: Msg[] = [...msgsRef.current, { who: "host", text: full }]
       msgsRef.current = after; setMsgs(after)
       speak(full)
+      // Style profiling: show one 2-word choice after AI's 2nd, 5th, 9th, 13th reply
+      const aiCount = after.filter(m => m.who === "host").length
+      if ([2, 5, 9, 13].includes(aiCount)) {
+        const q = nextStyleQuestion(getStyle())
+        if (q) setTimeout(() => setStyleQ(q), 700)
+      }
     } catch {
       setTrouble(true)
     } finally {
@@ -184,6 +193,15 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   }
 
   const retry = () => { if (!busyRef.current) requestReply() }
+
+  const pickStyle = (choice: string) => {
+    if (!styleQ) return
+    const profile = getStyle()
+    profile.choices[styleQ.key] = choice
+    if (Object.keys(profile.choices).length >= 5) profile.done = true
+    saveStyle(profile)
+    setStyleQ(null)
+  }
 
   useEffect(() => {
     const o = opening?.trim()
@@ -358,9 +376,20 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
         {/* live caption — no speaker label, the color tells you who's talking */}
         <div style={{ width: "min(92vw, 430px)", minHeight: 60, textAlign: "center", overflow: "hidden" }}>
-          {last && (
+          {last && !styleQ && (
             <div style={{ fontSize: 15.5, lineHeight: 1.55, letterSpacing: -0.2, color: last.who === "you" ? accent + "dd" : "#e8daf8", fontFamily: "var(--font-geist-mono), ui-monospace, 'SF Mono', Menlo, monospace", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden" }}>
               {last.text}{speaking && last.who !== "you" && <span style={{ marginLeft: 1, opacity: 0.85, animation: "airblink 1s step-end infinite" }}>▍</span>}
+            </div>
+          )}
+          {/* style profile question — 2-word choice, shown once per question slot */}
+          {styleQ && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 4 }}>
+              <div style={{ fontSize: 11, color: accent + "80", letterSpacing: 1.5, textTransform: "uppercase" }}>quick pick</div>
+              <div style={{ display: "flex", gap: 10 }}>
+                {[styleQ.a, styleQ.b].map(opt => (
+                  <button key={opt} onClick={() => pickStyle(opt)} style={{ fontSize: 14, fontWeight: 500, padding: "10px 18px", borderRadius: 999, color: accent, background: accent + "18", border: `.5px solid ${accent}55`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", letterSpacing: -0.2 }}>{opt}</button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -418,6 +447,16 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               <div key={i} style={{ alignSelf: m.who === "you" ? "flex-end" : "flex-start", maxWidth: "82%", fontSize: 15, lineHeight: 1.45, color: m.who === "you" ? "#0d0418" : "#f0e8ff", background: m.who === "you" ? accent : "rgba(255,255,255,.09)", padding: "9px 13px", borderRadius: 16, fontWeight: m.who === "you" ? 500 : 400 }}>{m.text}</div>
             ))}
             {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: accent + "99", fontStyle: "italic" }}>{cluster.host} is thinking…</div>}
+            {styleQ && (
+              <div style={{ alignSelf: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 9, margin: "4px 0 8px" }}>
+                <div style={{ fontSize: 11, color: accent + "80", letterSpacing: 1.5, textTransform: "uppercase" }}>quick pick</div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  {[styleQ.a, styleQ.b].map(opt => (
+                    <button key={opt} onClick={() => pickStyle(opt)} style={{ fontSize: 13, fontWeight: 500, padding: "9px 16px", borderRadius: 999, color: accent, background: accent + "18", border: `.5px solid ${accent}55`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{opt}</button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div style={{ padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))", boxSizing: "border-box" }}>
             {trouble && (

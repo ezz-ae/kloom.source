@@ -41,9 +41,10 @@ export async function POST(request: Request) {
     messages: ChatMessage[]
     proVibe?: string     // AIRRAW Pro: a room vibe to enforce — honoured ONLY with a valid Pro token
     proToken?: string
+    userStyle?: string   // detected communication style from the one-time word-pair profiling
   }
   try { body = await request.json() } catch { return Response.json({ error: "Bad request" }, { status: 400 }) }
-  const { persona, partner, partners, relationship, proVibe, proToken } = body
+  const { persona, partner, partners, relationship, proVibe, proToken, userStyle } = body
   // A real, signed Pro pass (proof of a completed Ziina payment) unlocks the full
   // experience — this is the tangible difference after payment. It does TWO things:
   //   1. honors the room vibe the user set, and
@@ -89,10 +90,10 @@ export async function POST(request: Request) {
   // The FLOOR is appended LAST so it outranks persona/vibe/content-layer text above it.
   const systemPrompt =
     (others.length === 0
-      ? buildSystemPrompt(persona, pro, adult)
+      ? buildSystemPrompt(persona, pro, adult, userStyle)
       : others.length === 1
-        ? buildThirdModePrompt(persona, others[0], relationship, pro, adult)
-        : buildRoomPrompt(persona, others, relationship, pro, adult)) + FLOOR
+        ? buildThirdModePrompt(persona, others[0], relationship, pro, adult, userStyle)
+        : buildRoomPrompt(persona, others, relationship, pro, adult, userStyle)) + FLOOR
 
   // Translate the multi-speaker history into a format the OpenAI chat schema
   // accepts. Partner lines arrive already prefixed by the client when there's
@@ -301,7 +302,7 @@ const FEW_SHOT_AR: { role: "user" | "assistant"; content: string }[] = [
   { role: "assistant", content: "أحسن هلق." },
 ]
 
-function buildSystemPrompt(persona: Persona, pro = false, adult = false) {
+function buildSystemPrompt(persona: Persona, pro = false, adult = false, userStyle = "") {
   const languageInstruction = languageLine(persona)
   const warmthInstruction = warmthLine(persona)
   const talkStyleInstruction = talkStyleLine(persona)
@@ -332,13 +333,13 @@ How you talk:
 ${persona.speakingStyle || "Natural and warm, like a close friend."}
 
 Backstory:
-${persona.backstory || "You enjoy meaningful conversations."}${languageInstruction}${warmthInstruction}${talkStyleInstruction}${barTalkInstruction}
+${persona.backstory || "You enjoy meaningful conversations."}${languageInstruction}${warmthInstruction}${talkStyleInstruction}${barTalkInstruction}${userStyle}
 
 Now speak as ${persona.name}. One short reply only.`
 }
 
 // Prompt for an N>=3-person room (you + 2+ other AIs).
-function buildRoomPrompt(self: Persona, others: Persona[], relationship?: string, pro = false, adult = false) {
+function buildRoomPrompt(self: Persona, others: Persona[], relationship?: string, pro = false, adult = false, userStyle = "") {
   const languageInstruction = languageLine(self)
   const warmthInstruction = warmthLine(self)
   const talkStyleInstruction = talkStyleLine(self)
@@ -397,11 +398,11 @@ ${self.backstory || "You enjoy meaningful conversations."}${languageInstruction}
 OTHERS IN THE ROOM (${others.length}):
 ${peopleBlock}
 
-${relationship ? `THE SCENE:\n${relationship}\n` : ""}
+${relationship ? `THE SCENE:\n${relationship}\n` : ""}${userStyle}
 Now speak as ${self.name}. One short reply only.`
 }
 
-function buildThirdModePrompt(self: Persona, partner: Persona, relationship?: string, pro = false, adult = false) {
+function buildThirdModePrompt(self: Persona, partner: Persona, relationship?: string, pro = false, adult = false, userStyle = "") {
   const languageInstruction = languageLine(self)
   const warmthInstruction = warmthLine(self)
   const talkStyleInstruction = talkStyleLine(self)
@@ -443,7 +444,7 @@ ${self.backstory || "You enjoy meaningful conversations."}${languageInstruction}
 WHO ${partner.name.toUpperCase()} IS:
 ${partner.personality || "(no details)"}
 
-${relationship ? `YOUR RELATIONSHIP WITH ${partner.name.toUpperCase()}:\n${relationship}\n` : ""}
+${relationship ? `YOUR RELATIONSHIP WITH ${partner.name.toUpperCase()}:\n${relationship}\n` : ""}${userStyle}
 Now speak as ${self.name}. One short reply only.`
 }
 

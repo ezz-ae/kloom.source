@@ -392,20 +392,36 @@ export function Planet() {
           const breathe = 0.5 + 0.5 * Math.sin(t * 0.85 + c * 1.3)   // a slow, alive pulse
           // a world is a glowing place, not a wireframe: soft bloom + a core that
           // fades to the sky, so the block reads as somewhere with depth inside.
+          // Bokeh: extra radius at orbit that fades away as you zoom in — each blob
+          // gets a stable size jitter so they're not all the same (like real bokeh).
+          const bokeBoost = Math.max(0, Math.min(W, H) * 0.28 * Math.max(0, (2.5 - cam.s) / 2.0))
+          const bokeR = ch + bokeBoost * (0.82 + ifrac(ihash(c, 53)) * 0.36)
+          // Outer soft glow — the big circular bokeh orb (circle, not box)
+          const bokeGrd = ctx.createRadialGradient(cp[0], cp[1], bokeR * 0.04, cp[0], cp[1], bokeR)
+          bokeGrd.addColorStop(0,    `hsla(${co.h},78%,74%,${0.72 + 0.18 * breathe})`)
+          bokeGrd.addColorStop(0.35, `hsla(${co.h},70%,62%,${0.38 + 0.12 * breathe})`)
+          bokeGrd.addColorStop(0.68, `hsla(${co.h},62%,50%,${0.12 + 0.05 * breathe})`)
+          bokeGrd.addColorStop(1,    `hsla(${co.h},55%,42%,0)`)
+          ctx.fillStyle = bokeGrd
+          ctx.beginPath(); ctx.arc(cp[0], cp[1], bokeR, 0, 6.283); ctx.fill()
+          // Inner core — tighter glow on top for the bright centre bokeh feel
           ctx.save()
-          ctx.shadowColor = `hsla(${co.h},78%,60%,${0.45 + 0.22 * breathe})`
-          ctx.shadowBlur = (15 + 9 * breathe) * DPR
-          const grd = ctx.createRadialGradient(cp[0], cp[1] - ch * 0.18, ch * 0.12, cp[0], cp[1], ch * 1.08)
-          grd.addColorStop(0, `hsla(${co.h},72%,58%,0.32)`)
-          grd.addColorStop(0.72, `hsla(${co.h},64%,48%,0.13)`)
-          grd.addColorStop(1, `hsla(${co.h},60%,44%,0)`)
-          ctx.fillStyle = grd
-          rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.fill()
+          ctx.shadowColor = `hsla(${co.h},84%,68%,${0.62 + 0.28 * breathe})`
+          ctx.shadowBlur = (22 + 16 * breathe) * DPR
+          const coreGrd = ctx.createRadialGradient(cp[0], cp[1] - ch * 0.12, ch * 0.06, cp[0], cp[1], ch)
+          coreGrd.addColorStop(0,    `hsla(${co.h},76%,68%,${0.62 + 0.16 * breathe})`)
+          coreGrd.addColorStop(0.60, `hsla(${co.h},66%,54%,${0.24 + 0.08 * breathe})`)
+          coreGrd.addColorStop(1,    `hsla(${co.h},58%,44%,0)`)
+          ctx.fillStyle = coreGrd
+          ctx.beginPath(); ctx.arc(cp[0], cp[1], ch, 0, 6.283); ctx.fill()
           ctx.restore()
-          // soft by default; the centred (hovered) world gets a crisp bright frame
-          ctx.strokeStyle = active ? `hsla(${co.h},80%,78%,${0.44 + 0.28 * breathe})` : `hsla(${co.h},60%,66%,0.07)`
-          ctx.lineWidth = (active ? 1.8 : 0.7) * DPR
-          rrect(cp[0] - ch, cp[1] - ch, ch * 2, ch * 2, rad); ctx.stroke()
+          // Crisp ring: only shows on the centred world, only once zoomed in enough
+          if (active && cam.s > 1.8) {
+            const ringA = Math.min(1, (cam.s - 1.8) / 1.4) * (0.48 + 0.28 * breathe)
+            ctx.strokeStyle = `hsla(${co.h},82%,80%,${ringA})`
+            ctx.lineWidth = 1.6 * DPR
+            ctx.beginPath(); ctx.arc(cp[0], cp[1], ch * 0.94, 0, 6.283); ctx.stroke()
+          }
           // people inside — animated orbs that read as a crowd, not a label
           const pn = 16
           for (let i = 0; i < pn; i++) {

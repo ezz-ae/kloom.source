@@ -309,9 +309,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           <button
             onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }}
             aria-label={muted ? "unmute" : "mute"}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 44, padding: "0 14px", borderRadius: 12, fontSize: 13, fontWeight: 500, color: muted ? "#fb7185" : "rgba(240,232,255,.7)", background: "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.14)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+            style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18, color: muted ? "#fb7185" : "rgba(240,232,255,.55)", background: "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.10)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            {muted ? "🔇 muted" : "🔊 sound"}
+            {muted ? "🔇" : "🔊"}
           </button>
         </div>
       </div>
@@ -334,27 +334,19 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </div>
         </div>
 
-        {/* name + location */}
+        {/* name — tap to set vibe */}
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 23, fontWeight: 500, color: "#f0e8ff" }}>{cluster.host}</div>
-          <div style={{ fontSize: 12.5, color: accent + "cc", marginTop: 3, letterSpacing: 0.5 }}>{cluster.name} · {tempLabel}</div>
+          <button
+            onClick={() => pro ? setVibeEdit(true) : setShowPro(true)}
+            aria-label="set the vibe"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, WebkitTapHighlightColor: "transparent" }}
+          >
+            <div style={{ fontSize: 23, fontWeight: 500, color: "#f0e8ff" }}>{cluster.host}</div>
+          </button>
+          {vibe && (
+            <div style={{ fontSize: 12, color: accent + "cc", marginTop: 3, letterSpacing: 0.3 }}>{vibe}</div>
+          )}
         </div>
-
-        {/* pro badge */}
-        {pro && (
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, color: "#c084fc", background: "rgba(192,132,252,.13)", border: ".5px solid rgba(192,132,252,.4)", borderRadius: 999, padding: "3px 11px" }}>
-            ✦ UNRESTRICTED
-          </div>
-        )}
-
-        {/* vibe steer button */}
-        <button
-          onClick={() => pro ? setVibeEdit(true) : setShowPro(true)}
-          aria-label="set the vibe"
-          style={{ fontSize: 12, fontWeight: 500, color: vibe ? "#0d0418" : accent, background: vibe ? accent : fill, border: vibe ? "none" : `.5px solid ${accent}60`, borderRadius: 999, padding: "6px 14px", minHeight: 32, maxWidth: "82vw", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
-        >
-          {vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ set the vibe — pro"}
-        </button>
 
         {/* live mic visualizer */}
         {handsFree && !muted && (
@@ -364,21 +356,20 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         {/* status */}
         <div style={{ fontSize: 13, color: handsFree ? accent : "rgba(240,232,255,.45)", minHeight: 18 }}>{status}</div>
 
-        {/* live caption */}
-        <div style={{ width: "min(92vw, 430px)", height: 78, textAlign: "center", overflow: "hidden" }}>
-          {last && <>
-            <div style={{ fontSize: 11, color: accent + "80", marginBottom: 5 }}>{last.who === "you" ? "you" : cluster.host}</div>
+        {/* live caption — no speaker label, the color tells you who's talking */}
+        <div style={{ width: "min(92vw, 430px)", minHeight: 60, textAlign: "center", overflow: "hidden" }}>
+          {last && (
             <div style={{ fontSize: 15.5, lineHeight: 1.55, letterSpacing: -0.2, color: last.who === "you" ? accent + "dd" : "#e8daf8", fontFamily: "var(--font-geist-mono), ui-monospace, 'SF Mono', Menlo, monospace", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 3, overflow: "hidden" }}>
               {last.text}{speaking && last.who !== "you" && <span style={{ marginLeft: 1, opacity: 0.85, animation: "airblink 1s step-end infinite" }}>▍</span>}
             </div>
-          </>}
+          )}
         </div>
       </div>
 
       {/* bottom controls — text · TALK · leave */}
       <div style={{ flexShrink: 0, padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 26px) max(18px, env(safe-area-inset-right))" }}>
-        <div style={{ fontSize: 11, color: micHint ? "#fb7185" : handsFree ? accent : "rgba(240,232,255,.35)", marginBottom: 16, textAlign: "center", minHeight: 14 }}>
-          {micHint || (sttOk ? (handsFree ? "tap the mic to stop" : "tap the mic to talk · or text") : "tap the keypad to type")}
+        <div style={{ fontSize: 11, color: micHint ? "#fb7185" : handsFree ? accent : "rgba(240,232,255,.25)", marginBottom: 16, textAlign: "center", minHeight: 14 }}>
+          {micHint || (handsFree ? "tap to stop" : "")}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28 }}>
           <button onClick={() => setChatOpen(true)} aria-label="open the text / type" style={optBtn}>text</button>

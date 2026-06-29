@@ -324,7 +324,9 @@ async function sesameCSMTTS(text: string, falKey: string, gender?: string): Prom
       body: JSON.stringify({
         scene: [{ text, speaker_id: speakerId }],
       }),
-      signal: AbortSignal.timeout(30000),
+      // Short timeout — fail fast so ElevenLabs takes over immediately if CSM
+      // is cold or slow. 6s is generous for a warm worker; cold starts fall through.
+      signal: AbortSignal.timeout(6000),
     })
     if (!res.ok) {
       console.error("[tts] sesame-csm failed:", res.status, (await res.text().catch(() => "")).slice(0, 200))

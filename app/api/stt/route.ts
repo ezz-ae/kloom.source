@@ -179,22 +179,37 @@ async function runpodWhisper(
 }
 
 // fal.ai Whisper large-v3 — pay-per-use, no cold starts, no idle workers.
+// Step 1: upload audio to fal.ai temp storage to get an HTTPS URL.
+// Step 2: pass that URL to the Whisper transcription endpoint.
 async function falWhisper(
   file: Blob,
   key: string,
   language?: string,
 ): Promise<{ text: string | null; error?: string }> {
   try {
-    const buf = await file.arrayBuffer()
-    const b64 = Buffer.from(buf).toString("base64")
-    const mime = (file as File).type || "audio/webm"
-    const audioUrl = `data:${mime};base64,${b64}`
+    const headers = { Authorization: `Key ${key}` }
 
+    // Upload audio blob → get a temporary fal.ai storage URL
+    const uploadForm = new FormData()
+    uploadForm.append("file", file, (file as File).name || "audio.webm")
+    const uploadRes = await fetch("https://storage.fal.ai/upload", {
+      method: "POST",
+      headers,
+      body: uploadForm,
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!uploadRes.ok) {
+      return { text: null, error: `fal upload ${uploadRes.status}: ${(await uploadRes.text().catch(() => "")).slice(0, 200)}` }
+    }
+    const { url } = (await uploadRes.json()) as { url: string }
+    if (!url) return { text: null, error: "fal upload returned no url" }
+
+    // Transcribe using the uploaded URL
     const res = await fetch("https://fal.run/fal-ai/whisper", {
       method: "POST",
-      headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+      headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({
-        audio_url: audioUrl,
+        audio_url: url,
         task: "transcribe",
         language: language || null,
         chunk_level: "segment",
@@ -204,7 +219,7 @@ async function falWhisper(
     })
 
     if (!res.ok) {
-      return { text: null, error: `fal ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}` }
+      return { text: null, error: `fal whisper ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}` }
     }
 
     const data = (await res.json()) as { text?: string }

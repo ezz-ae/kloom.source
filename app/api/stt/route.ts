@@ -211,9 +211,8 @@ async function falWhisper(
       body: JSON.stringify({
         audio_url: url,
         task: "transcribe",
-        language: language || null,
         chunk_level: "segment",
-        version: "3",
+        ...(language ? { language } : {}),
       }),
       signal: AbortSignal.timeout(30000),
     })

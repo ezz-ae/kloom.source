@@ -28,8 +28,11 @@ export const isMe  = () => VARIANT === "me"
  *  Off until kloom.fun is live, so the "no-limits" tap stays hidden until then. */
 export const funLive = () => process.env.NEXT_PUBLIC_FUN_LIVE === "1"
 
-/** Adult / sexual / zero-restriction content only exists on .fun. */
-export const adultEnabled = () => VARIANT === "fun"
+/** Adult / sexual / zero-restriction content.
+ *  True on .fun, OR on any deployment that explicitly sets NEXT_PUBLIC_ADULT_ENABLED=1
+ *  (e.g. airraw.com — a dedicated adult platform that still needs premium models,
+ *  so it can't use VARIANT=fun which disables premiumModelsEnabled). */
+export const adultEnabled = () => VARIANT === "fun" || process.env.NEXT_PUBLIC_ADULT_ENABLED === "1"
 
 /** .fun is anonymous: no account gate, no persisted memory. (.me TBD → safe io default.) */
 export const requiresAccountForPay = () => VARIANT !== "fun"

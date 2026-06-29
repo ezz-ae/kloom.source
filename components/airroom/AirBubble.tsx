@@ -233,14 +233,18 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     }
 
     ;(async () => {
-      // Browser SpeechRecognition first — instant, free, no server round-trip.
-      // Fall back to SpeechSegmenter (server Whisper) only when browser SR isn't available
-      // (Instagram webview, Firefox, some Android browsers).
       const w = window as any
       const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-      if (SR) { startBrowserFallback(); return }
+      const lang = langRef.current || "English"
 
-      // No browser SR — use server-side Whisper via SpeechSegmenter
+      // Browser SR is reliable for Latin/common languages — use it when available.
+      // For Arabic and other RTL/non-Latin languages, server Whisper is more accurate.
+      const WHISPER_LANGS = new Set(["Arabic", "Hindi", "Japanese", "Chinese", "Korean"])
+      const preferWhisper = WHISPER_LANGS.has(lang)
+
+      if (SR && !preferWhisper) { startBrowserFallback(); return }
+
+      // Use server-side Whisper (fal.ai) for Arabic and browsers without SR
       const canRecord = typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia
       if (!canRecord) { setMicHint("voice isn't supported on this browser — tap the keypad to type"); setHandsFree(false); return }
       try {
@@ -254,7 +258,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         onCapture: () => { if (!hostSpeakingRef.current) setMicHint("heard you — one sec…") },
         onText: (t) => { if (hostSpeakingRef.current) return; setMicHint(""); if (busyRef.current) { pendingRef.current = t; return } send(t) },
         onError: () => setMicHint(`couldn't catch that — try again`),
-        onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null },
+        onUnavailable: () => { try { seg?.destroy() } catch { /* */ } seg = null; segRef.current = null; if (!preferWhisper && !cancelled) startBrowserFallback() },
       })
       segRef.current = seg
       seg.start()

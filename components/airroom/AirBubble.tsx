@@ -101,6 +101,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const talkedRef = useRef(false)
   const speakTokenRef = useRef(0)
   const pendingRef = useRef<string | null>(null)
+  const audioQueueRef = useRef<Array<{ url: string }>>([])
+  const qPlayingRef = useRef(false)
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
@@ -109,32 +111,49 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   useEffect(() => { try { if (!localStorage.getItem("airraw_human_note")) setHumanNote(true) } catch { /* */ } }, [])
   const dismissHumanNote = () => { setHumanNote(false); try { localStorage.setItem("airraw_human_note", "1") } catch { /* */ } }
 
-  const speak = async (text: string) => {
-    if (mutedRef.current) return
-    const tok = ++speakTokenRef.current
+  const drainQueue = () => {
+    const next = audioQueueRef.current.shift()
+    if (!next) {
+      qPlayingRef.current = false
+      hostSpeakingRef.current = false; setSpeaking(false)
+      if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } }
+      return
+    }
+    const a = audioRef.current
+    if (!a) { URL.revokeObjectURL(next.url); drainQueue(); return }
+    const done = () => { URL.revokeObjectURL(next.url); drainQueue() }
+    a.onended = done; a.onerror = done
+    a.src = next.url
+    a.play().catch(done)
+  }
+
+  const speakChunk = async (text: string, tok: number) => {
+    if (mutedRef.current || tok !== speakTokenRef.current) return
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId }),
+        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice" }),
         signal: AbortSignal.timeout(30000),
       })
       if (!res.ok || tok !== speakTokenRef.current) return
-      const url = URL.createObjectURL(await res.blob())
-      const a = audioRef.current
-      if (!a || tok !== speakTokenRef.current) { URL.revokeObjectURL(url); return }
-      hostSpeakingRef.current = true
-      setSpeaking(true)
-      try { segRef.current?.abort() } catch { /* */ }
-      const resume = () => {
-        URL.revokeObjectURL(url)
-        if (tok !== speakTokenRef.current) return
-        hostSpeakingRef.current = false; setSpeaking(false)
-        if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } }
+      const blob = await res.blob()
+      if (tok !== speakTokenRef.current) return
+      const url = URL.createObjectURL(blob)
+      audioQueueRef.current.push({ url })
+      if (!qPlayingRef.current) {
+        qPlayingRef.current = true
+        hostSpeakingRef.current = true; setSpeaking(true)
+        try { segRef.current?.abort() } catch { /* */ }
+        drainQueue()
       }
-      a.onended = resume
-      a.src = url
-      await a.play().catch(resume)
-    } catch { if (tok === speakTokenRef.current) { hostSpeakingRef.current = false; setSpeaking(false); if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } } } }
+    } catch { /* skip failed chunk */ }
+  }
+
+  const speak = async (text: string) => {
+    if (mutedRef.current) return
+    const tok = ++speakTokenRef.current
+    audioQueueRef.current = []; qPlayingRef.current = false
+    speakChunk(text, tok)
   }
 
   useEffect(() => { speak(cluster.lines[0]) }, []) // greet on open
@@ -151,21 +170,41 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   const requestReply = async () => {
     busyRef.current = true; setBusy(true); setTrouble(false)
+    // New speak token: cancels any in-flight TTS and clears the play queue
+    const tok = ++speakTokenRef.current
+    audioQueueRef.current = []; qPlayingRef.current = false
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ persona: personaFor(cluster, langRef.current, pro), proVibe: vibeRef.current, proToken: getProToken(), userStyle: stylePromptLine(getStyle()), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
       if (!res.ok) { setTrouble(true); return }
-      let full = ""
+      let accumulated = ""
+      let firstSentText = ""
+      let firstFired = false
       if (res.body) {
         const reader = res.body.getReader(); const dec = new TextDecoder()
-        for (;;) { const { done, value } = await reader.read(); if (done) break; full += dec.decode(value) }
+        for (;;) {
+          const { done, value } = await reader.read(); if (done) break
+          accumulated += dec.decode(value)
+          // Fire TTS for first sentence as soon as it's complete — audio starts
+          // downloading while the rest of the reply is still generating.
+          if (!firstFired) {
+            const m = /[.!?…](?:\s|$)/.exec(accumulated)
+            if (m && m.index > 10) {
+              firstFired = true
+              firstSentText = accumulated.slice(0, m.index + 1).trim()
+              speakChunk(firstSentText, tok)
+            }
+          }
+        }
       }
-      full = full.trim() || cluster.lines[1] || cluster.lines[0]
-      const after: Msg[] = [...msgsRef.current, { who: "host", text: full }]
+      const fullText = accumulated.trim() || cluster.lines[1] || cluster.lines[0]
+      const after: Msg[] = [...msgsRef.current, { who: "host", text: fullText }]
       msgsRef.current = after; setMsgs(after)
-      speak(full)
+      // Speak the remainder; if no sentence boundary was found, speak the whole thing
+      const remainder = firstFired ? fullText.slice(firstSentText.length).trim() : fullText
+      if (remainder) speakChunk(remainder, tok)
       // Style profiling: show one 2-word choice after AI's 2nd, 5th, 9th, 13th reply
       const aiCount = after.filter(m => m.who === "host").length
       if ([2, 5, 9, 13].includes(aiCount)) {

@@ -34,10 +34,11 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // On the AIRRAW deployment (AIRRAW_HOME=1) the root opens the universe; other
-  // builds (kloom) keep their own homepage. The old /airroom path redirects on all.
+  // On the AIRRAW deployment (AIRRAW_HOME=1) the root opens the situations home —
+  // one person, mini situations. Other builds (kloom) keep their own homepage.
+  // The old /airroom path redirects on all.
   async rewrites() {
-    return { beforeFiles: process.env.AIRRAW_HOME === "1" ? [{ source: "/", destination: "/airraw" }] : [] }
+    return { beforeFiles: process.env.AIRRAW_HOME === "1" ? [{ source: "/", destination: "/situations" }] : [] }
   },
   async redirects() {
     return [{ source: "/airroom", destination: "/airraw", permanent: false }]

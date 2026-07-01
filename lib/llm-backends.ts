@@ -148,6 +148,10 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
         ...antiRepeat,
         stream:      true,
       }),
+      // Hard cap so a HUNG endpoint (accepts the socket but never streams) fails over
+      // here instead of stalling the whole serverless function to its 60s ceiling →
+      // FUNCTION_INVOCATION_TIMEOUT. A healthy reply streams in a few seconds.
+      signal: AbortSignal.timeout(22000),
     })
   } catch (err) {
     // Endpoint unreachable (e.g. a STOPPED dedicated endpoint). Degrade the

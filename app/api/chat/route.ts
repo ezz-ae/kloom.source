@@ -130,7 +130,6 @@ export async function POST(request: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let emittedAny = false
-      let buf = ""
       const priors: string[] = []
       // Emit sentence-by-sentence, DROPPING any sentence that exactly OR near-duplicates one
       // already spoken — the model restates the same idea reworded ("i'm here now, right?" /
@@ -148,7 +147,9 @@ export async function POST(request: Request) {
         }
         if (kept.length) { emittedAny = true; controller.enqueue(encoder.encode(joinSentences(kept) + " ")) }
       }
-      try {
+      // One streamed attempt through the resilient router.
+      const runOnce = async () => {
+        let buf = ""
         for await (const delta of streamLLM("local", llmMessages, {
           temperature: 0.95,
           maxTokens: 180,
@@ -161,10 +162,33 @@ export async function POST(request: Request) {
           if (m) { flush(m[0]); buf = buf.slice(m[0].length) }
         }
         if (buf.trim()) flush(buf)
-      } catch {
-        // Every backend failed (truly exceptional). Degrade gracefully so the call
-        // doesn't dead-air with a hard error the client can't render.
-        if (!emittedAny) controller.enqueue(encoder.encode("mmm, my line cut out for a sec— say that again?"))
+      }
+      try {
+        await runOnce()
+      } catch (err) {
+        // Log the REAL reason (bad key / 402 / 429 / dead endpoint) to the function
+        // logs, so a repeating filler is never a silent mystery to debug.
+        console.error("[chat] LLM stream failed:", err instanceof Error ? err.message : err)
+        // One quick retry — covers a cold / booting serverless GPU worker.
+        if (!emittedAny) {
+          try { await runOnce() } catch (err2) {
+            console.error("[chat] LLM retry failed:", err2 instanceof Error ? err2.message : err2)
+          }
+        }
+      }
+      // Nothing came back (thrown, or an empty / all-duplicate reply). Send ONE natural
+      // reconnect line — ROTATED, so a persistent backend outage no longer reads as the
+      // AI robotically repeating the exact same sentence every turn.
+      if (!emittedAny) {
+        const RECONNECT = [
+          "mmm, you cut out for a sec — say that again?",
+          "wait, i lost you there… what'd you say?",
+          "hmm? say that one more time for me.",
+          "you dropped for a second — come back to it?",
+          "sorry, what was that? tell me again.",
+          "ugh, bad signal for a beat. run that by me again?",
+        ]
+        controller.enqueue(encoder.encode(RECONNECT[Math.floor(Math.random() * RECONNECT.length)]))
       }
       controller.close()
     },

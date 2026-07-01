@@ -166,15 +166,12 @@ export async function POST(request: Request) {
       try {
         await runOnce()
       } catch (err) {
-        // Log the REAL reason (bad key / 402 / 429 / dead endpoint) to the function
-        // logs, so a repeating filler is never a silent mystery to debug.
+        // Log the REAL reason (bad key / 402 / 429 / dead-or-hung endpoint) to the
+        // function logs, so a repeating filler is never a silent mystery to debug.
+        // NO retry here: the fetch below is time-bounded and self-falls-back, so a
+        // second attempt would only risk stacking toward the 60s function limit
+        // (the FUNCTION_INVOCATION_TIMEOUT).
         console.error("[chat] LLM stream failed:", err instanceof Error ? err.message : err)
-        // One quick retry — covers a cold / booting serverless GPU worker.
-        if (!emittedAny) {
-          try { await runOnce() } catch (err2) {
-            console.error("[chat] LLM retry failed:", err2 instanceof Error ? err2.message : err2)
-          }
-        }
       }
       // Nothing came back (thrown, or an empty / all-duplicate reply). Send ONE natural
       // reconnect line — ROTATED, so a persistent backend outage no longer reads as the

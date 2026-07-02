@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   title: { absolute: "AIRRAW — walk the floor" },
   description:
     "Drift down the water→fire floor and overhear whoever you're nearest. Stop, listen, join. It's the now.",
+  // The floor is the live 18+ chat surface — keep it out of search indexes.
+  robots: { index: false, follow: false },
   alternates: { canonical: "https://airraw.com/floor" },
   openGraph: {
     title: "AIRRAW — walk the floor",

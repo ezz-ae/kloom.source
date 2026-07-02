@@ -35,11 +35,16 @@ export function proMinutes(): number {
 
 export function isPro(): boolean {
   if (typeof window === "undefined") return false
+  // The ?pro=1 unlock is a DEV/TEST override only — in a production build it must not
+  // grant Pro, or the paywall is one URL param away from free. (It never unlocked the
+  // server content tier — /api/chat gates on a signed token — but it did flip paid UI.)
+  // ?pro=0 still clears a stuck override everywhere, including prod.
+  const devOverride = process.env.NODE_ENV !== "production"
   try {
     const u = new URLSearchParams(window.location.search)
-    if (u.get("pro") === "1") localStorage.setItem("airraw_pro", "1")
+    if (u.get("pro") === "1" && devOverride) localStorage.setItem("airraw_pro", "1")
     if (u.get("pro") === "0") { localStorage.removeItem("airraw_pro"); clearPro() }
-    if (localStorage.getItem("airraw_pro") === "1") return true   // dev/test override
+    if (devOverride && localStorage.getItem("airraw_pro") === "1") return true
   } catch { /* */ }
   return proUntil() > Date.now()
 }

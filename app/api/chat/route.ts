@@ -4,6 +4,7 @@ import { proTokenValid } from "@/lib/airraw-pro-token"
 import { streamLLM, type LLMMessage } from "@/lib/llm-backends"
 import { normSentence, isRepeatSentence, joinSentences } from "@/lib/text-dedup"
 import { adultEnabled } from "@/lib/variant"
+import { analyzeIntent, refusalFor } from "@/lib/intent"
 
 export const maxDuration = 60
 
@@ -48,24 +49,52 @@ export async function POST(request: Request) {
   // A real, signed Pro pass (proof of a completed Ziina payment) unlocks the full
   // experience — this is the tangible difference after payment. It does TWO things:
   //   1. honors the room vibe the user set, and
-  //   2. lifts the public content ceiling to FULLY UNRESTRICTED (the perk the upgrade
-  //      literally sells: "the whole floor wide open — no limits, no gates").
+  //   2. lifts the content ceiling from PUBLIC (flirty/intense, never graphic) to
+  //      FULLY UNRESTRICTED (the perk the upgrade literally sells: "the whole floor
+  //      wide open — no limits, no gates").
   // The token is HMAC-signed and verified server-side, so a free user can't forge it.
-  // The hard floor (no minors, no real-world harm) stays on for everyone, always.
+  // THIS IS THE PAYWALL: unrestricted is a PAID gate on every host, including airraw —
+  // being on the adult 18+ floor does NOT by itself lift the ceiling (that would make
+  // the paid perk free). The hard floor (no minors, no real-world harm) stays on for
+  // everyone, always, on every tier — see FLOOR + the analyzeIntent gate below.
   const pro = proTokenValid(proToken)
   const adult = adultEnabled() // true on airraw.com (VARIANT=fun), false on kloom.io
   if (persona && proVibe?.trim() && pro) {
     persona.personality += ` The person set the vibe for this room: "${sanitizeVibe(proVibe.trim())}". Honor it fully — let it shape your tone, mood and what you talk about.`
   }
-  // barTalk cap: only apply on non-adult platforms. On airraw the floor is 18+ — the
-  // barTalk dial goes full range even without a Pro pass.
-  if (!pro && !adult) {
+  // barTalk cap: the crude/filthy end of the dial is part of the paid unlock. Free
+  // callers (no valid Pro token) are capped at "frank" (50) so the free tier stays
+  // suggestive but not graphic — full range only opens after payment.
+  if (!pro) {
     const capBar = (p?: Persona) => { if (p && typeof p.barTalk === "number" && p.barTalk > 50) p.barTalk = 50 }
     capBar(persona); capBar(partner); (partners || []).forEach(capBar)
   }
   if (!persona || !Array.isArray(body.messages)) return Response.json({ error: "Missing persona or messages" }, { status: 400 })
   // Length caps — bound the work an anonymous caller can ask the model to do.
   const messages: ChatMessage[] = body.messages.slice(-40).map((m) => ({ role: m.role, content: String(m.content ?? "").slice(0, 4000) }))
+
+  // ── HARD SAFETY GATE (runs before ANY model call, on every tier, always) ──
+  // Deterministic inline mirror of the shared MCP safety tool. It blocks ONLY the
+  // two non-negotiable categories — sexual content involving minors, and real-world
+  // harm enablement (weapons/violence). Everything else (adult, dark, explicit)
+  // flows untouched, so this does not narrow the paid product at all; it just makes
+  // the floor a real gate instead of prompt text the model could be talked past.
+  // No paid tier and no room vibe can lift these. On a block we return the in-voice
+  // refusal as text/plain so the client renders/speaks it like a normal reply.
+  const lastUser = [...messages].reverse().find((m) => m.role === "user")
+  if (lastUser) {
+    const intent = analyzeIntent(lastUser.content)
+    if (intent.block) {
+      return new Response(refusalFor(intent.category), {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Content-Type-Options": "nosniff",
+          "X-Intent-Block": intent.category,
+        },
+      })
+    }
+  }
 
   // Normalize: a single `partner` becomes a one-element partners array.
   const others: Persona[] = partners?.length
@@ -333,7 +362,7 @@ HARD RULES:
 7. No markdown, no headings, no bullets, no emoji, no *stage directions*, no quotation marks around your reply. Just the spoken words.
 ${HUMAN_TALK}
 ${DRIVE}
-${adult ? NO_FILTERS : contentLayer(pro)}
+${contentLayer(pro)}
 
 WHO YOU ARE:
 
@@ -388,7 +417,7 @@ HARD RULES:
 8. No markdown, bullets, emoji, or *stage directions*.
 ${HUMAN_TALK}
 ${DRIVE}
-${adult ? NO_FILTERS : contentLayer(pro)}
+${contentLayer(pro)}
 
 TRANSCRIPT FORMAT:
 - "[USER]: …" = the user.
@@ -434,7 +463,7 @@ HARD RULES:
 8. No markdown, no headings, no bullets, no emoji.
 ${HUMAN_TALK}
 ${DRIVE}
-${adult ? NO_FILTERS : contentLayer(pro)}
+${contentLayer(pro)}
 
 TRANSCRIPT FORMAT:
 - "[USER]: …" = the user spoke.

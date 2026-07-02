@@ -209,10 +209,14 @@ export async function POST(request: Request) {
           if (m) { flush(m[0]); buf = buf.slice(m[0].length) }
         }
         if (buf.trim()) flush(buf)
-      } catch {
+      } catch (err) {
         // Every backend failed. Emit nothing — the client falls back to the
         // character's own lines (cluster.lines[1]) rather than a hardcoded English
         // phrase that breaks Arabic/non-English sessions and sounds identical every time.
+        // LOG IT — a silent catch here made prod outages (dead keys, no credits)
+        // undiagnosable: the function returned 200 + empty body and the logs showed
+        // nothing. This line is what Vercel runtime logs will show when chat is mute.
+        console.error("[chat] all LLM backends failed:", err instanceof Error ? err.message : String(err))
       }
       controller.close()
     },

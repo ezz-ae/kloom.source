@@ -101,6 +101,15 @@ export function Planet() {
   // no input that promises routing it can't deliver. The blocks appear once you begin
   // (tap to fall in, or scroll/drag/zoom the sky).
   const [started, setStarted] = useState(false)
+  // One-time navigation hint after falling in — the descent has no chrome, so a
+  // first-timer needs one line telling them the gesture language. Fades on its own.
+  const [navHint, setNavHint] = useState(false)
+  useEffect(() => {
+    if (!started) return
+    setNavHint(true)
+    const t = setTimeout(() => setNavHint(false), 6500)
+    return () => clearTimeout(t)
+  }, [started])
   const [opening, setOpening] = useState("")     // handed to the first room you enter as your first line
   const [intro, setIntro] = useState(false)      // cold-open is opt-in (?intro=1); default lands on the write box
   const skipIntro = () => { try { localStorage.setItem("airraw_intro_seen", "1") } catch { /* */ } setIntro(false) }
@@ -609,6 +618,14 @@ export function Planet() {
             <span style={{ opacity: 0.4, margin: "0 9px" }}>·</span>
             <a href="/airraw/terms" style={{ color: "#6b7d8e", textDecoration: "none" }}>terms</a>
           </div>
+        </div>
+      )}
+
+      {/* one-time gesture hint — fades in, holds, fades out on its own */}
+      {started && navHint && !selected && !group && !preview && (
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: "calc(env(safe-area-inset-top) + 64px)", zIndex: 24, fontSize: 12.5, letterSpacing: 0.6, color: "rgba(238,244,248,.62)", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(255,255,255,.1)", borderRadius: 999, padding: "8px 16px", pointerEvents: "none", whiteSpace: "nowrap", fontFamily: "var(--font-geist), system-ui, sans-serif", animation: "navhint 6.5s ease both" }}>
+          <style>{`@keyframes navhint{0%{opacity:0;transform:translateX(-50%) translateY(6px)}8%,80%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0}}`}</style>
+          scroll to go closer · drag to drift
         </div>
       )}
 

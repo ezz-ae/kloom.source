@@ -103,6 +103,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const hfRef = useRef(false)
   const talkedRef = useRef(false)
   const speakTokenRef = useRef(0)
+  const leavingRef = useRef(false)
   const pendingRef = useRef<string | null>(null)
   const audioQueueRef = useRef<Array<{ url: string }>>([])
   const qPlayingRef = useRef(false)
@@ -209,11 +210,18 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       // Speak the remainder; if no sentence boundary was found, speak the whole thing
       const remainder = firstFired ? fullText.slice(firstSentText.length).trim() : fullText
       if (remainder) speakChunk(remainder, tok)
-      // Style profiling: show one 2-word choice after AI's 2nd, 5th, 9th, 13th reply
+      // Style profiling: show one 2-word choice after AI's 2nd, 5th, 9th, 13th reply.
+      // Never while leaving (it would cover the parting line — the emotional peak the
+      // upsell rides on), and auto-dismiss after 12s: the quiz borrows the caption
+      // slot, so an ignored question must never blind the live captions forever.
       const aiCount = after.filter(m => m.who === "host").length
       if ([2, 5, 9, 13].includes(aiCount)) {
         const q = nextStyleQuestion(getStyle())
-        if (q) setTimeout(() => setStyleQ(q), 700)
+        if (q) setTimeout(() => {
+          if (leavingRef.current) return
+          setStyleQ(q)
+          setTimeout(() => setStyleQ((cur) => (cur === q ? null : cur)), 12000)
+        }, 700)
       }
     } catch {
       setTrouble(true)
@@ -258,7 +266,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   const leaveCall = () => {
     if (leaving || msgs.length <= 1) { onClose(); return }
-    setLeaving(true)
+    setLeaving(true); leavingRef.current = true
+    setStyleQ(null)   // the parting line owns the caption slot — no quiz over it
     setHandsFree(false)
     const parting = PARTING[(msgs.length + cluster.host.length) % PARTING.length]
     setMsgs((m) => [...m, { who: "host", text: parting }])

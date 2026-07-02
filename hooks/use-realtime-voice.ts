@@ -8,7 +8,7 @@ import { consumeVoice, voiceAvailable, LAUNCH_UNLIMITED, getFreeRemainingSec } f
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { accountMinutes, setAccountMinutes, spendMinutes, authHeader } from "@/lib/auth"
 import { mediaDevicesUnavailable } from "@/lib/media"
-import { SpeechSegmenter } from "@/lib/speech-segmenter"
+import { SpeechSegmenter, phoneMicAudio } from "@/lib/speech-segmenter"
 import { BrowserSpeechSegmenter, browserSttSupported } from "@/lib/browser-stt"
 
 // Premium = full-unrestricted model tier. Guarded so it's safe if ever called SSR.
@@ -550,13 +550,7 @@ export function useRealtimeVoice({
         // Open the mic and keep the stream alive — the segmenter records from it.
         const micUnavailable = mediaDevicesUnavailable()
         if (micUnavailable) throw new Error(micUnavailable)
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        })
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: phoneMicAudio() })
         micStreamRef.current = stream
 
         // Shared handler for a finalized transcript (from either STT engine).

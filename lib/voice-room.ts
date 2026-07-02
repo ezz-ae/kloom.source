@@ -16,6 +16,7 @@
 import { supabase } from "@/lib/supabase"
 import type { RealtimeChannel } from "@supabase/supabase-js"
 import { mediaDevicesUnavailable } from "@/lib/media"
+import { phoneMicAudio } from "@/lib/speech-segmenter"
 
 // STUN-only fallback if the ICE endpoint is unreachable.
 const FALLBACK_ICE: RTCIceServer[] = [
@@ -78,7 +79,7 @@ export async function joinVoiceRoom(
     }
     try {
       localStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: phoneMicAudio(),
         video: false,
       })
     } catch {

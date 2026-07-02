@@ -9,7 +9,7 @@
  */
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Cluster, Heat } from "@/lib/airroom/roster"
-import { SpeechSegmenter } from "@/lib/speech-segmenter"
+import { SpeechSegmenter, phoneMicAudio } from "@/lib/speech-segmenter"
 import { canListen } from "@/lib/voice-once"
 import { Face } from "@/components/airroom/Face"
 import { VoiceWave } from "@/components/airroom/VoiceWave"
@@ -297,20 +297,20 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     ;(async () => {
       const w = window as any
       const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-      const lang = langRef.current || "English"
 
-      // Browser SR is reliable for Latin/common languages — use it when available.
-      // For Arabic and other RTL/non-Latin languages, server Whisper is more accurate.
-      const WHISPER_LANGS = new Set(["Arabic", "Hindi", "Japanese", "Chinese", "Korean"])
-      const preferWhisper = WHISPER_LANGS.has(lang)
-
-      if (SR && !preferWhisper) { startBrowserFallback(); return }
-
-      // Use server-side Whisper (fal.ai) for Arabic and browsers without SR
+      // PRIMARY mic path on EVERY browser and language: record real audio through the
+      // phone-call capture chain (mono 48k, hardware echo-cancel/noise-suppression/AGC)
+      // and transcribe it server-side with Whisper — the same model quality a phone
+      // system gets. Browser SpeechRecognition (which mangles names, accents and
+      // Arabic, and can't drive the mic visualizer) is ONLY the fallback: when this
+      // browser can't record at all, or the STT backend is unconfigured (onUnavailable).
       const canRecord = typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia
-      if (!canRecord) { setMicHint("voice isn't supported on this browser — tap the keypad to type"); setHandsFree(false); return }
+      if (!canRecord) {
+        if (SR) { startBrowserFallback(); return }
+        setMicHint("voice isn't supported on this browser — tap the keypad to type"); setHandsFree(false); return
+      }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+        stream = await navigator.mediaDevices.getUserMedia({ audio: phoneMicAudio() })
       } catch { setMicHint("allow mic access to talk — or tap the keypad to type"); setHandsFree(false); return }
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
       seg = new SpeechSegmenter({

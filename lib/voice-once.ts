@@ -11,7 +11,7 @@
 //
 // Fires onText at most once (the first finished utterance), then self-tears-down.
 
-import { SpeechSegmenter } from "./speech-segmenter"
+import { SpeechSegmenter, phoneMicAudio } from "./speech-segmenter"
 
 export type VoiceOnceState = "listening" | "thinking" | "idle"
 
@@ -95,7 +95,7 @@ export function listenOnce(opts: VoiceOnceOptions): VoiceOnceHandle {
     if (!canRecord) { startBrowserSR(); return }
     let s: MediaStream
     try {
-      s = await navigator.mediaDevices.getUserMedia({ audio: true })
+      s = await navigator.mediaDevices.getUserMedia({ audio: phoneMicAudio() })
     } catch {
       startBrowserSR(); return   // mic via getUserMedia unavailable → last resort
     }

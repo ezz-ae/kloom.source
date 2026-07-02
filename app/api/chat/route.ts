@@ -100,9 +100,8 @@ export async function POST(request: Request) {
   // more than one partner (so the right speaker gets attribution). For
   // backwards compat we still prefix here when the message is from the single
   // legacy `partner` role and no prefix was added client-side.
-  const openaiMessages = messages.map((m) => {
+  const rawMessages = messages.map((m) => {
     if (m.role === "partner") {
-      // Client may have already prefixed it. If not, use the first known partner.
       const content =
         /^\[.+?\]:/.test(m.content) ? m.content : `[${others[0]?.name || "Someone"}]: ${m.content}`
       return { role: "user" as const, content }
@@ -112,6 +111,15 @@ export async function POST(request: Request) {
       return { role: "user" as const, content }
     }
     return { role: m.role as "user" | "assistant" | "system", content: m.content }
+  })
+  // Collapse runs of identical consecutive assistant messages — when the LLM keeps
+  // returning the same fallback line, the history fills with duplicates and the model
+  // just echoes them again. Replace any such run with a single instance so it doesn't
+  // lock into a loop.
+  const openaiMessages = rawMessages.filter((m, i, arr) => {
+    if (m.role !== "assistant") return true
+    const prev = arr.slice(0, i).reverse().find(p => p.role === "assistant")
+    return !prev || prev.content !== m.content
   })
 
   const isArabic = persona.language === "Arabic" || persona.language === "ar"

@@ -16,6 +16,16 @@ const PRICE_USD = Number(process.env.AIRRAW_PRO_USD || 9)
 const DAYS = Number(process.env.AIRRAW_PRO_DAYS || 90)   // the ONE pass: 3 months
 const PASS_MINUTES = Number(process.env.AIRRAW_PASS_MINUTES || 6000)  // voice allowance
 
+// The offer, for display. The ProSheet renders THIS instead of hardcoding numbers,
+// so changing the env price/duration can never leave the UI selling one thing and
+// the checkout charging another.
+export async function GET() {
+  return Response.json(
+    { price: PRICE_USD, days: DAYS, minutes: PASS_MINUTES },
+    { headers: { "Cache-Control": "public, max-age=300" } },
+  )
+}
+
 export async function POST(req: NextRequest) {
   // return the buyer to the public host they're on (proxy-aware), like the kloom flow
   const origin = process.env.AIRRAW_ORIGIN || req.nextUrl.origin || "https://airraw.com"

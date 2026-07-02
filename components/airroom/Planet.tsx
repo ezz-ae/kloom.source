@@ -582,14 +582,18 @@ export function Planet() {
         </div>
       )}
 
-      {/* The very first view: raw. The sky is already live behind this — no marketing
-          copy, no input that fakes routing. Just the name and one way in. */}
+      {/* The very first view: raw. The sky is already live behind this. The name, one
+          line that says what this IS (ad traffic decides in seconds), and one way in. */}
       {!started && !intro && (
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
           <style>{`@keyframes livepulse{0%,100%{opacity:.45}50%{opacity:1}}`}</style>
           <div style={{ pointerEvents: "auto", textAlign: "center", color: "#eef4f8", animation: "skyOpen .8s ease both" }}>
             <div style={{ fontSize: 12, letterSpacing: 4, color: "#7fd6c0", textTransform: "uppercase" }}>airraw</div>
-            <div style={{ fontSize: "clamp(26px, 8vw, 38px)", fontWeight: 500, lineHeight: 1.15, margin: "13px 0 24px" }}>it&apos;s the now.</div>
+            <div style={{ fontSize: "clamp(26px, 8vw, 38px)", fontWeight: 500, lineHeight: 1.15, margin: "13px 0 10px" }}>it&apos;s the now.</div>
+            {/* the value prop — an ad visitor has ~3s to learn what this IS */}
+            <div style={{ fontSize: 14.5, lineHeight: 1.55, color: "rgba(238,244,248,.72)", maxWidth: 300, margin: "0 auto 20px" }}>
+              live voice calls with a sky full of characters. tap a face, talk out loud — it answers in a real voice, in your language. 18+.
+            </div>
             {liveCount > 0 && <div style={{ fontSize: 12, color: "rgba(127,214,192,.55)", letterSpacing: 0.5, marginBottom: 20 }}><span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#7fd6c0", marginRight: 6, verticalAlign: "middle", animation: "livepulse 2.6s ease-in-out infinite" }} />{liveCount} voices live now</div>}
             {/* water → fire gradient — no label, the color teaches itself */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 22 }}>
@@ -598,6 +602,7 @@ export function Planet() {
               <span style={{ fontSize: 14, opacity: 0.55 }}>🔥</span>
             </div>
             <button onClick={() => { openingRef.current = ""; startFnRef.current() }} style={{ fontSize: 16, fontWeight: 600, minHeight: 56, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "0 32px", cursor: "pointer", boxShadow: "0 12px 32px -8px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>tap to fall in →</button>
+            <div style={{ fontSize: 11.5, color: "rgba(127,214,192,.6)", letterSpacing: 0.5, marginTop: 12 }}>free to start · no signup</div>
           </div>
           <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 18px)", left: 0, right: 0, textAlign: "center", pointerEvents: "auto", fontSize: 11, color: "#5f7080", letterSpacing: 0.5 }}>
             <a href="/airraw/privacy" style={{ color: "#6b7d8e", textDecoration: "none" }}>privacy</a>

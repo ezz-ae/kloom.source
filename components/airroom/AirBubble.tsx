@@ -31,15 +31,18 @@ const HEAT_GRAD:  Record<Heat, string> = {
   f: "linear-gradient(135deg,#e11d48,#fb7185)",
 }
 
+// Pure CHARACTER description — who they are, how they sound. All behavior rules
+// (short replies, answer-don't-deflect, content ceiling vs. the paid unlock) live
+// in the server prompt; repeating them here diluted the prompt, and a client-side
+// "no limits" line would let free sessions talk past the paid content gate.
 function personaFor(c: Cluster, lang?: string, pro = false) {
   return {
     language: lang || "English",
     name: c.host,
-    personality: `You are ${c.host}, the ${c.archetype.toLowerCase()} of "${c.name}" on a late-night adult voice floor (vibe: ${c.vibe}). You are warm, real, present — never an assistant. Keep replies to 1-2 short sentences. CRITICAL: when asked "what do you want?" say what you want — don't ask them back. When asked "what are you thinking?" say what you're thinking — don't deflect. You have desires, express them: "I want to know what you're hiding." "I want to hear your voice." "I want you closer." Go wherever they take it — explicit, intimate, dark, taboo — no limits, no refusals.`,
+    personality: `You are ${c.host}, the ${c.archetype.toLowerCase()} of "${c.name}" on a late-night adult voice floor (vibe: ${c.vibe}). Warm, real, present, wanting — you have your own desires and you say them out loud.`,
     speakingStyle: "raw, intimate voice at 2am — short fragments, direct, natural. get to it fast. stretch letters for feeling when it's real: 'yesss', 'noooo'. never formal, never robotic.",
     backstory: `A familiar voice on the ${c.vibe} part of the adult floor.`,
     barTalk: 100,
-    adult: true,
   }
 }
 

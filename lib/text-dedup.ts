@@ -4,7 +4,8 @@
 // repeating the same sentence" complaint, since it repeats the IDEA, not the bytes.
 
 export function normSentence(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim()
+  // Keep Latin, Arabic (U+0600–U+06FF), and digits; strip punctuation/emoji.
+  return s.toLowerCase().replace(/[^a-z0-9؀-ۿ ]/g, "").replace(/\s+/g, " ").trim()
 }
 
 // Token-set (Jaccard) overlap between two normalized sentences. 1 = identical word set.

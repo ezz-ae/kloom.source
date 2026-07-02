@@ -143,7 +143,7 @@ export async function POST(request: Request) {
       // "i'm right here."), which exact-match dedup let straight through. This is the dominant
       // cause of the "AI keeps repeating" complaint, far more jarring once a real voice says it.
       const flush = (text: string) => {
-        const parts = text.match(/[^.!?…\n]*[.!?…\n]+|\S[^.!?…\n]*$/g)
+        const parts = text.match(/[^.!?…؟\n]*[.!?…؟\n]+|\S[^.!?…؟\n]*$/g)
         if (!parts) return
         const kept: string[] = []
         for (const p of parts) {
@@ -163,14 +163,15 @@ export async function POST(request: Request) {
           if (!delta) continue
           buf += delta
           // Flush only up to the last completed sentence; keep the trailing partial.
-          const m = buf.match(/^[\s\S]*[.!?…\n]/)
+          // ؟ = Arabic question mark (U+061F) included so Arabic replies flush on time.
+          const m = buf.match(/^[\s\S]*[.!?…؟\n]/)
           if (m) { flush(m[0]); buf = buf.slice(m[0].length) }
         }
         if (buf.trim()) flush(buf)
       } catch {
-        // Every backend failed (truly exceptional). Degrade gracefully so the call
-        // doesn't dead-air with a hard error the client can't render.
-        if (!emittedAny) controller.enqueue(encoder.encode("mmm, my line cut out for a sec— say that again?"))
+        // Every backend failed. Emit nothing — the client falls back to the
+        // character's own lines (cluster.lines[1]) rather than a hardcoded English
+        // phrase that breaks Arabic/non-English sessions and sounds identical every time.
       }
       controller.close()
     },
@@ -453,15 +454,10 @@ function languageLine(persona: Persona) {
   if (!lang || lang === "English") return ""
   if (lang === "Arabic" || lang === "ar") {
     return `\n\n=== LANGUAGE — CRITICAL ===
-Reply ONLY in spoken colloquial Arabic — the way real people text each other, NOT Modern Standard Arabic (MSA).
-Use Levantine dialect (شو، هلق، هيك، يلا، كتير) or Gulf (شنو، الحين، زين، وش) — match whatever dialect the person uses.
-FORBIDDEN phrases (these sound like a translated chatbot, never use them):
-- أنا كلي آذان صاغية / آذان صاغية
-- يسعدني / بكل سرور / إليك / تفضل بالحديث
-- كيف يمكنني مساعدتك / أنا هنا من أجلك
-- ما الذي تودّ مشاركته / هل تودّ أن تخبرني
-- تفضل (as "go ahead" — use يلا or just silence)
-Keep it SHORT. 1 sentence. Sound like a real person, not a translation.`
+Reply ONLY in spoken colloquial Arabic — the way real people actually talk, NOT Modern Standard Arabic (MSA) or formal written Arabic.
+Match the user's dialect: Levantine if they use shu/halla2/hayk; Gulf if they use shnoo/il7een/zain.
+AVOID formal chatbot phrases like "I am all ears", "with pleasure", "how may I help you", "what would you like to share" — those sound like a customer-service bot, not a person.
+Use casual short replies. 1 sentence MAX. Sound human.`
   }
   return `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet. This holds even when the other person writes to you in English or any other language — you still answer in ${lang}, never switching, never mixing in English words. If you are about to write an English word, stop and write it in ${lang} instead.`
 }

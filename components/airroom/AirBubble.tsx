@@ -199,7 +199,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           }
         }
       }
-      const fullText = accumulated.trim() || cluster.lines[1] || cluster.lines[0]
+      const fallbackIdx = (msgsRef.current.filter(m => m.who === "host").length) % cluster.lines.length
+      const fullText = accumulated.trim() || cluster.lines[fallbackIdx] || cluster.lines[0]
       const after: Msg[] = [...msgsRef.current, { who: "host", text: fullText }]
       msgsRef.current = after; setMsgs(after)
       // Speak the remainder; if no sentence boundary was found, speak the whole thing

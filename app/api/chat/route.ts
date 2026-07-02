@@ -163,7 +163,11 @@ export async function POST(request: Request) {
         if (kept.length) { emittedAny = true; controller.enqueue(encoder.encode(joinSentences(kept) + " ")) }
       }
       try {
-        for await (const delta of streamLLM("claude", llmMessages, {
+        // Grok (xAI) is the primary voice model when XAI_API_KEY is set — more
+        // permissive for the adult floor, OpenAI-compatible, fast. If its key is
+        // absent it resolves down the chain (Claude → Gemini → Together), and any
+        // runtime failure falls over via houseFallback, so it never dead-ends.
+        for await (const delta of streamLLM("xai", llmMessages, {
           temperature: 0.95,
           maxTokens: 180,
           uncensored: useUncensored,

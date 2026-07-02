@@ -15,7 +15,7 @@
 
 import { premiumModelsEnabled } from "./variant"
 
-export type Backend = "local" | "claude" | "gemini" | "openai" | "mistral" | "dolphin"
+export type Backend = "local" | "claude" | "gemini" | "openai" | "xai" | "mistral" | "dolphin"
 
 /** Premium hosted seats — collapse to local on the serverless-only .fun variant. */
 const PREMIUM: Backend[] = ["claude", "gemini", "openai"]
@@ -68,10 +68,17 @@ const OPENAI_KEY   = process.env.OPENAI_API_KEY || ""
 const OPENAI_URL   = (process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o"
 
+// xAI (Grok) — OpenAI-compatible, and far more permissive than Claude/Gemini,
+// so it fits the adult floor. Set XAI_API_KEY to make it the voice model.
+const XAI_KEY   = process.env.XAI_API_KEY || ""
+const XAI_URL   = (process.env.XAI_BASE_URL || "https://api.x.ai/v1").replace(/\/$/, "")
+const XAI_MODEL = process.env.XAI_MODEL || "grok-4-fast-non-reasoning"
+
 export function backendAvailable(b: Backend): boolean {
   if (b === "claude") return !!CLAUDE_KEY
   if (b === "gemini") return !!GEMINI_KEY
   if (b === "openai") return !!OPENAI_KEY
+  if (b === "xai")    return !!XAI_KEY
   return true // local always available
 }
 
@@ -218,6 +225,50 @@ async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGen
     throw new Error(`openai ${res.status}: ${err.slice(0, 120)}`)
   }
 
+  const reader  = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buf = ""
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += decoder.decode(value, { stream: true })
+    let nl: number
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim()
+      buf = buf.slice(nl + 1)
+      if (!line.startsWith("data:")) continue
+      const data = line.slice(5).trim()
+      if (data === "[DONE]") return
+      try {
+        const json  = JSON.parse(data)
+        const delta = json.choices?.[0]?.delta?.content
+        if (delta) yield delta
+      } catch {}
+    }
+  }
+}
+
+// ── xAI / Grok (OpenAI-compatible Chat Completions) ─────────────────────────
+async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
+  const res = await fetch(`${XAI_URL}/chat/completions`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${XAI_KEY}` },
+    body:    JSON.stringify({
+      model:       XAI_MODEL,
+      messages,
+      temperature: opts.temperature ?? 0.9,
+      max_tokens:  opts.maxTokens   ?? 700,
+      frequency_penalty: opts.frequencyPenalty ?? 0.4,
+      presence_penalty:  opts.presencePenalty  ?? 0.3,
+      stream:      true,
+    }),
+    // Bound it so a hung endpoint fails over instead of stalling the function.
+    signal: AbortSignal.timeout(22000),
+  })
+  if (!res.ok || !res.body) {
+    const err = await res.text().catch(() => "")
+    throw new Error(`xai ${res.status}: ${err.slice(0, 120)}`)
+  }
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
@@ -390,6 +441,7 @@ export async function* streamLLM(
   // room never dead-ends. Mid-stream failures rethrow (don't duplicate output).
   const primary = backend === "claude" ? streamClaude
                 : backend === "gemini" ? streamGemini
+                : backend === "xai"    ? streamXai
                 : streamOpenAI
   let emitted = false
   try {
@@ -413,6 +465,7 @@ async function* houseFallback(
   opts: LLMOptions,
   failed?: Backend,
 ): AsyncGenerator<string> {
+  if (failed !== "xai"    && XAI_KEY)    { yield* streamXai(messages, opts); return }
   if (failed !== "gemini" && GEMINI_KEY) { yield* streamGemini(messages, opts); return }
   if (failed !== "openai" && OPENAI_KEY) { yield* streamOpenAI(messages, opts); return }
   if (failed !== "local") { yield* streamLocal(messages, { ...opts, localModel: undefined }); return }

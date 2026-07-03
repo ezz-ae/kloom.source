@@ -658,7 +658,15 @@ export function Planet() {
 
       {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening("") }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 
-      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening("") }} />}
+      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening("") }}
+        onCall={(m) => {
+          // from the room's people sheet: leave the crowd, call this one directly.
+          // Same AIR gate as any conversation; 18+ was already confirmed to be here.
+          if (!gateAir()) return
+          if (!isPro()) { spendCredits(1); setCredits(getCredits()) }
+          setGroup(null); setOpening("")
+          setSelected(m)
+        }} />}
 
       {(pending || pendingJoin || nearDeep) && !verified && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,30,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", paddingTop: "max(26px, env(safe-area-inset-top))", paddingBottom: "max(26px, env(safe-area-inset-bottom))", paddingLeft: "max(26px, env(safe-area-inset-left))", paddingRight: "max(26px, env(safe-area-inset-right))", zIndex: 30 }}>

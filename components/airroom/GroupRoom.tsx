@@ -43,7 +43,7 @@ function pickResponders(msgId: string, n: number): number[] {
   return [a, b]
 }
 
-export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lang = "English" }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number; opening?: string; lang?: string }) {
+export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lang = "English", onCall }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number; opening?: string; lang?: string; onCall?: (m: Cluster) => void }) {
   // Deterministic cast of N — the same crowd for everyone who enters this room.
   // The zoom level chose N (a 60-voice floor or a 4-voice booth); members spread
   // across a small temperature band around the room so the room has texture.
@@ -64,6 +64,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   const [humanNote, setHumanNote] = useState(false) // one-time "some people are real" note (first room ever)
   const [pro] = useState(() => isPro())
   const [active, setActive] = useState(0)           // who holds the stage (last AI voice heard)
+  const [peopleOpen, setPeopleOpen] = useState(false) // ← swipe: everyone on the call; tap one to call them
+  const swipeRef = useRef<{ x: number; y: number } | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
   const [vibe, setVibe] = useState("")              // pro: steer the room vibe → enforced on the AI
   const [vibeEdit, setVibeEdit] = useState(false)
   const [showPro, setShowPro] = useState(false)
@@ -250,9 +253,22 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   const realOthers = humans.filter((h) => !h.isYou)
   const hasText = input.trim().length > 0
 
+  // Call gestures: swipe ← opens the people-on-this-call sheet (tap one → call them
+  // 1:1); swipe → jumps you to the words (focuses the text input). Pointer events
+  // cover touch and trackpad alike.
+  const onSwipeDown = (e: React.PointerEvent) => { swipeRef.current = { x: e.clientX, y: e.clientY } }
+  const onSwipeUp = (e: React.PointerEvent) => {
+    const s = swipeRef.current; swipeRef.current = null
+    if (!s || peopleOpen || showPro || vibeEdit) return
+    const dx = e.clientX - s.x, dy = e.clientY - s.y
+    if (Math.abs(dy) > 80) return
+    if (dx < -70) setPeopleOpen(true)
+    else if (dx > 70) inputRef.current?.focus()
+  }
+
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      <style>{`@keyframes greq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes gpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.16);opacity:0}100%{transform:scale(1.16);opacity:0}}`}</style>
+    <div onPointerDown={onSwipeDown} onPointerUp={onSwipeUp} style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <style>{`@keyframes greq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes gpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.16);opacity:0}100%{transform:scale(1.16);opacity:0}}@keyframes stagein{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}@keyframes sheetin{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:none}}`}</style>
       {/* slim header — the cast lives on the STAGE below, not up here */}
       <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 4px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
         <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
@@ -261,9 +277,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
               <span key={i} style={{ width: 3, height: 12, borderRadius: 2, background: muted ? "#46586a" : "#7fd6c0", transformOrigin: "center", animation: (speaking && !muted) ? `greq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)" }} />
             ))}
           </span>
-          <span style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <button onClick={() => setPeopleOpen(true)} aria-label="who's on this call" style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
             {muted ? "muted · text only" : <>{members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""} · {tempLabel}</>}
-          </span>
+          </button>
         </div>
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }} aria-label={muted ? "unmute" : "mute"} style={{ width: 44, height: 44, borderRadius: 12, fontSize: 13, color: muted ? "#ffb59c" : "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{muted ? "🔇" : "🔊"}</button>
@@ -274,13 +290,17 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       {/* THE STAGE — whoever's talking holds the light, everyone else sits around it.
           Tap any small face to hand them the mic. */}
       <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "4px 22px 6px" }}>
-        <div style={{ position: "relative", width: "min(30vw, 118px)", aspectRatio: "1" }}>
-          {speaking && !muted && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `2px solid ${dot(members[active]?.f ?? f)}`, animation: "gpulse 1.5s ease-out infinite" }} />}
-          <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${dot(members[active]?.f ?? f)}${speaking && !muted ? "" : "66"}`, boxShadow: `0 18px 56px -18px ${dot(members[active]?.f ?? f)}88`, transition: "border-color .3s", background: avatarBg(seed * 7 + active + 1, members[active]?.f ?? f) }}>
-            <Face persona={{ name: members[active]?.host || "", gender: members[active]?.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        {/* key={active} remounts on speaker change → the new speaker RISES onto the
+            stage (slide-up + scale-in) instead of the photo just swapping */}
+        <div key={active} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 7, animation: "stagein .45s ease both" }}>
+          <div style={{ position: "relative", width: "min(30vw, 118px)", aspectRatio: "1" }}>
+            {speaking && !muted && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `2px solid ${dot(members[active]?.f ?? f)}`, animation: "gpulse 1.5s ease-out infinite" }} />}
+            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${dot(members[active]?.f ?? f)}${speaking && !muted ? "" : "66"}`, boxShadow: `0 18px 56px -18px ${dot(members[active]?.f ?? f)}88`, transition: "border-color .3s", background: avatarBg(seed * 7 + active + 1, members[active]?.f ?? f) }}>
+              <Face persona={{ name: members[active]?.host || "", gender: members[active]?.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </div>
           </div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#eef4f8", lineHeight: 1 }}>{members[active]?.host}</div>
         </div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: "#eef4f8", lineHeight: 1 }}>{members[active]?.host}</div>
         <div style={{ display: "flex", gap: 9, alignItems: "center", maxWidth: "100%", overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", padding: "2px 2px 4px", maskImage: "linear-gradient(to right, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 92%, transparent)" }}>
           {members.slice(0, 12).map((m, i) => (
             <button key={i} onClick={() => passTo(i)} disabled={busy} aria-label={`pass the mic to ${m.host}`}
@@ -330,10 +350,37 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
         </div>
         {/* input + ONE morphing button (fixed 66×44, so nothing jumps) — empty = voice, typing = send */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }} placeholder={listening ? "listening…" : "say something to the room…"} style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }} />
+          <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }} placeholder={listening ? "listening…" : "say something to the room…"} style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }} />
           <button onClick={hasText ? () => send() : (sttOk ? talkOnce : () => send())} disabled={busy && hasText} aria-label={hasText ? "send" : "talk"} style={{ flex: "0 0 auto", width: 66, height: 44, borderRadius: 14, fontSize: hasText ? 14 : 19, fontWeight: 600, lineHeight: 1, border: "none", cursor: "pointer", color: hasText ? "#1a0d08" : (listening ? "#06201a" : "#dfeaf2"), background: hasText ? "#ef7a4d" : (listening ? "#7fd6c0" : "rgba(255,255,255,.12)"), opacity: (busy && hasText) ? 0.6 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{hasText ? "send" : (listening ? "•••" : "🎙")}</button>
         </div>
       </div>
+      {/* ← swipe: everyone on this call. Tap a face to leave the room and call them 1:1. */}
+      {peopleOpen && (
+        <div style={{ position: "absolute", inset: 0, zIndex: 27, background: "rgba(3,5,10,.94)", backdropFilter: "blur(10px)", display: "flex", flexDirection: "column", animation: "sheetin .3s ease both" }}>
+          <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>on this call · {members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""}</div>
+            <button onClick={() => setPeopleOpen(false)} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 12px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>back →</button>
+          </div>
+          <div style={{ fontSize: 12, color: "#7f93a5", textAlign: "center", padding: "0 22px 12px" }}>tap someone to call them, just you two</div>
+          <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "4px 22px calc(env(safe-area-inset-bottom) + 20px)", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 14, alignContent: "start" }}>
+            {members.map((m, i) => (
+              <button key={i} onClick={() => { setPeopleOpen(false); onCall?.(m) }} aria-label={`call ${m.host}`}
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "none", border: "none", padding: 4, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+                <span style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed * 7 + i + 1, m.f), border: i === active ? `2px solid ${dot(m.f)}` : "1px solid rgba(255,255,255,.16)", boxShadow: i === active ? `0 0 12px ${dot(m.f)}77` : "none", display: "block" }}>
+                  <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                </span>
+                <span style={{ fontSize: 12.5, fontWeight: 500, color: "#eef4f8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 84 }}>{m.host}</span>
+              </button>
+            ))}
+            {realOthers.map((h) => (
+              <div key={h.handle} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: 4 }}>
+                <span style={{ width: 64, height: 64, borderRadius: "50%", background: `${h.color}22`, border: `1.5px solid ${h.color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: h.color, fontWeight: 700 }}>{h.handle.slice(0, 1).toUpperCase()}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 500, color: h.color, maxWidth: 84, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.handle} · real</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {vibeEdit && pro && (
         <div style={{ position: "absolute", inset: 0, zIndex: 26, background: "rgba(4,6,12,.82)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ width: "min(88vw, 400px)", background: "#0f1622", border: ".5px solid rgba(150,120,255,.4)", borderRadius: 18, padding: 20, textAlign: "center" }}>

@@ -61,9 +61,6 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const fill   = HEAT_FILL[cluster.h]
   const grad   = HEAT_GRAD[cluster.h]
 
-  // option button style (text + leave flanking the talk button)
-  const optBtn: CSSProperties = { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", width: 58, height: 58, borderRadius: "50%", border: `.5px solid rgba(255,255,255,.14)`, background: "rgba(255,255,255,.07)", color: "#d8c8f0", fontSize: 12, fontWeight: 500, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }
-
   const [msgs, setMsgs] = useState<Msg[]>([{ who: "host", text: cluster.lines[0] }])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
@@ -104,6 +101,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const talkedRef = useRef(false)
   const speakTokenRef = useRef(0)
   const leavingRef = useRef(false)
+  const swipeRef = useRef<{ x: number; y: number } | null>(null)
   const pendingRef = useRef<string | null>(null)
   const audioQueueRef = useRef<Array<{ url: string }>>([])
   const qPlayingRef = useRef(false)
@@ -359,10 +357,20 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   const last = msgs[msgs.length - 1]
   const host = cluster.host.toLowerCase()
-  const status = speaking ? `${host} is talking…` : busy ? `${host} is thinking…` : handsFree ? "listening — just talk" : "tap to talk"
+  const status = speaking ? `${host} is talking…` : busy ? `${host} is thinking…` : handsFree ? "listening — just talk" : "tap call to start"
+
+  // Swipe right anywhere → the words (text sheet). A 1:1 call has no swipe left —
+  // there's no one else on the line. Pointer events cover touch AND trackpad.
+  const onSwipeDown = (e: React.PointerEvent) => { swipeRef.current = { x: e.clientX, y: e.clientY } }
+  const onSwipeUp = (e: React.PointerEvent) => {
+    const s = swipeRef.current; swipeRef.current = null
+    if (!s || chatOpen || showPro || vibeEdit || leaving) return
+    const dx = e.clientX - s.x, dy = e.clientY - s.y
+    if (dx > 70 && Math.abs(dy) < 80) setChatOpen(true)
+  }
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: `radial-gradient(130% 90% at 50% 0%, #1a0828 0%, #0d0418 55%, #07040f 100%)`, display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#f0e8ff" }}>
+    <div onPointerDown={onSwipeDown} onPointerUp={onSwipeUp} style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: `radial-gradient(130% 90% at 50% 0%, #1a0828 0%, #0d0418 55%, #07040f 100%)`, display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#f0e8ff" }}>
       <style>{`@keyframes airpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.18);opacity:0}100%{transform:scale(1.18);opacity:0}}@keyframes aireq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes airblink{0%,50%{opacity:1}51%,100%{opacity:0}}`}</style>
 
       {/* top bar — status + mute + leave */}
@@ -447,28 +455,27 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         </div>
       </div>
 
-      {/* bottom controls — text · TALK · leave */}
+      {/* bottom controls — ONE button, like a phone: call to start, end to hang up.
+          Text lives behind a swipe → (and the same button, when voice can't run here). */}
       <div style={{ flexShrink: 0, padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 26px) max(18px, env(safe-area-inset-right))" }}>
-        <div style={{ fontSize: 11, color: micHint ? "#fb7185" : handsFree ? accent : "rgba(240,232,255,.25)", marginBottom: 16, textAlign: "center", minHeight: 14 }}>
-          {micHint || (handsFree ? "tap to stop" : "")}
+        <div style={{ fontSize: 11, color: micHint ? "#fb7185" : "rgba(240,232,255,.3)", marginBottom: 14, textAlign: "center", minHeight: 14, letterSpacing: 0.4 }}>
+          {micHint || "swipe → for the words"}
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 28 }}>
-          <button onClick={() => setChatOpen(true)} aria-label="open the text / type" style={optBtn}>text</button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
           <button
-            onClick={sttOk ? onTalk : () => setChatOpen(true)}
-            aria-label={sttOk ? "talk" : "type"}
+            onClick={leaving ? onClose : handsFree ? leaveCall : sttOk ? onTalk : () => setChatOpen(true)}
+            aria-label={leaving ? "close" : handsFree ? "end the call" : sttOk ? "call" : "type"}
             style={{
-              width: 84, height: 84, borderRadius: "50%", cursor: "pointer",
-              fontWeight: 700, fontSize: 16, color: "#fff",
-              background: handsFree ? grad : "rgba(255,255,255,.12)",
-              boxShadow: handsFree ? `0 14px 40px -12px ${glow}` : "0 6px 20px -8px rgba(0,0,0,.5)",
-              border: handsFree ? "none" : `.5px solid ${accent}50`,
-              WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .15s, box-shadow .15s",
+              width: 92, height: 92, borderRadius: "50%", cursor: "pointer",
+              fontWeight: 700, fontSize: 17, color: "#fff", letterSpacing: 0.5,
+              background: (handsFree || leaving) ? "linear-gradient(135deg,#e11d48,#fb7185)" : grad,
+              boxShadow: (handsFree || leaving) ? "0 14px 40px -12px rgba(251,113,133,.6)" : `0 14px 40px -12px ${glow}`,
+              border: "none",
+              WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .2s, box-shadow .2s",
             } as CSSProperties}
           >
-            {!sttOk ? "type" : handsFree ? "live" : "talk"}
+            {leaving ? "close" : handsFree ? "end" : sttOk ? "call" : "text"}
           </button>
-          <button onClick={leaveCall} aria-label="leave the call" style={{ ...optBtn, background: "rgba(251,113,133,.15)", borderColor: "rgba(251,113,133,.4)", color: "#fb7185" }}>{leaving ? "leave now" : "leave"}</button>
         </div>
 
         {/* AIR credit counter — visible to free users, urgent amber when ≤3 */}

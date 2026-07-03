@@ -34,6 +34,11 @@ export interface LLMOptions {
   /** Route this turn to the self-hosted UNCENSORED endpoint (adult/dark/explicit/
    *  unrestricted). Falls back to the default endpoint if none is configured. */
   uncensored?: boolean
+  /** INTERNAL cycle breaker — endpoint|model combos already attempted in this
+   *  call chain. Without it the model-fallback branches can bounce between two
+   *  404ing models FOREVER (observed live: 164 requests in one 60s invocation,
+   *  presenting as a total chat hang). */
+  _tried?: Set<string>
 }
 
 // ── Config ────────────────────────────────────────────────────────────────
@@ -106,11 +111,8 @@ export async function timedFetch(url: string, init: RequestInit, ctrl: AbortCont
       reject(new Error(`headers timeout after ${ms}ms: ${host}`))
     }, ms)
   })
-  console.error(`[llm] timedFetch begin → ${host} (timeout ${ms}ms)`)
   try {
-    const res = await Promise.race([fetch(url, { ...init, signal: ctrl.signal }), timeout])
-    console.error(`[llm] timedFetch got headers ${res.status} ← ${host}`)
-    return res
+    return await Promise.race([fetch(url, { ...init, signal: ctrl.signal }), timeout])
   } finally {
     clearTimeout(timer)
   }
@@ -167,7 +169,6 @@ export function resolveBackend(requested?: Backend): Backend {
 // ── Local (Ollama / OpenAI-compatible) ──────────────────────────────────────
 
 async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
-  console.error(`[llm] streamLocal enter (unc=${!!opts.uncensored})`)
   // Adult/unrestricted turns go to the dedicated uncensored endpoint when one is
   // configured; everything else (and the fallback) uses the default endpoint.
   const useUnc  = !!opts.uncensored && HAS_UNCENSORED
@@ -176,6 +177,20 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   const defModel = useUnc ? UNCENSORED_MODEL : LOCAL_MODEL
   const model = opts.localModel || defModel
   const fallbackModel = opts.localModel && opts.localModel !== defModel ? defModel : undefined
+
+  // Cycle breaker: the model-fallback branches below recurse (bad model →
+  // default → global fallback → …). If two models both fail with 404/400 they
+  // bounce between each other FOREVER — observed live as 164 requests in one
+  // invocation and a 60s 504 on every chat turn. Never retry a combo, and cap
+  // the chain depth outright.
+  const tried = opts._tried ?? new Set<string>()
+  const comboKey = `${baseUrl}|${model}`
+  if (tried.has(comboKey) || tried.size >= 5) {
+    console.error(`[llm] model cycle broken (${tried.size} tried): ${comboKey}`)
+    throw new Error(`local LLM: all model fallbacks failed (${[...tried].join(", ")})`)
+  }
+  tried.add(comboKey)
+  const chain = { _tried: tried }
   // Anti-repeat params differ by endpoint:
   //  • Gemini's OpenAI-compat endpoint rejects ALL penalty params (400) → send none.
   //  • Ollama / self-hosted takes the full set incl. its repeat_penalty/options extras.
@@ -210,7 +225,7 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   // requests skip straight to the fallback chain (Gemini/GPT) instantly.
   if (Date.now() < (deadEndpoints.get(baseUrl) ?? 0)) {
     console.error(`[llm] circuit open, skipping dead endpoint: ${baseUrl}`)
-    if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+    if (useUnc) return yield* streamLocal(messages, { ...opts, ...chain, uncensored: false, localModel: undefined })
     throw new Error(`local LLM endpoint circuit-open: ${baseUrl}`)
   }
 
@@ -236,25 +251,25 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
     // dedicated endpoint). Mark it dead and degrade to the fallback chain.
     console.error(`[llm] local endpoint failed pre-headers: ${baseUrl} — ${err instanceof Error ? err.message : err}`)
     deadEndpoints.set(baseUrl, Date.now() + 120_000)
-    if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+    if (useUnc) return yield* streamLocal(messages, { ...opts, ...chain, uncensored: false, localModel: undefined })
     throw err
   }
   if ((!res.ok || !res.body) && fallbackModel && (res.status === 404 || res.status === 400)) {
-    return yield* streamLocal(messages, { ...opts, localModel: fallbackModel })
+    return yield* streamLocal(messages, { ...opts, ...chain, localModel: fallbackModel })
   }
   if (!res.ok || !res.body) {
     // If an explicitly requested model is unavailable, try this endpoint's
     // default model, then the global fallback, before failing.
     if (model !== defModel && defModel !== fallbackModel) {
-      return yield* streamLocal(messages, { ...opts, localModel: defModel })
+      return yield* streamLocal(messages, { ...opts, ...chain, localModel: defModel })
     }
     if (model !== LOCAL_FALLBACK_MODEL && LOCAL_FALLBACK_MODEL !== defModel) {
-      return yield* streamLocal(messages, { ...opts, localModel: LOCAL_FALLBACK_MODEL })
+      return yield* streamLocal(messages, { ...opts, ...chain, localModel: LOCAL_FALLBACK_MODEL })
     }
     // Last resort: a stopped/erroring uncensored endpoint (e.g. the dedicated M3
     // box scaled down) degrades to the default serverless endpoint, so the
     // unrestricted tier keeps answering instead of dead-ending.
-    if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+    if (useUnc) return yield* streamLocal(messages, { ...opts, ...chain, uncensored: false, localModel: undefined })
     throw new Error(`local LLM ${res.status}`)
   }
 
@@ -274,7 +289,7 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
         // Headers came but not one byte of output — the endpoint is a zombie.
         console.error(`[llm] local endpoint stalled before first byte: ${baseUrl}`)
         deadEndpoints.set(baseUrl, Date.now() + 120_000)
-        if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+        if (useUnc) return yield* streamLocal(messages, { ...opts, ...chain, uncensored: false, localModel: undefined })
         throw new Error(`local LLM stalled before first byte: ${baseUrl}`)
       }
       break
@@ -544,7 +559,6 @@ export async function* streamLLM(
   opts: LLMOptions = {},
 ): AsyncGenerator<string> {
   const backend = resolveBackend(requested)
-  console.error(`[llm] streamLLM enter requested=${requested} → backend=${backend}`)
 
   if (backend === "local") {
     try { yield* streamLocal(messages, opts); return }

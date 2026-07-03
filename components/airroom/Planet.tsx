@@ -101,7 +101,7 @@ export function Planet() {
   const zoomFnRef = useRef<(f: number) => void>(() => {})
 
   const [selected, setSelected] = useState<Cluster | null>(null)
-  const [group, setGroup] = useState<{ seed: number; f: number; count: number } | null>(null)
+  const [group, setGroup] = useState<{ seed: number; f: number; count: number; c?: number } | null>(null)
   const [pending, setPending] = useState<Cluster | null>(null)   // deep voice awaiting 18+ confirm
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null) // deep group awaiting 18+ confirm
   const [nearDeep, setNearDeep] = useState(false)   // you're descending toward the deep → age screen
@@ -271,7 +271,7 @@ export function Planet() {
     if (j.adult && !verifiedRef.current) { setPendingJoin(j); return }
     if (!isPro()) { spendCredits(1); setCredits(getCredits()) }
     takeOpening()
-    setGroup({ seed: j.seed, f: j.f, count: j.n })
+    setGroup({ seed: j.seed, f: j.f, count: j.n, c: j.c })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openVoice])
   const confirm18 = () => {
@@ -279,7 +279,7 @@ export function Planet() {
     setNearDeep(false); nearDeepRef.current = false
     const p = pending, pj = pendingJoin; setPending(null); setPendingJoin(null)
     if ((p || pj) && !isPro()) { spendCredits(1); setCredits(getCredits()) }
-    if (p) { takeOpening(); setSelected(p) } else if (pj) { takeOpening(); setGroup({ seed: pj.seed, f: pj.f, count: pj.n }) }
+    if (p) { takeOpening(); setSelected(p) } else if (pj) { takeOpening(); setGroup({ seed: pj.seed, f: pj.f, count: pj.n, c: pj.c }) }
   }
   // ── the engine ──
   useEffect(() => {
@@ -751,7 +751,7 @@ export function Planet() {
 
       {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
       {started && deckOpen && !selected && !group && (
-        <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} />
+        <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} />
       )}
       {/* back to AiR from the open sky */}
       {started && !deckOpen && !selected && !group && (
@@ -778,7 +778,7 @@ export function Planet() {
 
       {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening(""); zoomFnRef.current(0.55) }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 
-      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening(""); zoomFnRef.current(0.55) }}
+      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} topic={group.c != null ? TOPICS[group.c][group.seed % TOPICS[group.c].length] : undefined} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening(""); zoomFnRef.current(0.55) }}
         onCall={(m) => {
           // from the room's people sheet: leave the crowd, call this one directly.
           // Same AIR gate as any conversation; 18+ was already confirmed to be here.
@@ -818,7 +818,7 @@ export function Planet() {
 // world, left/right jumps to a different KIND of room. No written guides — if
 // the user sits still, four faint arrows breathe in. The only other control is
 // RAW (the open sky).
-function RoomDeck({ onJoin, onExplore }: { onJoin: (j: Join) => void; onExplore: () => void }) {
+function RoomDeck({ onJoin, onExplore, air, onProfile }: { onJoin: (j: Join) => void; onExplore: () => void; air: string; onProfile: () => void }) {
   const [pos, setPos] = useState({ c: 3, i: 0 })   // start warm: "a bar, early"
   const [dir, setDir] = useState<"up" | "down" | "left" | "right">("up")
   const [hintOn, setHintOn] = useState(false)
@@ -930,6 +930,8 @@ function RoomDeck({ onJoin, onExplore }: { onJoin: (j: Join) => void; onExplore:
       <span style={{ ...arrow, bottom: "calc(env(safe-area-inset-bottom) + 66px)", left: "50%", transform: "translateX(-50%)" }}>⌄</span>
       <span style={{ ...arrow, left: 14, top: "50%", transform: "translateY(-50%)" }}>‹</span>
       <span style={{ ...arrow, right: 14, top: "50%", transform: "translateY(-50%)" }}>›</span>
+      {/* your AIR — the one number money runs on, always visible, taps to the profile */}
+      <button onClick={onProfile} aria-label="your AiR balance" style={{ position: "absolute", left: 14, top: "calc(env(safe-area-inset-top) + 12px)", minHeight: 36, padding: "0 14px", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{air} AiR</button>
       {/* the ONE other control */}
       <button onClick={onExplore} aria-label="RAW — drift the open sky" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#cfe0ee", background: "rgba(4,5,11,.6)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>RAW</button>
     </div>

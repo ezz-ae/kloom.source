@@ -43,7 +43,7 @@ function pickResponders(msgId: string, n: number): number[] {
   return [a, b]
 }
 
-export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lang = "English", onCall }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number; opening?: string; lang?: string; onCall?: (m: Cluster) => void }) {
+export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lang = "English", onCall, topic }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number; opening?: string; lang?: string; onCall?: (m: Cluster) => void; topic?: string }) {
   // Deterministic cast of N — the same crowd for everyone who enters this room.
   // The zoom level chose N (a 60-voice floor or a 4-voice booth); members spread
   // across a small temperature band around the room so the room has texture.
@@ -138,7 +138,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     // every client shows this locally — no broadcast (or two people entering
     // would each fire their own greeting). Stable id so dedup is belt-and-braces.
     const g = members[0]
-    const greet: WireMessage = { id: `greet-${seed}`, kind: "ai", handle: g.host, content: g.lines[0], ts: Date.now() }
+    // The card promised a topic — the room OPENS on it. Discovery carries through
+    // the door instead of resetting to a canned line.
+    const greet: WireMessage = { id: `greet-${seed}`, kind: "ai", handle: g.host, content: topic ? `you caught us — we're deep in "${topic}". come in.` : g.lines[0], ts: Date.now() }
     push(greet); speak(greet.content, g)
     return () => { driveTimers.current.forEach((t) => clearTimeout(t)); driveTimers.current.clear(); try { sess.leave() } catch { /* */ } }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +153,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     // The Pro "vibe" steer is sent separately and gated server-side on a real Pro token.
     const persona = {
       name: mem.host,
-      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. You are warm, real, human — never a corporate assistant, never robotic. React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.`,
+      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. You are warm, real, human — never a corporate assistant, never robotic. React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.${topic ? ` Tonight the room keeps circling one thing: "${topic}" — drift back to it when the thread goes quiet.` : ""}`,
       speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am", backstory: "", language: langRef.current,
     }
     const msgs = linesRef.current.map((l) => l.kind === "ai" && l.handle === mem.host

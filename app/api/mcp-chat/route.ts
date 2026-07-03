@@ -696,7 +696,10 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
 
     if (!phase1Res.ok) break
 
-    const phase1Data = await phase1Res.json()
+    // The 12s abort can also fire mid-body on a stalling endpoint — treat it
+    // like the fetch failing and fall through to the direct stream.
+    let phase1Data: any
+    try { phase1Data = await phase1Res.json() } catch { break }
     const choice     = phase1Data.choices?.[0]?.message
 
     if (!choice?.tool_calls?.length) break // No tool calls — stream the response

@@ -203,12 +203,34 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
     throw new Error(`local LLM ${res.status}`)
   }
 
+  // Body watchdog: a dead proxy can return 200 HEADERS instantly and then stream
+  // NOTHING forever — the headers timeout above never fires, and reader.read()
+  // hangs until the platform kills the function (the exact 504-every-chat bug).
+  // Give the first byte 15s and any inter-chunk gap 30s; a stall before ANY output
+  // marks the endpoint dead and falls through, a mid-reply stall ends the reply.
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const readT = setTimeout(() => { try { reader.cancel() } catch { /* */ } }, yieldedAny ? 30_000 : 15_000)
+    let done: boolean, value: Uint8Array | undefined
+    try {
+      ({ done, value } = await reader.read())
+    } catch {
+      done = true; value = undefined
+    } finally {
+      clearTimeout(readT)
+    }
+    if (done) {
+      if (!yieldedAny) {
+        // Headers came but not one byte of output — the endpoint is a zombie.
+        deadEndpoints.set(baseUrl, Date.now() + 120_000)
+        if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+        throw new Error(`local LLM stalled before first byte: ${baseUrl}`)
+      }
+      break
+    }
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -220,7 +242,7 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
       try {
         const json  = JSON.parse(data)
         const delta = json.choices?.[0]?.delta?.content
-        if (delta) yield delta
+        if (delta) { yieldedAny = true; yield delta }
       } catch {}
     }
   }

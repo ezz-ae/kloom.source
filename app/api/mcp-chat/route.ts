@@ -403,6 +403,10 @@ export async function POST(req: NextRequest) {
   const { persona, messages, mode = "chat", partners, roomName, relationship, premium, unrestricted, proToken, userSteer } = await req.json()
   const isVoice = mode === "voice"
   const mcpBase = mcpUrlFor(req)   // same-deployment MCP server, request-origin derived
+  // Elapsed-ms breadcrumbs for the 504 hunt — shows in `vercel logs` per request.
+  const t0 = Date.now()
+  const crumb = (s: string) => console.error(`[mcp-chat +${Date.now() - t0}ms] ${s}`)
+  crumb("start")
 
   // ── Intent gate — default-open, intent-gated (lib/intent.ts) ──
   // Only exploitation + operational-harm ever block, on every tier. Everything
@@ -492,10 +496,13 @@ export async function POST(req: NextRequest) {
     unrestricted: unrestrictedActive ? "yes" : "",
     vibe_tags: Array.isArray(vibe_tags) ? vibe_tags.join(", ") : (vibe_tags ?? ""),
   }
+  crumb("gate done, fetching forcing prompt")
   const forcingPrompt = await mcpGetPrompt(mcpBase, promptName, promptArgs)
+  crumb("forcing prompt done")
 
   // 2. Get tools from MCP server (persona-appropriate subset)
   const allTools  = await mcpListTools(mcpBase)
+  crumb("tools listed")
   const cat       = persona?.category ?? ""
   const toolNames = (cat === "expert" || persona?.domain)
     ? (Array.isArray(persona?.tools) ? persona.tools : [])
@@ -774,8 +781,10 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
 
   const encoder = new TextEncoder()
 
+  crumb(`pre-stream (backend=${backend} companion=${isCompanion} tools=${tools.length})`)
   const stream = new ReadableStream<Uint8Array>({
     async start(ctrl) {
+      crumb("stream start")
       // ── Companion CHAT: buffer → strip any philosophy/wisdom → send. This is a
       // deterministic guard that doesn't depend on the model obeying the prompt. ──
       if (isCompanion && !isVoice) {
@@ -801,7 +810,9 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
 
         let full = ""
         try {
+          crumb("gen() begin")
           full = await gen()
+          crumb(`gen() done len=${full.length}`)
           // If it slipped into coach/listicle OR helpful-assistant/recommender mode,
           // retry ONCE in-scene. A hard server-side guard — doesn't trust the model.
           const bad = (t: string) => looksCoachy(t) || looksAssistant(t)
@@ -818,6 +829,7 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
               : COACH_FALLBACKS[full.length % COACH_FALLBACKS.length]
           }
         } catch (err) {
+          crumb(`gen() threw: ${err instanceof Error ? err.message : String(err)}`)
           if (!full) { ctrl.enqueue(encoder.encode(`⚠️ ${BACKEND_LABELS[backend]} unreachable`)); ctrl.close(); return }
         }
         // Defensive: if the model leaked a partner's turn ("Remy: …"), keep only

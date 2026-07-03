@@ -500,6 +500,7 @@ export const BACKEND_LABELS: Record<Backend, string> = {
   claude:  "Claude",
   gemini:  "Gemini",
   openai:  "GPT",
+  xai:     "Grok",
   mistral: "Mistral",
   dolphin: "Dolphin",
 }

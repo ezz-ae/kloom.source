@@ -258,8 +258,9 @@ async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenera
       messages,
       temperature: opts.temperature ?? 0.9,
       max_tokens:  opts.maxTokens   ?? 700,
-      frequency_penalty: opts.frequencyPenalty ?? 0.4,
-      presence_penalty:  opts.presencePenalty  ?? 0.3,
+      // NO penalty params: the grok-4 family REJECTS presence/frequency penalty with
+      // 400 "does not support parameter presencePenalty" — sending them 400'd every
+      // production call, and with the older house keys dead, chat went fully mute.
       stream:      true,
     }),
     // Bound it so a hung endpoint fails over instead of stalling the function.

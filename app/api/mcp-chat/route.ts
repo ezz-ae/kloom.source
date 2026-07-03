@@ -810,6 +810,12 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
         }
 
         let full = ""
+        // Freeze-hunt instrumentation: heartbeat proves the event loop is alive;
+        // the probe fetch proves outbound networking works from the stream context.
+        const hb = setInterval(() => crumb("heartbeat"), 5000)
+        fetch("https://www.gstatic.com/generate_204", { signal: AbortSignal.timeout(5000) })
+          .then(r => crumb(`probe fetch ok ${r.status}`))
+          .catch(e => crumb(`probe fetch failed: ${e instanceof Error ? e.message : e}`))
         try {
           crumb("gen() begin")
           full = await gen()
@@ -831,7 +837,9 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
           }
         } catch (err) {
           crumb(`gen() threw: ${err instanceof Error ? err.message : String(err)}`)
-          if (!full) { ctrl.enqueue(encoder.encode(`⚠️ ${BACKEND_LABELS[backend]} unreachable`)); ctrl.close(); return }
+          if (!full) { clearInterval(hb); ctrl.enqueue(encoder.encode(`⚠️ ${BACKEND_LABELS[backend]} unreachable`)); ctrl.close(); return }
+        } finally {
+          clearInterval(hb)
         }
         // Defensive: if the model leaked a partner's turn ("Remy: …"), keep only
         // this persona's own words (everything before the leaked name-line).

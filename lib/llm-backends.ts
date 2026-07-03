@@ -537,6 +537,7 @@ export async function* streamLLM(
   opts: LLMOptions = {},
 ): AsyncGenerator<string> {
   const backend = resolveBackend(requested)
+  console.error(`[llm] streamLLM enter requested=${requested} → backend=${backend}`)
 
   if (backend === "local") {
     try { yield* streamLocal(messages, opts); return }

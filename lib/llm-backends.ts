@@ -96,15 +96,21 @@ async function timedRead(
 // dead-but-accepting endpoint. Exported: any server route calling an LLM-ish
 // endpoint should use this instead of trusting AbortSignal.timeout.
 export async function timedFetch(url: string, init: RequestInit, ctrl: AbortController, ms: number): Promise<Response> {
+  let host = "?"
+  try { host = new URL(url).host } catch { /* */ }
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
+      console.error(`[llm] timedFetch TIMER FIRED after ${ms}ms → ${host}`)
       try { ctrl.abort() } catch { /* */ }
-      reject(new Error(`headers timeout after ${ms}ms: ${url.split("?")[0]}`))
+      reject(new Error(`headers timeout after ${ms}ms: ${host}`))
     }, ms)
   })
+  console.error(`[llm] timedFetch begin → ${host} (timeout ${ms}ms)`)
   try {
-    return await Promise.race([fetch(url, { ...init, signal: ctrl.signal }), timeout])
+    const res = await Promise.race([fetch(url, { ...init, signal: ctrl.signal }), timeout])
+    console.error(`[llm] timedFetch got headers ${res.status} ← ${host}`)
+    return res
   } finally {
     clearTimeout(timer)
   }
@@ -161,6 +167,7 @@ export function resolveBackend(requested?: Backend): Backend {
 // ── Local (Ollama / OpenAI-compatible) ──────────────────────────────────────
 
 async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
+  console.error(`[llm] streamLocal enter (unc=${!!opts.uncensored})`)
   // Adult/unrestricted turns go to the dedicated uncensored endpoint when one is
   // configured; everything else (and the fallback) uses the default endpoint.
   const useUnc  = !!opts.uncensored && HAS_UNCENSORED

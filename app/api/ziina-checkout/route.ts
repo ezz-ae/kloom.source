@@ -1,71 +1,16 @@
 /**
- * POST /api/ziina-checkout
+ * POST /api/ziina-checkout — RETIRED (410).
  *
- * Creates a Ziina hosted-checkout payment intent and returns { url } to redirect to.
- * Because Ziina has no metadata field, we persist the intent→wallet mapping in
- * `ziina_payments`; the webhook reads it back to credit the right wallet.
- *
- * Body: { walletAddress, price (USD), credits?, kind?, label?, plan? }
- *   kind: "purchase" (credit pack, default) | "unlimited" ($60 pass) | "subscription"
- *   plan: subscription plan id when kind === "subscription"
+ * No UI calls this route anymore; the live money path is /api/airraw-pro,
+ * which prices SERVER-SIDE and amount-validates on claim. This route took a
+ * client-supplied `price` verbatim while ziina-verify granted by `kind`
+ * without checking the amount actually paid — i.e. a $1 charge could mint
+ * the full unrestricted pass and fire a fake $9 Purchase into Meta ROAS.
+ * If a credit-pack checkout is ever needed again, rebuild it with a
+ * server-side kind→price table (never a client price).
  */
-import { NextRequest, NextResponse } from "next/server"
-import { createPaymentIntent, ziinaConfigured } from "@/lib/ziina"
-import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
+import { NextResponse } from "next/server"
 
-export async function POST(req: NextRequest) {
-  if (!ziinaConfigured()) return NextResponse.json({ error: "ziina_not_configured" }, { status: 503 })
-  if (!hasAdmin())        return NextResponse.json({ error: "admin_unconfigured" }, { status: 503 })
-
-  const { walletAddress, price, credits, kind, label, plan } = await req.json()
-  if (!walletAddress || !price || price <= 0) {
-    return NextResponse.json({ error: "missing_params" }, { status: 400 })
-  }
-  // The wallet key MUST be a real account email — never a shared 'guest' key that
-  // two buyers could collide on (a grant could then land on the wrong account).
-  if (!String(walletAddress).includes("@")) {
-    return NextResponse.json({ error: "auth_required" }, { status: 401 })
-  }
-
-  // Store the kind VERBATIM ("credits" or a pass id like "dayuse") so the
-  // verify-on-return handler knows exactly what to grant to the account.
-  const txnKind = (typeof kind === "string" && kind.trim()) ? kind.trim() : "credits"
-  const origin  = req.nextUrl.origin
-  // Always return to the hub; the verify-on-return handler there credits both
-  // packs and passes from the intent→wallet mapping. One return path for all.
-  const success = `${origin}/app?payment=success`
-
-  try {
-    const intent = await createPaymentIntent({
-      usd:        Number(price),
-      message:    label ? `Kloom — ${label}` : "Kloom",
-      successUrl: success,
-      cancelUrl:  `${origin}/app?payment=cancelled`,
-      failureUrl: `${origin}/app?payment=failed`,
-    })
-
-    if (!intent?.id || !intent?.redirect_url) {
-      return NextResponse.json({ error: "no_redirect_url" }, { status: 502 })
-    }
-
-    // Persist the mapping the webhook needs (Ziina can't echo custom data back).
-    const sb = getAdminClient()
-    const { error } = await sb.from("ziina_payments").insert({
-      id:       intent.id,
-      wallet:   walletAddress,
-      credits:  Number(credits) || 0,
-      kind:     txnKind,
-      amount:   intent.amount ?? null,
-      currency: intent.currency_code ?? null,
-      status:   "pending",
-    })
-    if (error) {
-      console.error("ziina-checkout: mapping insert failed", error)
-      return NextResponse.json({ error: "mapping_failed" }, { status: 500 })
-    }
-
-    return NextResponse.json({ url: intent.redirect_url, id: intent.id })
-  } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 502 })
-  }
+export async function POST() {
+  return NextResponse.json({ error: "retired — use /api/airraw-pro" }, { status: 410 })
 }

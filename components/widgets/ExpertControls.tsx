@@ -119,7 +119,7 @@ export function ExpertControls({ expert }: { expert: Expert }) {
               ) : (
                 <div className="flex items-start gap-2 text-[11px] text-foreground/45">
                   <ShieldAlert size={14} className="text-amber-400 shrink-0 mt-0.5" />
-                  <span>Standard mode — sensitive topics are limited. <span className="text-rose-300">Unrestricted ($10 · 30 days)</span> lifts every limit platform-wide.</span>
+                  <span>Standard mode — sensitive topics are limited. <span className="text-rose-300">Unrestricted ($9 · 90 days)</span> lifts every limit platform-wide.</span>
                 </div>
               )}
             </div>

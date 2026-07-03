@@ -58,6 +58,11 @@ const UNCENSORED_MODEL = process.env.UNCENSORED_LLM_MODEL
   || process.env.LLM_MODEL_UNRESTRICTED || process.env.LLM_MODEL_UNCENSORED || LOCAL_MODEL
 const HAS_UNCENSORED   = !!process.env.UNCENSORED_LLM_BASE_URL
 
+// Endpoints that recently hung (accepted the connection but never sent headers),
+// mapped to the epoch-ms until which they're considered dead. Module-scoped —
+// survives across requests within a warm serverless instance.
+const deadEndpoints = new Map<string, number>()
+
 const CLAUDE_KEY   = process.env.ANTHROPIC_API_KEY || ""
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-5"
 
@@ -142,7 +147,20 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   const reasoningHeadroom = /minimax-?m3|deepseek-?r1|\bqwq\b/i.test(model) ? 384 : 0
   const maxTokens = (opts.maxTokens ?? 600) + reasoningHeadroom
 
+  // Circuit breaker: a dead-but-accepting endpoint (e.g. a stopped RunPod proxy)
+  // hangs fetch forever — without this EVERY request burns the full serverless
+  // budget and 504s. The first hang marks the endpoint dead for 2 min; subsequent
+  // requests skip straight to the fallback chain (Gemini/GPT) instantly.
+  if (Date.now() < (deadEndpoints.get(baseUrl) ?? 0)) {
+    if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+    throw new Error(`local LLM endpoint circuit-open: ${baseUrl}`)
+  }
+
   let res: Response
+  // Headers-only timeout: abort if the endpoint doesn't ANSWER within 12s; the
+  // timer is cleared once headers arrive so long generations stream unbounded.
+  const hdrCtrl = new AbortController()
+  const hdrTimer = setTimeout(() => hdrCtrl.abort(), 12_000)
   try {
     res = await fetch(`${baseUrl}/chat/completions`, {
       method:  "POST",
@@ -155,12 +173,16 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
         ...antiRepeat,
         stream:      true,
       }),
+      signal: hdrCtrl.signal,
     })
   } catch (err) {
-    // Endpoint unreachable (e.g. a STOPPED dedicated endpoint). Degrade the
-    // unrestricted tier to the default serverless model instead of dead-ending.
+    // Endpoint unreachable, or hung past the headers timeout (e.g. a STOPPED
+    // dedicated endpoint). Mark it dead and degrade to the fallback chain.
+    if (hdrCtrl.signal.aborted) deadEndpoints.set(baseUrl, Date.now() + 120_000)
     if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
     throw err
+  } finally {
+    clearTimeout(hdrTimer)
   }
   if ((!res.ok || !res.body) && fallbackModel && (res.status === 404 || res.status === 400)) {
     return yield* streamLocal(messages, { ...opts, localModel: fallbackModel })

@@ -684,6 +684,13 @@ export function Planet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conCentres, charFor, speak, openVoice, joinGroup])
 
+  // No lobby: the moment the sky is alive, open straight onto the deck.
+  useEffect(() => {
+    if (intro) return
+    const t = setTimeout(() => startFnRef.current(), 30)
+    return () => clearTimeout(t)
+  }, [intro])
+
   return (
     <div className="airraw-ui" style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>
       {/* THE FEEL — one shared interaction layer for every surface inside the planet
@@ -709,7 +716,7 @@ export function Planet() {
       {/* you, on the floor — avatar + a peek at your credits; opens the profile.
           Hidden while inside a room/call: rooms own their whole screen, and this
           was floating OVER their header (avatar colliding with the room title). */}
-      {profile && !intro && !selected && !group && (
+      {profile && !intro && !selected && !group && !deckOpen && (
         <button onClick={() => setShowProfile(true)} aria-label="your profile" style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "max(16px, env(safe-area-inset-left))", zIndex: 26, width: 40, height: 40, borderRadius: "50%", border: "none", background: `radial-gradient(120% 120% at 30% 25%, hsl(${profile.hue},78%,64%), hsl(${(profile.hue + 40) % 360},70%,40%))`, color: "rgba(255,255,255,.96)", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 6px 18px -6px hsla(${profile.hue},80%,50%,.7)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           {profile.glyph}
           <span style={{ position: "absolute", bottom: -4, right: -4, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 9, background: "#0a0c12", border: `.5px solid ${pro ? "rgba(255,217,138,.55)" : "rgba(127,214,192,.5)"}`, color: pro ? "#ffd98a" : "#7fd6c0", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>{pro ? "∞" : credits}</span>
@@ -718,7 +725,7 @@ export function Planet() {
 
       {/* the planet speaks your language — pick it any time ON THE SURFACE. Hidden
           inside rooms/calls: it floated over their top bars (the header collision). */}
-      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: (intro || selected || group) ? "none" : "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: (intro || selected || group || deckOpen) ? "none" : "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
         <span style={{ fontSize: 12 }} aria-hidden>🌐</span>
         <select value={lang} onChange={(e) => setLang(e.target.value)} aria-label="language" style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", color: "#cfe0ee", border: "none", fontSize: 12.5, fontFamily: "inherit", padding: "2px 2px 2px 4px", cursor: "pointer", outline: "none" }}>
           {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{l.name}</option>)}
@@ -739,43 +746,16 @@ export function Planet() {
         </div>
       )}
 
-      {/* The very first view: raw. The sky is already live behind this. The name, one
-          line that says what this IS (ad traffic decides in seconds), and one way in. */}
-      {!started && !intro && (
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom))", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-          <style>{`@keyframes livepulse{0%,100%{opacity:.45}50%{opacity:1}}`}</style>
-          <div style={{ pointerEvents: "auto", textAlign: "center", color: "#eef4f8", animation: "skyOpen .8s ease both" }}>
-            <div style={{ fontSize: 12, letterSpacing: 4, color: "#7fd6c0", textTransform: "uppercase" }}>airraw</div>
-            <div style={{ fontSize: "clamp(26px, 8vw, 38px)", fontWeight: 500, lineHeight: 1.15, margin: "13px 0 10px" }}>it&apos;s the now.</div>
-            {/* the value prop — an ad visitor has ~3s to learn what this IS */}
-            <div style={{ fontSize: 14.5, lineHeight: 1.55, color: "rgba(238,244,248,.72)", maxWidth: 300, margin: "0 auto 20px" }}>
-              live voice calls with a sky full of characters. tap a face, talk out loud — it answers in a real voice, in your language. 18+.
-            </div>
-            {liveCount > 0 && <div style={{ fontSize: 12, color: "rgba(127,214,192,.55)", letterSpacing: 0.5, marginBottom: 20 }}><span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#7fd6c0", marginRight: 6, verticalAlign: "middle", animation: "livepulse 2.6s ease-in-out infinite" }} />{liveCount} voices live now</div>}
-            {/* water → fire gradient — no label, the color teaches itself */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginBottom: 22 }}>
-              <span style={{ fontSize: 14, opacity: 0.55 }}>💧</span>
-              <div style={{ width: 120, height: 3, borderRadius: 2, background: "linear-gradient(90deg, hsl(202,68%,60%), hsl(168,62%,56%), hsl(132,60%,52%), hsl(58,72%,58%), hsl(26,82%,58%), hsl(10,88%,56%), hsl(2,88%,52%))", opacity: 0.45 }} />
-              <span style={{ fontSize: 14, opacity: 0.55 }}>🔥</span>
-            </div>
-            <button onClick={() => { openingRef.current = ""; startFnRef.current() }} style={{ fontSize: 16, fontWeight: 600, minHeight: 56, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "0 32px", cursor: "pointer", boxShadow: "0 12px 32px -8px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>tap to fall in →</button>
-            <div style={{ fontSize: 11.5, color: "rgba(127,214,192,.6)", letterSpacing: 0.5, marginTop: 12 }}>free to start · no signup</div>
-          </div>
-          <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 18px)", left: 0, right: 0, textAlign: "center", pointerEvents: "auto", fontSize: 11, color: "#5f7080", letterSpacing: 0.5 }}>
-            <a href="/airraw/privacy" style={{ color: "#6b7d8e", textDecoration: "none" }}>privacy</a>
-            <span style={{ opacity: 0.4, margin: "0 9px" }}>·</span>
-            <a href="/airraw/terms" style={{ color: "#6b7d8e", textDecoration: "none" }}>terms</a>
-          </div>
-        </div>
-      )}
+      {/* NO lobby page — the product opens ON a room. (The old wordmark/CTA screen
+          was a second homepage in front of the deck; ad visitors landed twice.) */}
 
-      {/* THE FRONT DOOR — the swipe-up deck of rooms. The sky waits behind it. */}
+      {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
       {started && deckOpen && !selected && !group && (
         <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} />
       )}
-      {/* back to the deck from the open sky */}
+      {/* back to AiR from the open sky */}
       {started && !deckOpen && !selected && !group && (
-        <button onClick={() => setDeckOpen(true)} aria-label="back to the rooms" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 24, minHeight: 40, padding: "0 16px", fontSize: 12.5, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 999, cursor: "pointer", boxShadow: "0 10px 26px -10px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>▤ rooms</button>
+        <button onClick={() => setDeckOpen(true)} aria-label="AiR — back to the rooms" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 24, minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 999, cursor: "pointer", boxShadow: "0 10px 26px -10px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>AiR</button>
       )}
 
       {/* one-time gesture hint — sky mode only */}
@@ -834,80 +814,87 @@ export function Planet() {
 }
 
 // ── THE ROOM DECK — the front door ───────────────────────────────────────────
-// One room per screen, native scroll-snap: swipe up for the next, one button to
-// step in. Zero learning curve — the free-roam sky stays available behind the
-// "✦ the sky" button for people who want to wander, but nobody has to learn a
-// zoom language just to reach a conversation.
+// One room fills the screen. Swipe ANY direction: up/down walks rooms in this
+// world, left/right jumps to a different KIND of room. No written guides — if
+// the user sits still, four faint arrows breathe in. The only other control is
+// RAW (the open sky).
 function RoomDeck({ onJoin, onExplore }: { onJoin: (j: Join) => void; onExplore: () => void }) {
-  const [world, setWorld] = useState(-1)   // -1 = every world mixed
-  const [page, setPage] = useState(0)      // "fresh rooms" reshuffles deterministically
-  const rooms = useMemo(() => {
-    const cs = world < 0 ? CONTINENTS.map((_, i) => i) : [world]
-    const perWorld = world < 0 ? 3 : 10
-    const list: { c: number; seed: number; topic: string; n: number; cast: Cluster[] }[] = []
-    for (const c of cs) for (let i = 0; i < perWorld; i++) {
-      const seed = ihash(c * 131 + i * 17 + page * 913 + 5, c * 7 + i * 3 + page + 11)
-      const n = 5 + (seed % 60)
-      const cast = Array.from({ length: 4 }, (_, k) => makeCharacter(seed * 7 + k + 1, CONTINENTS[c].f))
-      list.push({ c, seed, topic: TOPICS[c][seed % TOPICS[c].length], n, cast })
-    }
-    return list
-  }, [world, page])
+  const [pos, setPos] = useState({ c: 3, i: 0 })   // start warm: "a bar, early"
+  const [dir, setDir] = useState<"up" | "down" | "left" | "right">("up")
+  const [hintOn, setHintOn] = useState(false)
+  const swipe = useRef<{ x: number; y: number } | null>(null)
+  const idleT = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const chip = (on: boolean, h: number): React.CSSProperties => ({
-    flexShrink: 0, fontSize: 12.5, fontWeight: 600, letterSpacing: 0.3, whiteSpace: "nowrap",
-    color: on ? "#06121e" : `hsla(${h},60%,78%,.9)`,
-    background: on ? `hsl(${h},70%,66%)` : `hsla(${h},50%,40%,.18)`,
-    border: on ? "none" : `.5px solid hsla(${h},60%,60%,.35)`,
-    borderRadius: 999, padding: "9px 14px", minHeight: 36, cursor: "pointer",
-    WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
-  })
+  // arrows only when the user hesitates — never text instructions
+  useEffect(() => {
+    setHintOn(false)
+    if (idleT.current) clearTimeout(idleT.current)
+    idleT.current = setTimeout(() => setHintOn(true), 2600)
+    return () => { if (idleT.current) clearTimeout(idleT.current) }
+  }, [pos])
+
+  const room = useMemo(() => {
+    const c = ((pos.c % CONTINENTS.length) + CONTINENTS.length) % CONTINENTS.length
+    const seed = ihash(c * 131 + pos.i * 17 + 5, c * 7 + pos.i * 3 + 11)
+    const n = 5 + (seed % 60)
+    const cast = Array.from({ length: 4 }, (_, k) => makeCharacter(seed * 7 + k + 1, CONTINENTS[c].f))
+    return { c, seed, topic: TOPICS[c][seed % TOPICS[c].length], n, cast }
+  }, [pos])
+  const co = CONTINENTS[room.c]
+
+  const go = (d: "up" | "down" | "left" | "right") => {
+    setDir(d)
+    setPos((p) => d === "up" ? { ...p, i: p.i + 1 }
+      : d === "down" ? { ...p, i: p.i - 1 }
+      : d === "left" ? { c: p.c + 1, i: 0 }
+      : { c: p.c - 1, i: 0 })
+  }
+
+  const arrow: React.CSSProperties = { position: "absolute", color: "#eef4f8", opacity: hintOn ? 0.22 : 0, transition: "opacity .9s ease", fontSize: 24, lineHeight: 1, pointerEvents: "none" }
 
   return (
-    <div className="air-fade" style={{ position: "absolute", inset: 0, zIndex: 18, display: "flex", flexDirection: "column", background: "rgba(4,5,11,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      {/* world chips — below the avatar/language chrome */}
-      <div style={{ flexShrink: 0, display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", padding: "calc(env(safe-area-inset-top) + 62px) 16px 10px", maskImage: "linear-gradient(to right, #000 94%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 94%, transparent)" }}>
-        <button onClick={() => setWorld(-1)} style={chip(world === -1, 200)}>everything</button>
-        {CONTINENTS.map((co, i) => (
-          <button key={i} onClick={() => setWorld(i)} style={chip(world === i, co.h)}>{co.n}{co.adult ? " · 18+" : ""}</button>
-        ))}
-      </div>
-
-      {/* the deck */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
-        {rooms.map((r) => {
-          const co = CONTINENTS[r.c]
-          return (
-            <div key={`${r.c}-${r.seed}`} style={{ height: "100%", scrollSnapAlign: "start", scrollSnapStop: "always", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "10px 26px", background: `radial-gradient(120% 85% at 50% 22%, hsla(${co.h},62%,26%,.6), rgba(4,5,11,0) 72%)`, boxSizing: "border-box" }}>
-              <div style={{ fontSize: 11, letterSpacing: 2.5, textTransform: "uppercase", color: `hsla(${co.h},70%,74%,.92)` }}>{co.n}{co.adult ? " · 18+" : ""}</div>
-              <div style={{ fontSize: "clamp(28px, 8vw, 40px)", fontWeight: 600, color: "#eef4f8", textAlign: "center", lineHeight: 1.12, letterSpacing: -0.5 }}>{r.topic}</div>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                {r.cast.map((m, k) => (
-                  <span key={k} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", border: `2px solid hsla(${co.h},70%,62%,.85)`, marginLeft: k ? -14 : 0, boxShadow: "0 8px 22px -8px rgba(0,0,0,.75)", background: `hsl(${co.h},45%,30%)` }}>
-                    <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                  </span>
-                ))}
-                <span style={{ marginLeft: 12, fontSize: 13, color: "rgba(238,244,248,.62)" }}>{r.n} in here</span>
-              </div>
-              <div style={{ fontSize: 13.5, color: "rgba(238,244,248,.55)", textAlign: "center", maxWidth: 300, lineHeight: 1.5 }}>{co.v}</div>
-              <button onClick={() => onJoin({ n: r.n, seed: r.seed, f: co.f, adult: !!co.adult, c: r.c })}
-                style={{ marginTop: 4, minHeight: 54, padding: "0 44px", fontSize: 16, fontWeight: 700, color: "#06121e", background: `linear-gradient(135deg, hsl(${co.h},72%,62%), hsl(${(co.h + 25) % 360},72%,70%))`, border: "none", borderRadius: 16, cursor: "pointer", boxShadow: `0 14px 36px -12px hsla(${co.h},80%,55%,.6)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
-                step in →
-              </button>
-              <div style={{ fontSize: 11, color: "rgba(238,244,248,.32)", letterSpacing: 0.6 }}>swipe up for the next room</div>
-            </div>
-          )
-        })}
-        {/* final card: reshuffle */}
-        <div style={{ height: "100%", scrollSnapAlign: "start", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "10px 26px", boxSizing: "border-box" }}>
-          <div style={{ fontSize: 22, fontWeight: 600, color: "#eef4f8" }}>that&apos;s this stretch of the floor</div>
-          <button onClick={() => setPage((p) => p + 1)} style={{ minHeight: 52, padding: "0 36px", fontSize: 15, fontWeight: 700, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↻ fresh rooms</button>
-          <button onClick={onExplore} style={{ minHeight: 44, padding: "0 22px", fontSize: 13, color: "#cfe0ee", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>✦ or drift the open sky</button>
+    <div
+      className="air-fade"
+      onPointerDown={(e) => { swipe.current = { x: e.clientX, y: e.clientY }; setHintOn(false) }}
+      onPointerUp={(e) => {
+        const s = swipe.current; swipe.current = null
+        if (!s) return
+        const dx = e.clientX - s.x, dy = e.clientY - s.y
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 46) return
+        if (Math.abs(dy) >= Math.abs(dx)) go(dy < 0 ? "up" : "down")
+        else go(dx < 0 ? "left" : "right")
+      }}
+      style={{ position: "absolute", inset: 0, zIndex: 18, overflow: "hidden", background: "rgba(4,5,11,.55)", touchAction: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <style>{`
+        @keyframes deckup{from{opacity:0;transform:translateY(46px)}to{opacity:1;transform:none}}
+        @keyframes deckdown{from{opacity:0;transform:translateY(-46px)}to{opacity:1;transform:none}}
+        @keyframes deckleft{from{opacity:0;transform:translateX(46px)}to{opacity:1;transform:none}}
+        @keyframes deckright{from{opacity:0;transform:translateX(-46px)}to{opacity:1;transform:none}}
+      `}</style>
+      <div key={`${room.c}-${pos.i}`} style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "24px 26px", background: `radial-gradient(120% 85% at 50% 25%, hsla(${co.h},62%,26%,.6), rgba(4,5,11,0) 72%)`, animation: `deck${dir} .38s cubic-bezier(.2,.8,.3,1) both`, boxSizing: "border-box" }}>
+        <div style={{ fontSize: 11, letterSpacing: 2.5, textTransform: "uppercase", color: `hsla(${co.h},70%,74%,.92)` }}>{co.n}{co.adult ? " · 18+" : ""}</div>
+        <div style={{ fontSize: "clamp(28px, 8vw, 40px)", fontWeight: 600, color: "#eef4f8", textAlign: "center", lineHeight: 1.12, letterSpacing: -0.5 }}>{room.topic}</div>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {room.cast.map((m, k) => (
+            <span key={k} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", border: `2px solid hsla(${co.h},70%,62%,.85)`, marginLeft: k ? -14 : 0, boxShadow: "0 8px 22px -8px rgba(0,0,0,.75)", background: `hsl(${co.h},45%,30%)` }}>
+              <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </span>
+          ))}
+          <span style={{ marginLeft: 12, fontSize: 13, color: "rgba(238,244,248,.62)" }}>{room.n} in here</span>
         </div>
+        <div style={{ fontSize: 13.5, color: "rgba(238,244,248,.55)", textAlign: "center", maxWidth: 300, lineHeight: 1.5 }}>{co.v}</div>
+        <button onClick={() => onJoin({ n: room.n, seed: room.seed, f: co.f, adult: !!co.adult, c: room.c })}
+          style={{ marginTop: 4, minHeight: 54, padding: "0 44px", fontSize: 16, fontWeight: 700, color: "#06121e", background: `linear-gradient(135deg, hsl(${co.h},72%,62%), hsl(${(co.h + 25) % 360},72%,70%))`, border: "none", borderRadius: 16, cursor: "pointer", boxShadow: `0 14px 36px -12px hsla(${co.h},80%,55%,.6)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+          step in →
+        </button>
       </div>
-
-      {/* the sky stays one tap away */}
-      <button onClick={onExplore} aria-label="explore the open sky" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 19, minHeight: 40, padding: "0 16px", fontSize: 12.5, color: "#cfe0ee", background: "rgba(4,5,11,.6)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>✦ the sky</button>
+      {/* whisper arrows — appear only on hesitation, breathe away on touch */}
+      <span style={{ ...arrow, top: "calc(env(safe-area-inset-top) + 16px)", left: "50%", transform: "translateX(-50%)" }}>⌃</span>
+      <span style={{ ...arrow, bottom: "calc(env(safe-area-inset-bottom) + 66px)", left: "50%", transform: "translateX(-50%)" }}>⌄</span>
+      <span style={{ ...arrow, left: 14, top: "50%", transform: "translateY(-50%)" }}>‹</span>
+      <span style={{ ...arrow, right: 14, top: "50%", transform: "translateY(-50%)" }}>›</span>
+      {/* the ONE other control */}
+      <button onClick={onExplore} aria-label="RAW — drift the open sky" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#cfe0ee", background: "rgba(4,5,11,.6)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>RAW</button>
     </div>
   )
 }

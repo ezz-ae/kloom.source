@@ -63,20 +63,51 @@ const HAS_UNCENSORED   = !!process.env.UNCENSORED_LLM_BASE_URL
 // survives across requests within a warm serverless instance.
 const deadEndpoints = new Map<string, number>()
 
-// Watchdog read: race reader.read() against an inactivity timer that aborts the
-// UNDERLYING CONNECTION (ctrl.abort()). reader.cancel() is not enough — with a
-// zombie remote, undici can leave the pending read() hanging forever, which is
-// exactly the "every chat 504s at 60s" failure. An aborted read rejects; we
-// normalize that to done so callers treat it as end-of-stream.
+// Watchdog read: Promise.race the read against a hard timer. We do NOT rely on
+// AbortController rejecting the pending read — observed in production (Vercel
+// Node runtime) that neither ctrl.abort() nor reader.cancel() unblocks a read
+// pending against a zombie remote; the race returns control REGARDLESS, and the
+// abort/cancel run as best-effort cleanup. Same for the headers fetch below.
 async function timedRead(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   ctrl: AbortController,
   ms: number,
 ): Promise<{ done: boolean; value?: Uint8Array }> {
-  const t = setTimeout(() => ctrl.abort(), ms)
-  try { return await reader.read() }
-  catch { return { done: true } }
-  finally { clearTimeout(t) }
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<{ done: true; value?: undefined }>((resolve) => {
+    timer = setTimeout(() => {
+      try { ctrl.abort() } catch { /* */ }
+      try { reader.cancel() } catch { /* */ }
+      resolve({ done: true })
+    }, ms)
+  })
+  try {
+    return await Promise.race([
+      reader.read().catch(() => ({ done: true as const, value: undefined })),
+      timeout,
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// Headers watchdog: race the fetch itself against a hard timer — an armed
+// AbortSignal alone was observed NOT to reject a fetch stuck against a
+// dead-but-accepting endpoint. Exported: any server route calling an LLM-ish
+// endpoint should use this instead of trusting AbortSignal.timeout.
+export async function timedFetch(url: string, init: RequestInit, ctrl: AbortController, ms: number): Promise<Response> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      try { ctrl.abort() } catch { /* */ }
+      reject(new Error(`headers timeout after ${ms}ms: ${url.split("?")[0]}`))
+    }, ms)
+  })
+  try {
+    return await Promise.race([fetch(url, { ...init, signal: ctrl.signal }), timeout])
+  } finally {
+    clearTimeout(timer)
+  }
 }
 // First byte must arrive within this; between chunks we allow more.
 const FIRST_BYTE_MS = 15_000
@@ -177,12 +208,11 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   }
 
   let res: Response
-  // Headers-only timeout: abort if the endpoint doesn't ANSWER within 12s; the
-  // timer is cleared once headers arrive so long generations stream unbounded.
+  // Headers watchdog: hard-raced — a zombie endpoint (accepts, never answers)
+  // must not consume the serverless budget. See timedFetch.
   const hdrCtrl = new AbortController()
-  const hdrTimer = setTimeout(() => hdrCtrl.abort(), 12_000)
   try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
+    res = await timedFetch(`${baseUrl}/chat/completions`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${baseKey}` },
       body:    JSON.stringify({
@@ -193,17 +223,14 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
         ...antiRepeat,
         stream:      true,
       }),
-      signal: hdrCtrl.signal,
-    })
+    }, hdrCtrl, 12_000)
   } catch (err) {
     // Endpoint unreachable, or hung past the headers timeout (e.g. a STOPPED
     // dedicated endpoint). Mark it dead and degrade to the fallback chain.
-    console.error(`[llm] local endpoint failed pre-headers (aborted=${hdrCtrl.signal.aborted}): ${baseUrl}`)
-    if (hdrCtrl.signal.aborted) deadEndpoints.set(baseUrl, Date.now() + 120_000)
+    console.error(`[llm] local endpoint failed pre-headers: ${baseUrl} — ${err instanceof Error ? err.message : err}`)
+    deadEndpoints.set(baseUrl, Date.now() + 120_000)
     if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
     throw err
-  } finally {
-    clearTimeout(hdrTimer)
   }
   if ((!res.ok || !res.body) && fallbackModel && (res.status === 404 || res.status === 400)) {
     return yield* streamLocal(messages, { ...opts, localModel: fallbackModel })
@@ -267,26 +294,19 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
 
 async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
   const ctrl = new AbortController()
-  const hdrTimer = setTimeout(() => ctrl.abort(), FIRST_BYTE_MS)
-  let res: Response
-  try {
-    res = await fetch(`${OPENAI_URL}/chat/completions`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
-      body:    JSON.stringify({
-        model:       OPENAI_MODEL,
-        messages,
-        temperature: opts.temperature ?? 0.9,
-        max_tokens:  opts.maxTokens   ?? 700,
-        frequency_penalty: opts.frequencyPenalty ?? 0.4,
-        presence_penalty:  opts.presencePenalty  ?? 0.3,
-        stream:      true,
-      }),
-      signal: ctrl.signal,
-    })
-  } finally {
-    clearTimeout(hdrTimer)
-  }
+  const res = await timedFetch(`${OPENAI_URL}/chat/completions`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+    body:    JSON.stringify({
+      model:       OPENAI_MODEL,
+      messages,
+      temperature: opts.temperature ?? 0.9,
+      max_tokens:  opts.maxTokens   ?? 700,
+      frequency_penalty: opts.frequencyPenalty ?? 0.4,
+      presence_penalty:  opts.presencePenalty  ?? 0.3,
+      stream:      true,
+    }),
+  }, ctrl, FIRST_BYTE_MS)
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`openai ${res.status}: ${err.slice(0, 120)}`)
@@ -325,27 +345,20 @@ async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenera
   // Headers timeout + body watchdog (the old whole-request 22s abort also KILLED
   // healthy long generations mid-reply — the watchdog only fires on inactivity).
   const ctrl = new AbortController()
-  const hdrTimer = setTimeout(() => ctrl.abort(), FIRST_BYTE_MS)
-  let res: Response
-  try {
-    res = await fetch(`${XAI_URL}/chat/completions`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${XAI_KEY}` },
-      body:    JSON.stringify({
-        model:       XAI_MODEL,
-        messages,
-        temperature: opts.temperature ?? 0.9,
-        max_tokens:  opts.maxTokens   ?? 700,
-        // NO penalty params: the grok-4 family REJECTS presence/frequency penalty with
-        // 400 "does not support parameter presencePenalty" — sending them 400'd every
-        // production call, and with the older house keys dead, chat went fully mute.
-        stream:      true,
-      }),
-      signal: ctrl.signal,
-    })
-  } finally {
-    clearTimeout(hdrTimer)
-  }
+  const res = await timedFetch(`${XAI_URL}/chat/completions`, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${XAI_KEY}` },
+    body:    JSON.stringify({
+      model:       XAI_MODEL,
+      messages,
+      temperature: opts.temperature ?? 0.9,
+      max_tokens:  opts.maxTokens   ?? 700,
+      // NO penalty params: the grok-4 family REJECTS presence/frequency penalty with
+      // 400 "does not support parameter presencePenalty" — sending them 400'd every
+      // production call, and with the older house keys dead, chat went fully mute.
+      stream:      true,
+    }),
+  }, ctrl, FIRST_BYTE_MS)
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`xai ${res.status}: ${err.slice(0, 120)}`)
@@ -399,29 +412,22 @@ async function* streamClaude(messages: LLMMessage[], opts: LLMOptions): AsyncGen
   }
 
   const ctrl = new AbortController()
-  const hdrTimer = setTimeout(() => ctrl.abort(), FIRST_BYTE_MS)
-  let res: Response
-  try {
-    res = await fetch("https://api.anthropic.com/v1/messages", {
-      method:  "POST",
-      headers: {
-        "x-api-key":         CLAUDE_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type":      "application/json",
-      },
-      body: JSON.stringify({
-        model:      CLAUDE_MODEL,
-        max_tokens: opts.maxTokens ?? 700,
-        temperature: opts.temperature ?? 0.9,
-        system,
-        messages:   collapsed,
-        stream:     true,
-      }),
-      signal: ctrl.signal,
-    })
-  } finally {
-    clearTimeout(hdrTimer)
-  }
+  const res = await timedFetch("https://api.anthropic.com/v1/messages", {
+    method:  "POST",
+    headers: {
+      "x-api-key":         CLAUDE_KEY,
+      "anthropic-version": "2023-06-01",
+      "content-type":      "application/json",
+    },
+    body: JSON.stringify({
+      model:      CLAUDE_MODEL,
+      max_tokens: opts.maxTokens ?? 700,
+      temperature: opts.temperature ?? 0.9,
+      system,
+      messages:   collapsed,
+      stream:     true,
+    }),
+  }, ctrl, FIRST_BYTE_MS)
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`claude ${res.status}: ${err.slice(0, 120)}`)
@@ -469,31 +475,24 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`
   const ctrl = new AbortController()
-  const hdrTimer = setTimeout(() => ctrl.abort(), FIRST_BYTE_MS)
-  let res: Response
-  try {
-    res = await fetch(url, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        contents,
-        systemInstruction: system ? { parts: [{ text: system }] } : undefined,
-        generationConfig: {
-          temperature:     opts.temperature ?? 0.9,
-          maxOutputTokens: opts.maxTokens   ?? 700,
-          // gemini-2.5-flash is a THINKING model: it spends maxOutputTokens on hidden
-          // reasoning first, so a 160-token companion cap left ~5 tokens for the actual
-          // reply → every answer truncated mid-word ("hmm remy's got…", finishReason
-          // MAX_TOKENS). Disable thinking: full budget goes to the visible reply, and
-          // it's faster (no reasoning latency) — exactly right for a real-time room.
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-      signal: ctrl.signal,
-    })
-  } finally {
-    clearTimeout(hdrTimer)
-  }
+  const res = await timedFetch(url, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({
+      contents,
+      systemInstruction: system ? { parts: [{ text: system }] } : undefined,
+      generationConfig: {
+        temperature:     opts.temperature ?? 0.9,
+        maxOutputTokens: opts.maxTokens   ?? 700,
+        // gemini-2.5-flash is a THINKING model: it spends maxOutputTokens on hidden
+        // reasoning first, so a 160-token companion cap left ~5 tokens for the actual
+        // reply → every answer truncated mid-word ("hmm remy's got…", finishReason
+        // MAX_TOKENS). Disable thinking: full budget goes to the visible reply, and
+        // it's faster (no reasoning latency) — exactly right for a real-time room.
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    }),
+  }, ctrl, FIRST_BYTE_MS)
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`gemini ${res.status}: ${err.slice(0, 120)}`)

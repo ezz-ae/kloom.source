@@ -13,7 +13,7 @@
  */
 
 import { NextRequest } from "next/server"
-import { streamLLM, resolveBackend, BACKEND_LABELS, type Backend, type LLMMessage } from "@/lib/llm-backends"
+import { streamLLM, resolveBackend, timedFetch, BACKEND_LABELS, type Backend, type LLMMessage } from "@/lib/llm-backends"
 import { analyzeVibe } from "@/lib/vibe"
 import { analyzeIntent, refusalFor } from "@/lib/intent"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
@@ -675,7 +675,11 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
     rounds++
     let phase1Res: Response
     try {
-      phase1Res = await fetch(`${LLM_URL}/chat/completions`, {
+      // Hard-raced timeout (timedFetch): a dead endpoint must not eat the whole
+      // 60s function budget — degrade to the direct stream (which has its own
+      // fallback chain) instead. AbortSignal.timeout alone was observed NOT to
+      // reject against a zombie endpoint in this runtime.
+      phase1Res = await timedFetch(`${LLM_URL}/chat/completions`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${LLM_KEY}` },
         body:    JSON.stringify({
@@ -693,10 +697,7 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
           }),
           stream:      false,
         }),
-        // A dead endpoint must not eat the whole 60s function budget — degrade
-        // to the direct stream (which has its own fallback chain) instead.
-        signal: AbortSignal.timeout(12_000),
-      })
+      }, new AbortController(), 12_000)
     } catch (err) {
       break // fall through to direct stream
     }

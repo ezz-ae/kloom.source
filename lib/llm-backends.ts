@@ -540,7 +540,10 @@ export async function* streamLLM(
 
   if (backend === "local") {
     try { yield* streamLocal(messages, opts); return }
-    catch { yield* houseFallback(messages, opts, "local"); return }
+    catch (err) {
+      console.error(`[llm] local seat failed: ${err instanceof Error ? err.message : err}`)
+      yield* houseFallback(messages, opts, "local"); return
+    }
   }
   if (backend === "mistral" || backend === "dolphin") {
     const localModel = backend === "mistral" ? "mistral:latest" : "dolphin-mistral:latest"
@@ -562,6 +565,7 @@ export async function* streamLLM(
       yield chunk
     }
   } catch (err) {
+    console.error(`[llm] ${backend} seat failed (emitted=${emitted}): ${err instanceof Error ? err.message : err}`)
     if (emitted) throw err
     yield* houseFallback(messages, opts, backend)
   }

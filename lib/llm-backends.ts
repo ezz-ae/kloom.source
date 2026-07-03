@@ -63,6 +63,25 @@ const HAS_UNCENSORED   = !!process.env.UNCENSORED_LLM_BASE_URL
 // survives across requests within a warm serverless instance.
 const deadEndpoints = new Map<string, number>()
 
+// Watchdog read: race reader.read() against an inactivity timer that aborts the
+// UNDERLYING CONNECTION (ctrl.abort()). reader.cancel() is not enough — with a
+// zombie remote, undici can leave the pending read() hanging forever, which is
+// exactly the "every chat 504s at 60s" failure. An aborted read rejects; we
+// normalize that to done so callers treat it as end-of-stream.
+async function timedRead(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  ctrl: AbortController,
+  ms: number,
+): Promise<{ done: boolean; value?: Uint8Array }> {
+  const t = setTimeout(() => ctrl.abort(), ms)
+  try { return await reader.read() }
+  catch { return { done: true } }
+  finally { clearTimeout(t) }
+}
+// First byte must arrive within this; between chunks we allow more.
+const FIRST_BYTE_MS = 15_000
+const CHUNK_GAP_MS  = 30_000
+
 const CLAUDE_KEY   = process.env.ANTHROPIC_API_KEY || ""
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-5"
 
@@ -152,6 +171,7 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   // budget and 504s. The first hang marks the endpoint dead for 2 min; subsequent
   // requests skip straight to the fallback chain (Gemini/GPT) instantly.
   if (Date.now() < (deadEndpoints.get(baseUrl) ?? 0)) {
+    console.error(`[llm] circuit open, skipping dead endpoint: ${baseUrl}`)
     if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
     throw new Error(`local LLM endpoint circuit-open: ${baseUrl}`)
   }
@@ -178,6 +198,7 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   } catch (err) {
     // Endpoint unreachable, or hung past the headers timeout (e.g. a STOPPED
     // dedicated endpoint). Mark it dead and degrade to the fallback chain.
+    console.error(`[llm] local endpoint failed pre-headers (aborted=${hdrCtrl.signal.aborted}): ${baseUrl}`)
     if (hdrCtrl.signal.aborted) deadEndpoints.set(baseUrl, Date.now() + 120_000)
     if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
     throw err
@@ -206,31 +227,25 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   // Body watchdog: a dead proxy can return 200 HEADERS instantly and then stream
   // NOTHING forever — the headers timeout above never fires, and reader.read()
   // hangs until the platform kills the function (the exact 504-every-chat bug).
-  // Give the first byte 15s and any inter-chunk gap 30s; a stall before ANY output
-  // marks the endpoint dead and falls through, a mid-reply stall ends the reply.
+  // timedRead aborts the CONNECTION on stall; a stall before ANY output marks
+  // the endpoint dead and falls through, a mid-reply stall ends the reply.
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
   let yieldedAny = false
   while (true) {
-    const readT = setTimeout(() => { try { reader.cancel() } catch { /* */ } }, yieldedAny ? 30_000 : 15_000)
-    let done: boolean, value: Uint8Array | undefined
-    try {
-      ({ done, value } = await reader.read())
-    } catch {
-      done = true; value = undefined
-    } finally {
-      clearTimeout(readT)
-    }
+    const { done, value } = await timedRead(reader, hdrCtrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
     if (done) {
       if (!yieldedAny) {
         // Headers came but not one byte of output — the endpoint is a zombie.
+        console.error(`[llm] local endpoint stalled before first byte: ${baseUrl}`)
         deadEndpoints.set(baseUrl, Date.now() + 120_000)
         if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
         throw new Error(`local LLM stalled before first byte: ${baseUrl}`)
       }
       break
     }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -251,19 +266,27 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
 // ── OpenAI / GPT (Chat Completions API) ─────────────────────────────────────
 
 async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
-  const res = await fetch(`${OPENAI_URL}/chat/completions`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
-    body:    JSON.stringify({
-      model:       OPENAI_MODEL,
-      messages,
-      temperature: opts.temperature ?? 0.9,
-      max_tokens:  opts.maxTokens   ?? 700,
-      frequency_penalty: opts.frequencyPenalty ?? 0.4,
-      presence_penalty:  opts.presencePenalty  ?? 0.3,
-      stream:      true,
-    }),
-  })
+  const ctrl = new AbortController()
+  const hdrTimer = setTimeout(() => ctrl.abort(), FIRST_BYTE_MS)
+  let res: Response
+  try {
+    res = await fetch(`${OPENAI_URL}/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
+      body:    JSON.stringify({
+        model:       OPENAI_MODEL,
+        messages,
+        temperature: opts.temperature ?? 0.9,
+        max_tokens:  opts.maxTokens   ?? 700,
+        frequency_penalty: opts.frequencyPenalty ?? 0.4,
+        presence_penalty:  opts.presencePenalty  ?? 0.3,
+        stream:      true,
+      }),
+      signal: ctrl.signal,
+    })
+  } finally {
+    clearTimeout(hdrTimer)
+  }
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`openai ${res.status}: ${err.slice(0, 120)}`)
@@ -272,9 +295,14 @@ async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGen
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, ctrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) throw new Error("openai stalled before first byte")
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -286,7 +314,7 @@ async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       try {
         const json  = JSON.parse(data)
         const delta = json.choices?.[0]?.delta?.content
-        if (delta) yield delta
+        if (delta) { yieldedAny = true; yield delta }
       } catch {}
     }
   }
@@ -294,22 +322,30 @@ async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGen
 
 // ── xAI / Grok (OpenAI-compatible Chat Completions) ─────────────────────────
 async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
-  const res = await fetch(`${XAI_URL}/chat/completions`, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${XAI_KEY}` },
-    body:    JSON.stringify({
-      model:       XAI_MODEL,
-      messages,
-      temperature: opts.temperature ?? 0.9,
-      max_tokens:  opts.maxTokens   ?? 700,
-      // NO penalty params: the grok-4 family REJECTS presence/frequency penalty with
-      // 400 "does not support parameter presencePenalty" — sending them 400'd every
-      // production call, and with the older house keys dead, chat went fully mute.
-      stream:      true,
-    }),
-    // Bound it so a hung endpoint fails over instead of stalling the function.
-    signal: AbortSignal.timeout(22000),
-  })
+  // Headers timeout + body watchdog (the old whole-request 22s abort also KILLED
+  // healthy long generations mid-reply — the watchdog only fires on inactivity).
+  const ctrl = new AbortController()
+  const hdrTimer = setTimeout(() => ctrl.abort(), FIRST_BYTE_MS)
+  let res: Response
+  try {
+    res = await fetch(`${XAI_URL}/chat/completions`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${XAI_KEY}` },
+      body:    JSON.stringify({
+        model:       XAI_MODEL,
+        messages,
+        temperature: opts.temperature ?? 0.9,
+        max_tokens:  opts.maxTokens   ?? 700,
+        // NO penalty params: the grok-4 family REJECTS presence/frequency penalty with
+        // 400 "does not support parameter presencePenalty" — sending them 400'd every
+        // production call, and with the older house keys dead, chat went fully mute.
+        stream:      true,
+      }),
+      signal: ctrl.signal,
+    })
+  } finally {
+    clearTimeout(hdrTimer)
+  }
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`xai ${res.status}: ${err.slice(0, 120)}`)
@@ -317,9 +353,14 @@ async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenera
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, ctrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) throw new Error("xai stalled before first byte")
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -331,7 +372,7 @@ async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenera
       try {
         const json  = JSON.parse(data)
         const delta = json.choices?.[0]?.delta?.content
-        if (delta) yield delta
+        if (delta) { yieldedAny = true; yield delta }
       } catch {}
     }
   }
@@ -357,22 +398,30 @@ async function* streamClaude(messages: LLMMessage[], opts: LLMOptions): AsyncGen
     collapsed.unshift({ role: "user", content: "(begin)" })
   }
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method:  "POST",
-    headers: {
-      "x-api-key":         CLAUDE_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type":      "application/json",
-    },
-    body: JSON.stringify({
-      model:      CLAUDE_MODEL,
-      max_tokens: opts.maxTokens ?? 700,
-      temperature: opts.temperature ?? 0.9,
-      system,
-      messages:   collapsed,
-      stream:     true,
-    }),
-  })
+  const ctrl = new AbortController()
+  const hdrTimer = setTimeout(() => ctrl.abort(), FIRST_BYTE_MS)
+  let res: Response
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:  "POST",
+      headers: {
+        "x-api-key":         CLAUDE_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type":      "application/json",
+      },
+      body: JSON.stringify({
+        model:      CLAUDE_MODEL,
+        max_tokens: opts.maxTokens ?? 700,
+        temperature: opts.temperature ?? 0.9,
+        system,
+        messages:   collapsed,
+        stream:     true,
+      }),
+      signal: ctrl.signal,
+    })
+  } finally {
+    clearTimeout(hdrTimer)
+  }
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`claude ${res.status}: ${err.slice(0, 120)}`)
@@ -381,9 +430,14 @@ async function* streamClaude(messages: LLMMessage[], opts: LLMOptions): AsyncGen
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, ctrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) throw new Error("claude stalled before first byte")
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -394,6 +448,7 @@ async function* streamClaude(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       try {
         const json = JSON.parse(data)
         if (json.type === "content_block_delta" && json.delta?.type === "text_delta") {
+          yieldedAny = true
           yield json.delta.text
         }
       } catch {}
@@ -413,24 +468,32 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
     }))
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`
-  const res = await fetch(url, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({
-      contents,
-      systemInstruction: system ? { parts: [{ text: system }] } : undefined,
-      generationConfig: {
-        temperature:     opts.temperature ?? 0.9,
-        maxOutputTokens: opts.maxTokens   ?? 700,
-        // gemini-2.5-flash is a THINKING model: it spends maxOutputTokens on hidden
-        // reasoning first, so a 160-token companion cap left ~5 tokens for the actual
-        // reply → every answer truncated mid-word ("hmm remy's got…", finishReason
-        // MAX_TOKENS). Disable thinking: full budget goes to the visible reply, and
-        // it's faster (no reasoning latency) — exactly right for a real-time room.
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
-  })
+  const ctrl = new AbortController()
+  const hdrTimer = setTimeout(() => ctrl.abort(), FIRST_BYTE_MS)
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        contents,
+        systemInstruction: system ? { parts: [{ text: system }] } : undefined,
+        generationConfig: {
+          temperature:     opts.temperature ?? 0.9,
+          maxOutputTokens: opts.maxTokens   ?? 700,
+          // gemini-2.5-flash is a THINKING model: it spends maxOutputTokens on hidden
+          // reasoning first, so a 160-token companion cap left ~5 tokens for the actual
+          // reply → every answer truncated mid-word ("hmm remy's got…", finishReason
+          // MAX_TOKENS). Disable thinking: full budget goes to the visible reply, and
+          // it's faster (no reasoning latency) — exactly right for a real-time room.
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+      signal: ctrl.signal,
+    })
+  } finally {
+    clearTimeout(hdrTimer)
+  }
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`gemini ${res.status}: ${err.slice(0, 120)}`)
@@ -439,9 +502,14 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, ctrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) throw new Error("gemini stalled before first byte")
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -452,7 +520,7 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       try {
         const json = JSON.parse(data)
         const text = json.candidates?.[0]?.content?.parts?.[0]?.text
-        if (text) yield text
+        if (text) { yieldedAny = true; yield text }
       } catch {}
     }
   }
@@ -510,6 +578,7 @@ async function* houseFallback(
   opts: LLMOptions,
   failed?: Backend,
 ): AsyncGenerator<string> {
+  console.error(`[llm] houseFallback engaged (failed=${failed ?? "?"}) → ${failed !== "gemini" && GEMINI_KEY ? "gemini" : failed !== "openai" && OPENAI_KEY ? "openai" : "local"}`)
   if (failed !== "xai"    && XAI_KEY)    { yield* streamXai(messages, opts); return }
   if (failed !== "gemini" && GEMINI_KEY) { yield* streamGemini(messages, opts); return }
   if (failed !== "openai" && OPENAI_KEY) { yield* streamOpenAI(messages, opts); return }

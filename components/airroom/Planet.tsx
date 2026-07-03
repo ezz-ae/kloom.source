@@ -20,7 +20,6 @@ import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
-import { RoomCard, type RoomPreview } from "@/components/airroom/RoomCard"
 import { isPro, getPendingIntent, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { ProfileSheet } from "@/components/airroom/ProfileSheet"
@@ -87,7 +86,6 @@ export function Planet() {
 
   const [selected, setSelected] = useState<Cluster | null>(null)
   const [group, setGroup] = useState<{ seed: number; f: number; count: number } | null>(null)
-  const [preview, setPreview] = useState<RoomPreview | null>(null)   // the room card, shown before you enter
   const [pending, setPending] = useState<Cluster | null>(null)   // deep voice awaiting 18+ confirm
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null) // deep group awaiting 18+ confirm
   const [nearDeep, setNearDeep] = useState(false)   // you're descending toward the deep → age screen
@@ -225,40 +223,38 @@ export function Planet() {
   }, [])
 
   const takeOpening = () => { const o = openingRef.current; openingRef.current = ""; setOpening(o); return o }
-  // Tapping a face or a join CTA now shows the room CARD first (who's here) — the
-  // real room only opens when you "step in".
-  const openVoice = useCallback((c: number, seed: number) => {
-    const co = CONTINENTS[c]
-    setPreview({ kind: "voice", c, seed, f: co.f, count: 1, adult: !!co.adult, continent: co.n, vibe: co.v, hue: co.h })
-  }, [])
-  const joinGroup = useCallback((j: Join) => {
-    if (CONTINENTS[j.c]?.n === "the arena") { window.location.href = "/airraw/chess"; return }   // games room → the board
-    const co = CONTINENTS[j.c]
-    // a 1:1 join opens the CALL (voice card → AirBubble), not a one-person room
-    setPreview({ kind: j.n === 1 ? "voice" : "group", c: j.c, seed: j.seed, f: j.f, count: j.n, adult: !!j.adult, continent: co.n, vibe: co.v, hue: co.h })
-  }, [])
-  // "step in" from the card → the real room (18+ gate enforced here).
-  const enterRoom = (p: RoomPreview) => {
-    // AIR gate — a conversation costs one AIR; Pro is unlimited. Out of AIR is never a
-    // dead end: a warm nudge + the pass sheet (where they unlock and keep going), never
-    // a "you can't enter".
+  // TAP = ENTER. The descent already showed you the place — the zoom is the door,
+  // so a tap opens the room DIRECTLY, no interstitial card, no "step in" button.
+  // Only two things may interrupt, and only when they must: the AIR paywall when
+  // you're out of credits, and the one-time 18+ confirm on adult ground.
+  const gateAir = () => {
+    // Out of AIR is never a dead end: a warm nudge + the pass sheet, never "you can't".
     if (!isPro() && getCredits() <= 0) {
-      setPreview(null)
       setProMsg("✦ out of AIR for now — unlock the pass and dive into anyone")
       setShowPro(true)
-      return
+      return false
     }
-    setPreview(null)
-    if (p.adult && !verifiedRef.current) {
-      if (p.kind === "voice") setPending(charFor(p.seed, p.c))
-      else setPendingJoin({ n: p.count, seed: p.seed, f: p.f, adult: true, c: p.c })
-      return
-    }
+    return true
+  }
+  const openVoice = useCallback((c: number, seed: number) => {
+    const co = CONTINENTS[c]
+    if (!gateAir()) return
+    if (co.adult && !verifiedRef.current) { setPending(charFor(seed, c)); return }
     if (!isPro()) { spendCredits(1); setCredits(getCredits()) }
     takeOpening()
-    if (p.kind === "voice") setSelected(charFor(p.seed, p.c))
-    else setGroup({ seed: p.seed, f: p.f, count: p.count })
-  }
+    setSelected(charFor(seed, c))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [charFor])
+  const joinGroup = useCallback((j: Join) => {
+    if (CONTINENTS[j.c]?.n === "the arena") { window.location.href = "/airraw/chess"; return }   // games room → the board
+    if (j.n === 1) { openVoice(j.c, j.seed); return }   // a 1:1 join IS the call
+    if (!gateAir()) return
+    if (j.adult && !verifiedRef.current) { setPendingJoin(j); return }
+    if (!isPro()) { spendCredits(1); setCredits(getCredits()) }
+    takeOpening()
+    setGroup({ seed: j.seed, f: j.f, count: j.n })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openVoice])
   const confirm18 = () => {
     setVerified(true); try { localStorage.setItem("airroom_18", "1") } catch { /* */ }
     setNearDeep(false); nearDeepRef.current = false
@@ -328,12 +324,30 @@ export function Planet() {
       const wasDrag = drag && moved > 6
       pts.delete(e.pointerId); if (pts.size < 2) pinchD = 0; if (pts.size === 0) drag = null
       if (wasDrag || pts.size !== 0) return
-      if (pickedNode && cam.s > 24) { openVoice(pickedNode.c, pickedNode.seed); return }
-      // Tap a world-ball at orbit → drop straight into a room in that world (its card opens).
+      const r = cv.getBoundingClientRect()
+      const px = (e.clientX - r.left) * DPR, py = (e.clientY - r.top) * DPR
+      // Tap a face up close → a short push INTO them, then the call opens. The zoom
+      // is the door — no card, no interstitial.
+      if (pickedNode && cam.s > 24) {
+        const n = pickedNode
+        zoomAt(px, py, 1.7); lastMoveT = t
+        setTimeout(() => openVoice(n.c, n.seed), 550)
+        return
+      }
+      // Tap a world-ball at orbit → DIVE into that planet (the camera falls in over
+      // ~a second) and land inside a live room there. This is the whole experience:
+      // the descent itself is the entrance.
       if (cam.s < 10 && contHit.length) {
-        const r = cv.getBoundingClientRect()
-        const px = (e.clientX - r.left) * DPR, py = (e.clientY - r.top) * DPR
-        for (const h of contHit) if (Math.abs(px - h.x) <= h.half && Math.abs(py - h.y) <= h.half) { openVoice(h.c, ihash(h.c * 911 + frameN, frameN * 7 + 3) >>> 0); return }
+        for (const h of contHit) if (Math.abs(px - h.x) <= h.half && Math.abs(py - h.y) <= h.half) {
+          const seed = ihash(h.c * 911 + frameN, frameN * 7 + 3) >>> 0
+          const m = vm()
+          tgt.x = (h.x - cv.width / 2) / (cam.s * m) + cam.x
+          tgt.y = (h.y - cv.height / 2) / (cam.s * m) + cam.y
+          tgt.s = Math.max(26, Math.min(60, tgt.s * 14))
+          lastMoveT = t
+          setTimeout(() => openVoice(h.c, seed), 950)
+          return
+        }
       }
     }
     cv.addEventListener("pointerdown", onDown); cv.addEventListener("pointermove", onMove)
@@ -622,7 +636,7 @@ export function Planet() {
       )}
 
       {/* one-time gesture hint — fades in, holds, fades out on its own */}
-      {started && navHint && !selected && !group && !preview && (
+      {started && navHint && !selected && !group && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: "calc(env(safe-area-inset-top) + 64px)", zIndex: 24, fontSize: 12.5, letterSpacing: 0.6, color: "rgba(238,244,248,.62)", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(255,255,255,.1)", borderRadius: 999, padding: "8px 16px", pointerEvents: "none", whiteSpace: "nowrap", fontFamily: "var(--font-geist), system-ui, sans-serif", animation: "navhint 6.5s ease both" }}>
           <style>{`@keyframes navhint{0%{opacity:0;transform:translateX(-50%) translateY(6px)}8%,80%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0}}`}</style>
           scroll to go closer · drag to drift
@@ -630,7 +644,7 @@ export function Planet() {
       )}
 
       {/* The main act: join the group at this scale. The number shrinks as you descend. */}
-      {started && hud.join && !selected && !group && !preview && (
+      {started && hud.join && !selected && !group && (
         <button onClick={() => joinGroup(hud.join!)}
           style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? `Call ${charFor(hud.join.seed, hud.join.c).host} →` : "Enter →"}
@@ -638,8 +652,6 @@ export function Planet() {
       )}
 
       {started && hud.hearing && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
-
-      {preview && <RoomCard p={preview} onEnter={() => enterRoom(preview)} onClose={() => setPreview(null)} lang={lang} />}
 
       {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening("") }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 

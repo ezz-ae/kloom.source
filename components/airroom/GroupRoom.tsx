@@ -63,6 +63,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   const [speaking, setSpeaking] = useState(false)   // someone is talking aloud → sound indicator
   const [humanNote, setHumanNote] = useState(false) // one-time "some people are real" note (first room ever)
   const [pro] = useState(() => isPro())
+  const [active, setActive] = useState(0)           // who holds the stage (last AI voice heard)
   const [vibe, setVibe] = useState("")              // pro: steer the room vibe → enforced on the AI
   const [vibeEdit, setVibeEdit] = useState(false)
   const [showPro, setShowPro] = useState(false)
@@ -109,6 +110,8 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     // AI lines are id'd `ai-<humanLineId>-<idx>` — record that this human line got
     // an answer, so a backup driver knows not to step in.
     if (m.kind === "ai" && m.id.startsWith("ai-")) { const hp = m.id.split("-")[1]; if (hp) aiByHuman.current.add(hp) }
+    // whoever just spoke takes the stage (drives the big portrait spotlight)
+    if (m.kind === "ai") { const idx = members.findIndex((x) => x.host === m.handle); if (idx >= 0) setActive(idx) }
     const next = [...linesRef.current, m]; linesRef.current = next; setLines(next)
   }
 
@@ -206,16 +209,20 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     drive(mine.id) // the sender drives immediately; peers stand by as backups
   }
 
-  // pass the mic — you don't want to speak, so hand the floor to someone else and
-  // let them carry it. Rotates through the room's voices.
+  // pass the mic — hand the floor to a SPECIFIC person (tap their face on the
+  // stage) or, via the button, rotate through the room's voices.
   const passIdx = useRef(0)
-  const pass = () => {
-    if (busyRef.current || !members.length) return
-    const i = passIdx.current % members.length; passIdx.current++
-    const mem = members[i]
-    drivenRef.current.add(`pass-${i}-${linesRef.current.length}`)
+  const passTo = (i: number) => {
+    if (busyRef.current) return
+    const mem = members[i]; if (!mem) return
+    setActive(i)   // they take the stage immediately; their line follows
     busyRef.current = true; setBusy(true)
     respond(mem, `pass-${rid()}`, i).finally(() => { busyRef.current = false; setBusy(false) })
+  }
+  const pass = () => {
+    if (!members.length) return
+    const i = passIdx.current % members.length; passIdx.current++
+    passTo(i)
   }
 
   // Seed the room with what you wrote on the sky, once you've walked in.
@@ -245,41 +252,50 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      <style>{`@keyframes greq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}`}</style>
-      <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>
-            you stepped into a room · {members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""}
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "nowrap", overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", paddingBottom: 4, maskImage: "linear-gradient(to right, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 92%, transparent)" }}>
-            {members.slice(0, 12).map((m, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 14, fontWeight: 500, color: "#eef4f8", flexShrink: 0, whiteSpace: "nowrap" }}>
-                <span style={{ width: 20, height: 20, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed * 7 + i + 1, m.f), boxShadow: `0 0 6px ${dot(m.f)}66`, border: "1px solid rgba(255,255,255,.15)", display: "inline-block" }}>
-                  <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                </span>{m.host}
-              </span>
+      <style>{`@keyframes greq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes gpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.16);opacity:0}100%{transform:scale(1.16);opacity:0}}`}</style>
+      {/* slim header — the cast lives on the STAGE below, not up here */}
+      <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 4px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <div style={{ minWidth: 0, flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 2, height: 12, flexShrink: 0 }}>
+            {[0, 1, 2].map((i) => (
+              <span key={i} style={{ width: 3, height: 12, borderRadius: 2, background: muted ? "#46586a" : "#7fd6c0", transformOrigin: "center", animation: (speaking && !muted) ? `greq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)" }} />
             ))}
-            {members.length > 12 && (
-              <span style={{ display: "inline-flex", alignItems: "center", fontSize: 13, fontWeight: 500, color: "#9fb2c4", background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "2px 9px", flexShrink: 0, whiteSpace: "nowrap" }}>+{members.length - 12} more</span>
-            )}
-            {realOthers.map((h) => (
-              <span key={h.handle} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 500, color: h.color, flexShrink: 0, whiteSpace: "nowrap" }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: h.color, flexShrink: 0 }} />{h.handle}
-              </span>
-            ))}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 4 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 2, height: 12 }}>
-              {[0, 1, 2].map((i) => (
-                <span key={i} style={{ width: 3, height: 12, borderRadius: 2, background: muted ? "#46586a" : "#7fd6c0", transformOrigin: "center", animation: (speaking && !muted) ? `greq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)" }} />
-              ))}
-            </span>
-            <span style={{ fontSize: 14 }}>{muted ? <span style={{ fontSize: 12, color: "#7f93a5" }}>muted · text only</span> : tempLabel}</span>
-          </div>
+          </span>
+          <span style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {muted ? "muted · text only" : <>{members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""} · {tempLabel}</>}
+          </span>
         </div>
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }} aria-label={muted ? "unmute" : "mute"} style={{ width: 44, height: 44, borderRadius: 12, fontSize: 13, color: muted ? "#ffb59c" : "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{muted ? "🔇" : "🔊"}</button>
           <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 12px", minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
+        </div>
+      </div>
+
+      {/* THE STAGE — whoever's talking holds the light, everyone else sits around it.
+          Tap any small face to hand them the mic. */}
+      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 7, padding: "4px 22px 6px" }}>
+        <div style={{ position: "relative", width: "min(30vw, 118px)", aspectRatio: "1" }}>
+          {speaking && !muted && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `2px solid ${dot(members[active]?.f ?? f)}`, animation: "gpulse 1.5s ease-out infinite" }} />}
+          <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${dot(members[active]?.f ?? f)}${speaking && !muted ? "" : "66"}`, boxShadow: `0 18px 56px -18px ${dot(members[active]?.f ?? f)}88`, transition: "border-color .3s", background: avatarBg(seed * 7 + active + 1, members[active]?.f ?? f) }}>
+            <Face persona={{ name: members[active]?.host || "", gender: members[active]?.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          </div>
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 600, color: "#eef4f8", lineHeight: 1 }}>{members[active]?.host}</div>
+        <div style={{ display: "flex", gap: 9, alignItems: "center", maxWidth: "100%", overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", padding: "2px 2px 4px", maskImage: "linear-gradient(to right, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 92%, transparent)" }}>
+          {members.slice(0, 12).map((m, i) => (
+            <button key={i} onClick={() => passTo(i)} disabled={busy} aria-label={`pass the mic to ${m.host}`}
+              style={{ flexShrink: 0, width: 38, height: 38, borderRadius: "50%", overflow: "hidden", padding: 0, background: avatarBg(seed * 7 + i + 1, m.f), border: i === active ? `2px solid ${dot(m.f)}` : "1px solid rgba(255,255,255,.18)", boxShadow: i === active ? `0 0 10px ${dot(m.f)}88` : "none", opacity: busy ? 0.55 : i === active ? 1 : 0.85, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "border-color .2s, box-shadow .2s" }}>
+              <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </button>
+          ))}
+          {members.length > 12 && (
+            <span style={{ display: "inline-flex", alignItems: "center", fontSize: 12, fontWeight: 500, color: "#9fb2c4", background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "3px 9px", flexShrink: 0, whiteSpace: "nowrap" }}>+{members.length - 12}</span>
+          )}
+          {realOthers.map((h) => (
+            <span key={h.handle} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 500, color: h.color, flexShrink: 0, whiteSpace: "nowrap" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: h.color, flexShrink: 0 }} />{h.handle}
+            </span>
+          ))}
         </div>
       </div>
 

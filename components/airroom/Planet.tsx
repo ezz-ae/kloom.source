@@ -288,7 +288,11 @@ export function Planet() {
     const imgs = new Map<string, HTMLImageElement | null>()
     const stars = Array.from({ length: 160 }, (_, s) => ({ x: rnd(s * 3 + 1), y: rnd(s * 7 + 2), r: rnd(s * 5) * 1.1 + 0.2, ph: rnd(s) * 6.28 }))
     let t = 0, raf = 0, audioStarted = false, frameN = 0
-    let pickedNode: { c: number; seed: number } | null = null, candId = -1, candAt = 0, spokenId = -1
+    let pickedNode: { c: number; x: number; y: number; seed: number } | null = null, candId = -1, candAt = 0, spokenId = -1
+    // ARM-THEN-ENTER: a first tap on the network arms a room (ring + glide toward
+    // it); only a second tap on the same room enters. Exploring taps never open
+    // anything by accident — moving around stays completely free.
+    let armedRh = 0, armedAt = -999
     let lastMoveT = -999   // updated on any pan/zoom; ring only draws after user settles
     // Screen rects of the world-balls this frame, so a tap at orbit can drop you in.
     const contHit: { c: number; x: number; y: number; half: number }[] = []
@@ -336,18 +340,22 @@ export function Planet() {
       tgt.x = drag.cx - ddx * DPR / (tgt.s * m); tgt.y = drag.cy - ddy * DPR / (tgt.s * m)
     }
     const onUp = (e: PointerEvent) => {
-      const wasDrag = drag && moved > 6
+      const wasDrag = drag && moved > 12   // finger jitter on a phone is not a tap
       pts.delete(e.pointerId); if (pts.size < 2) pinchD = 0; if (pts.size === 0) drag = null
       if (wasDrag || pts.size !== 0) return
       const r = cv.getBoundingClientRect()
       const px = (e.clientX - r.left) * DPR, py = (e.clientY - r.top) * DPR
-      // Tap a face up close → a short push INTO them, then the call opens. The zoom
-      // is the door — no card, no interstitial.
+      // Tap directly ON a face up close → a short push into them, then the call.
+      // HIT-TESTED: the tap must actually land on that person — a tap on empty
+      // space is just a tap, so you can browse without falling into calls.
       if (pickedNode && cam.s > 24) {
-        const n = pickedNode
-        zoomAt(px, py, 1.7); lastMoveT = t
-        setTimeout(() => openVoice(n.c, n.seed), 550)
-        return
+        const nps = w2s(pickedNode.x, pickedNode.y)
+        if (Math.hypot(nps[0] - px, nps[1] - py) < Math.max(40 * DPR, cam.s * vm() * 0.007)) {
+          const n = pickedNode
+          zoomAt(px, py, 1.7); lastMoveT = t
+          setTimeout(() => openVoice(n.c, n.seed), 550)
+          return
+        }
       }
       // Tap a world-ball at orbit → DIVE onto that world's ROOM NETWORK: you land
       // among its rooms (each with its own topic and people) and pick one. The
@@ -362,8 +370,9 @@ export function Planet() {
           return
         }
       }
-      // Tap a ROOM CARD on the network → a short push in, then you're inside with
-      // the group that lives there. (Gates — AIR, one-time 18+ — fire in joinGroup.)
+      // On the network: FIRST tap arms the room under your finger — it glides to
+      // center, gets a ring and a "tap again to enter" hint. SECOND tap on the same
+      // room enters it. Exploring never opens anything by accident.
       if (cam.s >= 4.4) {
         const m = vm()
         const wx = (px - cv.width / 2) / (cam.s * m) + cam.x, wy = (py - cv.height / 2) / (cam.s * m) + cam.y
@@ -371,11 +380,19 @@ export function Planet() {
         const rh = ihash(gx, gy)
         const rx = (gx + 0.5) * RCELL + (ifrac(rh) - 0.5) * RCELL * 0.45
         const ry = (gy + 0.5) * RCELL + (ifrac(ihash(gx + 7, gy * 3 + 1)) - 0.5) * RCELL * 0.45
-        let bc2 = 0, bd2 = 1e9
-        for (let k = 0; k < conCentres.length; k++) { const ddx = conCentres[k].x - rx, ddy = conCentres[k].y - ry, d = ddx * ddx + ddy * ddy; if (d < bd2) { bd2 = d; bc2 = k } }
-        const co2 = CONTINENTS[bc2]
-        zoomAt(px, py, 1.3); lastMoveT = t
-        setTimeout(() => joinGroup({ n: joinSize(cam.s, rh), seed: rh, f: co2.f, adult: !!co2.adult, c: bc2 }), 450)
+        if (armedRh === rh && t - armedAt < 6) {
+          armedRh = 0
+          let bc2 = 0, bd2 = 1e9
+          for (let k = 0; k < conCentres.length; k++) { const ddx = conCentres[k].x - rx, ddy = conCentres[k].y - ry, d = ddx * ddx + ddy * ddy; if (d < bd2) { bd2 = d; bc2 = k } }
+          const co2 = CONTINENTS[bc2]
+          zoomAt(px, py, 1.3); lastMoveT = t
+          setTimeout(() => joinGroup({ n: joinSize(cam.s, rh), seed: rh, f: co2.f, adult: !!co2.adult, c: bc2 }), 450)
+          return
+        }
+        armedRh = rh; armedAt = t
+        tgt.x = rx; tgt.y = ry   // glide the armed room under your thumb
+        tgt.s = Math.min(190, tgt.s * 1.12)
+        lastMoveT = t
         return
       }
     }
@@ -527,6 +544,16 @@ export function Planet() {
           const locked = co.adult && !verifiedRef.current
           if (facesVisible) {
             ctx.strokeStyle = `hsla(${co.h},60%,62%,0.14)`; ctx.lineWidth = DPR; rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, 16 * DPR); ctx.stroke()
+            // armed at depth too — same second-tap contract everywhere on the surface
+            if (rh === armedRh && t - armedAt < 6) {
+              const pulse = 0.72 + 0.28 * Math.sin(t * 5)
+              ctx.strokeStyle = `hsla(${co.h},88%,74%,${pulse})`; ctx.lineWidth = 2.5 * DPR
+              rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, 16 * DPR); ctx.stroke()
+              ctx.fillStyle = `hsla(${co.h},70%,88%,.9)`; ctx.textAlign = "center"
+              ctx.font = `500 ${10.5 * DPR}px ${FF}`
+              ctx.fillText("tap again to enter", s[0], s[1] - roomHalf - 8 * DPR)
+              ctx.textAlign = "left"
+            }
             const fn = 9 + (rh % 7)
             // Grid-slot the faces instead of pure random jitter: random points in a box this
             // small ALWAYS clump (every room overlapped). Give each face its own cell + a small
@@ -570,6 +597,16 @@ export function Planet() {
             ctx.fillStyle = `hsla(${co.h},55%,${cam.s < 8 ? 24 : 32}%,${cam.s < 8 ? 0.20 : 0.36})`
             rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, Math.min(roomHalf * 0.28, 14 * DPR)); ctx.fill()
             ctx.strokeStyle = `hsla(${co.h},66%,64%,0.45)`; ctx.lineWidth = DPR; ctx.stroke()
+            // the ARMED room — first tap ringed it; the hint asks for the second
+            if (rh === armedRh && t - armedAt < 6) {
+              const pulse = 0.72 + 0.28 * Math.sin(t * 5)
+              ctx.strokeStyle = `hsla(${co.h},88%,74%,${pulse})`; ctx.lineWidth = 2.5 * DPR
+              rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, Math.min(roomHalf * 0.28, 14 * DPR)); ctx.stroke()
+              ctx.fillStyle = `hsla(${co.h},70%,88%,.9)`; ctx.textAlign = "center"
+              ctx.font = `500 ${10.5 * DPR}px ${FF}`
+              ctx.fillText("tap again to enter", s[0], s[1] + roomHalf * 0.62)
+              ctx.textAlign = "left"
+            }
             const big = roomHalf * 2 > 76
             // a peek at who's inside — three real faces (same seed derivation as the
             // deep-zoom view, so they ARE the people you'll find in there)

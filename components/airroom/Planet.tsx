@@ -44,6 +44,21 @@ const CONTINENTS: Continent[] = [
   { n: "the deep", v: "raw · 18+", label: "raw", h: 300, f: 0.86, adult: true },
 ]
 
+// Every room in a world carries its own TOPIC — what the people in it are on
+// about tonight. Deterministic per room seed, themed per continent, so the map
+// reads as a network of distinct situations instead of identical bubbles.
+// Indexed to match CONTINENTS.
+const TOPICS: string[][] = [
+  ["first coffee", "the quiet type", "eye contact", "the corner table", "rainy window", "two introverts", "a familiar stranger", "slow morning", "the bookshop", "same order again"],
+  ["waiting for the same cab", "cigarette break", "lost tourists", "the after-party walk", "neon small talk", "who's got a lighter", "shortcut home", "street musician"],
+  ["deadline together", "the last two here", "elevator moment", "overtime confessions", "the new hire", "boss is gone", "coffee machine talk", "one desk over"],
+  ["happy hour", "first round", "the regulars", "new in town", "the bartender knows", "two seats left", "cheap wine, big plans", "watch the game"],
+  ["first date", "blind date", "sharing dessert", "wine and truth", "the anniversary", "table for three", "the ex walks in", "dessert first"],
+  ["city lights", "someone's birthday", "last drink", "stars over traffic", "the slow dance", "strangers feel close", "midnight plans", "the edge of the roof"],
+  ["last call", "nothing to lose", "truth or dare", "the confession hour", "one more song", "no one's going home", "the walk home", "sunrise bet"],
+  ["no rules tonight", "say it out loud", "whispers only", "the dare room", "midnight confessional", "the velvet room", "after dark", "skin deep", "rough edges", "forbidden"],
+]
+
 // the cold-open: a few lines drift up the sky before the worlds appear, then it
 // opens into the write box. Plays once per browser (skippable by a tap).
 const INTRO_LINES = ["it’s the now.", "a whole sky of voices.", "some real — some not.", "you won’t always know."]
@@ -334,20 +349,34 @@ export function Planet() {
         setTimeout(() => openVoice(n.c, n.seed), 550)
         return
       }
-      // Tap a world-ball at orbit → DIVE into that planet (the camera falls in over
-      // ~a second) and land inside a live room there. This is the whole experience:
-      // the descent itself is the entrance.
-      if (cam.s < 10 && contHit.length) {
+      // Tap a world-ball at orbit → DIVE onto that world's ROOM NETWORK: you land
+      // among its rooms (each with its own topic and people) and pick one. The
+      // descent is the navigation — no interstitials anywhere on the way down.
+      if (cam.s < 4.4 && contHit.length) {
         for (const h of contHit) if (Math.abs(px - h.x) <= h.half && Math.abs(py - h.y) <= h.half) {
-          const seed = ihash(h.c * 911 + frameN, frameN * 7 + 3) >>> 0
           const m = vm()
           tgt.x = (h.x - cv.width / 2) / (cam.s * m) + cam.x
           tgt.y = (h.y - cv.height / 2) / (cam.s * m) + cam.y
-          tgt.s = Math.max(26, Math.min(60, tgt.s * 14))
+          tgt.s = Math.max(6.5, Math.min(8.5, tgt.s * 4.5))
           lastMoveT = t
-          setTimeout(() => openVoice(h.c, seed), 950)
           return
         }
+      }
+      // Tap a ROOM CARD on the network → a short push in, then you're inside with
+      // the group that lives there. (Gates — AIR, one-time 18+ — fire in joinGroup.)
+      if (cam.s >= 4.4) {
+        const m = vm()
+        const wx = (px - cv.width / 2) / (cam.s * m) + cam.x, wy = (py - cv.height / 2) / (cam.s * m) + cam.y
+        const gx = Math.floor(wx / RCELL), gy = Math.floor(wy / RCELL)
+        const rh = ihash(gx, gy)
+        const rx = (gx + 0.5) * RCELL + (ifrac(rh) - 0.5) * RCELL * 0.45
+        const ry = (gy + 0.5) * RCELL + (ifrac(ihash(gx + 7, gy * 3 + 1)) - 0.5) * RCELL * 0.45
+        let bc2 = 0, bd2 = 1e9
+        for (let k = 0; k < conCentres.length; k++) { const ddx = conCentres[k].x - rx, ddy = conCentres[k].y - ry, d = ddx * ddx + ddy * ddy; if (d < bd2) { bd2 = d; bc2 = k } }
+        const co2 = CONTINENTS[bc2]
+        zoomAt(px, py, 1.3); lastMoveT = t
+        setTimeout(() => joinGroup({ n: joinSize(cam.s, rh), seed: rh, f: co2.f, adult: !!co2.adult, c: bc2 }), 450)
+        return
       }
     }
     cv.addEventListener("pointerdown", onDown); cv.addEventListener("pointermove", onMove)
@@ -371,7 +400,12 @@ export function Planet() {
       }
       return null
     }
-    const ROOM_OPEN = 168 * DPR   // a block's screen size at which it opens to faces
+    // A room card opens into individual faces only past this screen size. Raised
+    // from 168 so the ROOM NETWORK (topic cards + face previews + threads) is a real
+    // browsable layer of the world (zoom ~4.4→12), not a sliver you blow through —
+    // the old value flipped to the anonymous dot-field almost immediately, which is
+    // what made the map feel like identical robotic bubbles.
+    const ROOM_OPEN = 420 * DPR
     const rrect = (x: number, y: number, w: number, h: number, r: number) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath() }
 
     const loop = () => {
@@ -524,10 +558,48 @@ export function Planet() {
               } else { ctx.fillStyle = `hsl(${fhue},72%,62%)`; ball(); ctx.fill() }
             }
           } else {
+            // ROOM NETWORK — each cell is a distinct place: its own topic, a peek at
+            // its people, and faint threads to its neighbours. This replaces the old
+            // identical "N here" bubbles that made the map feel robotic.
+            if (roomHalf * 2 > 30) {
+              const nx = w2s((gx + 1.5) * RCELL + (ifrac(ihash(gx + 1, gy)) - 0.5) * RCELL * 0.45, (gy + 0.5) * RCELL)
+              const ny = w2s((gx + 0.5) * RCELL, (gy + 1.5) * RCELL + (ifrac(ihash(gx + 7, (gy + 1) * 3 + 1)) - 0.5) * RCELL * 0.45)
+              ctx.strokeStyle = `hsla(${co.h},50%,62%,.09)`; ctx.lineWidth = DPR
+              ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.lineTo(nx[0], nx[1]); ctx.moveTo(s[0], s[1]); ctx.lineTo(ny[0], ny[1]); ctx.stroke()
+            }
             ctx.fillStyle = `hsla(${co.h},55%,${cam.s < 8 ? 24 : 32}%,${cam.s < 8 ? 0.20 : 0.36})`
             rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, Math.min(roomHalf * 0.28, 14 * DPR)); ctx.fill()
             ctx.strokeStyle = `hsla(${co.h},66%,64%,0.45)`; ctx.lineWidth = DPR; ctx.stroke()
-            if (roomHalf * 2 > 48) { ctx.fillStyle = `hsla(${co.h},60%,86%,.92)`; ctx.textAlign = "center"; ctx.font = `500 ${Math.min(13, roomHalf * 0.2) * DPR}px ${FF}`; ctx.fillText(locked ? "the deep · 18+" : `${count} here`, s[0], s[1] + 4 * DPR); ctx.textAlign = "left" }
+            const big = roomHalf * 2 > 76
+            // a peek at who's inside — three real faces (same seed derivation as the
+            // deep-zoom view, so they ARE the people you'll find in there)
+            if (big && !locked) {
+              const fr = Math.min(roomHalf * 0.24, 22 * DPR)
+              for (let i = 0; i < 3; i++) {
+                const fh = ihash(gx * 131 + i + 3, gy * 197 + i * 7 + 5)
+                const fx0 = s[0] + (i - 1) * fr * 2.3, fy0 = s[1] - roomHalf * 0.34
+                const im = faceFor(fh, charFor(fh, c))
+                ctx.save(); ctx.beginPath(); ctx.arc(fx0, fy0, fr, 0, 6.283); ctx.clip()
+                if (im) ctx.drawImage(im, fx0 - fr, fy0 - fr, fr * 2, fr * 2)
+                else { ctx.fillStyle = `hsl(${co.h + i * 11},68%,58%)`; ctx.fillRect(fx0 - fr, fy0 - fr, fr * 2, fr * 2) }
+                ctx.restore()
+                ctx.strokeStyle = `hsla(${co.h},70%,68%,.55)`; ctx.lineWidth = 1.2 * DPR
+                ctx.beginPath(); ctx.arc(fx0, fy0, fr, 0, 6.283); ctx.stroke()
+              }
+            }
+            if (roomHalf * 2 > 48) {
+              const topic = locked ? "the deep · 18+" : TOPICS[c][rh % TOPICS[c].length]
+              ctx.textAlign = "center"
+              ctx.fillStyle = `hsla(${co.h},60%,88%,.95)`
+              ctx.font = `600 ${Math.min(13.5, roomHalf * 0.21) * DPR}px ${FF}`
+              ctx.fillText(topic, s[0], s[1] + (big ? roomHalf * 0.3 : 4 * DPR))
+              if (big && !locked) {
+                ctx.fillStyle = `hsla(${co.h},45%,76%,.6)`
+                ctx.font = `500 ${Math.min(10.5, roomHalf * 0.15) * DPR}px ${FF}`
+                ctx.fillText(`${count} here`, s[0], s[1] + roomHalf * 0.3 + Math.min(15, roomHalf * 0.24) * DPR)
+              }
+              ctx.textAlign = "left"
+            }
           }
         }
       }
@@ -569,10 +641,28 @@ export function Planet() {
       speakTok.current++
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conCentres, charFor, speak, openVoice])
+  }, [conCentres, charFor, speak, openVoice, joinGroup])
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>
+    <div className="airraw-ui" style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>
+      {/* THE FEEL — one shared interaction layer for every surface inside the planet
+          (rooms, calls, sheets are all children of this node). Every button gets the
+          same press physics and eased state changes; every full-screen surface rises
+          in instead of popping. This is what makes it read as one piece of high-end
+          hardware instead of a pile of web buttons. */}
+      <style>{`
+        .airraw-ui button{transition:transform .16s cubic-bezier(.2,.8,.3,1),opacity .22s ease,background .28s ease,box-shadow .3s ease,border-color .28s ease,color .22s ease}
+        .airraw-ui button:active{transform:scale(.94)}
+        .airraw-ui input{transition:border-color .25s ease,background .25s ease,box-shadow .3s ease}
+        .airraw-ui input:focus{box-shadow:0 0 0 3px rgba(199,179,255,.12)}
+        @keyframes airrise{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:none}}
+        @keyframes airfade{from{opacity:0}to{opacity:1}}
+        @keyframes airmsg{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+        .air-rise{animation:airrise .42s cubic-bezier(.2,.8,.3,1) both}
+        .air-fade{animation:airfade .3s ease both}
+        .air-msg{animation:airmsg .3s cubic-bezier(.2,.8,.3,1) both}
+        @media (prefers-reduced-motion: reduce){.air-rise,.air-fade,.air-msg{animation:none}.airraw-ui button{transition:none}}
+      `}</style>
       <canvas ref={cvRef} style={{ display: "block", width: "100%", height: "100%", cursor: "grab" }} />
 
       {/* you, on the floor — avatar + a peek at your credits; opens the profile.
@@ -656,9 +746,9 @@ export function Planet() {
 
       {started && hud.hearing && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
 
-      {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening("") }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
+      {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening(""); zoomFnRef.current(0.55) }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 
-      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening("") }}
+      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening(""); zoomFnRef.current(0.55) }}
         onCall={(m) => {
           // from the room's people sheet: leave the crowd, call this one directly.
           // Same AIR gate as any conversation; 18+ was already confirmed to be here.

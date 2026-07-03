@@ -64,8 +64,8 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 40, background: "rgba(6,5,16,.82)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", padding: "max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-      <div style={{ width: "min(92vw, 420px)", background: "linear-gradient(180deg, rgba(26,20,42,.97), rgba(9,8,16,.97))", border: ".5px solid rgba(199,179,255,.3)", borderRadius: 22, boxShadow: "0 30px 90px -30px rgba(0,0,0,.85)", overflow: "hidden", color: "#eef4f8" }}>
+    <div className="air-fade" style={{ position: "fixed", inset: 0, zIndex: 40, background: "rgba(6,5,16,.82)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", padding: "max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left))", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div className="air-rise" style={{ width: "min(92vw, 420px)", background: "linear-gradient(180deg, rgba(26,20,42,.97), rgba(9,8,16,.97))", border: ".5px solid rgba(199,179,255,.3)", borderRadius: 22, boxShadow: "0 30px 90px -30px rgba(0,0,0,.85)", overflow: "hidden", color: "#eef4f8" }}>
         <div style={{ padding: "22px 22px 6px", textAlign: "center" }}>
           <div style={{ fontSize: 12, letterSpacing: 3, textTransform: "uppercase", color: "#ffd98a", fontWeight: 600 }}>airraw pro</div>
           <div style={{ fontSize: 24, fontWeight: 600, marginTop: 8 }}>unlock the floor</div>

@@ -267,7 +267,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   }
 
   return (
-    <div onPointerDown={onSwipeDown} onPointerUp={onSwipeUp} style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+    <div onPointerDown={onSwipeDown} onPointerUp={onSwipeUp} className="air-rise" style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: "rgba(3,5,10,.88)", backdropFilter: "blur(8px)", display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
       <style>{`@keyframes greq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes gpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.16);opacity:0}100%{transform:scale(1.16);opacity:0}}@keyframes stagein{from{opacity:0;transform:translateY(14px) scale(.9)}to{opacity:1;transform:none}}@keyframes sheetin{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:none}}`}</style>
       {/* slim header — the cast lives on the STAGE below, not up here */}
       <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 4px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -325,7 +325,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
           const mine = l.kind === "human" && l.handle === handle
           const c = l.kind === "ai" ? dot(members.find((m) => m.host === l.handle)?.f ?? 0.5) : colorFor(l.handle)
           return (
-            <div key={l.id || i} style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>
+            <div key={l.id || i} className="air-msg" style={{ alignSelf: mine ? "flex-end" : "flex-start", maxWidth: "82%" }}>
               {!mine && <div style={{ fontSize: 12, color: c, marginBottom: 2, marginLeft: 4 }}>{l.handle}</div>}
               <div style={{ fontSize: 15, lineHeight: 1.45, color: mine ? "#0a1622" : "#eef4f8", background: mine ? "#cfe0ee" : "rgba(255,255,255,.08)", padding: "9px 13px", borderRadius: 16 }}>{l.content}</div>
             </div>
@@ -354,14 +354,25 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
           <button onClick={hasText ? () => send() : (sttOk ? talkOnce : () => send())} disabled={busy && hasText} aria-label={hasText ? "send" : "talk"} style={{ flex: "0 0 auto", width: 66, height: 44, borderRadius: 14, fontSize: hasText ? 14 : 19, fontWeight: 600, lineHeight: 1, border: "none", cursor: "pointer", color: hasText ? "#1a0d08" : (listening ? "#06201a" : "#dfeaf2"), background: hasText ? "#ef7a4d" : (listening ? "#7fd6c0" : "rgba(255,255,255,.12)"), opacity: (busy && hasText) ? 0.6 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{hasText ? "send" : (listening ? "•••" : "🎙")}</button>
         </div>
       </div>
-      {/* ← swipe: everyone on this call. Tap a face to leave the room and call them 1:1. */}
+      {/* ← swipe: everyone on this call. Tap a face → call them 1:1. From here:
+          swipe → goes back to the call, another swipe ← leaves the room entirely. */}
       {peopleOpen && (
-        <div style={{ position: "absolute", inset: 0, zIndex: 27, background: "rgba(3,5,10,.94)", backdropFilter: "blur(10px)", display: "flex", flexDirection: "column", animation: "sheetin .3s ease both" }}>
+        <div
+          onPointerDown={(e) => { swipeRef.current = { x: e.clientX, y: e.clientY } }}
+          onPointerUp={(e) => {
+            const s = swipeRef.current; swipeRef.current = null
+            if (!s) return
+            const dx = e.clientX - s.x, dy = e.clientY - s.y
+            if (Math.abs(dy) > 80) return
+            if (dx > 70) setPeopleOpen(false)      // → back to the call
+            else if (dx < -70) onClose()           // ← out of the room (the planet zooms you back out)
+          }}
+          style={{ position: "absolute", inset: 0, zIndex: 27, background: "rgba(3,5,10,.94)", backdropFilter: "blur(10px)", display: "flex", flexDirection: "column", animation: "sheetin .3s ease both" }}>
           <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>on this call · {members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""}</div>
             <button onClick={() => setPeopleOpen(false)} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 12px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>back →</button>
           </div>
-          <div style={{ fontSize: 12, color: "#7f93a5", textAlign: "center", padding: "0 22px 12px" }}>tap someone to call them, just you two</div>
+          <div style={{ fontSize: 12, color: "#7f93a5", textAlign: "center", padding: "0 22px 12px" }}>tap someone to call them, just you two · swipe → back · swipe ← leave</div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "4px 22px calc(env(safe-area-inset-bottom) + 20px)", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 14, alignContent: "start" }}>
             {members.map((m, i) => (
               <button key={i} onClick={() => { setPeopleOpen(false); onCall?.(m) }} aria-label={`call ${m.host}`}

@@ -824,6 +824,8 @@ function RoomDeck({ onJoin, onExplore }: { onJoin: (j: Join) => void; onExplore:
   const [hintOn, setHintOn] = useState(false)
   const swipe = useRef<{ x: number; y: number } | null>(null)
   const idleT = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)   // finger-follow transform target
+  const draggedRef = useRef(false)   // suppress button "clicks" that were really drags
 
   // arrows only when the user hesitates — never text instructions
   useEffect(() => {
@@ -855,14 +857,49 @@ function RoomDeck({ onJoin, onExplore }: { onJoin: (j: Join) => void; onExplore:
   return (
     <div
       className="air-fade"
-      onPointerDown={(e) => { swipe.current = { x: e.clientX, y: e.clientY }; setHintOn(false) }}
+      onPointerDown={(e) => {
+        swipe.current = { x: e.clientX, y: e.clientY }; setHintOn(false)
+        const c = cardRef.current
+        if (c) { c.style.animation = "none"; c.style.transition = "none" }
+      }}
+      onPointerMove={(e) => {
+        // PREMIUM FEEL: the card is ON your finger — it moves as you move, with a
+        // little resistance and fade, instead of waiting for release to react.
+        const s = swipe.current; if (!s) return
+        const c = cardRef.current; if (!c) return
+        const dx = (e.clientX - s.x) * 0.85, dy = (e.clientY - s.y) * 0.85
+        const dist = Math.hypot(dx, dy)
+        c.style.transform = `translate(${dx}px, ${dy}px) scale(${Math.max(0.94, 1 - dist / 3200)})`
+        c.style.opacity = String(Math.max(0.55, 1 - dist / 900))
+      }}
       onPointerUp={(e) => {
         const s = swipe.current; swipe.current = null
         if (!s) return
+        const c = cardRef.current
         const dx = e.clientX - s.x, dy = e.clientY - s.y
-        if (Math.max(Math.abs(dx), Math.abs(dy)) < 46) return
-        if (Math.abs(dy) >= Math.abs(dx)) go(dy < 0 ? "up" : "down")
-        else go(dx < 0 ? "left" : "right")
+        // a drag is not a tap: block the click that browsers still fire on the
+        // button underneath (small drag starting on "step in" was entering rooms)
+        draggedRef.current = Math.max(Math.abs(dx), Math.abs(dy)) >= 12
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < 46) {
+          // soft release → spring home
+          if (c) { c.style.transition = "transform .38s cubic-bezier(.2,.9,.25,1.15), opacity .3s ease"; c.style.transform = ""; c.style.opacity = "" }
+          return
+        }
+        // commit → fling the card out along the gesture, then the next one arrives
+        const d = Math.abs(dy) >= Math.abs(dx) ? (dy < 0 ? "up" : "down") : (dx < 0 ? "left" : "right")
+        if (c) {
+          c.style.transition = "transform .2s ease-in, opacity .2s ease-in"
+          const fx = d === "left" ? -420 : d === "right" ? 420 : 0
+          const fy = d === "up" ? -520 : d === "down" ? 520 : 0
+          c.style.transform = `translate(${fx}px, ${fy}px) scale(.92)`
+          c.style.opacity = "0"
+        }
+        setTimeout(() => go(d), 130)
+      }}
+      onPointerCancel={() => {
+        swipe.current = null
+        const c = cardRef.current
+        if (c) { c.style.transition = "transform .35s cubic-bezier(.2,.9,.25,1.15), opacity .3s ease"; c.style.transform = ""; c.style.opacity = "" }
       }}
       style={{ position: "absolute", inset: 0, zIndex: 18, overflow: "hidden", background: "rgba(4,5,11,.55)", touchAction: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
       <style>{`
@@ -871,7 +908,7 @@ function RoomDeck({ onJoin, onExplore }: { onJoin: (j: Join) => void; onExplore:
         @keyframes deckleft{from{opacity:0;transform:translateX(46px)}to{opacity:1;transform:none}}
         @keyframes deckright{from{opacity:0;transform:translateX(-46px)}to{opacity:1;transform:none}}
       `}</style>
-      <div key={`${room.c}-${pos.i}`} style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "24px 26px", background: `radial-gradient(120% 85% at 50% 25%, hsla(${co.h},62%,26%,.6), rgba(4,5,11,0) 72%)`, animation: `deck${dir} .38s cubic-bezier(.2,.8,.3,1) both`, boxSizing: "border-box" }}>
+      <div key={`${room.c}-${pos.i}`} ref={cardRef} style={{ position: "absolute", inset: 0, willChange: "transform, opacity", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "24px 26px", background: `radial-gradient(120% 85% at 50% 25%, hsla(${co.h},62%,26%,.6), rgba(4,5,11,0) 72%)`, animation: `deck${dir} .42s cubic-bezier(.18,.85,.25,1.06) both`, boxSizing: "border-box" }}>
         <div style={{ fontSize: 11, letterSpacing: 2.5, textTransform: "uppercase", color: `hsla(${co.h},70%,74%,.92)` }}>{co.n}{co.adult ? " · 18+" : ""}</div>
         <div style={{ fontSize: "clamp(28px, 8vw, 40px)", fontWeight: 600, color: "#eef4f8", textAlign: "center", lineHeight: 1.12, letterSpacing: -0.5 }}>{room.topic}</div>
         <div style={{ display: "flex", alignItems: "center" }}>
@@ -883,7 +920,7 @@ function RoomDeck({ onJoin, onExplore }: { onJoin: (j: Join) => void; onExplore:
           <span style={{ marginLeft: 12, fontSize: 13, color: "rgba(238,244,248,.62)" }}>{room.n} in here</span>
         </div>
         <div style={{ fontSize: 13.5, color: "rgba(238,244,248,.55)", textAlign: "center", maxWidth: 300, lineHeight: 1.5 }}>{co.v}</div>
-        <button onClick={() => onJoin({ n: room.n, seed: room.seed, f: co.f, adult: !!co.adult, c: room.c })}
+        <button onClick={() => { if (draggedRef.current) return; onJoin({ n: room.n, seed: room.seed, f: co.f, adult: !!co.adult, c: room.c }) }}
           style={{ marginTop: 4, minHeight: 54, padding: "0 44px", fontSize: 16, fontWeight: 700, color: "#06121e", background: `linear-gradient(135deg, hsl(${co.h},72%,62%), hsl(${(co.h + 25) % 360},72%,70%))`, border: "none", borderRadius: 16, cursor: "pointer", boxShadow: `0 14px 36px -12px hsla(${co.h},80%,55%,.6)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           step in →
         </button>

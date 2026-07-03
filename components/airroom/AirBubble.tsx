@@ -129,12 +129,14 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     a.play().catch(done)
   }
 
-  const speakChunk = async (text: string, tok: number) => {
+  const speakChunk = async (text: string, tok: number, prevText = "") => {
     if (mutedRef.current || tok !== speakTokenRef.current) return
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice" }),
+        // prevText = what this voice already said this reply → the engine continues
+        // the same breath across chunks instead of restarting (no mid-reply shift).
+        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice", prevText }),
         signal: AbortSignal.timeout(30000),
       })
       if (!res.ok || tok !== speakTokenRef.current) return
@@ -207,7 +209,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       msgsRef.current = after; setMsgs(after)
       // Speak the remainder; if no sentence boundary was found, speak the whole thing
       const remainder = firstFired ? fullText.slice(firstSentText.length).trim() : fullText
-      if (remainder) speakChunk(remainder, tok)
+      if (remainder) speakChunk(remainder, tok, firstSentText)
       // Style profiling: show one 2-word choice after AI's 2nd, 5th, 9th, 13th reply.
       // Never while leaving (it would cover the parting line — the emotional peak the
       // upsell rides on), and auto-dismiss after 12s: the quiz borrows the caption

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  const { text, voice, voiceId, elevenId, personaName, gender, language, mode } = (await request.json()) as {
+  const { text, voice, voiceId, elevenId, personaName, gender, language, mode, prevText } = (await request.json()) as {
     text: string
     voice?: string
     voiceId?: string
@@ -23,6 +23,9 @@ export async function POST(request: Request) {
     gender?: string
     language?: string
     mode?: string
+    /** What this speaker already said just before this chunk — lets the engine keep
+     *  one continuous prosody across chunked replies instead of restarting cold. */
+    prevText?: string
   }
 
   if (!text || typeof text !== "string") {
@@ -34,26 +37,25 @@ export async function POST(request: Request) {
   // so we never send an empty request.
   const ttsText = shapeForSpeech(text) || text.replace(/\s+/g, " ").trim().slice(0, 1000)
 
-  // ── Sesame CSM-1B (fal.ai) — ultra-realistic conversational voice (tier 0) ──
+  // ── ElevenLabs — premium natural TTS (tier 0) ─────────────────────────────
+  // PRIMARY. One consistent, expressive voice identity per persona (deterministic
+  // pool pick), and prosody continuity across chunked replies via previous_text.
+  // Sesame CSM used to run first, but CSM-1B is a BASE model: every chunk comes
+  // out a slightly different voice (the "voice keeps shifting mid-reply" bug) and
+  // its male speaker reads flat/robotic. Eleven first; CSM is now the fallback.
+  const elKey = process.env.ELEVENLABS_API_KEY
+  if (elKey) {
+    const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId, mode, prevText)
+    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs" } })
+    // fall through to Sesame / CosyVoice / Fish
+  }
+
+  // ── Sesame CSM-1B (fal.ai) — conversational voice (fallback tier) ──────────
   // Activated by SESAME_TTS=1; uses the existing FAL_KEY (same as image gen).
-  // CSM-1B is Sesame's open-source conversational speech model — sounds strikingly
-  // human. Runs first when enabled; ElevenLabs / CosyVoice / Fish are fallbacks.
   const falKey = process.env.FAL_KEY
   if (falKey && process.env.SESAME_TTS === "1") {
     const csm = await sesameCSMTTS(ttsText, falKey, gender)
     if (csm) return new Response(csm, { status: 200, headers: { "Content-Type": "audio/wav", "Cache-Control": "no-store", "X-TTS-Provider": "sesame-csm" } })
-    // fall through to ElevenLabs
-  }
-
-  // ── ElevenLabs — premium natural TTS (tier 1) ─────────────────────────────
-  // The most natural voice available; runs first when ELEVENLABS_API_KEY is set,
-  // and falls through to CosyVoice → Fish on any failure. The voice is picked
-  // deterministically per persona from a preset pool, so adjacent characters
-  // still sound like different people (the planet's "many close voices").
-  const elKey = process.env.ELEVENLABS_API_KEY
-  if (elKey) {
-    const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId, mode)
-    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs" } })
     // fall through to CosyVoice / Fish
   }
 
@@ -268,7 +270,7 @@ function elVoiceFor(name?: string, gender?: string): string {
   let h = 0; const s = name || "x"; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
   return pool[h % pool.length]
 }
-async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string): Promise<ArrayBuffer | null> {
+async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string): Promise<ArrayBuffer | null> {
   try {
     const voice = elevenId?.trim() || elVoiceFor(name, gender)
     // Voice mode (live call): use turbo_v2_5 — lower latency, no choppy gaps between
@@ -289,6 +291,10 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
       body: JSON.stringify({
         text,
         model_id: model,
+        // Prosody continuity: when a reply is spoken in chunks, tell the engine what
+        // this voice JUST said so the next chunk continues the same breath instead of
+        // restarting cold — kills the audible "shift" between sentences.
+        ...(prevText?.trim() ? { previous_text: prevText.trim().slice(-280) } : {}),
         voice_settings: {
           stability: Number(process.env.ELEVENLABS_STABILITY ?? 0.4),
           similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY ?? 0.85),

@@ -19,6 +19,7 @@ import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
+import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPendingIntent, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
@@ -114,6 +115,9 @@ export function Planet() {
   // no input that promises routing it can't deliver. The blocks appear once you begin
   // (tap to fall in, or scroll/drag/zoom the sky).
   const [started, setStarted] = useState(false)
+  // The room DECK is the front door (swipe-up browser); the free-roam sky is the
+  // optional "explore" mode behind it.
+  const [deckOpen, setDeckOpen] = useState(true)
   // One-time navigation hint after falling in — the descent has no chrome, so a
   // first-timer needs one line telling them the gesture language. Fades on its own.
   const [navHint, setNavHint] = useState(false)
@@ -765,23 +769,32 @@ export function Planet() {
         </div>
       )}
 
-      {/* one-time gesture hint — fades in, holds, fades out on its own */}
-      {started && navHint && !selected && !group && (
+      {/* THE FRONT DOOR — the swipe-up deck of rooms. The sky waits behind it. */}
+      {started && deckOpen && !selected && !group && (
+        <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} />
+      )}
+      {/* back to the deck from the open sky */}
+      {started && !deckOpen && !selected && !group && (
+        <button onClick={() => setDeckOpen(true)} aria-label="back to the rooms" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 24, minHeight: 40, padding: "0 16px", fontSize: 12.5, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 999, cursor: "pointer", boxShadow: "0 10px 26px -10px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>▤ rooms</button>
+      )}
+
+      {/* one-time gesture hint — sky mode only */}
+      {started && navHint && !deckOpen && !selected && !group && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: "calc(env(safe-area-inset-top) + 64px)", zIndex: 24, fontSize: 12.5, letterSpacing: 0.6, color: "rgba(238,244,248,.62)", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(255,255,255,.1)", borderRadius: 999, padding: "8px 16px", pointerEvents: "none", whiteSpace: "nowrap", fontFamily: "var(--font-geist), system-ui, sans-serif", animation: "navhint 6.5s ease both" }}>
           <style>{`@keyframes navhint{0%{opacity:0;transform:translateX(-50%) translateY(6px)}8%,80%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0}}`}</style>
           scroll to go closer · drag to drift
         </div>
       )}
 
-      {/* The main act: join the group at this scale. The number shrinks as you descend. */}
-      {started && hud.join && !selected && !group && (
+      {/* The main act (sky mode): join the group at this scale. */}
+      {started && hud.join && !deckOpen && !selected && !group && (
         <button onClick={() => joinGroup(hud.join!)}
           style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? `Call ${charFor(hud.join.seed, hud.join.c).host} →` : "Enter →"}
         </button>
       )}
 
-      {started && hud.hearing && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
+      {started && hud.hearing && !deckOpen && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
 
       {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening(""); zoomFnRef.current(0.55) }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
 
@@ -816,6 +829,85 @@ export function Planet() {
       )}
 
       <audio ref={audioRef} style={{ display: "none" }} />
+    </div>
+  )
+}
+
+// ── THE ROOM DECK — the front door ───────────────────────────────────────────
+// One room per screen, native scroll-snap: swipe up for the next, one button to
+// step in. Zero learning curve — the free-roam sky stays available behind the
+// "✦ the sky" button for people who want to wander, but nobody has to learn a
+// zoom language just to reach a conversation.
+function RoomDeck({ onJoin, onExplore }: { onJoin: (j: Join) => void; onExplore: () => void }) {
+  const [world, setWorld] = useState(-1)   // -1 = every world mixed
+  const [page, setPage] = useState(0)      // "fresh rooms" reshuffles deterministically
+  const rooms = useMemo(() => {
+    const cs = world < 0 ? CONTINENTS.map((_, i) => i) : [world]
+    const perWorld = world < 0 ? 3 : 10
+    const list: { c: number; seed: number; topic: string; n: number; cast: Cluster[] }[] = []
+    for (const c of cs) for (let i = 0; i < perWorld; i++) {
+      const seed = ihash(c * 131 + i * 17 + page * 913 + 5, c * 7 + i * 3 + page + 11)
+      const n = 5 + (seed % 60)
+      const cast = Array.from({ length: 4 }, (_, k) => makeCharacter(seed * 7 + k + 1, CONTINENTS[c].f))
+      list.push({ c, seed, topic: TOPICS[c][seed % TOPICS[c].length], n, cast })
+    }
+    return list
+  }, [world, page])
+
+  const chip = (on: boolean, h: number): React.CSSProperties => ({
+    flexShrink: 0, fontSize: 12.5, fontWeight: 600, letterSpacing: 0.3, whiteSpace: "nowrap",
+    color: on ? "#06121e" : `hsla(${h},60%,78%,.9)`,
+    background: on ? `hsl(${h},70%,66%)` : `hsla(${h},50%,40%,.18)`,
+    border: on ? "none" : `.5px solid hsla(${h},60%,60%,.35)`,
+    borderRadius: 999, padding: "9px 14px", minHeight: 36, cursor: "pointer",
+    WebkitTapHighlightColor: "transparent", touchAction: "manipulation",
+  })
+
+  return (
+    <div className="air-fade" style={{ position: "absolute", inset: 0, zIndex: 18, display: "flex", flexDirection: "column", background: "rgba(4,5,11,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      {/* world chips — below the avatar/language chrome */}
+      <div style={{ flexShrink: 0, display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", padding: "calc(env(safe-area-inset-top) + 62px) 16px 10px", maskImage: "linear-gradient(to right, #000 94%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 94%, transparent)" }}>
+        <button onClick={() => setWorld(-1)} style={chip(world === -1, 200)}>everything</button>
+        {CONTINENTS.map((co, i) => (
+          <button key={i} onClick={() => setWorld(i)} style={chip(world === i, co.h)}>{co.n}{co.adult ? " · 18+" : ""}</button>
+        ))}
+      </div>
+
+      {/* the deck */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", scrollSnapType: "y mandatory", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain" }}>
+        {rooms.map((r) => {
+          const co = CONTINENTS[r.c]
+          return (
+            <div key={`${r.c}-${r.seed}`} style={{ height: "100%", scrollSnapAlign: "start", scrollSnapStop: "always", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "10px 26px", background: `radial-gradient(120% 85% at 50% 22%, hsla(${co.h},62%,26%,.6), rgba(4,5,11,0) 72%)`, boxSizing: "border-box" }}>
+              <div style={{ fontSize: 11, letterSpacing: 2.5, textTransform: "uppercase", color: `hsla(${co.h},70%,74%,.92)` }}>{co.n}{co.adult ? " · 18+" : ""}</div>
+              <div style={{ fontSize: "clamp(28px, 8vw, 40px)", fontWeight: 600, color: "#eef4f8", textAlign: "center", lineHeight: 1.12, letterSpacing: -0.5 }}>{r.topic}</div>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                {r.cast.map((m, k) => (
+                  <span key={k} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", border: `2px solid hsla(${co.h},70%,62%,.85)`, marginLeft: k ? -14 : 0, boxShadow: "0 8px 22px -8px rgba(0,0,0,.75)", background: `hsl(${co.h},45%,30%)` }}>
+                    <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  </span>
+                ))}
+                <span style={{ marginLeft: 12, fontSize: 13, color: "rgba(238,244,248,.62)" }}>{r.n} in here</span>
+              </div>
+              <div style={{ fontSize: 13.5, color: "rgba(238,244,248,.55)", textAlign: "center", maxWidth: 300, lineHeight: 1.5 }}>{co.v}</div>
+              <button onClick={() => onJoin({ n: r.n, seed: r.seed, f: co.f, adult: !!co.adult, c: r.c })}
+                style={{ marginTop: 4, minHeight: 54, padding: "0 44px", fontSize: 16, fontWeight: 700, color: "#06121e", background: `linear-gradient(135deg, hsl(${co.h},72%,62%), hsl(${(co.h + 25) % 360},72%,70%))`, border: "none", borderRadius: 16, cursor: "pointer", boxShadow: `0 14px 36px -12px hsla(${co.h},80%,55%,.6)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+                step in →
+              </button>
+              <div style={{ fontSize: 11, color: "rgba(238,244,248,.32)", letterSpacing: 0.6 }}>swipe up for the next room</div>
+            </div>
+          )
+        })}
+        {/* final card: reshuffle */}
+        <div style={{ height: "100%", scrollSnapAlign: "start", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "10px 26px", boxSizing: "border-box" }}>
+          <div style={{ fontSize: 22, fontWeight: 600, color: "#eef4f8" }}>that&apos;s this stretch of the floor</div>
+          <button onClick={() => setPage((p) => p + 1)} style={{ minHeight: 52, padding: "0 36px", fontSize: 15, fontWeight: 700, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↻ fresh rooms</button>
+          <button onClick={onExplore} style={{ minHeight: 44, padding: "0 22px", fontSize: 13, color: "#cfe0ee", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>✦ or drift the open sky</button>
+        </div>
+      </div>
+
+      {/* the sky stays one tap away */}
+      <button onClick={onExplore} aria-label="explore the open sky" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 19, minHeight: 40, padding: "0 16px", fontSize: 12.5, color: "#cfe0ee", background: "rgba(4,5,11,.6)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>✦ the sky</button>
     </div>
   )
 }

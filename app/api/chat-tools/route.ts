@@ -14,6 +14,7 @@
  */
 
 import { NextRequest } from "next/server"
+import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import {
   TOOL_DEFINITIONS,
   PERSONA_TOOLS,
@@ -55,6 +56,13 @@ TOOL USE:
 }
 
 export async function POST(req: NextRequest) {
+  // Billable LLM route (tool loop) — same guards as /api/chat so ad-scale traffic
+  // can't loop it uncapped.
+  const gate = globalGate()
+  if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
+  const rl = rateLimit(`chattools:${clientIp(req)}`, 45, 60_000)
+  if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
+
   const { persona, messages, mode } = await req.json()
   // mode: "voice" (strict short) | "chat" (more detail allowed)
   const isVoice = mode === "voice"

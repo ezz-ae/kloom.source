@@ -74,12 +74,18 @@ export async function POST(req: NextRequest) {
     // double-counted). Reports USD 9 to match the browser pixel value. Then mark the row
     // completed so a replayed webhook can't re-report.
     if (row.kind === "airraw_pass") {
+      // Attribution note: this request's IP/UA are ZIINA'S webhook infrastructure,
+      // NOT the buyer — sending them as client_ip_address/client_user_agent would
+      // train Meta on the wrong identity and (because event_id dedup keeps whichever
+      // event lands first, usually this webhook) discard the well-matched claim-side
+      // Purchase that carries the real fbp/fbc/IP. Omit them entirely: an event with
+      // no user_data beats one with MISLEADING user_data. The browser+claim Purchase
+      // (same event_id) supplies match quality whenever the buyer returns; this
+      // webhook is the guaranteed-capture fallback for buyers who never come back.
       await metaPurchase({
         value: Number(process.env.AIRRAW_PRO_USD || 9),
         currency: "USD",
         eventId: intentId,
-        clientIp: clientIp(req),
-        userAgent: req.headers.get("user-agent") || undefined,
       }).catch(() => {})
       await sb.from("ziina_payments").update({ status: "completed" }).eq("id", intentId)
       return NextResponse.json({ ok: true, kind: row.kind, purchaseReported: true })

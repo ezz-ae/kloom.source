@@ -1,6 +1,9 @@
+import { adultEnabled } from "@/lib/variant"
+
 export const metadata = { title: "Payments & Refunds — Kloom" }
 
 export default function PaymentsPage() {
+  const adult = adultEnabled()   // false on kloom.io (SFW) — drop the adult billing clause
   return (
     <>
       <h1>Payments &amp; Refunds</h1>
@@ -9,7 +12,7 @@ export default function PaymentsPage() {
       <h2>1. What&apos;s free and what&apos;s paid</h2>
       <ul>
         <li><strong>Free, forever:</strong> text chat in any room, creating rooms and characters, inviting friends.</li>
-        <li><strong>Paid:</strong> voice-call minutes (credits), the Unrestricted tier, and premium features marked in the app.</li>
+        <li><strong>Paid:</strong> voice-call minutes and premium features marked in the app{adult ? ", including the Unrestricted tier" : ""}.</li>
         <li>During launch periods we may unlock paid features for free; this is promotional and can end at any time.</li>
       </ul>
 
@@ -35,11 +38,15 @@ export default function PaymentsPage() {
         faster directly. Accounts with fraudulent chargebacks are suspended.
       </p>
 
-      <h2>5. Adult content and billing</h2>
-      <p>
-        Paid features apply platform-wide. Purchasing the Unrestricted tier requires the same 18+
-        confirmation as entering adult worlds; see the <a className="underline" href="/legal/terms">Terms</a>.
-      </p>
+      {adult && (
+        <>
+          <h2>5. Adult content and billing</h2>
+          <p>
+            Paid features apply platform-wide. Purchasing the Unrestricted tier requires the same 18+
+            confirmation as entering adult worlds; see the <a className="underline" href="/legal/terms">Terms</a>.
+          </p>
+        </>
+      )}
     </>
   )
 }

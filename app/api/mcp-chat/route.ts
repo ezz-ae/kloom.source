@@ -135,6 +135,18 @@ const COMPANION_FALLBACKS = [
   "mmm. tell me the real thing.",
 ]
 
+// Shown when EVERY model backend is momentarily unreachable. Never a raw error /
+// "unreachable" string — that reads as broken on a paid landing and kills the turn.
+// These are in-character "bad line" beats that invite a retry, buying the fallback
+// chain time to recover without the user ever seeing a stack trace.
+const OUTAGE_FALLBACKS = [
+  "sorry — you cut out for a sec there. say that again?",
+  "hmm, bad connection on my end. one more time?",
+  "you froze for a beat — what was that last part?",
+  "ugh, line glitched. run that by me again?",
+]
+const outageLine = (seed: number) => OUTAGE_FALLBACKS[Math.abs(seed) % OUTAGE_FALLBACKS.length]
+
 // Remove leaked scaffold labels the model sometimes emits at the start, e.g.
 // "[RESPONDING]:", "[RESPONDING — addressing the user]:", "Assistant:", "Aria:".
 function stripLeadingLabel(text: string): string {
@@ -831,7 +843,7 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
           }
         } catch (err) {
           crumb(`gen() threw: ${err instanceof Error ? err.message : String(err)}`)
-          if (!full) { ctrl.enqueue(encoder.encode(`⚠️ ${BACKEND_LABELS[backend]} unreachable`)); ctrl.close(); return }
+          if (!full) { ctrl.enqueue(encoder.encode(outageLine(latestUserText.length))); ctrl.close(); return }
         }
         // Defensive: if the model leaked a partner's turn ("Remy: …"), keep only
         // this persona's own words (everything before the leaked name-line).
@@ -899,8 +911,9 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
         if (outBuf.trim()) flushDedup(outBuf)
         ctrl.close()
       } catch (err) {
+        crumb(`stream threw: ${err instanceof Error ? err.message : String(err)}`)
         if (!emitted) {
-          ctrl.enqueue(encoder.encode(`⚠️ ${BACKEND_LABELS[backend]} unreachable: ${(err as Error).message}`))
+          ctrl.enqueue(encoder.encode(outageLine(latestUserText.length)))
         }
         ctrl.close()
       }

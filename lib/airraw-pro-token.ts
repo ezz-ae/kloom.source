@@ -39,3 +39,26 @@ export function proTokenClaims(token?: string | null): { until: number; v: numbe
 export function proTokenValid(token?: string | null): boolean {
   return proTokenClaims(token) !== null
 }
+
+// ── Signed purchase anchor ────────────────────────────────────────────────
+// Ziina has no metadata field and its intent object exposes no reliable created
+// timestamp, so we carry the purchase moment ourselves — HMAC-signed so it can't
+// be forged. Put {i,t,s} in the checkout return URL: the claim uses `t` as the
+// anchor so the 90-day pass always expires 90 days from PURCHASE (re-claims can't
+// roll the window forward), and it survives a return in a fresh browser / cleared
+// localStorage (the URL itself is the claim key). Returns "" if no secret.
+export function signIntent(intentId: string, tsMs: number): string {
+  if (!SECRET) return ""
+  return createHmac("sha256", SECRET).update(`${intentId}.${tsMs}`).digest("hex").slice(0, 32)
+}
+
+/** Verify {intentId,tsMs,sig}. Returns the anchor ms if valid, else null. */
+export function verifyIntentSig(intentId: string, tsMs: number, sig?: string | null): number | null {
+  if (!SECRET || !sig || !Number.isFinite(tsMs)) return null
+  const expected = signIntent(intentId, tsMs)
+  try {
+    const a = Buffer.from(sig), b = Buffer.from(expected)
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null
+    return tsMs
+  } catch { return null }
+}

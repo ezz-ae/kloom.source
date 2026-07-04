@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server"
 import { createPaymentIntent, getPaymentIntent, usdToMinor, ziinaConfigured } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
-import { mintProToken } from "@/lib/airraw-pro-token"
+import { mintProToken, signIntent, verifyIntentSig } from "@/lib/airraw-pro-token"
 import { metaPurchase, metaEvent } from "@/lib/meta-capi"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 
@@ -33,15 +33,20 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit(`airrawpro:${clientIp(req)}`, 20, 60_000)
   if (!rl.ok) return Response.json({ error: "slow down a sec" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  let body: { action?: string; intentId?: string; fbp?: string; fbc?: string } = {}
+  let body: { action?: string; intentId?: string; t?: number; s?: string; fbp?: string; fbc?: string } = {}
   try { body = await req.json() } catch { /* */ }
-  const { action, intentId, fbp, fbc } = body
+  const { action, intentId, t: claimTs, s: claimSig, fbp, fbc } = body
 
   if (action === "checkout") {
     try {
       // Return the buyer to a route that EXISTS on this domain and runs the <ProClaim/>
       // effect (mounted in the root layout): /airraw on the AIRRAW deploy, /app on kloom.io.
       const ret = process.env.AIRRAW_HOME === "1" ? "/airraw" : "/app"
+      // Purchase-time anchor, signed so the client can't roll it forward. Returned
+      // to the client alongside intentId and stored for the claim — this pins the
+      // pass to expire DAYS after PURCHASE regardless of when/how often it's claimed,
+      // killing the "re-claim mints a fresh 90 days forever" replay.
+      const anchor = Date.now()
       const intent = await createPaymentIntent({
         usd: PRICE_USD,
         message: `The Pass · ${DAYS} days`,
@@ -70,7 +75,12 @@ export async function POST(req: NextRequest) {
       }).catch(() => {})
       // `test` surfaces Ziina's per-intent mode — the launch check that money is REAL.
       // true here means ZIINA_TEST=1 and every "sale" is a test payment (no money moves).
-      return Response.json({ url, intentId: intent.id, price: PRICE_USD, days: DAYS, test: (intent as { test?: boolean }).test === true })
+      // t/s = signed purchase anchor the client stores and returns on claim.
+      return Response.json({
+        url, intentId: intent.id, price: PRICE_USD, days: DAYS,
+        t: anchor, s: signIntent(intent.id, anchor),
+        test: (intent as { test?: boolean }).test === true,
+      })
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : "checkout failed" }, { status: 502 })
     }
@@ -86,7 +96,13 @@ export async function POST(req: NextRequest) {
       if (typeof intent.amount === "number" && intent.amount + 2 < usdToMinor(PRICE_USD)) {
         return Response.json({ paid: false, status: "amount_mismatch" })
       }
-      const until = Date.now() + DAYS * 86_400_000
+      // Anchor the pass to PURCHASE time (signed `t`), not claim time — so re-claiming
+      // the same intent can't roll the 90-day window forward indefinitely (a $9
+      // lifetime pass). Fall back to now only for legacy intents with no signature
+      // (pre-anchor purchases), which are one-time by the localStorage claim flow.
+      const anchor = verifyIntentSig(intentId, Number(claimTs), claimSig) ?? Date.now()
+      const until = anchor + DAYS * 86_400_000
+      if (until <= Date.now()) return Response.json({ paid: false, status: "expired" })
       // Server-side Purchase → Meta CAPI. This is the AIRRAW ad funnel's ACTUAL
       // conversion (the $9 Pro pass) — without it, ad traffic that buys is invisible
       // to Meta and can't be optimized for. event_id = intentId so a repeated claim

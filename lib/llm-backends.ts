@@ -44,12 +44,17 @@ export interface LLMOptions {
 // ── Config ────────────────────────────────────────────────────────────────
 
 const LOCAL_URL   = (process.env.LLM_BASE_URL || "http://localhost:11434/v1").replace(/\/$/, "")
-// When the LLM endpoint is Together, use the shared TOGETHER_API_KEY (the same key
-// images use) so a rotated Together key never leaves chat on a stale LLM_API_KEY —
-// which is exactly what broke the call ("couldn't reach the voice" = chat 401).
+// Auth key for the default ("local") OpenAI-compatible endpoint, chosen by HOST so a
+// single provider key powers chat without a second secret env:
+//   • Together host  → TOGETHER_API_KEY (shared with images; survives LLM_API_KEY drift)
+//   • x.ai host      → XAI_API_KEY      (so pointing LLM_BASE_URL at Grok needs ONLY
+//                                        XAI_API_KEY — the same key the voice seat uses)
+//   • otherwise      → LLM_API_KEY (or "local" for Ollama)
 const LOCAL_KEY   = (/together\.(xyz|ai)/.test(LOCAL_URL) && process.env.TOGETHER_API_KEY)
   ? process.env.TOGETHER_API_KEY
-  : (process.env.LLM_API_KEY || "local")
+  : (/\bapi\.x\.ai\b/.test(LOCAL_URL) && process.env.XAI_API_KEY)
+    ? process.env.XAI_API_KEY
+    : (process.env.LLM_API_KEY || "local")
 const LOCAL_MODEL = process.env.LLM_MODEL     || "llama3.2:latest"
 const LOCAL_FALLBACK_MODEL = process.env.LLM_FALLBACK_MODEL || "llama3.2:latest"
 
@@ -197,8 +202,11 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   //  • Hosted OpenAI-compat (Together, OpenAI, …) takes the STANDARD penalties only;
   //    repeat_penalty/options are Ollama-only fields a strict provider can 400 on.
   const isGeminiCompat = baseUrl.includes("generativelanguage.googleapis.com")
+  // Grok-4 REJECTS presence/frequency penalty (400) just like Gemini's compat
+  // endpoint — send no penalty params when the default endpoint IS x.ai.
+  const isXaiCompat = /\bapi\.x\.ai\b/.test(baseUrl)
   const isOllama = /localhost|127\.0\.0\.1|:11434/.test(baseUrl)
-  const antiRepeat = isGeminiCompat
+  const antiRepeat = (isGeminiCompat || isXaiCompat)
     ? {}
     : isOllama
       ? {

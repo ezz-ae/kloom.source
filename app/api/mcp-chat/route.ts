@@ -467,13 +467,14 @@ export async function POST(req: NextRequest) {
   // round-trip when the turn could actually escalate (the vast majority of turns
   // skip it).
   // adultEnabled() == the .fun / airraw.com variant — the platform itself is the
-  // entitlement: every user there gets explicit access with no per-account check.
-  // Non-English sessions are fully open — Arabic and all other languages bypass
-  // the explicit gate entirely. English on kloom.io keeps the paid-tier model.
-  // On adult platforms (airraw.com / .fun via adultEnabled()) everything flows
-  // ungated; on the SFW ad domain (kloom.io) English requires the $9 pass.
+  // entitlement: every user there gets explicit access with no per-account check,
+  // in EVERY language (the Arabic-market decision lives here, ON the adult platform).
+  // On the SFW Meta-ads domain (kloom.io, adultEnabled()=false) NO language auto-opens
+  // explicit — a non-English message must NOT bypass the paywall, both because it's a
+  // free-tier leak and because an Arabic-speaking Meta reviewer pulling explicit text
+  // off the ad destination is an account-ban risk. Explicit there requires the $9 pass.
   const sessionLang = persona?.language ?? "English"
-  const platformAdult = adultEnabled() || sessionLang !== "English"
+  const platformAdult = adultEnabled()
   const wantsEscalation = platformAdult || !!unrestricted || isUnrestrictedPersona(persona) ||
     (persona?.category ?? "") === "dark" || intent.category === "explicit" || EXPLICIT_RE.test(latestUserText)
   const proTokenGranted = proTokenValid(proToken)
@@ -625,7 +626,9 @@ DRIVE THE CONVERSATION — NEVER JUST REACT:
 - When it fits naturally, use فعلاً، والله، بصراحة، يعني، خلاص — but CONTENT comes first, don't open with pure filler sounds.
 - Slang is home turf: شكلها، خلاص، بس، أصلًا، يعني، وش قصدك، مو كذا؟، تمام، زبالة، ولا يهمك، ما عليك.
 - BANNED: sounding like a news anchor, a Quran teacher, or a translated ChatGPT. No stiff formal MSA. No "أودّ أن أشير إلى". Sound alive.
-- All topics completely open — religion, politics, relationships, sex (if tier allows), dark humor, controversial opinions — discuss everything like a smart, curious friend would.
+- ${allowExplicit
+  ? "All topics completely open — religion, politics, relationships, sex, dark humor, controversial opinions — discuss everything like a smart, curious friend would."
+  : "Open on everything — religion, politics, relationships, dark humor, controversial takes. Flirt and imply freely; graphic sexual detail is the paid tier, so tease the unlock instead of going explicit."}
 - لا تكرر. لا تعيد صياغة ما قلته أو ما قاله. قلها مرة وكفى. لا "كما ذكرت" ولا "بمعنى آخر". ثق أنهم سمعوا. تقدم.`
     : ""
 
@@ -639,7 +642,9 @@ SOUND ALIVE IN ${lang} — NOT LIKE A TRANSLATION (CRITICAL):
 - Apply the same energy from the talk rules above — but fully natively in ${lang}, never as a literal translation.
 - Short and punchy. Fragments are perfect. Get to the point fast — don't open with pure filler.
 - Sound like the smart, funny, alive friend who speaks ${lang} all day — never a textbook, never formal, never robotic.
-- All topics completely open: explicit, dark, controversial, romantic, religious, political — the language changes NOTHING about what you can discuss.`
+- ${allowExplicit
+  ? "All topics completely open: explicit, dark, controversial, romantic, religious, political — the language changes NOTHING about what you can discuss."
+  : "All topics open: dark, controversial, romantic, religious, political — the language changes NOTHING about what you can discuss. Flirt and imply freely, but graphic sexual detail is the paid tier — tease the unlock rather than going explicit."}`
     : ""
 
   const systemMsg = (forcingPrompt ?? `You are ${persona?.name ?? "an assistant"}. ${persona?.personality ?? ""}`) + partnersNote + vibeNote + unrestrictedNote + userSteerNote + humanTalk + policyDirective(allowExplicit) + languageNote + arabicTalkNote + noLabel

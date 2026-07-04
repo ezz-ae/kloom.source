@@ -21,7 +21,7 @@ import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
-import { isPro, getPendingIntent, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
+import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { ProfileSheet } from "@/components/airroom/ProfileSheet"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
@@ -167,12 +167,13 @@ export function Planet() {
       const justPaid = u.get("pro_ok") === "1"
       if (u.get("pro_fail") === "1") setProMsg("payment didn't go through — you weren't charged.")
       if (justPaid || u.get("pro_fail")) window.history.replaceState({}, "", "/airraw")
-      const id = getPendingIntent()
-      if (!id || isPro()) return
-      fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id, ...fbCookies() }) })
+      const pending = getPending()
+      if (!pending?.id || isPro()) return
+      const { id, t, s } = pending
+      fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id, t, s, ...fbCookies() }) })
         .then((r) => r.json())
         .then((d) => {
-          if (d?.paid && d?.token) { const eid = id; setProToken(d.token); clearPendingIntent(); setPro(true); setProMsg("you're AIRRAW Pro ✦ enjoy the floor."); try { track("purchase", { value: 9, currency: "USD", method: "ziina", kind: "pass" }, eid) } catch { /* */ }; track("airraw_pro_paid", { surface: "planet" }) }
+          if (d?.paid && d?.token) { const eid = id; setProToken(d.token); clearPendingIntent(); setPro(true); setProMsg("you're AIRRAW Pro ✦ enjoy the floor."); try { track("purchase", { value: d?.price ?? 9, currency: "USD", method: "ziina", kind: "pass" }, eid) } catch { /* */ }; track("airraw_pro_paid", { surface: "planet" }) }
           else if (["failed", "canceled", "cancelled", "expired"].includes(String(d?.status))) clearPendingIntent()
           else if (justPaid) setProMsg("payment is still processing — reopen airraw in a moment and your Pro will appear.")
         })

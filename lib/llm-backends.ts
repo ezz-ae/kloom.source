@@ -162,8 +162,8 @@ export function resolveBackend(requested?: Backend): Backend {
   }
   if (requested === "mistral" || requested === "dolphin") return requested
   if (backendAvailable(requested)) return requested
-  // No key for this premium seat → house model: Gemini if we have it, else local.
-  return GEMINI_KEY ? "gemini" : "local"
+  // No key for this premium seat → house model: Grok, then Gemini, else local.
+  return XAI_KEY ? "xai" : GEMINI_KEY ? "gemini" : "local"
 }
 
 // ── Local (Ollama / OpenAI-compatible) ──────────────────────────────────────
@@ -603,11 +603,28 @@ async function* houseFallback(
   opts: LLMOptions,
   failed?: Backend,
 ): AsyncGenerator<string> {
-  console.error(`[llm] houseFallback engaged (failed=${failed ?? "?"}) → ${failed !== "gemini" && GEMINI_KEY ? "gemini" : failed !== "openai" && OPENAI_KEY ? "openai" : "local"}`)
-  if (failed !== "xai"    && XAI_KEY)    { yield* streamXai(messages, opts); return }
-  if (failed !== "gemini" && GEMINI_KEY) { yield* streamGemini(messages, opts); return }
-  if (failed !== "openai" && OPENAI_KEY) { yield* streamOpenAI(messages, opts); return }
-  if (failed !== "local") { yield* streamLocal(messages, { ...opts, localModel: undefined }); return }
+  // TRUE cascade: a candidate that fails BEFORE emitting anything passes the
+  // turn to the next one instead of killing the whole fallback (a dead Gemini
+  // project used to abort here and take chat down even with a live Grok key).
+  // One that fails MID-stream ends the reply (never duplicate spoken output).
+  const candidates: Array<[Backend, (m: LLMMessage[], o: LLMOptions) => AsyncGenerator<string>]> = [
+    ["xai", streamXai], ["gemini", streamGemini], ["openai", streamOpenAI],
+  ]
+  for (const [name, fn] of candidates) {
+    if (name === failed || !backendAvailable(name)) continue
+    let emitted = false
+    try {
+      for await (const chunk of fn(messages, opts)) { emitted = true; yield chunk }
+      return
+    } catch (err) {
+      console.error(`[llm] fallback ${name} failed (emitted=${emitted}): ${err instanceof Error ? err.message : err}`)
+      if (emitted) return
+    }
+  }
+  if (failed !== "local") {
+    try { yield* streamLocal(messages, { ...opts, localModel: undefined }); return }
+    catch (err) { console.error(`[llm] fallback local failed: ${err instanceof Error ? err.message : err}`) }
+  }
   throw new Error("no LLM backend available")
 }
 

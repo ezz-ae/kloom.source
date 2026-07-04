@@ -7,7 +7,7 @@
  * layout. Replaces the old FlexiCalls slider + tiered passes + account gate.
  */
 import { useState } from "react"
-import { setPendingIntent, fbCookies } from "@/lib/airroom/pro"
+import { setPendingIntent, fbCookies, isPro } from "@/lib/airroom/pro"
 import { track } from "@/lib/track"
 
 interface TopUpSliderProps { onDone?: () => void }
@@ -23,6 +23,9 @@ export function TopUpSlider({ onDone: _onDone }: TopUpSliderProps) {
   const [err, setErr] = useState("")
 
   const go = async () => {
+    // Don't sell the flat pass to someone who already holds it (they'd be charged
+    // twice and the second claim is skipped while the first is still valid).
+    if (isPro()) { setErr("you already have the pass ✦ — it resets daily at midnight"); return }
     setBusy(true); setErr("")
     try {
       const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", ...fbCookies() }) })

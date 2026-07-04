@@ -159,7 +159,7 @@ export default function RoomsPage() {
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
           <input value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search rooms…"
-            className="w-full bg-foreground/[0.03] border border-border/60 rounded-xl pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:border-foreground/30 transition-colors" />
+            className="w-full bg-foreground/[0.03] border border-border/60 rounded-xl pl-10 pr-3 py-2.5 text-base sm:text-sm focus:outline-none focus:border-foreground/30 transition-colors" />
         </div>
 
         {/* Sort tabs */}

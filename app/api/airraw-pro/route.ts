@@ -68,7 +68,9 @@ export async function POST(req: NextRequest) {
         eventName: "InitiateCheckout", value: PRICE_USD, currency: "USD", eventId: intent.id,
         clientIp: clientIp(req), userAgent: req.headers.get("user-agent") || undefined, fbp, fbc,
       }).catch(() => {})
-      return Response.json({ url, intentId: intent.id, price: PRICE_USD, days: DAYS })
+      // `test` surfaces Ziina's per-intent mode — the launch check that money is REAL.
+      // true here means ZIINA_TEST=1 and every "sale" is a test payment (no money moves).
+      return Response.json({ url, intentId: intent.id, price: PRICE_USD, days: DAYS, test: (intent as { test?: boolean }).test === true })
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : "checkout failed" }, { status: 502 })
     }

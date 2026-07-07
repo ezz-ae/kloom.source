@@ -45,8 +45,8 @@ export async function POST(request: Request) {
   // its male speaker reads flat/robotic. Eleven first; CSM is now the fallback.
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
-    const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId, mode, prevText)
-    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs" } })
+    const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId, mode, prevText, language)
+    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast } })
     // fall through to Sesame / CosyVoice / Fish
   }
 
@@ -260,25 +260,56 @@ const EL_MALE   = ["pNInz6obpgDQGcFmaJgB", "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWF
 // their face (face ethnicity is derived from the same persona name). Deliberately NOT in
 // the random pool, so it only ever plays on a face it fits. Env-overridable.
 const SA_FEMALE_VOICE = process.env.ELEVENLABS_VOICE_FEMALE_SA || "f0JpDwzbGK384Dd1WH2s"
-function elVoiceFor(name?: string, gender?: string): string {
+
+// Language-native ElevenLabs voice pools. A voice CLONED from a native speaker of the
+// target language sounds far more authentic than an English voice reading Arabic through
+// the multilingual model (accent, emphasis, natural rhythm). Curate per language via env
+// as comma-separated ID lists — one is picked per persona by name hash so neighbours stay
+// distinct — e.g.  ELEVENLABS_VOICES_AR_FEMALE=id1,id2   ELEVENLABS_VOICES_AR_MALE=id3,id4
+// (singular ELEVENLABS_VOICE_AR_FEMALE / _MALE also works for one pinned voice).
+function langPool(iso: string, gender?: string): string[] {
+  const g = gender === "male" ? "MALE" : "FEMALE"
+  const raw = process.env[`ELEVENLABS_VOICES_${iso}_${g}`]
+    || process.env[`ELEVENLABS_VOICE_${iso}_${g}`]
+    || process.env[`ELEVENLABS_VOICES_${iso}`]
+    || process.env[`ELEVENLABS_VOICE_${iso}`]
+    || ""
+  return raw.split(",").map((s) => s.trim()).filter(Boolean)
+}
+const hashPick = (arr: string[], seed: string): string => {
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  return arr[h % arr.length]
+}
+function elVoiceFor(name?: string, gender?: string, language?: string): string {
+  // Language-native pool first (when curated for this language) — so an Arabic persona
+  // speaks in an Arabic-native voice, not an English one bent through the model.
+  const iso = isoForLanguage(language)
+  if (iso && iso !== "en") {
+    const pool = langPool(iso.toUpperCase(), gender)
+    if (pool.length) return hashPick(pool, name || "x")
+  }
   // Voice-casting by face ethnicity: a South-Asian female face gets the Indian-English
   // voice (checked BEFORE the pinned default so it isn't overridden by it).
   if (gender !== "male" && name && isSouthAsianSeed(name)) return SA_FEMALE_VOICE
   const env = gender === "male" ? process.env.ELEVENLABS_VOICE_MALE : process.env.ELEVENLABS_VOICE_FEMALE
   if (env) return env
-  const pool = gender === "male" ? EL_MALE : EL_FEMALE
-  let h = 0; const s = name || "x"; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return pool[h % pool.length]
+  return hashPick(gender === "male" ? EL_MALE : EL_FEMALE, name || "x")
 }
-async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string): Promise<ArrayBuffer | null> {
+async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string, language?: string): Promise<ArrayBuffer | null> {
   try {
-    const voice = elevenId?.trim() || elVoiceFor(name, gender)
-    // Voice mode (live call): use turbo_v2_5 — lower latency, no choppy gaps between
-    // sentences, still multilingual. Text mode: multilingual_v2 for richer quality.
-    // Override either with ELEVENLABS_MODEL_VOICE / ELEVENLABS_MODEL env vars.
-    const model = mode === "voice"
-      ? (process.env.ELEVENLABS_MODEL_VOICE || "eleven_turbo_v2_5")
-      : (process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2")
+    const voice = elevenId?.trim() || elVoiceFor(name, gender, language)
+    const iso = isoForLanguage(language)
+    // turbo_v2_5 handles Latin-script languages with the LOWEST latency, but it's
+    // measurably weaker on Arabic (and other non-Latin scripts) — softer consonants,
+    // wrong emphasis, occasional dropped diacritics. For those, use multilingual_v2
+    // even in a live call: the ~300ms extra latency is worth an actually-native sound.
+    // English/Latin stay on turbo for snappy mic turns. All env-overridable.
+    const nonLatin = !!iso && iso !== "en" && /^(ar|fa|ur|he|hi|bn|ru|uk|zh|ja|ko|th|el)$/.test(iso)
+    const model = nonLatin
+      ? (process.env.ELEVENLABS_MODEL_NONLATIN || "eleven_multilingual_v2")
+      : mode === "voice"
+        ? (process.env.ELEVENLABS_MODEL_VOICE || "eleven_turbo_v2_5")
+        : (process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2")
     // EXPRESSIVE defaults — user reported the voice felt flat/monotone/robotic. Lower
     // stability = more emotional variation; HIGH style = lively, performed delivery;
     // speaker_boost for presence. (A previous "calm" 0.5/0.75/0.2 read as dead.) These
@@ -295,15 +326,27 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
         // this voice JUST said so the next chunk continues the same breath instead of
         // restarting cold — kills the audible "shift" between sentences.
         ...(prevText?.trim() ? { previous_text: prevText.trim().slice(-280) } : {}),
-        voice_settings: {
-          stability: Number(process.env.ELEVENLABS_STABILITY ?? 0.4),
-          similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY ?? 0.85),
-          style: Number(process.env.ELEVENLABS_STYLE ?? 0.6),
-          use_speaker_boost: true,
-        },
+        // Arabic (and other non-Latin) reads cleaner with a touch MORE stability and a
+        // touch LESS style — the low-stability/high-style "performed" English setting
+        // warbles on long Arabic vowels and over-emphasises. English keeps the lively
+        // expressive defaults. All still env-overridable (AR_* wins for Arabic).
+        voice_settings: nonLatin
+          ? {
+              stability: Number(process.env.ELEVENLABS_STABILITY_AR ?? process.env.ELEVENLABS_STABILITY_NONLATIN ?? 0.55),
+              similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY ?? 0.85),
+              style: Number(process.env.ELEVENLABS_STYLE_AR ?? process.env.ELEVENLABS_STYLE_NONLATIN ?? 0.35),
+              use_speaker_boost: true,
+            }
+          : {
+              stability: Number(process.env.ELEVENLABS_STABILITY ?? 0.4),
+              similarity_boost: Number(process.env.ELEVENLABS_SIMILARITY ?? 0.85),
+              style: Number(process.env.ELEVENLABS_STYLE ?? 0.6),
+              use_speaker_boost: true,
+            },
       }),
       signal: AbortSignal.timeout(30000),
     })
+    elCast = `${model}/${voice}${nonLatin ? "/nonlatin" : ""}`
     if (!res.ok) { elDiag = `${res.status} ${(await res.text()).slice(0, 180)}`; console.error("elevenlabs", elDiag); return null }
     const buf = await res.arrayBuffer()
     if (buf.byteLength > 0) return buf
@@ -311,6 +354,8 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
   } catch (e) { elDiag = e instanceof Error ? e.message : String(e); console.error("elevenlabs threw", elDiag); return null }
 }
 
+// Last ElevenLabs model+voice actually used — surfaced as X-EL-Cast for verification.
+let elCast = ""
 // Last ElevenLabs failure reason — surfaced on the fallback response as X-EL-Diag so
 // we can see WHY it fell back to Fish (e.g. a 401 missing-permissions) without ever
 // handling the key directly.

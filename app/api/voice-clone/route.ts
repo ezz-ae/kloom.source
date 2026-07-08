@@ -3,11 +3,19 @@
 // and returns the resulting voice model ID ready to use in TTS.
 
 import ytdl from "@distube/ytdl-core"
+import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
 
 export async function POST(request: Request) {
+  // This is the single most expensive anonymous op (YouTube download + Fish model
+  // upload). Left ungated it's a budget/bandwidth bomb under ad-scale bot traffic.
+  const gate = globalGate()
+  if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
+  const rl = rateLimit(`clone:${clientIp(request)}`, 3, 60_000)
+  if (!rl.ok) return Response.json({ error: "slow down — a few clones per minute max" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
+
   const { url, name } = (await request.json()) as { url: string; name?: string }
 
   if (!url || !ytdl.validateURL(url)) {

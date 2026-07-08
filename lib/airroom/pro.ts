@@ -63,7 +63,21 @@ export function fbCookies(): { fbp?: string; fbc?: string } {
   return { fbp: g("_fbp"), fbc }
 }
 
-// the Ziina intent we're mid-paying for — stashed before redirect, claimed on return
-export function setPendingIntent(id: string) { try { localStorage.setItem("airraw_pro_pending", id) } catch { /* */ } }
-export function getPendingIntent(): string | null { try { return localStorage.getItem("airraw_pro_pending") } catch { return null } }
+// the Ziina intent we're mid-paying for — stashed before redirect, claimed on return.
+// Now carries the signed purchase anchor {t,s} so the claim pins the pass to purchase
+// time (anti-replay). Back-compat: a bare-string value (old pending) is read as {id}.
+export interface PendingIntent { id: string; t?: number; s?: string }
+export function setPendingIntent(id: string, t?: number, s?: string) {
+  try { localStorage.setItem("airraw_pro_pending", JSON.stringify({ id, t, s })) } catch { /* */ }
+}
+export function getPending(): PendingIntent | null {
+  try {
+    const raw = localStorage.getItem("airraw_pro_pending")
+    if (!raw) return null
+    if (raw[0] === "{") return JSON.parse(raw) as PendingIntent
+    return { id: raw }   // legacy bare-string id
+  } catch { return null }
+}
+/** @deprecated use getPending() — kept so existing callers reading just the id still work */
+export function getPendingIntent(): string | null { return getPending()?.id ?? null }
 export function clearPendingIntent() { try { localStorage.removeItem("airraw_pro_pending") } catch { /* */ } }

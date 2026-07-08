@@ -34,17 +34,27 @@ export interface LLMOptions {
   /** Route this turn to the self-hosted UNCENSORED endpoint (adult/dark/explicit/
    *  unrestricted). Falls back to the default endpoint if none is configured. */
   uncensored?: boolean
+  /** INTERNAL cycle breaker — endpoint|model combos already attempted in this
+   *  call chain. Without it the model-fallback branches can bounce between two
+   *  404ing models FOREVER (observed live: 164 requests in one 60s invocation,
+   *  presenting as a total chat hang). */
+  _tried?: Set<string>
 }
 
 // ── Config ────────────────────────────────────────────────────────────────
 
 const LOCAL_URL   = (process.env.LLM_BASE_URL || "http://localhost:11434/v1").replace(/\/$/, "")
-// When the LLM endpoint is Together, use the shared TOGETHER_API_KEY (the same key
-// images use) so a rotated Together key never leaves chat on a stale LLM_API_KEY —
-// which is exactly what broke the call ("couldn't reach the voice" = chat 401).
+// Auth key for the default ("local") OpenAI-compatible endpoint, chosen by HOST so a
+// single provider key powers chat without a second secret env:
+//   • Together host  → TOGETHER_API_KEY (shared with images; survives LLM_API_KEY drift)
+//   • x.ai host      → XAI_API_KEY      (so pointing LLM_BASE_URL at Grok needs ONLY
+//                                        XAI_API_KEY — the same key the voice seat uses)
+//   • otherwise      → LLM_API_KEY (or "local" for Ollama)
 const LOCAL_KEY   = (/together\.(xyz|ai)/.test(LOCAL_URL) && process.env.TOGETHER_API_KEY)
   ? process.env.TOGETHER_API_KEY
-  : (process.env.LLM_API_KEY || "local")
+  : (/\bapi\.x\.ai\b/.test(LOCAL_URL) && process.env.XAI_API_KEY)
+    ? process.env.XAI_API_KEY
+    : (process.env.LLM_API_KEY || "local")
 const LOCAL_MODEL = process.env.LLM_MODEL     || "llama3.2:latest"
 const LOCAL_FALLBACK_MODEL = process.env.LLM_FALLBACK_MODEL || "llama3.2:latest"
 
@@ -57,6 +67,64 @@ const UNCENSORED_KEY   = process.env.UNCENSORED_LLM_API_KEY || LOCAL_KEY
 const UNCENSORED_MODEL = process.env.UNCENSORED_LLM_MODEL
   || process.env.LLM_MODEL_UNRESTRICTED || process.env.LLM_MODEL_UNCENSORED || LOCAL_MODEL
 const HAS_UNCENSORED   = !!process.env.UNCENSORED_LLM_BASE_URL
+
+// Endpoints that recently hung (accepted the connection but never sent headers),
+// mapped to the epoch-ms until which they're considered dead. Module-scoped —
+// survives across requests within a warm serverless instance.
+const deadEndpoints = new Map<string, number>()
+
+// Watchdog read: Promise.race the read against a hard timer. We do NOT rely on
+// AbortController rejecting the pending read — observed in production (Vercel
+// Node runtime) that neither ctrl.abort() nor reader.cancel() unblocks a read
+// pending against a zombie remote; the race returns control REGARDLESS, and the
+// abort/cancel run as best-effort cleanup. Same for the headers fetch below.
+async function timedRead(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  ctrl: AbortController,
+  ms: number,
+): Promise<{ done: boolean; value?: Uint8Array }> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<{ done: true; value?: undefined }>((resolve) => {
+    timer = setTimeout(() => {
+      try { ctrl.abort() } catch { /* */ }
+      try { reader.cancel() } catch { /* */ }
+      resolve({ done: true })
+    }, ms)
+  })
+  try {
+    return await Promise.race([
+      reader.read().catch(() => ({ done: true as const, value: undefined })),
+      timeout,
+    ])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// Headers watchdog: race the fetch itself against a hard timer — an armed
+// AbortSignal alone was observed NOT to reject a fetch stuck against a
+// dead-but-accepting endpoint. Exported: any server route calling an LLM-ish
+// endpoint should use this instead of trusting AbortSignal.timeout.
+export async function timedFetch(url: string, init: RequestInit, ctrl: AbortController, ms: number): Promise<Response> {
+  let host = "?"
+  try { host = new URL(url).host } catch { /* */ }
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      console.error(`[llm] timedFetch TIMER FIRED after ${ms}ms → ${host}`)
+      try { ctrl.abort() } catch { /* */ }
+      reject(new Error(`headers timeout after ${ms}ms: ${host}`))
+    }, ms)
+  })
+  try {
+    return await Promise.race([fetch(url, { ...init, signal: ctrl.signal }), timeout])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+// First byte must arrive within this; between chunks we allow more.
+const FIRST_BYTE_MS = 15_000
+const CHUNK_GAP_MS  = 30_000
 
 const CLAUDE_KEY   = process.env.ANTHROPIC_API_KEY || ""
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-5"
@@ -99,8 +167,8 @@ export function resolveBackend(requested?: Backend): Backend {
   }
   if (requested === "mistral" || requested === "dolphin") return requested
   if (backendAvailable(requested)) return requested
-  // No key for this premium seat → house model: Gemini if we have it, else local.
-  return GEMINI_KEY ? "gemini" : "local"
+  // No key for this premium seat → house model: Grok, then Gemini, else local.
+  return XAI_KEY ? "xai" : GEMINI_KEY ? "gemini" : "local"
 }
 
 // ── Local (Ollama / OpenAI-compatible) ──────────────────────────────────────
@@ -114,14 +182,31 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   const defModel = useUnc ? UNCENSORED_MODEL : LOCAL_MODEL
   const model = opts.localModel || defModel
   const fallbackModel = opts.localModel && opts.localModel !== defModel ? defModel : undefined
+
+  // Cycle breaker: the model-fallback branches below recurse (bad model →
+  // default → global fallback → …). If two models both fail with 404/400 they
+  // bounce between each other FOREVER — observed live as 164 requests in one
+  // invocation and a 60s 504 on every chat turn. Never retry a combo, and cap
+  // the chain depth outright.
+  const tried = opts._tried ?? new Set<string>()
+  const comboKey = `${baseUrl}|${model}`
+  if (tried.has(comboKey) || tried.size >= 5) {
+    console.error(`[llm] model cycle broken (${tried.size} tried): ${comboKey}`)
+    throw new Error(`local LLM: all model fallbacks failed (${[...tried].join(", ")})`)
+  }
+  tried.add(comboKey)
+  const chain = { _tried: tried }
   // Anti-repeat params differ by endpoint:
   //  • Gemini's OpenAI-compat endpoint rejects ALL penalty params (400) → send none.
   //  • Ollama / self-hosted takes the full set incl. its repeat_penalty/options extras.
   //  • Hosted OpenAI-compat (Together, OpenAI, …) takes the STANDARD penalties only;
   //    repeat_penalty/options are Ollama-only fields a strict provider can 400 on.
   const isGeminiCompat = baseUrl.includes("generativelanguage.googleapis.com")
+  // Grok-4 REJECTS presence/frequency penalty (400) just like Gemini's compat
+  // endpoint — send no penalty params when the default endpoint IS x.ai.
+  const isXaiCompat = /\bapi\.x\.ai\b/.test(baseUrl)
   const isOllama = /localhost|127\.0\.0\.1|:11434/.test(baseUrl)
-  const antiRepeat = isGeminiCompat
+  const antiRepeat = (isGeminiCompat || isXaiCompat)
     ? {}
     : isOllama
       ? {
@@ -142,9 +227,22 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
   const reasoningHeadroom = /minimax-?m3|deepseek-?r1|\bqwq\b/i.test(model) ? 384 : 0
   const maxTokens = (opts.maxTokens ?? 600) + reasoningHeadroom
 
+  // Circuit breaker: a dead-but-accepting endpoint (e.g. a stopped RunPod proxy)
+  // hangs fetch forever — without this EVERY request burns the full serverless
+  // budget and 504s. The first hang marks the endpoint dead for 2 min; subsequent
+  // requests skip straight to the fallback chain (Gemini/GPT) instantly.
+  if (Date.now() < (deadEndpoints.get(baseUrl) ?? 0)) {
+    console.error(`[llm] circuit open, skipping dead endpoint: ${baseUrl}`)
+    if (useUnc) return yield* streamLocal(messages, { ...opts, ...chain, uncensored: false, localModel: undefined })
+    throw new Error(`local LLM endpoint circuit-open: ${baseUrl}`)
+  }
+
   let res: Response
+  // Headers watchdog: hard-raced — a zombie endpoint (accepts, never answers)
+  // must not consume the serverless budget. See timedFetch.
+  const hdrCtrl = new AbortController()
   try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
+    res = await timedFetch(`${baseUrl}/chat/completions`, {
       method:  "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${baseKey}` },
       body:    JSON.stringify({
@@ -155,38 +253,56 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
         ...antiRepeat,
         stream:      true,
       }),
-    })
+    }, hdrCtrl, 12_000)
   } catch (err) {
-    // Endpoint unreachable (e.g. a STOPPED dedicated endpoint). Degrade the
-    // unrestricted tier to the default serverless model instead of dead-ending.
-    if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+    // Endpoint unreachable, or hung past the headers timeout (e.g. a STOPPED
+    // dedicated endpoint). Mark it dead and degrade to the fallback chain.
+    console.error(`[llm] local endpoint failed pre-headers: ${baseUrl} — ${err instanceof Error ? err.message : err}`)
+    deadEndpoints.set(baseUrl, Date.now() + 120_000)
+    if (useUnc) return yield* streamLocal(messages, { ...opts, ...chain, uncensored: false, localModel: undefined })
     throw err
   }
   if ((!res.ok || !res.body) && fallbackModel && (res.status === 404 || res.status === 400)) {
-    return yield* streamLocal(messages, { ...opts, localModel: fallbackModel })
+    return yield* streamLocal(messages, { ...opts, ...chain, localModel: fallbackModel })
   }
   if (!res.ok || !res.body) {
     // If an explicitly requested model is unavailable, try this endpoint's
     // default model, then the global fallback, before failing.
     if (model !== defModel && defModel !== fallbackModel) {
-      return yield* streamLocal(messages, { ...opts, localModel: defModel })
+      return yield* streamLocal(messages, { ...opts, ...chain, localModel: defModel })
     }
     if (model !== LOCAL_FALLBACK_MODEL && LOCAL_FALLBACK_MODEL !== defModel) {
-      return yield* streamLocal(messages, { ...opts, localModel: LOCAL_FALLBACK_MODEL })
+      return yield* streamLocal(messages, { ...opts, ...chain, localModel: LOCAL_FALLBACK_MODEL })
     }
     // Last resort: a stopped/erroring uncensored endpoint (e.g. the dedicated M3
     // box scaled down) degrades to the default serverless endpoint, so the
     // unrestricted tier keeps answering instead of dead-ending.
-    if (useUnc) return yield* streamLocal(messages, { ...opts, uncensored: false, localModel: undefined })
+    if (useUnc) return yield* streamLocal(messages, { ...opts, ...chain, uncensored: false, localModel: undefined })
     throw new Error(`local LLM ${res.status}`)
   }
 
+  // Body watchdog: a dead proxy can return 200 HEADERS instantly and then stream
+  // NOTHING forever — the headers timeout above never fires, and reader.read()
+  // hangs until the platform kills the function (the exact 504-every-chat bug).
+  // timedRead aborts the CONNECTION on stall; a stall before ANY output marks
+  // the endpoint dead and falls through, a mid-reply stall ends the reply.
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, hdrCtrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) {
+        // Headers came but not one byte of output — the endpoint is a zombie.
+        console.error(`[llm] local endpoint stalled before first byte: ${baseUrl}`)
+        deadEndpoints.set(baseUrl, Date.now() + 120_000)
+        if (useUnc) return yield* streamLocal(messages, { ...opts, ...chain, uncensored: false, localModel: undefined })
+        throw new Error(`local LLM stalled before first byte: ${baseUrl}`)
+      }
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -198,7 +314,7 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
       try {
         const json  = JSON.parse(data)
         const delta = json.choices?.[0]?.delta?.content
-        if (delta) yield delta
+        if (delta) { yieldedAny = true; yield delta }
       } catch {}
     }
   }
@@ -207,7 +323,8 @@ async function* streamLocal(messages: LLMMessage[], opts: LLMOptions): AsyncGene
 // ── OpenAI / GPT (Chat Completions API) ─────────────────────────────────────
 
 async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
-  const res = await fetch(`${OPENAI_URL}/chat/completions`, {
+  const ctrl = new AbortController()
+  const res = await timedFetch(`${OPENAI_URL}/chat/completions`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${OPENAI_KEY}` },
     body:    JSON.stringify({
@@ -219,7 +336,7 @@ async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       presence_penalty:  opts.presencePenalty  ?? 0.3,
       stream:      true,
     }),
-  })
+  }, ctrl, FIRST_BYTE_MS)
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`openai ${res.status}: ${err.slice(0, 120)}`)
@@ -228,9 +345,14 @@ async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGen
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, ctrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) throw new Error("openai stalled before first byte")
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -242,7 +364,7 @@ async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       try {
         const json  = JSON.parse(data)
         const delta = json.choices?.[0]?.delta?.content
-        if (delta) yield delta
+        if (delta) { yieldedAny = true; yield delta }
       } catch {}
     }
   }
@@ -250,7 +372,10 @@ async function* streamOpenAI(messages: LLMMessage[], opts: LLMOptions): AsyncGen
 
 // ── xAI / Grok (OpenAI-compatible Chat Completions) ─────────────────────────
 async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenerator<string> {
-  const res = await fetch(`${XAI_URL}/chat/completions`, {
+  // Headers timeout + body watchdog (the old whole-request 22s abort also KILLED
+  // healthy long generations mid-reply — the watchdog only fires on inactivity).
+  const ctrl = new AbortController()
+  const res = await timedFetch(`${XAI_URL}/chat/completions`, {
     method:  "POST",
     headers: { "Content-Type": "application/json", "Authorization": `Bearer ${XAI_KEY}` },
     body:    JSON.stringify({
@@ -263,9 +388,7 @@ async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenera
       // production call, and with the older house keys dead, chat went fully mute.
       stream:      true,
     }),
-    // Bound it so a hung endpoint fails over instead of stalling the function.
-    signal: AbortSignal.timeout(22000),
-  })
+  }, ctrl, FIRST_BYTE_MS)
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`xai ${res.status}: ${err.slice(0, 120)}`)
@@ -273,9 +396,14 @@ async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenera
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, ctrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) throw new Error("xai stalled before first byte")
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -287,7 +415,7 @@ async function* streamXai(messages: LLMMessage[], opts: LLMOptions): AsyncGenera
       try {
         const json  = JSON.parse(data)
         const delta = json.choices?.[0]?.delta?.content
-        if (delta) yield delta
+        if (delta) { yieldedAny = true; yield delta }
       } catch {}
     }
   }
@@ -313,7 +441,8 @@ async function* streamClaude(messages: LLMMessage[], opts: LLMOptions): AsyncGen
     collapsed.unshift({ role: "user", content: "(begin)" })
   }
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const ctrl = new AbortController()
+  const res = await timedFetch("https://api.anthropic.com/v1/messages", {
     method:  "POST",
     headers: {
       "x-api-key":         CLAUDE_KEY,
@@ -328,7 +457,7 @@ async function* streamClaude(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       messages:   collapsed,
       stream:     true,
     }),
-  })
+  }, ctrl, FIRST_BYTE_MS)
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`claude ${res.status}: ${err.slice(0, 120)}`)
@@ -337,9 +466,14 @@ async function* streamClaude(messages: LLMMessage[], opts: LLMOptions): AsyncGen
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, ctrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) throw new Error("claude stalled before first byte")
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -350,6 +484,7 @@ async function* streamClaude(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       try {
         const json = JSON.parse(data)
         if (json.type === "content_block_delta" && json.delta?.type === "text_delta") {
+          yieldedAny = true
           yield json.delta.text
         }
       } catch {}
@@ -369,7 +504,8 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
     }))
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${GEMINI_KEY}`
-  const res = await fetch(url, {
+  const ctrl = new AbortController()
+  const res = await timedFetch(url, {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
     body:    JSON.stringify({
@@ -386,7 +522,7 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
         thinkingConfig: { thinkingBudget: 0 },
       },
     }),
-  })
+  }, ctrl, FIRST_BYTE_MS)
   if (!res.ok || !res.body) {
     const err = await res.text().catch(() => "")
     throw new Error(`gemini ${res.status}: ${err.slice(0, 120)}`)
@@ -395,9 +531,14 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
   const reader  = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ""
+  let yieldedAny = false
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    const { done, value } = await timedRead(reader, ctrl, yieldedAny ? CHUNK_GAP_MS : FIRST_BYTE_MS)
+    if (done) {
+      if (!yieldedAny) throw new Error("gemini stalled before first byte")
+      break
+    }
+    if (!value) continue
     buf += decoder.decode(value, { stream: true })
     let nl: number
     while ((nl = buf.indexOf("\n")) >= 0) {
@@ -408,7 +549,7 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
       try {
         const json = JSON.parse(data)
         const text = json.candidates?.[0]?.content?.parts?.[0]?.text
-        if (text) yield text
+        if (text) { yieldedAny = true; yield text }
       } catch {}
     }
   }
@@ -429,7 +570,10 @@ export async function* streamLLM(
 
   if (backend === "local") {
     try { yield* streamLocal(messages, opts); return }
-    catch { yield* houseFallback(messages, opts, "local"); return }
+    catch (err) {
+      console.error(`[llm] local seat failed: ${err instanceof Error ? err.message : err}`)
+      yield* houseFallback(messages, opts, "local"); return
+    }
   }
   if (backend === "mistral" || backend === "dolphin") {
     const localModel = backend === "mistral" ? "mistral:latest" : "dolphin-mistral:latest"
@@ -451,6 +595,7 @@ export async function* streamLLM(
       yield chunk
     }
   } catch (err) {
+    console.error(`[llm] ${backend} seat failed (emitted=${emitted}): ${err instanceof Error ? err.message : err}`)
     if (emitted) throw err
     yield* houseFallback(messages, opts, backend)
   }
@@ -466,10 +611,28 @@ async function* houseFallback(
   opts: LLMOptions,
   failed?: Backend,
 ): AsyncGenerator<string> {
-  if (failed !== "xai"    && XAI_KEY)    { yield* streamXai(messages, opts); return }
-  if (failed !== "gemini" && GEMINI_KEY) { yield* streamGemini(messages, opts); return }
-  if (failed !== "openai" && OPENAI_KEY) { yield* streamOpenAI(messages, opts); return }
-  if (failed !== "local") { yield* streamLocal(messages, { ...opts, localModel: undefined }); return }
+  // TRUE cascade: a candidate that fails BEFORE emitting anything passes the
+  // turn to the next one instead of killing the whole fallback (a dead Gemini
+  // project used to abort here and take chat down even with a live Grok key).
+  // One that fails MID-stream ends the reply (never duplicate spoken output).
+  const candidates: Array<[Backend, (m: LLMMessage[], o: LLMOptions) => AsyncGenerator<string>]> = [
+    ["xai", streamXai], ["gemini", streamGemini], ["openai", streamOpenAI],
+  ]
+  for (const [name, fn] of candidates) {
+    if (name === failed || !backendAvailable(name)) continue
+    let emitted = false
+    try {
+      for await (const chunk of fn(messages, opts)) { emitted = true; yield chunk }
+      return
+    } catch (err) {
+      console.error(`[llm] fallback ${name} failed (emitted=${emitted}): ${err instanceof Error ? err.message : err}`)
+      if (emitted) return
+    }
+  }
+  if (failed !== "local") {
+    try { yield* streamLocal(messages, { ...opts, localModel: undefined }); return }
+    catch (err) { console.error(`[llm] fallback local failed: ${err instanceof Error ? err.message : err}`) }
+  }
   throw new Error("no LLM backend available")
 }
 
@@ -478,6 +641,7 @@ export const BACKEND_LABELS: Record<Backend, string> = {
   claude:  "Claude",
   gemini:  "Gemini",
   openai:  "GPT",
+  xai:     "Grok",
   mistral: "Mistral",
   dolphin: "Dolphin",
 }

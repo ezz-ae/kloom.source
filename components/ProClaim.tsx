@@ -7,7 +7,7 @@
 // idempotent (claim is no-op once isPro() / the pending intent is cleared).
 
 import { useEffect, useState } from "react"
-import { getPendingIntent, clearPendingIntent, isPro, setProToken, getProToken, fbCookies } from "@/lib/airroom/pro"
+import { getPending, clearPendingIntent, isPro, setProToken, getProToken, fbCookies } from "@/lib/airroom/pro"
 import { track } from "@/lib/track"
 
 export function ProClaim() {
@@ -22,12 +22,19 @@ export function ProClaim() {
         url.searchParams.delete("pro_ok"); url.searchParams.delete("pro_fail")
         window.history.replaceState({}, "", url.pathname + url.search)
       }
-      const id = getPendingIntent()
-      if (!id || isPro()) return
-      fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id, ...fbCookies() }) })
+      const pending = getPending()
+      if (!pending?.id || isPro()) {
+        // Returned from a successful pay but this browser has no pending intent
+        // (Apple Pay / 3DS handed off to another browser, or storage was cleared):
+        // don't leave the buyer in silence — point them at recovery.
+        if (justPaid && !isPro()) setMsg("payment received ✦ if it's still locked, reopen this link in the browser you paid in, or email m@ezz.ae with your Ziina receipt.")
+        return
+      }
+      const { id, t, s } = pending
+      fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id, t, s, ...fbCookies() }) })
         .then((r) => r.json())
         .then((d) => {
-          if (d?.paid && d?.token) { setProToken(d.token); clearPendingIntent(); setMsg("you're in ✦ — tap here to copy your restore code & save it (gets you back in on any device)"); try { track("purchase", { value: 9, currency: "USD", method: "ziina", kind: "pass" }, id) } catch { /* */ } }
+          if (d?.paid && d?.token) { setProToken(d.token); clearPendingIntent(); setMsg("you're in ✦ — tap here to copy your restore code & save it (gets you back in on any device)"); try { track("purchase", { value: d?.price ?? 9, currency: "USD", method: "ziina", kind: "pass" }, id) } catch { /* */ } }
           else if (["failed", "canceled", "cancelled", "expired"].includes(String(d?.status))) clearPendingIntent()
           else if (justPaid) setMsg("payment is still processing — reopen in a moment.")
         })

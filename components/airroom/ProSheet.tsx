@@ -57,7 +57,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
       const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", ...fbCookies() }) })
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || "couldn’t start checkout — try again"); setBusy(false); return }
-      setPendingIntent(d.intentId)
+      setPendingIntent(d.intentId, d.t, d.s)
       try { track("initiate_checkout", { value: d.price ?? offer.price, currency: "USD", method: "ziina", kind: "pass" }, d.intentId) } catch { /* never block redirect */ }
       window.location.href = d.url
     } catch { setErr("network hiccup — try again"); setBusy(false) }

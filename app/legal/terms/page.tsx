@@ -1,6 +1,9 @@
+import { adultEnabled } from "@/lib/variant"
+
 export const metadata = { title: "Terms of Service — Kloom" }
 
 export default function TermsPage() {
+  const adult = adultEnabled()   // false on kloom.io (SFW) — fork the adult clauses
   return (
     <>
       <h1>Terms of Service</h1>
@@ -24,16 +27,16 @@ export default function TermsPage() {
 
       <h2>2. Who can use Kloom</h2>
       <ul>
-        <li>You must be at least <strong>18 years old</strong> to use Kloom. Period — not just for adult worlds.</li>
-        <li>Worlds and rooms marked 18+ contain adult themes and explicit content. You must additionally confirm your age before entering them.</li>
+        <li>You must be at least <strong>18 years old</strong> to use Kloom.</li>
+        {adult && <li>Worlds and rooms marked 18+ contain adult themes and explicit content. You must additionally confirm your age before entering them.</li>}
         <li>You are responsible for anyone you invite into your rooms being 18 or older.</li>
       </ul>
 
-      <h2>3. Zero-restriction policy — and its hard limits</h2>
+      <h2>3. Content policy — and its hard limits</h2>
       <p>
-        Kloom runs open AI models with minimal content filtering. Adult, dark, and taboo fiction
-        between consenting adults and AI characters is allowed. Two things are absolutely prohibited,
-        enforced in software, and will result in immediate termination:
+        {adult
+          ? "Kloom runs open AI models with minimal content filtering. Adult, dark, and taboo fiction between consenting adults and AI characters is allowed. Two things are absolutely prohibited, enforced in software, and will result in immediate termination:"
+          : "Kloom is for conversation and creativity with AI characters. Keep it lawful. Two things are absolutely prohibited, enforced in software, and will result in immediate termination:"}
       </p>
       <ul>
         <li>Any sexual content involving minors — real, fictional, implied, or role-played. No exceptions, no appeals.</li>

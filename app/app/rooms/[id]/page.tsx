@@ -14,7 +14,7 @@ import { adultEnabled, memoryEnabled } from "@/lib/variant"
 import { AdultGate } from "@/components/widgets/AdultGate"
 import { hapticsSupported, pulseForSpeech, testBuzz, stopHaptics } from "@/lib/haptics"
 import { isSubscribed, hasUnrestricted, keepMemory } from "@/lib/account"
-import { getProToken } from "@/lib/airroom/pro"
+import { getProToken, isPro } from "@/lib/airroom/pro"
 import { getChatDirection } from "@/lib/character"
 import { passCoversVoice } from "@/lib/voice-credits"
 import { hasActivePass } from "@/lib/pricing"
@@ -221,6 +221,11 @@ function RoomContent() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<HTMLTextAreaElement>(null)
   const abortRef  = useRef<AbortController | null>(null)
+  const [showInlineUpsell, setShowInlineUpsell] = useState(false)
+  // Cancel any in-flight multi-AI reply sequence when the user leaves the room —
+  // otherwise the loop keeps streaming, writing localStorage and broadcasting after
+  // they've gone (and there's no other caller of abort() anywhere).
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   // ── Group session (multi-human) ──
   const [sessionId, setSessionId]     = useState<string | null>(null)
@@ -500,7 +505,9 @@ function RoomContent() {
     setChatMsgs(running)
     if (room.category !== "zero-memory") saveRoomChats(roomId, running)
     setInput("")
+    if (chatInputRef.current) chatInputRef.current.style.height = "auto"  // collapse after multi-line send
     setChatLoading(true)
+    setShowInlineUpsell(false)
     abortRef.current = new AbortController()
 
     // Broadcast my message to anyone else in the session
@@ -536,12 +543,34 @@ function RoomContent() {
             relationship: sceneRelationship,
             partners: others,
             userSteer: getChatDirection(),
-            messages: running.map((m) => ({
-              role:    m.role,
-              content: m.role === "assistant" && m.speaker ? `[${m.speaker}]: ${m.content}` : m.content,
-            })),
+            // POV translation (mirrors the voice path): THIS speaker's own past lines
+            // are role "assistant"; every OTHER seat's lines arrive as role "user"
+            // prefixed "[Name]:" — exactly what the server's partnersNote promises.
+            // Passing everyone as "assistant" made each model read the others' lines
+            // as its own prior turns, blending identities and self-continuing.
+            messages: running.map((m) => {
+              if (m.role === "assistant" && m.speaker && m.speaker !== speaker.name) {
+                return { role: "user" as const, content: `[${m.speaker}]: ${m.content}` }
+              }
+              return { role: m.role, content: m.content }
+            }),
           }),
         })
+        // Rate limit / capacity: show one notice, don't render the raw body per seat.
+        if (res.status === 429 || res.status === 503) {
+          toast(res.status === 429 ? "You're going fast — give it a sec." : "Busy right now — try again in a moment.")
+          break
+        }
+        // Inline paywall moment: the server gates explicit behind the $9 pass. Surface
+        // the upsell ONCE (not once per seat) with a real unlock path, then stop.
+        if (res.headers.get("X-MCP-Upsell")) {
+          const line = res.body ? await res.text() : "That's behind the pass — unlock it for $9."
+          running = [...running, { id: `a-${Date.now()}-ups`, role: "assistant", speaker: speaker.name, content: line.trim(), ts: Date.now() }]
+          setChatMsgs(running)
+          if (room.category !== "zero-memory") saveRoomChats(roomId, running)
+          setShowInlineUpsell(true)
+          break
+        }
         if (!res.body) continue
         const reader  = res.body.getReader()
         const decoder = new TextDecoder()
@@ -576,7 +605,9 @@ function RoomContent() {
       }
     } catch (e: unknown) {
       if ((e as Error)?.name !== "AbortError") {
-        setChatMsgs((prev) => [...prev, { id: `err-${Date.now()}`, role: "assistant", content: "⚠️ Error — check MCP server and LLM.", ts: Date.now() }])
+        // Human, non-persisted notice — an error bubble saved to history gets replayed
+        // to the model as prior context on the next turn (garbage in).
+        toast("Didn't go through — tap send to try again.")
       }
     } finally {
       setChatLoading(false)
@@ -1037,6 +1068,13 @@ function RoomContent() {
             <div ref={bottomRef} />
           </div>
 
+          {/* Inline paywall — appears once when the server gates explicit behind the pass */}
+          {showInlineUpsell && (
+            <div className="shrink-0 px-3 sm:px-4 pt-3 max-w-4xl mx-auto w-full">
+              <UnrestrictedUpsell context={room.name} />
+            </div>
+          )}
+
           {/* Chat input */}
           <div className="shrink-0 px-3 sm:px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border/20 bg-background/50 backdrop-blur-sm">
             <div className="flex gap-2 items-end max-w-4xl mx-auto">
@@ -1052,17 +1090,29 @@ function RoomContent() {
                     e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px"
                   }}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat() } }}
-                  className="w-full bg-transparent text-sm text-foreground placeholder-muted-foreground resize-none focus:outline-none leading-relaxed"
+                  // 16px on touch (text-base) stops iOS Safari / IG in-app browser auto-zooming
+                  // the fixed 100dvh room on focus and getting stuck zoomed.
+                  className="w-full bg-transparent text-base sm:text-sm text-foreground placeholder-muted-foreground resize-none focus:outline-none leading-relaxed"
                   style={{ maxHeight: 120 }}
                 />
               </div>
-              <button
-                onClick={sendChat}
-                disabled={!input.trim() || chatLoading}
-                className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-30 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 mb-0.5 shadow-[0_4px_15px_rgba(245,158,11,0.25)]"
-              >
-                <Send size={16} className="text-stone-950 ml-0.5" />
-              </button>
+              {chatLoading ? (
+                <button
+                  onClick={() => { abortRef.current?.abort(); setChatLoading(false); setActiveResponder(null); setStreamText("") }}
+                  aria-label="Stop"
+                  className="w-11 h-11 rounded-2xl bg-foreground/10 hover:bg-foreground/20 border border-border/50 flex items-center justify-center transition-all active:scale-95 shrink-0 mb-0.5"
+                >
+                  <span className="w-3 h-3 rounded-[3px] bg-foreground/80" />
+                </button>
+              ) : (
+                <button
+                  onClick={sendChat}
+                  disabled={!input.trim()}
+                  className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-30 flex items-center justify-center transition-all hover:scale-105 active:scale-95 shrink-0 mb-0.5 shadow-[0_4px_15px_rgba(245,158,11,0.25)]"
+                >
+                  <Send size={16} className="text-stone-950 ml-0.5" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1186,20 +1236,29 @@ function RoomContent() {
         {/* Out of voice minutes → top up. A pass holder who's hit the daily
             fair-use cap gets distinct copy (it resets at midnight); everyone
             else gets the standard top-up. The call was ended by the meter. */}
-        {outOfMinutes && (
+        {outOfMinutes && (() => {
+          // A pass holder (the $9 isPro() pass OR a legacy active pass) who hit the
+          // daily fair-use cap must NOT be re-sold the pass they already own — show
+          // the "resets at midnight" copy with no purchase widget. Only genuinely
+          // out-of-credit free users see the TopUpSlider.
+          const holder = isPro() || (hasActivePass() && !passCoversVoice())
+          return (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-5" onClick={dismissOutOfMinutes}>
             <div className="w-full max-w-md rounded-3xl border border-border/60 bg-background p-6" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-1">
-                <h3 className="font-black text-lg">{hasActivePass() && !passCoversVoice() ? "Daily voice limit reached" : "Out of voice minutes"}</h3>
+                <h3 className="font-black text-lg">{holder ? "Daily voice limit reached" : "Out of voice minutes"}</h3>
                 <button onClick={dismissOutOfMinutes} className="text-muted-foreground hover:text-foreground"><XIcon size={18} /></button>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">{hasActivePass() && !passCoversVoice()
-                ? "You've used today's voice on your pass — it resets at midnight. Top up to keep going now."
+              <p className="text-sm text-muted-foreground mb-4">{holder
+                ? "You've used today's voice on your pass — it resets at midnight. Text chat stays open in the meantime."
                 : "Top up to keep the call going — text chat stays free."}</p>
-              <TopUpSlider onDone={dismissOutOfMinutes} />
+              {holder
+                ? <button onClick={dismissOutOfMinutes} className="w-full rounded-2xl bg-foreground/10 hover:bg-foreground/20 border border-border/50 py-3 font-semibold transition-colors">Got it</button>
+                : <TopUpSlider onDone={dismissOutOfMinutes} />}
             </div>
           </div>
-        )}
+          )
+        })()}
 
         {/* TOOLS PANEL */}
         <div className={`flex flex-col bg-background/50 ${
@@ -1476,7 +1535,7 @@ function RoomContent() {
               <textarea rows={1} value={dmInput} placeholder={`Message ${dmWith}…`}
                 onChange={(e) => setDmInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendDM(dmInput) } }}
-                className="flex-1 bg-foreground/5 border border-border/50 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-amber-500/40" />
+                className="flex-1 bg-foreground/5 border border-border/50 rounded-xl px-3 py-2 text-base sm:text-sm resize-none focus:outline-none focus:border-amber-500/40" />
               <button onClick={() => sendDM(dmInput)} disabled={!dmInput.trim() || dmLoading}
                 className="w-9 h-9 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-30 flex items-center justify-center shrink-0"><Send size={15} className="text-foreground" /></button>
             </div>

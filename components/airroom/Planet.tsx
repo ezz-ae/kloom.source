@@ -25,6 +25,7 @@ import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { ProfileSheet } from "@/components/airroom/ProfileSheet"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
+import { hasOnboarded, markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
 import { getCredits, spendCredits } from "@/lib/airroom/credits"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
 import { track } from "@/lib/airraw/track"
@@ -118,6 +119,11 @@ export function Planet() {
   // The room DECK is the front door (swipe-up browser); the free-roam sky is the
   // optional "explore" mode behind it.
   const [deckOpen, setDeckOpen] = useState(true)
+  // The one-time welcome — resolved client-only (localStorage) so it never SSR-
+  // mismatches; defaults to "true" (skip) until the check runs, so a fresh
+  // browser never flashes the deck before the welcome.
+  const [onboarded, setOnboardedState] = useState(true)
+  useEffect(() => { setOnboardedState(hasOnboarded()) }, [])
   // Lifted OUT of RoomDeck (not local state there) so leaving a room and coming
   // back lands you where you were, not reset to the start — the visit persists.
   const [deckPos, setDeckPos] = useState({ c: 3, i: 0 })
@@ -753,8 +759,13 @@ export function Planet() {
       {/* NO lobby page — the product opens ON a room. (The old wordmark/CTA screen
           was a second homepage in front of the deck; ad visitors landed twice.) */}
 
+      {/* THE WELCOME — once ever, before anything else. */}
+      {started && !onboarded && !selected && !group && (
+        <OnboardGate onDone={(c) => { setDeckPos({ c, i: 0 }); setOnboardedState(true) }} />
+      )}
+
       {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
-      {started && deckOpen && !selected && !group && (
+      {started && onboarded && deckOpen && !selected && !group && (
         <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} />
       )}
       {/* back to AiR from the open sky */}
@@ -937,6 +948,79 @@ function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos }: { onJoin: 
       <button onClick={onProfile} aria-label="your AiR balance" style={{ position: "absolute", left: 14, top: "calc(env(safe-area-inset-top) + 12px)", minHeight: 36, padding: "0 14px", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{air} AiR</button>
       {/* the ONE other control */}
       <button onClick={onExplore} aria-label="RAW — drift the open sky" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#cfe0ee", background: "rgba(4,5,11,.6)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>RAW</button>
+    </div>
+  )
+}
+
+// ── THE WELCOME — one-time, personal, before the deck ────────────────────────
+// A brief, warm beat on the very first visit: what to call you (optional), one
+// tap for a mood, then a SINGLE confident transition line — no fake technical
+// snags, no repeated confirmations, no loop. Skippable at every step. Lands
+// exactly on the room the pick promised.
+const MOODS: { label: string; sub: string; c: number; hue: number }[] = [
+  { label: "slow & quiet", sub: "a corner, low voices", c: 0, hue: 202 },
+  { label: "easy & warm", sub: "a bar, just filling up", c: 3, hue: 58 },
+  { label: "electric", sub: "rooftop, city below", c: 5, hue: 10 },
+  { label: "no filter", sub: "3am, nothing to lose", c: 6, hue: 2 },
+]
+
+function OnboardGate({ onDone }: { onDone: (c: number) => void }) {
+  const [step, setStep] = useState<"name" | "mood" | "shaping">("name")
+  const [name, setName] = useState("")
+  const [pick, setPick] = useState<typeof MOODS[number] | null>(null)
+
+  const choose = (m: typeof MOODS[number]) => {
+    setPick(m); setStep("shaping")
+    setOnboardName(name)
+    markOnboarded()
+    // ONE beat, deterministic — this is the whole "building it for you" moment.
+    // No fake errors, no re-asking, no loop: say it once, mean it, deliver it.
+    setTimeout(() => onDone(m.c), 1450)
+  }
+
+  return (
+    <div className="air-fade" style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", background: "radial-gradient(120% 90% at 50% 30%, #14101f 0%, #050308 70%)", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      {step === "name" && (
+        <div className="air-rise" style={{ width: "100%", maxWidth: 340, textAlign: "center" }}>
+          <div style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#7fd6c0", marginBottom: 10 }}>airraw</div>
+          <div style={{ fontSize: 24, fontWeight: 600, color: "#eef4f8", lineHeight: 1.3, marginBottom: 20 }}>hey — what should I call you?</div>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") setStep("mood") }}
+            placeholder="optional — go by anything"
+            autoFocus
+            style={{ width: "100%", fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "14px 16px", minHeight: 50, boxSizing: "border-box", outline: "none", textAlign: "center", marginBottom: 16 }}
+          />
+          <button onClick={() => setStep("mood")} style={{ width: "100%", minHeight: 52, fontSize: 15.5, fontWeight: 700, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 15, cursor: "pointer", boxShadow: "0 12px 30px -10px rgba(127,214,192,.55)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+            {name.trim() ? "continue →" : "skip, just take me in →"}
+          </button>
+        </div>
+      )}
+      {step === "mood" && (
+        <div className="air-rise" style={{ width: "100%", maxWidth: 360, textAlign: "center" }}>
+          <div style={{ fontSize: 20, fontWeight: 600, color: "#eef4f8", marginBottom: 22 }}>
+            {name.trim() ? `good to meet you, ${name.trim()}.` : "one thing —"} what's tonight?
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {MOODS.map((m) => (
+              <button key={m.label} onClick={() => choose(m)} style={{ padding: "18px 12px", borderRadius: 16, textAlign: "center", background: `hsla(${m.hue},55%,40%,.14)`, border: `.5px solid hsla(${m.hue},60%,60%,.35)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#eef4f8", marginBottom: 4 }}>{m.label}</div>
+                <div style={{ fontSize: 11.5, color: "rgba(238,244,248,.55)" }}>{m.sub}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {step === "shaping" && pick && (
+        <div className="air-fade" style={{ textAlign: "center" }}>
+          <style>{`@keyframes onboardpulse{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.6);opacity:1}}`}</style>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", background: `hsl(${pick.hue},70%,62%)`, margin: "0 auto 18px", animation: "onboardpulse 1.1s ease-in-out infinite" }} />
+          <div style={{ fontSize: 17, color: "#eef4f8", fontWeight: 500 }}>
+            {name.trim() ? `shaping it around you, ${name.trim()}…` : "shaping your first room…"}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -21,6 +21,7 @@ import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { listenOnce, canListen } from "@/lib/voice-once"
+import { resolveAirrawHandle } from "@/lib/airroom/onboard"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
@@ -51,7 +52,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     const n = Math.max(1, Math.min(120, Math.round(count)))
     return Array.from({ length: n }, (_, i) => makeCharacter(seed * 7 + i + 1, clamp01(f + ((i / n) - 0.5) * 0.08)))
   })
-  const handle = useRef(resolveHandle()).current
+  // if they gave a name on the welcome, that's who they are in the room — not
+  // a random Guest-XXXX. Airraw-only wrapper; Kloom's resolveHandle() is untouched.
+  const handle = useRef(resolveAirrawHandle(resolveHandle)).current
 
   const [lines, setLines] = useState<WireMessage[]>([])
   const [humans, setHumans] = useState<Participant[]>([])

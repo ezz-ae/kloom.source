@@ -302,7 +302,7 @@ export function Planet() {
     const imgs = new Map<string, HTMLImageElement | null>()
     const stars = Array.from({ length: 160 }, (_, s) => ({ x: rnd(s * 3 + 1), y: rnd(s * 7 + 2), r: rnd(s * 5) * 1.1 + 0.2, ph: rnd(s) * 6.28 }))
     let t = 0, raf = 0, audioStarted = false, frameN = 0
-    let pickedNode: { c: number; x: number; y: number; seed: number } | null = null, candId = -1, candAt = 0, spokenId = -1
+    let pickedNode: { c: number; x: number; y: number; seed: number; r: number } | null = null, candId = -1, candAt = 0, spokenId = -1
     // ARM-THEN-ENTER: a first tap on the network arms a room (ring + glide toward
     // it); only a second tap on the same room enters. Exploring taps never open
     // anything by accident — moving around stays completely free.
@@ -386,8 +386,10 @@ export function Planet() {
       }
       // On the network: FIRST tap arms the room under your finger — it glides to
       // center, gets a ring and a "tap again to enter" hint. SECOND tap on the same
-      // room enters it. Exploring never opens anything by accident.
-      if (cam.s >= 4.4) {
+      // room enters it. Exploring never opens anything by accident. Starts at 3.2 —
+      // wherever a room becomes joinable at all — so a floating "Enter" button is
+      // never needed; the zoom + tap gesture covers the whole range on its own.
+      if (cam.s >= 3.2) {
         const m = vm()
         const wx = (px - cv.width / 2) / (cam.s * m) + cam.x, wy = (py - cv.height / 2) / (cam.s * m) + cam.y
         const gx = Math.floor(wx / RCELL), gy = Math.floor(wy / RCELL)
@@ -540,7 +542,8 @@ export function Planet() {
       // ── procedural rooms + faces for the viewport — the world is infinite ──
       const contOf = (x: number, y: number) => { let bc = 0, bd = 1e9; for (let k = 0; k < conCentres.length; k++) { const dx = conCentres[k].x - x, dy = conCentres[k].y - y, d = dx * dx + dy * dy; if (d < bd) { bd = d; bc = k } } return bc }
       let nearestRoom: { c: number; x: number; y: number; seed: number; count: number; adult: boolean } | null = null, nrBest = 1e9
-      let best = 1e9, act: { c: number; x: number; y: number; seed: number } | null = null
+      let anyCrowdShown = false   // true once some cell this frame opened into its face-crowd
+      let best = 1e9, act: { c: number; x: number; y: number; seed: number; r: number } | null = null
       let actChar: Cluster | null = null
       if (cam.s > 4.4) {
         const m2 = cam.s * vm(), hw = (W / 2) / m2, hh = (H / 2) / m2
@@ -556,7 +559,9 @@ export function Planet() {
           if (dc < nrBest) { nrBest = dc; nearestRoom = { c, x: rx, y: ry, seed: rh, count, adult: !!co.adult } }
           if (s[0] + roomHalf < 0 || s[0] - roomHalf > W || s[1] + roomHalf < 0 || s[1] - roomHalf > H) continue
           const locked = co.adult && !verifiedRef.current
-          if (facesVisible) {
+          const showCrowd = facesVisible && dc < roomHalf * 1.25
+          if (showCrowd) anyCrowdShown = true
+          if (showCrowd) {
             ctx.strokeStyle = `hsla(${co.h},60%,62%,0.14)`; ctx.lineWidth = DPR; rrect(s[0] - roomHalf, s[1] - roomHalf, roomHalf * 2, roomHalf * 2, 16 * DPR); ctx.stroke()
             // armed at depth too — same second-tap contract everywhere on the surface
             if (rh === armedRh && t - armedAt < 6) {
@@ -583,7 +588,7 @@ export function Planet() {
               const fs = w2s(fx, fy)
               if (fs[0] < -40 || fs[1] < -40 || fs[0] > W + 40 || fs[1] > H + 40) continue
               const r = Math.max(2.5, Math.min(m2 * 0.0058, Math.min(cw, chh) * m2 * 0.50)), fdc = Math.hypot(fs[0] - W / 2, fs[1] - H / 2)
-              if (r > 2.2 && fdc < best) { best = fdc; act = { c, x: fx, y: fy, seed: fh } }
+              if (r > 2.2 && fdc < best) { best = fdc; act = { c, x: fx, y: fy, seed: fh, r } }
               const fhue = co.h + (ifrac(fh) * 26 - 13)
               const ball = () => { ctx.beginPath(); ctx.arc(fs[0], fs[1], r, 0, 6.283) }   // faces are round balls — no name labels
               if (r > 17 && !locked) {
@@ -599,6 +604,8 @@ export function Planet() {
               } else { ctx.fillStyle = `hsl(${fhue},72%,62%)`; ball(); ctx.fill() }
             }
           } else {
+            // Covers BOTH "not deep enough yet" and "deep enough but not the centered
+            // room" — either way this cell stays a clean card, never a face-wall.
             // ROOM NETWORK — each cell is a distinct place: its own topic, a peek at
             // its people, and faint threads to its neighbours. This replaces the old
             // identical "N here" bubbles that made the map feel robotic.
@@ -657,12 +664,16 @@ export function Planet() {
       pickedNode = act
       if (act) {
         actChar = charFor(act.seed, act.c)
-        const s = w2s(act.x, act.y), hr = Math.max(8, cam.s * vm() * 0.0042 + 6 * DPR)
+        // The ring is a CIRCLE sized to the face's ACTUAL rendered radius (not an
+        // independently-computed rounded-rect) — the old formula drifted from the
+        // real ball size, so the ring showed as a squarish box misaligned over a
+        // round photo. A couple px of breathing room around the true radius.
+        const s = w2s(act.x, act.y), hr = act.r + 3 * DPR
         // Only show selection ring when settled (>0.4s since last pan/zoom) — suppresses
         // the constant flashing ring as it jumps face-to-face during active movement.
         if (t - lastMoveT > 0.4) {
           ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 1.5 * DPR
-          rrect(s[0] - hr, s[1] - hr, hr * 2, hr * 2, hr * 0.3); ctx.stroke()
+          ctx.beginPath(); ctx.arc(s[0], s[1], hr, 0, 6.283); ctx.stroke()
         }
         const id = act.seed
         if (id !== candId) { candId = id; candAt = t }
@@ -680,7 +691,7 @@ export function Planet() {
       let crumb: string, altl: string, hear = ""
       if (cam.s < 3.2) { crumb = "the whole now"; altl = "orbit" }
       else if (cam.s < 11) { crumb = co.v; altl = "region" }
-      else if (!facesVisible) { crumb = co.v; altl = "block" }
+      else if (!anyCrowdShown) { crumb = co.v; altl = "block" }
       else { crumb = co.v; altl = "floor"; if (actChar) hear = `${actChar.host} · “${actChar.lines[0]}”` }
       const sig = crumb + "|" + altl + "|" + hear + "|" + (join ? `${join.n}:${join.seed}` : "0")
       if (sig !== lastHud) { lastHud = sig; setHud({ crumb, alt: altl, hearing: hear, join }) }
@@ -781,13 +792,12 @@ export function Planet() {
         </div>
       )}
 
-      {/* The main act (sky mode): join the group at this scale. */}
-      {started && hud.join && !deckOpen && !selected && !group && (
-        <button onClick={() => joinGroup(hud.join!)}
-          style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 16, padding: "12px 20px", cursor: "pointer", boxShadow: "0 8px 28px -8px rgba(127,214,192,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
-          {CONTINENTS[hud.join.c]?.n === "the arena" ? "♟ play chess →" : hud.join.n === 1 ? `Call ${charFor(hud.join.seed, hud.join.c).host} →` : "Enter →"}
-        </button>
-      )}
+      {/* No floating "Enter ->" button in sky mode anymore — entry is purely zoom +
+          tap (tap arms a room, tap again enters it; a face tap enters directly),
+          the same gesture language as everywhere else in the product. The tap-arm
+          range now starts wherever a room becomes joinable (cam.s 3.2+), so this
+          button was pure redundant chrome sitting on top of a gesture that already
+          worked underneath it. */}
 
       {started && hud.hearing && !deckOpen && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
 

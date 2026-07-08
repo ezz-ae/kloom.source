@@ -118,6 +118,9 @@ export function Planet() {
   // The room DECK is the front door (swipe-up browser); the free-roam sky is the
   // optional "explore" mode behind it.
   const [deckOpen, setDeckOpen] = useState(true)
+  // Lifted OUT of RoomDeck (not local state there) so leaving a room and coming
+  // back lands you where you were, not reset to the start — the visit persists.
+  const [deckPos, setDeckPos] = useState({ c: 3, i: 0 })
   // One-time navigation hint after falling in — the descent has no chrome, so a
   // first-timer needs one line telling them the gesture language. Fades on its own.
   const [navHint, setNavHint] = useState(false)
@@ -751,7 +754,7 @@ export function Planet() {
 
       {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
       {started && deckOpen && !selected && !group && (
-        <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} />
+        <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} />
       )}
       {/* back to AiR from the open sky */}
       {started && !deckOpen && !selected && !group && (
@@ -818,8 +821,7 @@ export function Planet() {
 // world, left/right jumps to a different KIND of room. No written guides — if
 // the user sits still, four faint arrows breathe in. The only other control is
 // RAW (the open sky).
-function RoomDeck({ onJoin, onExplore, air, onProfile }: { onJoin: (j: Join) => void; onExplore: () => void; air: string; onProfile: () => void }) {
-  const [pos, setPos] = useState({ c: 3, i: 0 })   // start warm: "a bar, early"
+function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos }: { onJoin: (j: Join) => void; onExplore: () => void; air: string; onProfile: () => void; pos: { c: number; i: number }; setPos: React.Dispatch<React.SetStateAction<{ c: number; i: number }>> }) {
   const [dir, setDir] = useState<"up" | "down" | "left" | "right">("up")
   const [hintOn, setHintOn] = useState(false)
   const swipe = useRef<{ x: number; y: number } | null>(null)

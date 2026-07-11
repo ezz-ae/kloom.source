@@ -327,6 +327,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
       seg = new SpeechSegmenter({
         stream,
+        // Snappier endpoint for a live call — 800ms felt like a lag between turns.
+        // 600ms still clears natural mid-sentence pauses (the RMS gate re-arms on the
+        // next word) but hands the turn back ~200ms sooner.
+        silenceMs: 600,
         getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
         onLevel: (l) => { micLevelRef.current = l },
         onCapture: () => { if (!hostSpeakingRef.current) setMicHint("heard you — one sec…") },

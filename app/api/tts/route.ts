@@ -252,10 +252,23 @@ function shapeForSpeech(input: string): string {
 
 // ── ElevenLabs (premium natural TTS) ─────────────────────────────────────────
 // Preset voice pools (public default voices, available to every account). One is
-// chosen per persona by name hash so neighbours sound distinct; override the whole
-// pick with ELEVENLABS_VOICE_MALE / ELEVENLABS_VOICE_FEMALE.
-const EL_FEMALE = ["21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "MF3mGyEYCl7XYWbV9V6O", "jsCqWAovK2LkecY7zXl4", "pFZP5JQG7iQjIQuC4Bku", "jAAHNNqlbAX9iWjJPEtE", "FvmvwvObRqIHojkEGh5N", "umKoJK6tP1ALjO0zo1EE"]
-const EL_MALE   = ["pNInz6obpgDQGcFmaJgB", "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG", "yoZ06aMxZJJ28mfd3POQ", "onwK4e9ZLuTAKqWW03F9"]
+// chosen PER PERSONA by name hash so every character in a room sounds like a
+// different person. Curate the whole pool with ELEVENLABS_VOICES_MALE / _FEMALE
+// (comma-separated ID lists). The old singular ELEVENLABS_VOICE_MALE / _FEMALE is
+// now MERGED into the pool (not an override) — as a hard override it collapsed
+// EVERY male to one voice and EVERY female to one voice ("all guys same voice").
+const EL_FEMALE = [
+  "21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "MF3mGyEYCl7XYWbV9V6O",
+  "jsCqWAovK2LkecY7zXl4", "pFZP5JQG7iQjIQuC4Bku", "jAAHNNqlbAX9iWjJPEtE", "FvmvwvObRqIHojkEGh5N",
+  "umKoJK6tP1ALjO0zo1EE", "Xb7hH8MSUJpSbSDYk0k2", "XrExE9yKIg1WjnnlVkGX", "cgSgspJ2msm6clMCkdW9",
+  "pMsXgVXv3BLzUgSXRplE", "oWAxZDx7w5VEj9dCyTzz", "ThT5KcBeYPX3keUQqHPh",
+]
+const EL_MALE   = [
+  "pNInz6obpgDQGcFmaJgB", "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG",
+  "yoZ06aMxZJJ28mfd3POQ", "onwK4e9ZLuTAKqWW03F9", "IKne3meq5aSn9XLyUdCD", "JBFqnCBsd6RMkjVDRZzb",
+  "N2lVS1w4EtoT3dr4eOWO", "bIHbv24MWmeRgasZH58o", "cjVigY5qzO86Huf0OWal", "iP95p4xoKVk53GoZ742B",
+  "nPczCjzI2devNBz1zQrb", "pqHfZKP75CvOlQylNhV4",
+]
 // A dedicated Indian-English female voice for South-Asian female personas — it MATCHES
 // their face (face ethnicity is derived from the same persona name). Deliberately NOT in
 // the random pool, so it only ever plays on a face it fits. Env-overridable.
@@ -280,20 +293,34 @@ const hashPick = (arr: string[], seed: string): string => {
   let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
   return arr[h % arr.length]
 }
+const csv = (v?: string) => (v || "").split(",").map((s) => s.trim()).filter(Boolean)
+// The per-gender pool: an ELEVENLABS_VOICES_<G> comma-list fully replaces it; otherwise
+// the built-in pool, with any legacy singular ELEVENLABS_VOICE_<G> MERGED in (added, not
+// overriding — a single pin used to flatten every persona to one voice).
+function genderPool(gender?: string): string[] {
+  const g = gender === "male" ? "MALE" : "FEMALE"
+  const list = csv(process.env[`ELEVENLABS_VOICES_${g}`])
+  if (list.length) return list
+  const builtin = gender === "male" ? EL_MALE : EL_FEMALE
+  const pin = (process.env[`ELEVENLABS_VOICE_${g}`] || "").trim()
+  return pin && !builtin.includes(pin) ? [...builtin, pin] : builtin
+}
 function elVoiceFor(name?: string, gender?: string, language?: string): string {
+  const seed = name || "x"
   // Language-native pool first (when curated for this language) — so an Arabic persona
   // speaks in an Arabic-native voice, not an English one bent through the model.
   const iso = isoForLanguage(language)
   if (iso && iso !== "en") {
     const pool = langPool(iso.toUpperCase(), gender)
-    if (pool.length) return hashPick(pool, name || "x")
+    if (pool.length) return hashPick(pool, seed)
+    // No language-native pool curated → still give per-persona VARIETY from the gender
+    // pool (never the single pinned voice, which made "all Arabic same voice").
+    return hashPick(genderPool(gender), seed)
   }
   // Voice-casting by face ethnicity: a South-Asian female face gets the Indian-English
-  // voice (checked BEFORE the pinned default so it isn't overridden by it).
+  // voice (checked BEFORE the pool so it isn't diluted by it).
   if (gender !== "male" && name && isSouthAsianSeed(name)) return SA_FEMALE_VOICE
-  const env = gender === "male" ? process.env.ELEVENLABS_VOICE_MALE : process.env.ELEVENLABS_VOICE_FEMALE
-  if (env) return env
-  return hashPick(gender === "male" ? EL_MALE : EL_FEMALE, name || "x")
+  return hashPick(genderPool(gender), seed)
 }
 async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string, language?: string): Promise<ArrayBuffer | null> {
   try {

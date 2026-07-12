@@ -257,23 +257,27 @@ function shapeForSpeech(input: string): string {
 // (comma-separated ID lists). The old singular ELEVENLABS_VOICE_MALE / _FEMALE is
 // now MERGED into the pool (not an override) — as a hard override it collapsed
 // EVERY male to one voice and EVERY female to one voice ("all guys same voice").
-// 20 distinct ElevenLabs premade female voices (all probed 200+audio on the live account).
+// 21 distinct ENGLISH-appropriate female voices (the account's American/British/Canadian
+// premade+professional voices, verified live, plus the classic ElevenLabs defaults). The
+// account's NATIVE-ARABIC female voices are deliberately NOT here — they belong in the
+// Arabic pool (ELEVENLABS_VOICES_AR_FEMALE, set in env), so an English persona doesn't get
+// an Arabic accent and an Arabic persona gets a real native voice.
 const EL_FEMALE = [
-  "21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "MF3mGyEYCl7XYWbV9V6O",
-  "jsCqWAovK2LkecY7zXl4", "pFZP5JQG7iQjIQuC4Bku", "jAAHNNqlbAX9iWjJPEtE", "FvmvwvObRqIHojkEGh5N",
-  "umKoJK6tP1ALjO0zo1EE", "Xb7hH8MSUJpSbSDYk0k2", "XrExE9yKIg1WjnnlVkGX", "cgSgspJ2msm6clMCkdW9",
-  "pMsXgVXv3BLzUgSXRplE", "oWAxZDx7w5VEj9dCyTzz", "ThT5KcBeYPX3keUQqHPh",
-  "9BWtsMINqrJLrRacOk9x", "FGY2WhTYpPnrIDTdsKH5", "XB0fDUnXU5powFXDhCwa", "LcfcDJNUP1GQjkzn1xUU",
-  "z9fAnlkpzviPz146aGWa",
+  "EXAVITQu4vr4xnSDxMaL", "FGY2WhTYpPnrIDTdsKH5", "Xb7hH8MSUJpSbSDYk0k2", "XrExE9yKIg1WjnnlVkGX",
+  "cgSgspJ2msm6clMCkdW9", "hpp4J3VqNfWAUOO0d1Us", "pFZP5JQG7iQjIQuC4Bku", "umKoJK6tP1ALjO0zo1EE",
+  "FvmvwvObRqIHojkEGh5N", "jqcCZkN6Knx8BJ5TBdYR",
+  "21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "MF3mGyEYCl7XYWbV9V6O", "jsCqWAovK2LkecY7zXl4",
+  "pMsXgVXv3BLzUgSXRplE", "oWAxZDx7w5VEj9dCyTzz", "ThT5KcBeYPX3keUQqHPh", "9BWtsMINqrJLrRacOk9x",
+  "XB0fDUnXU5powFXDhCwa", "LcfcDJNUP1GQjkzn1xUU", "z9fAnlkpzviPz146aGWa",
 ]
-// 19 distinct ElevenLabs premade male voices (all probed 200+audio on the live account).
+// 21 distinct male voices (account premade+professional, verified live, + classic defaults).
 const EL_MALE   = [
-  "pNInz6obpgDQGcFmaJgB", "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG",
-  "yoZ06aMxZJJ28mfd3POQ", "onwK4e9ZLuTAKqWW03F9", "IKne3meq5aSn9XLyUdCD", "JBFqnCBsd6RMkjVDRZzb",
-  "N2lVS1w4EtoT3dr4eOWO", "bIHbv24MWmeRgasZH58o", "cjVigY5qzO86Huf0OWal", "iP95p4xoKVk53GoZ742B",
-  "nPczCjzI2devNBz1zQrb", "pqHfZKP75CvOlQylNhV4",
-  "CwhRBWXzGAHq8TQ4Fs17", "TX3LPaxmHKxFdv7VOQHJ", "SOYHLrjzK2X1ezoPC6cr", "flq6f7yk4E4fJM5XTYuZ",
-  "bVMeCyTHy58xNoL34h3p",
+  "CwhRBWXzGAHq8TQ4Fs17", "IKne3meq5aSn9XLyUdCD", "JBFqnCBsd6RMkjVDRZzb", "N2lVS1w4EtoT3dr4eOWO",
+  "SOYHLrjzK2X1ezoPC6cr", "TX3LPaxmHKxFdv7VOQHJ", "bIHbv24MWmeRgasZH58o", "cjVigY5qzO86Huf0OWal",
+  "iP95p4xoKVk53GoZ742B", "nPczCjzI2devNBz1zQrb", "onwK4e9ZLuTAKqWW03F9", "pNInz6obpgDQGcFmaJgB",
+  "pqHfZKP75CvOlQylNhV4", "fH9gsStnzq6PZe3n6pZv", "2ajXGJNYBR0iNHpS4VZb",
+  "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG", "yoZ06aMxZJJ28mfd3POQ",
+  "flq6f7yk4E4fJM5XTYuZ", "bVMeCyTHy58xNoL34h3p",
 ]
 // A dedicated Indian-English female voice for South-Asian female personas — it MATCHES
 // their face (face ethnicity is derived from the same persona name). Deliberately NOT in

@@ -257,17 +257,23 @@ function shapeForSpeech(input: string): string {
 // (comma-separated ID lists). The old singular ELEVENLABS_VOICE_MALE / _FEMALE is
 // now MERGED into the pool (not an override) — as a hard override it collapsed
 // EVERY male to one voice and EVERY female to one voice ("all guys same voice").
+// 20 distinct ElevenLabs premade female voices (all probed 200+audio on the live account).
 const EL_FEMALE = [
   "21m00Tcm4TlvDq8ikWAM", "AZnzlk1XvdvUeBnXmlld", "EXAVITQu4vr4xnSDxMaL", "MF3mGyEYCl7XYWbV9V6O",
   "jsCqWAovK2LkecY7zXl4", "pFZP5JQG7iQjIQuC4Bku", "jAAHNNqlbAX9iWjJPEtE", "FvmvwvObRqIHojkEGh5N",
   "umKoJK6tP1ALjO0zo1EE", "Xb7hH8MSUJpSbSDYk0k2", "XrExE9yKIg1WjnnlVkGX", "cgSgspJ2msm6clMCkdW9",
   "pMsXgVXv3BLzUgSXRplE", "oWAxZDx7w5VEj9dCyTzz", "ThT5KcBeYPX3keUQqHPh",
+  "9BWtsMINqrJLrRacOk9x", "FGY2WhTYpPnrIDTdsKH5", "XB0fDUnXU5powFXDhCwa", "LcfcDJNUP1GQjkzn1xUU",
+  "z9fAnlkpzviPz146aGWa",
 ]
+// 19 distinct ElevenLabs premade male voices (all probed 200+audio on the live account).
 const EL_MALE   = [
   "pNInz6obpgDQGcFmaJgB", "ErXwobaYiN019PkySvjV", "TxGEqnHWrfWFTfGW9XjX", "VR6AewLTigWG4xSOukaG",
   "yoZ06aMxZJJ28mfd3POQ", "onwK4e9ZLuTAKqWW03F9", "IKne3meq5aSn9XLyUdCD", "JBFqnCBsd6RMkjVDRZzb",
   "N2lVS1w4EtoT3dr4eOWO", "bIHbv24MWmeRgasZH58o", "cjVigY5qzO86Huf0OWal", "iP95p4xoKVk53GoZ742B",
   "nPczCjzI2devNBz1zQrb", "pqHfZKP75CvOlQylNhV4",
+  "CwhRBWXzGAHq8TQ4Fs17", "TX3LPaxmHKxFdv7VOQHJ", "SOYHLrjzK2X1ezoPC6cr", "flq6f7yk4E4fJM5XTYuZ",
+  "bVMeCyTHy58xNoL34h3p",
 ]
 // A dedicated Indian-English female voice for South-Asian female personas — it MATCHES
 // their face (face ethnicity is derived from the same persona name). Deliberately NOT in

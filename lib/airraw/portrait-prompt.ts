@@ -107,10 +107,16 @@ const BASE =
   "ultra realistic portrait photograph, completely photorealistic, true-to-life, natural skin with visible pores, " +
   "one single real human face with two clear symmetric correctly-placed eyes and natural undistorted features, " +
   "head and shoulders or bust shot, looking at the camera, authentic, cinematic color grade, sharp focus on eyes, " +
-  "attractive and sensual adult, intimate mood"
+  // An ordinary, completely fictional stranger — NOT a celebrity/model likeness. Diffusion
+  // models reproduce recognizable famous faces when prompted "gorgeous/stunning/model"; this
+  // steers to a unique everyday person nobody would recognize (likeness-rights safety).
+  "an ordinary attractive everyday adult, a completely fictional unique stranger with a normal realistic face, intimate mood"
 
 export const PORTRAIT_NEG =
   "child, minor, underage, teenager, young-looking, " +
+  // Anti-likeness: keep generated faces from resembling any real, recognizable person.
+  "celebrity, famous person, public figure, well-known model, recognizable actor, actress, " +
+  "influencer, deepfake, likeness of a real person, lookalike, supermodel, fashion-model face, " +
   "cartoon, anime, illustration, drawing, painting, 3d render, cgi, doll, plastic skin, waxy skin, " +
   "airbrushed, retouched, text, watermark, logo, deformed, disfigured, distorted face, melted features, " +
   "asymmetric eyes, misaligned eyes, extra eye, mutated, glitch, double face, extra fingers, bad anatomy, lowres, blurry"

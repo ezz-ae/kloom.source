@@ -69,19 +69,25 @@ const WORLD_STYLE: Record<string, string> = {
   "zero-memory":  "dim atmospheric underpass light, partial shadow across face, mysterious mood",
 }
 
-const BASE = "RAW photo, ultra realistic portrait photograph, shot on 85mm f/1.4, shallow depth of field, detailed natural skin texture, cinematic color grade, head and shoulders, looking at camera, sharp focus on eyes, attractive sensual adult"
-const NEG  = "cartoon, painting, illustration, anime, 3d render, cgi, doll, plastic skin, airbrushed, text, watermark, deformed, extra fingers, bad anatomy, lowres, blurry, child, minor, underage"
+const BASE = "RAW photo, ultra realistic portrait photograph, shot on 85mm f/1.4, shallow depth of field, detailed natural skin texture, cinematic color grade, head and shoulders, looking at camera, sharp focus on eyes, a real ordinary adult"
+// Anti-likeness: never resemble a real, recognizable person. Diffusion models reproduce
+// famous faces when asked for "strikingly handsome / fashion model"; the ordinary wording
+// above + these negatives keep every face a unique fictional stranger (likeness safety).
+const NEG  = "celebrity, famous person, public figure, well-known model, recognizable actor, actress, influencer, deepfake, likeness of a real person, lookalike, supermodel, fashion-model face, " +
+  "cartoon, painting, illustration, anime, 3d render, cgi, doll, plastic skin, airbrushed, text, watermark, deformed, extra fingers, bad anatomy, lowres, blurry, child, minor, underage"
 
 function genderWord(g?: string) {
-  return g === "male" ? "strikingly handsome man with strong features"
-       : g === "female" ? "strikingly beautiful young woman with captivating eyes"
-       : "striking androgynous fashion model"
+  return g === "male" ? "an ordinary attractive man with a normal realistic everyday face"
+       : g === "female" ? "an ordinary attractive woman with a normal realistic everyday face"
+       : "an ordinary attractive androgynous person with a normal realistic everyday face"
 }
 
 function buildPrompt(name: string, gender?: string, world?: string, desc?: string) {
   const style = (world && WORLD_STYLE[world]) || WORLD_STYLE.social
   const d = (desc || "").replace(/"/g, "").slice(0, 100)
-  return `${BASE}, ${style}, portrait of a ${genderWord(gender)} named ${name}, ${d}`
+  // NOTE: the name is deliberately NOT in the prompt — a fictional label like "Claude"
+  // must never bias the face toward anything, and diffusion renders names as on-image text.
+  return `${BASE}, ${style}, portrait of ${genderWord(gender)}, a completely fictional unique stranger${d ? `, ${d}` : ""}`
 }
 
 // ── Engines → return PNG/JPEG bytes ──────────────────────────────────────────

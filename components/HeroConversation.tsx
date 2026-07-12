@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { RoomFace } from "@/components/RoomFace"
+import { imageFor } from "@/lib/persona-utils"
 import { createCustomRoom } from "@/lib/custom-rooms"
 import { track } from "@/lib/track"
 import { detectLanguage, LANGUAGE_TO_BCP47, LANGUAGES, isoForLanguage } from "@/lib/languages"
@@ -189,7 +189,10 @@ export function HeroConversation() {
           return (
             <div key={c.name} className={`flex flex-col items-center transition-all duration-300 ${on ? "scale-110" : speaking ? "opacity-45" : ""}`}>
               <span className={`relative w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl overflow-hidden bg-stone-800 ring-2 transition-all ${on ? "ring-amber-400 shadow-[0_0_24px_-2px_rgba(245,158,11,.7)]" : "ring-white/10"}`}>
-                <RoomFace name={c.name} gender={c.gender} className="w-full h-full object-cover" />
+                {/* AI models get a clean identity-card tile, NOT a stock human face — no
+                    real-person likeness on the ad landing (and more fitting for a model). */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imageFor({ name: c.name })} alt={c.name} className="w-full h-full object-cover" />
                 {on && <span className="absolute inset-x-0 bottom-0 h-1.5 bg-amber-400 animate-pulse" />}
               </span>
               <span className="text-[12px] font-bold text-foreground/85 mt-1.5">{c.name}</span>
@@ -208,7 +211,8 @@ export function HeroConversation() {
             </div>
           ) : (
             <div key={i} className="flex gap-2">
-              <span className="w-7 h-7 rounded-lg overflow-hidden bg-stone-800 shrink-0 mt-0.5"><RoomFace name={m.who} gender={m.gender} className="w-full h-full object-cover" /></span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <span className="w-7 h-7 rounded-lg overflow-hidden bg-stone-800 shrink-0 mt-0.5"><img src={imageFor({ name: m.who })} alt={m.who} className="w-full h-full object-cover" /></span>
               <div className="min-w-0">
                 <div className="text-[10px] font-bold text-amber-300/80 mb-0.5 ml-0.5">{m.who}</div>
                 <div className="bg-foreground/[0.06] border border-white/10 rounded-2xl rounded-tl-sm px-3.5 py-2 text-sm text-foreground/90 leading-relaxed max-w-[92%]">{m.text}</div>

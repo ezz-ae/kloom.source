@@ -101,23 +101,12 @@ export default function LandingPage() {
           <div className="absolute -bottom-1/4 left-1/3 w-[32rem] h-[32rem] rounded-full bg-emerald-600/15 blur-[120px] animate-pulse" style={{ animationDuration: "7s", animationDelay: "0.5s" }} />
         </div>
 
-        <div className="relative z-10 max-w-3xl mx-auto space-y-6">
-          <div className="inline-flex items-center gap-2 bg-foreground/5 border border-border rounded-full px-4 py-1.5 text-xs font-medium text-foreground/70">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Claude · Gemini · GPT · {EXPERTS.length} characters · free to chat
-          </div>
-
-          <h1 className="text-4xl sm:text-6xl font-black tracking-tight leading-[1.08]">
-            Talk to Claude, Gemini &amp; GPT
-            <br />
-            <span className="bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400 bg-clip-text text-transparent">
-              together, out loud.
-            </span>
-          </h1>
-
-          {/* The live demo IS the pitch — tap a moment and three minds answer OUT LOUD, then go deeper. */}
-          <div className="pt-3"><HeroConversation /></div>
-          <p className="text-xs text-foreground/35">Free · no email · tap a moment and hear all three answer, out loud</p>
+        <div className="relative z-10 max-w-3xl mx-auto">
+          {/* No headline, no prompts — you land straight into the live room. The
+              conversation IS the pitch; one button gets you in. (H1 for SEO/a11y only,
+              visually hidden so screen readers + crawlers still get the page title.) */}
+          <h1 className="sr-only">Talk to Claude, Gemini and GPT together, out loud</h1>
+          <HeroConversation />
         </div>
       </section>
 

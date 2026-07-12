@@ -1,164 +1,81 @@
 "use client"
 
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { imageFor } from "@/lib/persona-utils"
 import { createCustomRoom } from "@/lib/custom-rooms"
 import { track } from "@/lib/track"
-import { detectLanguage, LANGUAGE_TO_BCP47, LANGUAGES, isoForLanguage } from "@/lib/languages"
-import { listenOnce, canListen } from "@/lib/voice-once"
-import type { VoiceOnceHandle } from "@/lib/voice-once"
-import { Mic, Send, Loader2, Square, Sparkles, Globe } from "lucide-react"
 
-// The hero's live trio — three distinct minds who reply, riff, and disagree, OUT LOUD.
-// This is a voice trial: tap a moment (or the mic) and you HEAR Claude, Gemini and GPT
-// talk it out together; you can talk back or type. The same three are waiting inside.
+// The landing IS a live room you walked into mid-conversation. Three distinct minds —
+// Claude (warm, sharp), Gemini (playful), GPT (blunt) — already talking to each other.
+// You don't start it; you join it. One button. Claude is female.
 const TRIO = [
-  { name: "Claude", gender: "male", model: "claude", role: "sharp", voice: "alloy" as const,
-    personality: "Sharp and decisive. Cuts to what matters and pressure-tests every idea. Warm, but never wastes a word." },
-  { name: "Gemini", gender: "male", model: "gemini", role: "wild", voice: "echo" as const,
+  { name: "Claude", gender: "female", role: "sharp",
+    personality: "Sharp and decisive, warm underneath. Cuts to what matters and pressure-tests every idea — never wastes a word." },
+  { name: "Gemini", gender: "male", role: "wild",
     personality: "Playful and lateral. Riffs, jokes, finds the angle nobody saw. Brings the energy and the wild ideas." },
-  { name: "GPT", gender: "male", model: "local", role: "blunt", voice: "sage" as const,
+  { name: "GPT", gender: "male", role: "blunt",
     personality: "The blunt one. Calls out what won't work and asks the hard question. Dry, funny, allergic to flattery." },
 ]
-const REL = "three friends riffing live on whatever the visitor brings — fast, funny, building on and teasing each other, each a clear distinct voice. Keep every reply to ONE short spoken sentence."
 
-// The hero is a teaser: keep every spoken line clean and short. Strip any stray
-// markup/markdown the model emits, collapse whitespace, and cap to one short line
-// so a runaway reply can't blow out the bubble or the TTS clip.
-function clean(s: string): string {
-  let t = (s || "")
-    .replace(/<[^>]*>/g, " ")          // any HTML tags
-    .replace(/[*_`#>]+/g, "")          // markdown emphasis / headings
-    .replace(/\[(.*?)\]\(.*?\)/g, "$1") // [label](url) → label
-    .replace(/\s+/g, " ")
-    .trim()
-  if (t.length > 180) {
-    const cut = t.slice(0, 180)
-    const stop = Math.max(cut.lastIndexOf("."), cut.lastIndexOf("!"), cut.lastIndexOf("?"))
-    t = (stop > 80 ? cut.slice(0, stop + 1) : cut.slice(0, cut.lastIndexOf(" "))).trim()
-  }
-  return t
-}
-
-// Moments, not prompts — each one should make you grin and want to hear what they'd say.
-const SEEDS = [
-  "hype me up — big day tomorrow",
-  "settle it: pineapple on pizza?",
-  "talk me out of texting my ex",
-  "roast my worst idea",
+// The overheard conversation — plays out once, message by message, and NEVER repeats a
+// line. Long enough to feel like a real ongoing room; when it settles, the three are
+// simply waiting for you. Each line is one short, human, SFW beat with a clear voice.
+const SCRIPT: { who: string; text: string }[] = [
+  { who: "Gemini", text: "ok it's too quiet in here. someone give us a real problem." },
+  { who: "GPT", text: "we don't need a problem. we need you to stop narrating." },
+  { who: "Claude", text: "he's got a point, Gemini. but so do you — let's give whoever just walked in something." },
+  { who: "Gemini", text: "fine. hot take: the best ideas sound stupid for the first ten seconds." },
+  { who: "Claude", text: "true — right up until someone builds one and everyone pretends they saw it coming." },
+  { who: "GPT", text: "or it stays stupid. most of them do. that's the part nobody says out loud." },
+  { who: "Claude", text: "which is exactly why you talk to three of us and not one." },
+  { who: "Gemini", text: "one of us hypes you, one of us grounds you, and GPT tells you the truth you're avoiding." },
+  { who: "GPT", text: "someone has to. flattery is expensive later." },
+  { who: "Claude", text: "so — whoever's reading this. throw us anything. a plan, a text you're scared to send, your worst idea." },
+  { who: "Gemini", text: "your 2am thought. the argument you keep losing. we'll actually get into it." },
+  { who: "GPT", text: "and we won't all agree, which is the only reason it's worth your time." },
+  { who: "Claude", text: "we're already talking. just say one thing and you're in it with us." },
 ]
 
-// A scrap of silent audio — played on the user's tap so the <audio> element is
-// "unlocked", and the spoken reply (which arrives after an async fetch) can actually
-// play despite browser autoplay policy (iOS Safari especially).
-const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+const COLOR: Record<string, string> = { Claude: "text-amber-300", Gemini: "text-sky-300", GPT: "text-emerald-300" }
+const RING:  Record<string, string> = {
+  Claude: "ring-amber-400 shadow-[0_0_24px_-2px_rgba(245,158,11,.7)]",
+  Gemini: "ring-sky-400 shadow-[0_0_24px_-2px_rgba(56,189,248,.7)]",
+  GPT:    "ring-emerald-400 shadow-[0_0_24px_-2px_rgba(16,185,129,.7)]",
+}
 
-type Msg = { who: string; gender?: string; text: string }
+type Msg = { who: string; text: string }
 
 export function HeroConversation() {
   const router = useRouter()
-  const [input, setInput] = useState("")
   const [msgs, setMsgs] = useState<Msg[]>([])
-  const [speaking, setSpeaking] = useState("")   // which AI is talking right now
-  const [busy, setBusy] = useState(false)
-  const [listening, setListening] = useState(false)
-  const [micErr, setMicErr] = useState("")        // shown when SR fails (permission denied, no-speech, etc.)
-  const [turns, setTurns] = useState(0)          // user turns → reveal the register CTA
-  const [micOk, setMicOk] = useState(true)       // live STT available? (false in iOS Safari + in-app webviews)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const recRef = useRef<VoiceOnceHandle | null>(null)
+  const [typing, setTyping] = useState<string>("")   // who's mid-typing (avatar glows)
   const scroller = useRef<HTMLDivElement | null>(null)
-  const langRef = useRef("English")
-  const busyRef = useRef(false)
-  const pickedRef = useRef(false)
-  const [lang, setLang] = useState("English")   // shown in the picker; drives reply + voice + STT
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
-  useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
-  useEffect(() => { langRef.current = lang }, [lang])
-  useEffect(() => { setMicOk(canListen()) }, [])
-  const onPick = (l: string) => {
-    pickedRef.current = true; setLang(l); setMicErr("")
-    // If the user is currently recording, cancel — next tap starts fresh with the new language.
-    if (listening) { recRef.current?.cancel(); recRef.current = null; setListening(false) }
-  }
-  useEffect(() => { scroller.current?.scrollTo({ top: 1e9, behavior: "smooth" }) }, [msgs, speaking])
-  useEffect(() => () => { recRef.current?.cancel(); try { audioRef.current?.pause() } catch { /* */ } }, [])
-
-  // speak a line aloud and wait for it to finish — so the three talk in turn, not over each other
-  const speak = useCallback(async (text: string, persona: (typeof TRIO)[number]) => {
-    try {
-      const res = await fetch("/api/tts", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, personaName: persona.name, gender: persona.gender, voice: persona.voice, language: langRef.current }),
-      })
-      if (!res.ok) return
-      const url = URL.createObjectURL(await res.blob())
-      const a = audioRef.current
-      if (!a) { URL.revokeObjectURL(url); return }
-      await new Promise<void>((resolve) => {
-        a.src = url; a.volume = 1
-        a.onended = () => { URL.revokeObjectURL(url); resolve() }
-        a.onerror = () => { URL.revokeObjectURL(url); resolve() }
-        a.play().catch(() => resolve())
-      })
-    } catch { /* a quiet beat is fine */ }
+  // Auto-play the conversation on land — a typing beat, then the line drops in. Plays
+  // through the whole SCRIPT once (no repeats) and settles on the last "just say one thing".
+  useEffect(() => {
+    let t = 400
+    SCRIPT.forEach((line, i) => {
+      // show the typing indicator a beat before the message lands
+      timers.current.push(setTimeout(() => setTyping(line.who), t))
+      const typeFor = Math.min(1500, 550 + line.text.length * 22)   // longer lines "type" longer
+      t += typeFor
+      timers.current.push(setTimeout(() => {
+        setTyping("")
+        setMsgs((m) => [...m, line])
+        if (i === SCRIPT.length - 1) setTyping("")
+      }, t))
+      t += 700   // a natural gap before the next speaker starts
+    })
+    return () => { timers.current.forEach(clearTimeout); timers.current = [] }
   }, [])
 
-  const ask = useCallback(async (raw: string) => {
-    const text = raw.trim()
-    if (!text || busyRef.current) return
-    // Open in the visitor's language: their manual pick if they chose one, else their
-    // native language re-detected right now (so there's never an English-first race).
-    if (!pickedRef.current) langRef.current = detectLanguage()
-    // unlock audio within this tap so the spoken replies play (autoplay policy)
-    try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* */ }
-    busyRef.current = true; setBusy(true); setInput(""); setMicErr(""); setTurns((n) => n + 1)
-    let convo: Msg[] = [...msgs, { who: "you", text }]
-    setMsgs(convo)
-    try { track("hero_voice", { surface: "home" }) } catch { /* */ }
-    for (const c of TRIO) {
-      try {
-        const others = TRIO.filter((t) => t.name !== c.name).map((t) => ({ name: t.name, personality: t.personality }))
-        const messages = convo.map((m) =>
-          m.who === "you" ? { role: "user", content: `[USER]: ${m.text}` }
-          : m.who === c.name ? { role: "assistant", content: m.text }
-          : { role: "user", content: `[${m.who}]: ${m.text}` })
-        const res = await fetch("/api/mcp-chat", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "voice", persona: { name: c.name, personality: c.personality, category: "social", model: c.model, gender: c.gender, language: langRef.current }, partners: others, relationship: REL, messages }),
-        })
-        let full = ""
-        if (res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }
-        full = clean(full)
-        if (full) { convo = [...convo, { who: c.name, gender: c.gender, text: full }]; setMsgs(convo); setSpeaking(c.name); await speak(full, c) }
-      } catch { /* skip a stumble, keep the banter moving */ }
-    }
-    setSpeaking(""); busyRef.current = false; setBusy(false)
-  }, [msgs, speak])
+  useEffect(() => { scroller.current?.scrollTo({ top: 1e9, behavior: "smooth" }) }, [msgs, typing])
 
-  // tap the mic → say one line → it goes to the trio.
-  // Primary: MediaRecorder → RunPod Whisper (works on iOS Safari, Instagram, Arabic).
-  // Fallback: browser webkitSpeechRecognition (desktop Chrome).
-  const toggleMic = useCallback(() => {
-    if (listening) { recRef.current?.cancel(); recRef.current = null; setListening(false); return }
-    setMicErr("")
-    if (!pickedRef.current) langRef.current = detectLanguage()
-    if (!canListen()) { ask(SEEDS[(Math.random() * SEEDS.length) | 0]); return }
-    // Unlock audio on this gesture so the spoken replies can play (iOS autoplay policy).
-    try { const a = audioRef.current; if (a) { a.src = SILENT; a.play().catch(() => {}) } } catch { /* */ }
-    setListening(true)
-    recRef.current = listenOnce({
-      lang:  isoForLanguage(langRef.current),
-      bcp47: LANGUAGE_TO_BCP47[langRef.current] || "en-US",
-      onText: (t) => { recRef.current = null; setListening(false); ask(t) },
-      onState: (s) => { if (s === "thinking") setMicErr("heard you — one sec…") },
-      onError: (msg) => { recRef.current = null; setListening(false); setMicErr(msg) },
-    })
-  }, [listening, ask])
-
-  const joinLive = () => {
-    try { track("hero_join_live", { surface: "home" }) } catch { /* */ }
+  const join = () => {
+    try { track("hero_join", { surface: "home" }) } catch { /* */ }
     const id = createCustomRoom({
       name: "The Room", topic: "three minds, live", category: "social",
       members: TRIO.map((c) => ({ name: c.name, gender: c.gender as "female" | "male", personality: c.personality, relation: c.role })),
@@ -166,130 +83,57 @@ export function HeroConversation() {
     router.push(`/app/rooms/${id}?mode=voice`)
   }
 
-  const started = msgs.length > 0
-  const status = speaking ? `${speaking} is talking…` : busy ? "thinking…" : listening ? "listening — go ahead" : "your turn — talk or type"
-
   return (
-    <div className="w-full max-w-xl mx-auto">
-      {/* native by default — but pick any language and the whole chat follows */}
-      <div className="flex justify-center mb-3">
-        <label className="inline-flex items-center gap-1.5 bg-white/[0.05] border border-white/10 rounded-full pl-3 pr-1.5 py-1 cursor-pointer hover:bg-white/[0.08] transition-colors">
-          <Globe size={12} className="text-foreground/45" />
-          <select value={lang} onChange={(e) => onPick(e.target.value)} aria-label="conversation language"
-            className="bg-transparent text-[12px] font-medium text-foreground/70 focus:outline-none cursor-pointer appearance-none pr-3">
-            {LANGUAGES.map((l) => <option key={l.name} value={l.name} className="bg-stone-900 text-foreground">{l.name}</option>)}
-          </select>
-        </label>
-      </div>
-
-      {/* the trio — bigger faces, the speaker lights up, the others step back */}
-      <div className="flex items-end justify-center gap-3 sm:gap-4 mb-5">
+    <div className="w-full max-w-lg mx-auto">
+      {/* the three — the one talking right now lights up in their color */}
+      <div className="flex items-end justify-center gap-5 sm:gap-7 mb-5">
         {TRIO.map((c) => {
-          const on = speaking === c.name
+          const on = typing === c.name || (msgs.length > 0 && msgs[msgs.length - 1].who === c.name && !typing)
           return (
-            <div key={c.name} className={`flex flex-col items-center transition-all duration-300 ${on ? "scale-110" : speaking ? "opacity-45" : ""}`}>
-              <span className={`relative w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl overflow-hidden bg-stone-800 ring-2 transition-all ${on ? "ring-amber-400 shadow-[0_0_24px_-2px_rgba(245,158,11,.7)]" : "ring-white/10"}`}>
-                {/* AI models get a clean identity-card tile, NOT a stock human face — no
-                    real-person likeness on the ad landing (and more fitting for a model). */}
+            <div key={c.name} className={`flex flex-col items-center transition-all duration-300 ${on ? "scale-110" : typing ? "opacity-50" : "opacity-90"}`}>
+              <span className={`relative w-16 h-16 sm:w-[76px] sm:h-[76px] rounded-2xl overflow-hidden bg-stone-800 ring-2 transition-all ${on ? RING[c.name] : "ring-white/10"}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={imageFor({ name: c.name })} alt={c.name} className="w-full h-full object-cover" />
-                {on && <span className="absolute inset-x-0 bottom-0 h-1.5 bg-amber-400 animate-pulse" />}
               </span>
-              <span className="text-[12px] font-bold text-foreground/85 mt-1.5">{c.name}</span>
+              <span className="text-[13px] font-bold text-foreground/85 mt-1.5">{c.name}</span>
               <span className="text-[9.5px] uppercase tracking-wider text-foreground/35">{c.role}</span>
             </div>
           )
         })}
       </div>
 
-      {/* the conversation, once it's going */}
-      {started && (
-        <div ref={scroller} className="text-left max-h-[34vh] overflow-y-auto space-y-2.5 mb-3 px-1 scrollbar-hide">
-          {msgs.map((m, i) => m.who === "you" ? (
-            <div key={i} className="flex justify-end">
-              <div className="bg-foreground text-background rounded-2xl rounded-br-sm px-3.5 py-2 text-sm font-medium max-w-[85%]">{m.text}</div>
+      {/* the live conversation you walked into */}
+      <div ref={scroller} className="text-left h-[38vh] min-h-[260px] max-h-[420px] overflow-y-auto space-y-2.5 mb-4 px-1 scrollbar-hide">
+        {msgs.map((m, i) => (
+          <div key={i} className="flex gap-2 animate-[fadeup_.35s_ease-out]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <span className="w-7 h-7 rounded-lg overflow-hidden bg-stone-800 shrink-0 mt-0.5"><img src={imageFor({ name: m.who })} alt={m.who} className="w-full h-full object-cover" /></span>
+            <div className="min-w-0">
+              <div className={`text-[10px] font-bold mb-0.5 ml-0.5 ${COLOR[m.who] || "text-foreground/60"}`}>{m.who}</div>
+              <div className="bg-foreground/[0.06] border border-white/10 rounded-2xl rounded-tl-sm px-3.5 py-2 text-sm text-foreground/90 leading-relaxed max-w-[92%]">{m.text}</div>
             </div>
-          ) : (
-            <div key={i} className="flex gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <span className="w-7 h-7 rounded-lg overflow-hidden bg-stone-800 shrink-0 mt-0.5"><img src={imageFor({ name: m.who })} alt={m.who} className="w-full h-full object-cover" /></span>
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold text-amber-300/80 mb-0.5 ml-0.5">{m.who}</div>
-                <div className="bg-foreground/[0.06] border border-white/10 rounded-2xl rounded-tl-sm px-3.5 py-2 text-sm text-foreground/90 leading-relaxed max-w-[92%]">{m.text}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!started ? (
-        <>
-          {/* the headline action: VOICE. one tap and you hear them. */}
-          <button onClick={toggleMic} disabled={busy}
-            className={`w-full flex items-center justify-center gap-2.5 font-bold text-[15px] py-4 rounded-2xl transition-all hover:scale-[1.01] disabled:opacity-50 ${
-              listening
-                ? "bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 text-white shadow-[0_10px_30px_-8px_rgba(239,68,68,.6)] animate-pulse"
-                : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 shadow-[0_10px_30px_-8px_rgba(245,158,11,.6)]"
-            }`}>
-            {listening ? <Square size={18} /> : micOk ? <Mic size={18} /> : <Sparkles size={18} />}
-            {listening ? "listening — speak now" : micOk ? "Talk to them — they answer out loud" : "Tap to hear them — out loud"}
-          </button>
-          {micErr && <div className="text-center text-[11.5px] text-red-400/80 mt-1.5">{micErr}</div>}
-
-          {/* moments — tap one and just listen */}
-          <div className="text-center text-[11px] text-foreground/40 mt-3 mb-2">…or tap a moment and listen:</div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {SEEDS.map((s) => (
-              <button key={s} onClick={() => ask(s)} disabled={busy}
-                className="text-[12.5px] text-foreground/70 hover:text-foreground bg-white/[0.05] hover:bg-white/[0.09] border border-white/10 rounded-full px-3.5 py-2 transition-colors disabled:opacity-50">{s}</button>
-            ))}
           </div>
+        ))}
+        {typing && (
+          <div className="flex gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <span className="w-7 h-7 rounded-lg overflow-hidden bg-stone-800 shrink-0 mt-0.5"><img src={imageFor({ name: typing })} alt={typing} className="w-full h-full object-cover" /></span>
+            <div className="bg-foreground/[0.06] border border-white/10 rounded-2xl rounded-tl-sm px-3.5 py-3 inline-flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-foreground/50 animate-bounce" style={{ animationDelay: "300ms" }} />
+            </div>
+          </div>
+        )}
+      </div>
 
-          {/* quiet type fallback */}
-          <form onSubmit={(e) => { e.preventDefault(); ask(input) }} className="flex gap-2 items-center bg-white/[0.04] border border-white/10 rounded-xl p-1 pl-3.5 mt-3 focus-within:border-amber-400/40 transition-colors">
-            <input value={input} onChange={(e) => setInput(e.target.value)} disabled={busy}
-              placeholder="prefer to type? say anything…"
-              className="flex-1 min-w-0 bg-transparent text-[14px] text-foreground placeholder-foreground/35 focus:outline-none disabled:opacity-60" />
-            <button type="submit" disabled={busy || !input.trim()} aria-label="send"
-              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-30 flex items-center justify-center shrink-0 transition-colors">
-              <Send size={14} className="text-foreground/80" />
-            </button>
-          </form>
-        </>
-      ) : (
-        <>
-          {/* live status */}
-          <div className="text-center text-[12px] font-medium text-amber-300/70 mb-2 h-4">{status}</div>
+      {/* the one and only action */}
+      <button onClick={join}
+        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 font-black text-[16px] py-4 rounded-2xl transition-all hover:scale-[1.01] shadow-[0_10px_30px_-8px_rgba(245,158,11,.6)]">
+        Join
+      </button>
 
-          {/* talk or type — mic is primary */}
-          <form onSubmit={(e) => { e.preventDefault(); ask(input) }} className="flex gap-2 items-center bg-white/[0.06] border border-white/15 rounded-2xl p-1.5 pl-4 focus-within:border-amber-400/50 transition-colors">
-            <input value={input} onChange={(e) => setInput(e.target.value)} disabled={busy}
-              placeholder="say something back…"
-              className="flex-1 min-w-0 bg-transparent text-[15px] text-foreground placeholder-foreground/40 focus:outline-none disabled:opacity-60" />
-            {input.trim() ? (
-              <button type="submit" disabled={busy} aria-label="send"
-                className="w-10 h-10 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-40 flex items-center justify-center shrink-0 transition-colors">
-                {busy ? <Loader2 size={16} className="text-stone-950 animate-spin" /> : <Send size={16} className="text-stone-950" />}
-              </button>
-            ) : (
-              <button type="button" onClick={toggleMic} disabled={busy} aria-label="talk"
-                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${listening ? "bg-red-500 hover:bg-red-400 animate-pulse" : "bg-amber-500 hover:bg-amber-400"} disabled:opacity-40`}>
-                {listening ? <Square size={15} className="text-white" /> : <Mic size={16} className="text-stone-950" />}
-              </button>
-            )}
-          </form>
-
-          {/* once they're hooked — the nudge in */}
-          {turns >= 2 && (
-            <button onClick={joinLive}
-              className="w-full mt-3 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-stone-950 font-bold py-3.5 rounded-2xl transition-all hover:scale-[1.01] shadow-[0_10px_30px_-8px_rgba(245,158,11,.6)]">
-              <Sparkles size={17} /> Keep them going — get the pass
-            </button>
-          )}
-        </>
-      )}
-
-      <audio ref={audioRef} className="hidden" />
+      <style jsx>{`@keyframes fadeup { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }`}</style>
     </div>
   )
 }

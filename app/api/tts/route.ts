@@ -286,7 +286,15 @@ function elVoiceFor(name?: string, gender?: string, language?: string): string {
   const iso = isoForLanguage(language)
   if (iso && iso !== "en") {
     const pool = langPool(iso.toUpperCase(), gender)
-    if (pool.length) return hashPick(pool, name || "x")
+    // A pool of exactly ONE voice is the "all guys sound the same, all girls sound
+    // the same" bug — every persona of that gender hashes to the same single ID.
+    // Real deployments should curate 3+ per gender (ELEVENLABS_VOICES_AR_MALE=
+    // id1,id2,id3), but if only one landed in env, blend in the general gender
+    // pool for variety rather than silently collapsing everyone into one voice —
+    // some picks won't be native-accented, but that beats every character being
+    // audibly the same person.
+    if (pool.length >= 2) return hashPick(pool, name || "x")
+    if (pool.length === 1) return hashPick([...pool, ...(gender === "male" ? EL_MALE : EL_FEMALE)], name || "x")
   }
   // Voice-casting by face ethnicity: a South-Asian female face gets the Indian-English
   // voice (checked BEFORE the pinned default so it isn't overridden by it).

@@ -124,6 +124,33 @@ export function Planet() {
   // browser never flashes the deck before the welcome.
   const [onboarded, setOnboardedState] = useState(true)
   useEffect(() => { setOnboardedState(hasOnboarded()) }, [])
+  // AUDIO UNLOCK: mobile browsers (especially iOS Safari) only allow audio.play()
+  // if it happens as a direct, SYNCHRONOUS result of a user gesture — but a reply's
+  // TTS fetch is async, so by the time play() actually runs we're several ticks past
+  // the tap that triggered it, and play() silently rejects. Every playback call site
+  // in this app already swallows that rejection (`.catch(() => {})`) so the failure
+  // is completely invisible: the AI's line still appears as text, it just never
+  // speaks — "why does it only read, why doesn't it talk" with zero error shown.
+  // Fix at the root: play a near-silent clip synchronously on the very FIRST tap
+  // anywhere on the page. iOS's unlock is per-session, not per-element — one
+  // successful gesture-linked play() unlocks every future play() call for the rest
+  // of the visit, including ones that happen after an async gap.
+  useEffect(() => {
+    const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+    let done = false
+    const unlock = () => {
+      if (done) return
+      done = true
+      try {
+        const a = new Audio(SILENT_WAV)
+        a.volume = 0.01
+        a.play().catch(() => {})
+      } catch { /* */ }
+      window.removeEventListener("pointerdown", unlock)
+    }
+    window.addEventListener("pointerdown", unlock, { once: true })
+    return () => window.removeEventListener("pointerdown", unlock)
+  }, [])
   // Lifted OUT of RoomDeck (not local state there) so leaving a room and coming
   // back lands you where you were, not reset to the start — the visit persists.
   const [deckPos, setDeckPos] = useState({ c: 3, i: 0 })

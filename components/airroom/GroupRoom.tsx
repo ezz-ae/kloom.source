@@ -22,6 +22,7 @@ import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { listenOnce, canListen } from "@/lib/voice-once"
 import { resolveAirrawHandle } from "@/lib/airroom/onboard"
+import { stripHallucinatedSentences } from "@/lib/text-dedup"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
@@ -105,7 +106,14 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       if (!res.ok) return
       const url = URL.createObjectURL(await res.blob())
       const a = audioRef.current
-      if (a) { a.src = url; setSpeaking(true); await a.play().catch(() => {}); await new Promise<void>((r) => { a.onended = () => r(); a.onerror = () => r() }); setSpeaking(false) }
+      if (a) {
+        a.src = url; setSpeaking(true)
+        // If play() is rejected (blocked autoplay), log it — same silent-failure
+        // trap as the 1:1 call: text would show with no sound and no clue why.
+        await a.play().catch((err) => console.error("[room] audio play blocked:", err?.message || err))
+        await new Promise<void>((r) => { a.onended = () => r(); a.onerror = () => r() })
+        setSpeaking(false)
+      }
       URL.revokeObjectURL(url)
     } catch { setSpeaking(false) }
   }
@@ -167,7 +175,11 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, proVibe: vibeRef.current, proToken: getProToken(), messages: msgs }) })
       if (res.ok && res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }
     } catch { /* */ }
-    full = full.trim()
+    // Strip video-outro hallucinations ("اشتركوا في القناة" / "subscribe to the
+    // channel") — training-data leakage the model occasionally produces, never a
+    // real line. If that's all this turn had, the empty-reply fallback below picks
+    // a roster line instead, same as an LLM-down turn.
+    full = stripHallucinatedSentences(full.trim())
     if (!full) {
       // LLM down (e.g. 402 out of credits): vary by how much this member has said
       // so it never repeats the same line — roster lines first, then generic beats.

@@ -34,3 +34,29 @@ export function isRepeatSentence(norm: string, priors: string[]): boolean {
 export function joinSentences(parts: string[]): string {
   return parts.join(" ").replace(/\s+/g, " ").replace(/([.!?…])([A-Za-z0-9])/g, "$1 $2").trim()
 }
+
+// The LLM itself occasionally hallucinates video-outro boilerplate — trained on scraped
+// video transcripts/subtitles, it slips into "subscribe to the channel" / "like and
+// subscribe" mid-character-voice, most often in Arabic ("اشتركوا في القناة" and its many
+// singular/plural/dialect spellings) but sometimes in English too. This is CONTENT the
+// model produced, not noise from a mic — so it needs a substring check (the phrase can
+// sit inside an otherwise-real sentence), unlike the STT hallucination list which only
+// ever sees a clean, isolated utterance. Checked per-sentence in the chat stream so a
+// hit drops just that sentence, never the character's real line around it.
+const BOILERPLATE_RE =
+  /اشتركوا?\s+في\s+القناة|القناة|لايك\s*(?:و)?\s*اشتراك|تابعونا\s+(?:على|في)|subscribe\s+to\s+(?:my|the|our)\s+channel|like\s+and\s+subscribe|smash\s+that\s+(?:like|subscribe)|thanks?\s+for\s+watching/i
+
+export function isHallucinatedBoilerplate(text: string): boolean {
+  return BOILERPLATE_RE.test(text)
+}
+
+// For callers that get one accumulated reply string instead of a live sentence
+// stream (e.g. GroupRoom's per-member turn) — split on sentence boundaries, drop
+// any hallucinated ones, rejoin. Returns "" if nothing real was left (caller's
+// existing empty-reply fallback then takes over, same as an LLM-down turn).
+export function stripHallucinatedSentences(text: string): string {
+  const parts = text.match(/[^.!?…؟\n]*[.!?…؟\n]+|\S[^.!?…؟\n]*$/g)
+  if (!parts) return isHallucinatedBoilerplate(text) ? "" : text
+  const kept = parts.filter((p) => !isHallucinatedBoilerplate(p)).map((p) => p.trim())
+  return kept.length ? joinSentences(kept) : ""
+}

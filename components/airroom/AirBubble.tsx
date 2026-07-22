@@ -126,7 +126,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     const done = () => { URL.revokeObjectURL(next.url); drainQueue() }
     a.onended = done; a.onerror = done
     a.src = next.url
-    a.play().catch(done)
+    // If play() is rejected (blocked autoplay), still advance the queue rather than
+    // wedge it — but log it, so "AI went silent" is diagnosable instead of invisible.
+    a.play().catch((err) => { console.error("[air] audio play blocked:", err?.message || err); done() })
   }
 
   const speakChunk = async (text: string, tok: number, prevText = "") => {

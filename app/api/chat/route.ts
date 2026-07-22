@@ -2,7 +2,7 @@
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { proTokenValid } from "@/lib/airraw-pro-token"
 import { streamLLM, type LLMMessage } from "@/lib/llm-backends"
-import { normSentence, isRepeatSentence, joinSentences } from "@/lib/text-dedup"
+import { normSentence, isRepeatSentence, joinSentences, isHallucinatedBoilerplate } from "@/lib/text-dedup"
 import { adultEnabled } from "@/lib/variant"
 import { analyzeIntent, refusalFor } from "@/lib/intent"
 
@@ -186,6 +186,10 @@ export async function POST(request: Request) {
         for (const p of parts) {
           const norm = normSentence(p)
           if (isRepeatSentence(norm, priors)) continue
+          // The model occasionally hallucinates video-outro boilerplate ("اشتركوا في
+          // القناة" / "subscribe to the channel") — training-data leakage, not a real
+          // line. Drop just that sentence; the real line around it still lands.
+          if (isHallucinatedBoilerplate(p)) continue
           if (norm.length > 8) priors.push(norm)
           kept.push(p.trim())
         }
@@ -474,6 +478,7 @@ function languageLine(persona: Persona) {
 Reply ONLY in spoken colloquial Arabic — the way real people actually talk, NOT Modern Standard Arabic (MSA) or formal written Arabic.
 Match the user's dialect: Levantine if they use shu/halla2/hayk; Gulf if they use shnoo/il7een/zain.
 AVOID formal chatbot phrases like "I am all ears", "with pleasure", "how may I help you", "what would you like to share" — those sound like a customer-service bot, not a person.
+NEVER say anything like "اشتركوا في القناة", "تابعونا", "لايك واشتراك", or any other YouTube/video-outro line — you are not a video host, you are a person on a call. That phrase must never appear, in any form.
 Use casual short replies. 1 sentence MAX. Sound human.`
   }
   return `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet. This holds even when the other person writes to you in English or any other language — you still answer in ${lang}, never switching, never mixing in English words. If you are about to write an English word, stop and write it in ${lang} instead.`

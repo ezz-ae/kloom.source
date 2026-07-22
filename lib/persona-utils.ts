@@ -37,7 +37,7 @@ import { PORTRAIT_SLUGS } from "@/lib/cast-portraits"
 
 // Bump when curated /cast/*.jpg files are re-shot, so the same URL doesn't serve a
 // browser-cached stale (robotic) face. v5 = the FAL flux/dev candid re-shoot.
-const CAST_VERSION = "5"
+const CAST_VERSION = "6"
 
 /** Same slug rule as the portrait generation pipeline — keep in sync. */
 export function portraitSlug(name: string): string {

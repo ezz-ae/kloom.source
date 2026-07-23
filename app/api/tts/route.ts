@@ -6,6 +6,43 @@ import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
 
+// TEMP: browse the ElevenLabs shared library + add voices to the account (token-gated).
+// GET /api/tts?vk=voxlib-7q2&m=account
+// GET /api/tts?vk=voxlib-7q2&m=shared&lang=ar&gender=female&n=20
+// GET /api/tts?vk=voxlib-7q2&m=add&owner=..&voice=..&name=..
+export async function GET(request: Request) {
+  const u = new URL(request.url)
+  if (u.searchParams.get("vk") !== "voxlib-7q2") return Response.json({ error: "nope" }, { status: 404 })
+  const key = process.env.ELEVENLABS_API_KEY
+  if (!key) return Response.json({ error: "no key" }, { status: 500 })
+  const m = u.searchParams.get("m") || "account"
+  try {
+    if (m === "account") {
+      const r = await fetch("https://api.elevenlabs.io/v1/voices", { headers: { "xi-api-key": key } })
+      const d = await r.json() as { voices?: Array<{ voice_id: string; name: string; labels?: Record<string, string> }> }
+      return Response.json({ count: (d.voices || []).length, voices: (d.voices || []).map((v) => ({ id: v.voice_id, name: v.name, gender: v.labels?.gender, accent: v.labels?.accent })) })
+    }
+    if (m === "add") {
+      const owner = u.searchParams.get("owner") || "", voice = u.searchParams.get("voice") || "", name = u.searchParams.get("name") || "voice"
+      const r = await fetch(`https://api.elevenlabs.io/v1/voices/add/${owner}/${voice}`, {
+        method: "POST", headers: { "xi-api-key": key, "Content-Type": "application/json" }, body: JSON.stringify({ new_name: name }),
+      })
+      const j = await r.json().catch(() => ({}))
+      return Response.json({ ok: r.ok, status: r.status, newId: (j as { voice_id?: string }).voice_id, body: r.ok ? undefined : JSON.stringify(j).slice(0, 200) })
+    }
+    // shared library
+    const qs = new URLSearchParams({ page_size: u.searchParams.get("n") || "20", sort: "trending" })
+    const lang = u.searchParams.get("lang"); if (lang) qs.set("language", lang)
+    const gender = u.searchParams.get("gender"); if (gender) qs.set("gender", gender)
+    const r = await fetch(`https://api.elevenlabs.io/v1/shared-voices?${qs}`, { headers: { "xi-api-key": key } })
+    if (!r.ok) return Response.json({ error: `shared ${r.status}`, body: (await r.text()).slice(0, 200) }, { status: 502 })
+    const d = await r.json() as { voices?: Array<Record<string, unknown>> }
+    return Response.json({ count: (d.voices || []).length, voices: (d.voices || []).map((v) => ({ owner: v.public_owner_id, voice: v.voice_id, name: v.name, gender: v.gender, accent: v.accent, language: v.language, age: v.age })) })
+  } catch (e) {
+    return Response.json({ error: e instanceof Error ? e.message : "failed" }, { status: 500 })
+  }
+}
+
 export async function POST(request: Request) {
   // Global spend ceiling / kill-switch first — protects total budget under ad traffic.
   const gate = globalGate()

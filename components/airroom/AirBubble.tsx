@@ -496,6 +496,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
         onLevel: (l) => { micLevelRef.current = l },
         onCapture: () => { if (!hostSpeakingRef.current) setMicHint("heard you — one sec…") },
+        // Say it out loud rather than letting the mic go quiet for reasons the
+        // user can't see. They left the screen; they should know the mic went off
+        // with them, and that it came back when they did.
+        onPrivacyPause: () => setMicHint("mic off — you left the call screen"),
+        onPrivacyResume: () => { setMicHint("mic back on"); setTimeout(() => setMicHint((h) => (h === "mic back on" ? "" : h)), 2000) },
         onText: (t) => {
           setMicHint("")
           // BARGE-IN: this used to be `if (hostSpeakingRef.current) return` — your

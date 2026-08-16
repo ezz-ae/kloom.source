@@ -35,6 +35,10 @@ export interface SegmenterOptions {
    *  silent "nothing happened" (never recorded) can be told apart from "recorded fine but
    *  the transcript came back empty". */
   onCapture?: (bytes: number) => void
+  /** Fired when the mic is cut because the call left the screen, and again when it
+   *  comes back. Purely so the UI can say so — the pause happens either way. */
+  onPrivacyPause?: () => void
+  onPrivacyResume?: () => void
   /** Silence (ms) after speech that ends an utterance. Default 850. */
   silenceMs?: number
   /** Ignore utterances shorter than this (ms) — coughs, clicks. Default 300. */
@@ -77,18 +81,30 @@ export function phoneMicAudio(): MediaTrackConstraints {
   }
 }
 
+// The callbacks that stay optional after defaults are applied. Named so adding a
+// new one is a single edit here instead of two parallel string unions that drift.
+type OptionalCb =
+  | "onError" | "onUnavailable" | "getLanguage" | "onLevel" | "onCapture"
+  | "onPrivacyPause" | "onPrivacyResume"
+
 export class SpeechSegmenter {
-  private opts: Required<Omit<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage" | "onLevel" | "onCapture">> & Pick<SegmenterOptions, "onError" | "onUnavailable" | "getLanguage" | "onLevel" | "onCapture">
+  private opts: Required<Omit<SegmenterOptions, OptionalCb>> & Pick<SegmenterOptions, OptionalCb>
   private ctx: AudioContext | null = null
   private analyser: AnalyserNode | null = null
   private source: MediaStreamAudioSourceNode | null = null
   private data: Uint8Array<ArrayBuffer> | null = null
   private raf: number | null = null
-  // Audio-thread metronome. requestAnimationFrame is frozen the moment the tab is
-  // hidden, which froze VAD with it — the mic visibly "turned off" whenever the
-  // user switched tabs or apps. AudioContext callbacks run on the audio thread and
-  // are NOT throttled by page visibility, so they keep the line open. rAF stays as
-  // a fallback for anything that can't create the node.
+  // Audio-thread metronome. requestAnimationFrame is throttled by the browser
+  // whenever the page isn't the active foreground surface — not only when hidden,
+  // but also in an unfocused window, a background app, or low-power mode. That
+  // throttling stalled VAD mid-utterance and made the mic feel like it randomly
+  // stopped hearing you. AudioContext callbacks run on the audio thread on a
+  // steady ~21ms tick regardless, which is also finer than a 60Hz render loop.
+  //
+  // This is about a STEADY tick while the call is on screen. It is deliberately
+  // NOT used to keep capturing once the call leaves the screen — see onVisible,
+  // which cuts the mic for privacy. rAF remains the fallback where this node
+  // can't be created.
   private metronome: ScriptProcessorNode | null = null
   private sink: GainNode | null = null
 
@@ -102,6 +118,7 @@ export class SpeechSegmenter {
   private speechStartedAt = 0
   private lastVoiceAt = 0
   private destroyed = false
+  private hiddenPause = false      // paused by leaving the screen, not by the app
   private recStartedAt = 0         // when the current (continuous) recorder began
   // Ambient noise floor (RMS EMA) measured between utterances — drives the adaptive
   // speech gates. Starts near a quiet room and re-learns fast when the room quiets.
@@ -133,9 +150,37 @@ export class SpeechSegmenter {
     }
   }
 
+  /**
+   * PRIVACY: the mic is cut the moment the call is not on screen, and the
+   * part-recorded utterance in progress is DISCARDED rather than transcribed.
+   *
+   * iOS already did this — the OS mutes getUserMedia tracks when you leave the
+   * browser. Nothing else did: on desktop and Android a backgrounded tab kept
+   * recording, and moving VAD onto the audio thread (so it survives render-loop
+   * throttling) would have made that worse, not better. An open mic on a screen
+   * the user has walked away from is not a feature, so this is now deliberate and
+   * the same on every platform instead of an accident of which OS you're on.
+   *
+   * Playback is unaffected and keeps going in the background — that part was the
+   * actual request. Only capture stops.
+   */
   private onVisible = () => {
-    if (this.destroyed || document.visibilityState !== "visible") return
+    if (this.destroyed) return
+    if (document.visibilityState !== "visible") {
+      if (this.running && !this.paused) {
+        this.hiddenPause = true
+        this.abort()               // also throws away the in-progress recording
+        this.opts.onPrivacyPause?.()
+      }
+      return
+    }
     if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {})
+    if (this.hiddenPause) {
+      this.hiddenPause = false
+      // Only resumes what WE paused, so a call the user muted or hung up while
+      // away is never brought back to life by returning to the tab.
+      if (this.running) { this.paused = false; this.opts.onPrivacyResume?.() }
+    }
     // rAF fallback path stops being scheduled while hidden — restart it.
     if (!this.metronome && this.running && this.raf == null) this.loop()
   }

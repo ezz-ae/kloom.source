@@ -3,6 +3,7 @@ import { isoForLanguage } from "@/lib/languages"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
+import { warmAccentPools, discoveredAccentPool } from "@/lib/airraw/voice-discovery"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
@@ -51,6 +52,9 @@ export async function POST(request: Request) {
   // its male speaker reads flat/robotic. Eleven first; CSM is now the fallback.
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
+    // Refresh the accent pools in the background if stale. Never awaited — this
+    // call must not wait on a voice-list round trip.
+    warmAccentPools(elKey)
     const el = await elevenTTS(ttsText, elKey, seedKey || personaName, gender, elevenId, mode, prevText, language, seedKey)
     if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast } })
     // fall through to Sesame / CosyVoice / Fish
@@ -373,8 +377,13 @@ function elVoiceFor(name?: string, gender?: string, language?: string, seedKey?:
   // must not start drawing from these pools the moment one is curated — its voice
   // casting has to stay exactly as it is.
   if (seedKey) {
-    const accented = accentPool(accentForSeed(seedKey).key, gender)
+    const aKey = accentForSeed(seedKey).key
+    // Explicit env list first (a deliberate hand-picked pool always wins), then
+    // whatever was discovered on the account.
+    const accented = accentPool(aKey, gender)
     if (accented.length) return hashPick(accented, seedKey)
+    const found = discoveredAccentPool(aKey, gender)
+    if (found.length) return hashPick(found, seedKey)
   }
   // Language-native pool next (when curated for this language) — so an Arabic persona
   // speaks in an Arabic-native voice, not an English one bent through the model.

@@ -20,9 +20,35 @@
  * the library has before you add any.
  */
 
-const KEY = process.env.ELEVENLABS_API_KEY
+// The key lives in Vercel, so the normal path is `vercel env pull` and then just
+// running this — read it out of the pulled file rather than making anyone paste a
+// secret onto a command line (where it lands in shell history).
+import { readFileSync, existsSync } from "node:fs"
+
+function fromEnvFile(name) {
+  for (const f of [".env.local", ".env", ".env.production.local", "kloom.env"]) {
+    if (!existsSync(f)) continue
+    for (const line of readFileSync(f, "utf8").split("\n")) {
+      const m = line.match(/^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
+      if (m && m[1] === name) {
+        const v = m[2].trim().replace(/^["']|["']$/g, "")
+        if (v) { console.error(`(using ${name} from ${f})`); return v }
+      }
+    }
+  }
+  return ""
+}
+
+const KEY = process.env.ELEVENLABS_API_KEY || fromEnvFile("ELEVENLABS_API_KEY")
 if (!KEY) {
-  console.error("Set ELEVENLABS_API_KEY first:\n  ELEVENLABS_API_KEY=sk_... node scripts/find-accent-voices.mjs")
+  console.error(`No ELEVENLABS_API_KEY found.
+
+The key is on Vercel, so pull it first:
+
+  vercel env pull .env.local
+  node scripts/find-accent-voices.mjs --library
+
+(.env.local is gitignored — the key never enters the repo or your shell history.)`)
   process.exit(1)
 }
 const USE_LIBRARY = process.argv.includes("--library")

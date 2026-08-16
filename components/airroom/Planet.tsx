@@ -20,7 +20,7 @@ import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
-import { matchesPrefs } from "@/lib/airraw/lang-prefs"
+import { matchesPrefs, getLangPrefs, saveLangPrefs, langPrefsPersist } from "@/lib/airraw/lang-prefs"
 import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
@@ -222,7 +222,25 @@ export function Planet() {
   // the planet speaks your language — detect the visitor's, let them change it
   const [lang, setLang] = useState("English")
   const langRef = useRef("English")
-  useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
+  const [alsoLangs, setAlsoLangs] = useState<string[]>([])
+  const [langOpen, setLangOpen] = useState(false)
+  useEffect(() => {
+    // A saved choice beats auto-detect — detecting over the top of what someone
+    // explicitly picked is the classic way a language setting feels broken.
+    const p = getLangPrefs()
+    const d = p.primary || detectLanguage()
+    setLang(d); langRef.current = d; setAlsoLangs(p.also)
+  }, [])
+  const pickPrimary = (name: string) => {
+    setLang(name); langRef.current = name
+    const also = alsoLangs.filter((x) => x !== name)
+    setAlsoLangs(also); saveLangPrefs({ primary: name, also })
+  }
+  const toggleAlso = (name: string) => {
+    if (name === lang) return
+    const also = alsoLangs.includes(name) ? alsoLangs.filter((x) => x !== name) : [...alsoLangs, name]
+    setAlsoLangs(also); saveLangPrefs({ primary: lang, also })
+  }
   useEffect(() => { langRef.current = lang }, [lang])
   useEffect(() => { verifiedRef.current = verified }, [verified])
   useEffect(() => { inCallRef.current = !!selected || !!group }, [selected, group])
@@ -773,14 +791,46 @@ export function Planet() {
         </button>
       )}
 
-      {/* the planet speaks your language — pick it any time ON THE SURFACE. Hidden
-          inside rooms/calls: it floated over their top bars (the header collision). */}
-      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: (intro || selected || group || deckOpen) ? "none" : "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
-        <span style={{ fontSize: 12 }} aria-hidden>🌐</span>
-        <select value={lang} onChange={(e) => setLang(e.target.value)} aria-label="language" style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", color: "#cfe0ee", border: "none", fontSize: 12.5, fontFamily: "inherit", padding: "2px 2px 2px 4px", cursor: "pointer", outline: "none" }}>
-          {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{l.name}</option>)}
-        </select>
-        <span style={{ fontSize: 9, color: "#8aa0b3", marginRight: 4 }} aria-hidden>▾</span>
+      {/* Language lives HERE, on the surface, free to everyone — it used to be
+          editable only inside the paywall, so changing your language meant opening
+          a sheet asking you for $9. Also now shown on the deck, which is the front
+          door and previously had no language control at all.
+          Still hidden inside a room/call: it floated over their top bars. */}
+      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: (intro || selected || group) ? "none" : "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px" }}>
+          <span style={{ fontSize: 12 }} aria-hidden>🌐</span>
+          <select value={lang} onChange={(e) => pickPrimary(e.target.value)} aria-label="language" style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", color: "#cfe0ee", border: "none", fontSize: 12.5, fontFamily: "inherit", padding: "2px 2px 2px 4px", cursor: "pointer", outline: "none" }}>
+            {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{l.name}</option>)}
+          </select>
+          <span style={{ fontSize: 9, color: "#8aa0b3" }} aria-hidden>▾</span>
+          {/* Second language. Collapsed to a single glyph until asked for, so the
+              common case — one language — sees no extra control. */}
+          <button
+            onClick={() => setLangOpen((o) => !o)}
+            aria-label={alsoLangs.length ? `also speaking ${alsoLangs.join(", ")}` : "add another language"}
+            aria-expanded={langOpen}
+            style={{ marginLeft: 2, minWidth: 24, height: 24, borderRadius: 999, fontSize: 11, fontWeight: 700, color: alsoLangs.length ? "#06121e" : "#8aa0b3", background: alsoLangs.length ? "#7fd6c0" : "rgba(255,255,255,.08)", border: "none", cursor: "pointer", WebkitTapHighlightColor: "transparent", padding: "0 6px", fontFamily: "inherit" }}
+          >
+            {alsoLangs.length ? `+${alsoLangs.length}` : "+"}
+          </button>
+        </div>
+        {langOpen && (
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 5, maxWidth: "min(92vw, 420px)", background: "rgba(4,5,11,.75)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 14, padding: "8px 9px" }}>
+            <div style={{ width: "100%", textAlign: "center", fontSize: 10.5, color: "#8aa0b3", marginBottom: 2 }}>what else do you speak?</div>
+            {LANGUAGES.filter((l) => l.name !== lang).map((l) => {
+              const on = alsoLangs.includes(l.name)
+              return (
+                <button key={l.name} onClick={() => toggleAlso(l.name)} aria-pressed={on}
+                  style={{ fontSize: 11.5, padding: "5px 9px", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", color: on ? "#06121e" : "#9fb2c4", background: on ? "#7fd6c0" : "rgba(255,255,255,.06)", border: on ? "none" : ".5px solid rgba(255,255,255,.14)", fontFamily: "inherit" }}>
+                  {l.name}
+                </button>
+              )
+            })}
+            <div style={{ width: "100%", textAlign: "center", fontSize: 10, color: "#6b7d8e", marginTop: 4 }}>
+              {langPrefsPersist() ? "saved as your default" : "kept for this visit"}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cold-open: a line at a time drifts up the sky, then it opens to the write box. */}

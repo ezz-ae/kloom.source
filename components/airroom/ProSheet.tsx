@@ -37,6 +37,10 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
   // that the choice sticks between visits and steers who you meet.
   const [langs, setLangs] = useState<LangPrefs>(() => getLangPrefs())
   const [sticky] = useState(() => langPrefsPersist())
+  // Collapsed by default. Expanded, this block is ~250px — on a phone that pushed
+  // the price and the buy button off the bottom and left the section itself below
+  // the fold, so it read as missing entirely.
+  const [langOpen, setLangOpen] = useState(false)
   const setPrimary = (name: string) => {
     const next: LangPrefs = { primary: name, also: langs.also.filter((x) => x !== name) }
     setLangs(next); saveLangPrefs(next)
@@ -101,7 +105,17 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
             control in the paywall (rather than a locked preview) is the point: they
             feel it work, and the pass is what makes it persist. */}
         <div style={{ padding: "6px 22px 2px", display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 600, color: "#e9deff" }}>your languages</div>
+          <button
+            onClick={() => setLangOpen((o) => !o)}
+            aria-expanded={langOpen}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "inherit", fontFamily: "inherit" }}
+          >
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: "#e9deff" }}>your languages</span>
+            <span style={{ fontSize: 11.5, color: "#9fb2c4" }}>
+              {langs.primary}{langs.also.length ? ` +${langs.also.length}` : ""} <span style={{ color: "#e9b6ff" }}>{langOpen ? "close" : "change"}</span>
+            </span>
+          </button>
+          {langOpen && (<>
           <label style={{ fontSize: 11.5, color: "#9fb2c4" }}>
             you speak mostly
             <select
@@ -133,6 +147,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
               ? "saved as your default — and the floor is filled with people who open in these."
               : "this works now, for this visit. with the pass it becomes your default and fills the floor with people who open in these."}
           </div>
+          </>)}
         </div>
 
         <div style={{ textAlign: "center", padding: "8px 22px 4px" }}>

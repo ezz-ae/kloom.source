@@ -639,7 +639,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               <span key={i} style={{ width: 3, height: 14, borderRadius: 2, background: muted ? "rgba(240,232,255,.2)" : accent, transformOrigin: "center", animation: (speaking && !muted) ? `aireq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)", transition: "background .3s" }} />
             ))}
           </span>
-          <span style={{ fontSize: 12, color: micMuted ? "#fb7185" : muted ? "rgba(240,232,255,.35)" : "rgba(240,232,255,.6)", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{micMuted ? "your mic is off" : muted ? "muted · text only" : "on air · just you two"}</span>
+          <span style={{ fontSize: 12, color: (micMuted && handsFree) ? "#fb7185" : muted ? "rgba(240,232,255,.35)" : "rgba(240,232,255,.6)", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(micMuted && handsFree) ? "your mic is off" : muted ? "muted · text only" : "on air · just you two"}</span>
         </div>
         {/* One button, not three. It opens the sound panel below — mute, level and
             (where the browser allows it) which speaker — so the top bar keeps
@@ -660,9 +660,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             onClick={openAudioPanel}
             aria-label="sound"
             aria-expanded={audioPanel}
-            style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18, color: (muted || micMuted) ? "#fb7185" : "rgba(240,232,255,.55)", background: audioPanel ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.10)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18, color: (muted || (micMuted && handsFree)) ? "#fb7185" : "rgba(240,232,255,.55)", background: audioPanel ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.10)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            {micMuted ? "🎙️" : muted ? "🔇" : volume < 0.34 ? "🔈" : volume < 0.67 ? "🔉" : "🔊"}
+            {(micMuted && handsFree) ? "🎙️" : muted ? "🔇" : volume < 0.34 ? "🔈" : volume < 0.67 ? "🔉" : "🔊"}
           </button>
         </div>
       </div>
@@ -688,7 +688,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </div>
 
           {/* Your mic. Separate row from the speaker controls above on purpose —
-              muting THEM and muting YOU are opposite things and sat one tap apart. */}
+              muting THEM and muting YOU are opposite things and sat one tap apart.
+              Only shown while the mic is actually live: with no live mic there is
+              nothing to mute, and a control that acts on nothing is clutter. */}
+          {handsFree && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               onClick={toggleMicMute}
@@ -699,6 +702,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               {micMuted ? "🎙️ your mic is off" : "🎙️ your mic is on"}
             </button>
           </div>
+          )}
 
           {/* Only shown to someone who actually has a saved thread, so it never
               advertises storage that isn't happening. */}

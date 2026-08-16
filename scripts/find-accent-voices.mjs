@@ -51,7 +51,12 @@ The key is on Vercel, so pull it first:
 (.env.local is gitignored — the key never enters the repo or your shell history.)`)
   process.exit(1)
 }
-const USE_LIBRARY = process.argv.includes("--library")
+const USE_LIBRARY = process.argv.includes("--library") || process.argv.some((a) => a.startsWith("--add"))
+// --add id1,id2  → copy those library voices onto the account.
+// Explicit IDs only, never "add everything": voice slots are capped, and a script
+// that fills them is tedious to undo by hand.
+const ADD_IDS = (process.argv.find((a) => a.startsWith("--add")) || "")
+  .replace(/^--add=?/, "").split(",").map((x) => x.trim()).filter(Boolean)
 
 // Same table the server uses — keep them in step (lib/airraw/voice-discovery.ts).
 // Order matters: first match wins, so a country beats the region containing it.
@@ -176,4 +181,38 @@ if (USE_LIBRARY) {
 } else {
   console.log("\nRun with --library to see the Egyptian / Moroccan / Levantine / Khaleeji")
   console.log("voices available to add — that's where the real Arabic accents are.")
+}
+
+// ── --add: copy named library voices onto the account ───────────────────────
+if (ADD_IDS.length) {
+  console.log(`\n=== ADDING ${ADD_IDS.length} voice(s) to the account ===`)
+  // Find each ID in the library pages we already fetched, for its owner + name.
+  const byId = new Map()
+  for (const lang of ["ar", "en"]) {
+    for (const gender of ["male", "female"]) {
+      try {
+        const page = await get(`https://api.elevenlabs.io/v1/shared-voices?page_size=100&language=${lang}&gender=${gender}`)
+        for (const v of page.voices || []) byId.set(v.voice_id, v)
+      } catch { /* already reported above */ }
+    }
+  }
+  const owned = new Set(mine.voices.map((v) => v.voice_id))
+  for (const id of ADD_IDS) {
+    if (owned.has(id)) { console.log(`  already on the account: ${id}`); continue }
+    const v = byId.get(id)
+    if (!v) { console.log(`  NOT FOUND in the library: ${id}`); continue }
+    const owner = v.public_owner_id || v.public_user_id
+    if (!owner) { console.log(`  no owner id for ${id} (${v.name}) — add it in the UI`); continue }
+    const name = (v.name || id).slice(0, 60)
+    try {
+      const r = await fetch(`https://api.elevenlabs.io/v1/voices/add/${owner}/${id}`, {
+        method: "POST",
+        headers: { "xi-api-key": KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ new_name: name }),
+      })
+      if (r.ok) console.log(`  added: ${name}`)
+      else console.log(`  FAILED ${r.status} for ${name} — ${(await r.text()).slice(0, 120)}`)
+    } catch (e) { console.log(`  FAILED ${name}: ${e.message}`) }
+  }
+  console.log("\nDone. The server re-scans on its next cold start (or within 6h).")
 }

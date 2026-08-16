@@ -249,8 +249,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       // sequence number that will never arrive.
       if (tok === speakTokenRef.current) audioQueueRef.current.push({ url: null, seq })
     } finally {
-      inflightRef.current--
-      if (tok === speakTokenRef.current) pump()
+      // Only touch the counter if this chunk still belongs to the current reply.
+      // A chunk cancelled by stopSpeaking() would otherwise decrement a counter
+      // that stopSpeaking already reset to 0, driving it negative — and a negative
+      // count reads as "still generating", so `speaking` would never clear and the
+      // mic would never be handed back.
+      if (tok === speakTokenRef.current) { inflightRef.current--; pump() }
     }
   }
 

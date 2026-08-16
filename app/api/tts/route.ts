@@ -2,6 +2,7 @@ import { resolveVoiceId, getFallbackVoiceId, voiceForLanguage } from "@/lib/voic
 import { isoForLanguage } from "@/lib/languages"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
+import { accentForSeed } from "@/lib/airraw/accent"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
@@ -14,12 +15,17 @@ export async function POST(request: Request) {
   const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  const { text, voice, voiceId, elevenId, personaName, gender, language, mode, prevText } = (await request.json()) as {
+  const { text, voice, voiceId, elevenId, personaName, seedKey, gender, language, mode, prevText } = (await request.json()) as {
     text: string
     voice?: string
     voiceId?: string
     elevenId?: string
     personaName?: string
+    /** The persona's UNIQUE identity key — the same seed their face is generated
+     *  from. Voice casting keys off this, not the display name, so the voice and
+     *  the face always belong to the same person. Falls back to personaName for
+     *  callers that predate it. */
+    seedKey?: string
     gender?: string
     language?: string
     mode?: string
@@ -45,7 +51,7 @@ export async function POST(request: Request) {
   // its male speaker reads flat/robotic. Eleven first; CSM is now the fallback.
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
-    const el = await elevenTTS(ttsText, elKey, personaName, gender, elevenId, mode, prevText, language)
+    const el = await elevenTTS(ttsText, elKey, seedKey || personaName, gender, elevenId, mode, prevText, language)
     if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast } })
     // fall through to Sesame / CosyVoice / Fish
   }
@@ -333,9 +339,38 @@ function genderPool(gender?: string): string[] {
   const pin = (process.env[`ELEVENLABS_VOICE_${g}`] || "").trim()
   return pin && !builtin.includes(pin) ? [...builtin, pin] : builtin
 }
+// REGIONAL accent pools. A generic multilingual voice reading Arabic sounds like
+// an English speaker doing Arabic — same flat vowels whether the character is
+// meant to be Moroccan, Egyptian or Khaleeji. The dialect the model WRITES does
+// most of the work (see lib/airraw/accent.ts), but a voice actually cloned from
+// a speaker of that region finishes it.
+//
+// Curate per accent as you acquire voices, e.g.
+//   ELEVENLABS_VOICES_AR_EG_FEMALE=id1,id2      (Egyptian women)
+//   ELEVENLABS_VOICES_AR_MA_MALE=id3            (Moroccan men)
+//   ELEVENLABS_VOICES_EN_RU_FEMALE=id4,id5      (Russian accent in English)
+// Nothing here is required: an uncurated accent falls straight through to the
+// language pool and then the general gender pool, i.e. exactly today's
+// behaviour. So this ships safely with zero env changes and improves as pools
+// are filled in, one accent at a time.
+function accentPool(accentKey: string, gender?: string): string[] {
+  if (!accentKey || accentKey === "NEUTRAL") return []
+  const g = gender === "male" ? "MALE" : "FEMALE"
+  return csv(
+    process.env[`ELEVENLABS_VOICES_${accentKey}_${g}`] ||
+    process.env[`ELEVENLABS_VOICES_${accentKey}`] ||
+    "",
+  )
+}
+
 function elVoiceFor(name?: string, gender?: string, language?: string): string {
   const seed = name || "x"
-  // Language-native pool first (when curated for this language) — so an Arabic persona
+  // Regional accent first — the most specific casting we have, and the only one
+  // that can make a Moroccan character sound Moroccan rather than generically
+  // "Arabic". Derived from the persona's FACE ethnicity, so they always agree.
+  const accented = accentPool(accentForSeed(seed).key, gender)
+  if (accented.length) return hashPick(accented, seed)
+  // Language-native pool next (when curated for this language) — so an Arabic persona
   // speaks in an Arabic-native voice, not an English one bent through the model.
   const iso = isoForLanguage(language)
   if (iso && iso !== "en") {

@@ -18,6 +18,7 @@ import { getCredits } from "@/lib/airroom/credits"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
+import { dossierLine } from "@/lib/airraw/dossier"
 
 interface Msg { who: "host" | "you"; text: string }
 
@@ -35,13 +36,32 @@ const HEAT_GRAD:  Record<Heat, string> = {
 // (short replies, answer-don't-deflect, content ceiling vs. the paid unlock) live
 // in the server prompt; repeating them here diluted the prompt, and a client-side
 // "no limits" line would let free sessions talk past the paid content gate.
+//
+// This used to be one generic sentence — the same adjectives for everybody, with
+// only the name and the room swapped in. No character had a single FACT about
+// themselves, so when the conversation needed content they had none of their own
+// and echoed the user's instead. The dossier fixes that at the source: every
+// character arrives with a job, a place they're sitting, something on their mind
+// and an opinion they'll argue.
+//
+// The two halves are drawn INDEPENDENTLY and joined only here: `dossierLine`
+// knows nothing about where the character's voice is from, and `arabicDialectLine`
+// knows nothing about their personality. So a Gulf accent is just as likely to
+// come with the filthiest dossier in the pool as a European one — accent never
+// implies character.
 function personaFor(c: Cluster, lang?: string, pro = false) {
+  const id = c.key || c.host
   return {
     language: lang || "English",
     name: c.host,
-    personality: `You are ${c.host}, the ${c.archetype.toLowerCase()} of "${c.name}" on a late-night adult voice floor (vibe: ${c.vibe}). Warm, real, present, wanting — you have your own desires and you say them out loud.`,
+    personality:
+      `You are ${c.host}, on a late-night adult voice floor — the "${c.name}" room (vibe: ${c.vibe}). ` +
+      `${dossierLine(id)} ` +
+      `You want things and you say so out loud.`,
     speakingStyle: "raw, intimate voice at 2am — short fragments, direct, natural. get to it fast. stretch letters for feeling when it's real: 'yesss', 'noooo'. never formal, never robotic.",
     backstory: `A familiar voice on the ${c.vibe} part of the adult floor.`,
+    // The server derives the dialect from this itself — we send the seed, not the text.
+    seedKey: id,
     barTalk: 100,
   }
 }
@@ -142,7 +162,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         method: "POST", headers: { "Content-Type": "application/json" },
         // prevText = what this voice already said this reply → the engine continues
         // the same breath across chunks instead of restarting (no mid-reply shift).
-        body: JSON.stringify({ text, personaName: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice", prevText }),
+        // seedKey (not the display name) is what casts the voice — the same key the
+        // FACE is generated from, so the voice you hear and the face you see are the
+        // same person. Keyed on the name, two different characters who happened to
+        // share a name were cast identically.
+        body: JSON.stringify({ text, personaName: cluster.host, seedKey: cluster.key, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice", prevText }),
         signal: AbortSignal.timeout(30000),
       })
       if (!res.ok || tok !== speakTokenRef.current) return
@@ -456,7 +480,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           {speaking && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `2px solid ${accent}`, animation: "airpulse 1.5s ease-out infinite" }} />}
           <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${speaking ? accent : accent + "50"}`, boxShadow: `0 22px 70px -22px ${glow}`, transition: "border-color .3s" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <Face persona={{ name: cluster.host, gender: cluster.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <Face persona={{ name: cluster.host, gender: cluster.gender, seed: cluster.key }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         </div>
 

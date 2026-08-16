@@ -21,6 +21,17 @@ export interface Cluster {
   gender: "female" | "male"
   lines: string[]                    // overhearable lines, spoken on approach
   voiceId?: string                   // explicit Fish voice (for always-new picks)
+  /**
+   * Stable UNIQUE identity for this character — the seed for their face, their
+   * accent and their inner life. Distinct from `host` on purpose: `host` is the
+   * name they go by and two different people are allowed to share one, exactly
+   * like real life. Everything that must never collide keys off this instead.
+   *
+   * Before this existed, identity was keyed on the NAME, so every character who
+   * happened to draw "Mara" was literally the same person — same face, same
+   * voice, same everything. That is what made the floor look repeated.
+   */
+  key: string
 }
 
 // Deterministic PRNG (mulberry32-ish LCG). Same seed → same floor, every render.
@@ -33,24 +44,66 @@ function rng(seed: number) {
 }
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 
+// Name pools. Deliberately LARGE and deliberately PRIME-length (149 each) —
+// both properties are load-bearing, see nameIndex() below.
+//
+// These were 61 names each. With a hashed pick that meant a repeat within only
+// ~10 character swaps more often than not (birthday paradox: at 61 slots the
+// chance of a collision in 10 draws is ~56%) — which is exactly the "the same
+// characters keep coming back in one session" complaint. Bigger pools alone
+// don't fix that; the draw itself had to change too.
 const NAMES_F = [
   "Mara", "Noor", "Vera", "Lux", "Zia", "Cass", "Ivy", "Suki", "Rana", "Dahlia",
-  "Nadia", "Esme", "Yuki", "Leila", "Brielle", "Mira", "Sana", "Tess", "Aria",
-  "Juno", "Remi", "Nova", "Indira", "Selin", "Priya", "Anouk", "Lena", "Faye",
-  "Talia", "Reyna", "Sade", "Mei", "Wren", "Zoe", "Lottie", "Bibi", "Nyla",
-  "Coco", "Inez", "Maya", "Devi", "Roxy", "Liora", "Suzu", "Amara", "Frida",
-  "Greta", "Hana", "Iris", "Keira", "Lia", "Mina", "Nell", "Opal", "Paloma",
-  "Rhea", "Sloane", "Thea", "Vesna", "Yara", "Zuri",
+  "Nadia", "Esme", "Yuki", "Leila", "Brielle", "Mira", "Sana", "Tess", "Aria", "Juno",
+  "Remi", "Nova", "Indira", "Selin", "Priya", "Anouk", "Lena", "Faye", "Talia", "Reyna",
+  "Sade", "Mei", "Wren", "Zoe", "Lottie", "Bibi", "Nyla", "Coco", "Inez", "Maya",
+  "Devi", "Roxy", "Liora", "Suzu", "Amara", "Frida", "Greta", "Hana", "Iris", "Keira",
+  "Lia", "Mina", "Nell", "Opal", "Paloma", "Rhea", "Sloane", "Thea", "Vesna", "Yara",
+  "Zuri", "Alma", "Bea", "Carmen", "Dita", "Elif", "Farah", "Gia", "Hedda", "Ilse",
+  "Jana", "Kaya", "Lila", "Marta", "Nira", "Ondine", "Perla", "Qadira", "Rima", "Sofi",
+  "Tamsin", "Ulla", "Vida", "Wanda", "Xenia", "Yasmin", "Zara", "Ada", "Blythe", "Cleo",
+  "Delia", "Enid", "Fern", "Ginevra", "Hollis", "Imani", "Jolie", "Kira", "Livia", "Moira",
+  "Nika", "Orla", "Pilar", "Rosa", "Sabine", "Tova", "Uma", "Vanya", "Willa", "Ximena",
+  "Yael", "Zelda", "Anika", "Birdie", "Colette", "Dune", "Elke", "Fatou", "Ghita", "Halle",
+  "Isra", "Jinan", "Kenza", "Lamis", "Mireille", "Nawal", "Oksana", "Pia", "Rania", "Saoirse",
+  "Tahlia", "Ursa", "Valentina", "Wafa", "Yuna", "Zohra", "Adira", "Bijou", "Cira", "Dara",
+  "Eira", "Freya", "Ghada", "Hind", "Isolde", "Junia", "Kalila", "Lina", "Mabel",
 ]
 const NAMES_M = [
   "Idris", "Remy", "Sol", "Pax", "Dane", "Theo", "Kai", "Omar", "Niko", "Rafa",
-  "Jude", "Caleb", "Marco", "Eli", "Bo", "Cyrus", "Dmitri", "Hassan", "Leon",
-  "Mateo", "Arjun", "Tariq", "Soren", "Ravi", "Emre", "Dario", "Finn", "Cole",
-  "Andre", "Bram", "Diego", "Enzo", "Felix", "Gael", "Hiro", "Ivan", "Jonas",
-  "Kano", "Lev", "Milo", "Nas", "Oskar", "Pier", "Rune", "Samir", "Tomas",
-  "Umar", "Viktor", "Wale", "Xander", "Yusuf", "Zane", "Bodhi", "Cruz", "Elias",
-  "Hugo", "Mlinh", "Oba", "Rio", "Said", "Ten",
+  "Jude", "Caleb", "Marco", "Eli", "Bo", "Cyrus", "Dmitri", "Hassan", "Leon", "Mateo",
+  "Arjun", "Tariq", "Soren", "Ravi", "Emre", "Dario", "Finn", "Cole", "Andre", "Bram",
+  "Diego", "Enzo", "Felix", "Gael", "Hiro", "Ivan", "Jonas", "Kano", "Lev", "Milo",
+  "Nas", "Oskar", "Pier", "Rune", "Samir", "Tomas", "Umar", "Viktor", "Wale", "Xander",
+  "Yusuf", "Zane", "Bodhi", "Cruz", "Elias", "Hugo", "Rio", "Said", "Ten", "Adan",
+  "Basim", "Ciro", "Dev", "Emil", "Fares", "Gideon", "Hakim", "Ilya", "Joaquin", "Karim",
+  "Lucien", "Malik", "Nadir", "Otto", "Paolo", "Quentin", "Rashid", "Stellan", "Tobias", "Ugo",
+  "Vito", "Wassim", "Yannis", "Zaid", "Amir", "Bruno", "Casper", "Damir", "Ewan", "Franco",
+  "Gio", "Hamza", "Iker", "Jamal", "Kaspar", "Lorenz", "Matias", "Nils", "Osman", "Piotr",
+  "Qasim", "Rowan", "Stefan", "Thiago", "Uziel", "Vasco", "Wim", "Yannick", "Zeno", "Ari",
+  "Boaz", "Cassian", "Dorian", "Ezra", "Fabian", "Gustav", "Hadi", "Isaac", "Jarek", "Kacper",
+  "Laszlo", "Mehdi", "Noam", "Oren", "Pavel", "Rafiq", "Sami", "Tudor", "Ulrich", "Valter",
+  "Wesam", "Yohan", "Zohar", "Anton", "Bilal", "Corin", "Darius", "Eitan", "Firas", "Guang",
+  "Halim", "Ihsan", "Jasper", "Kwame", "Lior", "Mirko", "Nuri", "Ozan", "Petar",
 ]
+
+// Draw WITHOUT replacement, statelessly.
+//
+// A hashed name pick collides by birthday paradox — the same handful of names
+// keep coming back long before the pool is exhausted. `seed * STRIDE mod len`
+// is instead a *bijection* over Z_len whenever gcd(STRIDE, len) = 1: distinct
+// seeds give distinct names for a full lap of the pool, and only then wrap.
+// Since callers hand out consecutive-ish seeds (seed*7+i+1), that means an
+// entire section, and a long session of swaps, sees 149 different names before
+// any name can repeat at all. No session state, no server coordination, and
+// still fully deterministic — the same dot always opens the same person.
+//
+// STRIDE is coprime with 149 (which is prime), so the bijection holds. If a
+// pool length ever changes, keep it prime.
+const NAME_STRIDE = 97
+function nameIndex(seed: number, len: number): number {
+  return (((seed >>> 0) % len) * NAME_STRIDE) % len
+}
 
 interface Arch {
   key: string
@@ -123,6 +176,7 @@ export function buildRoster(): Cluster[] {
         name: A.names[c % A.names.length],
         vibe: A.vibe,
         host, gender: isF ? "female" : "male", lines,
+        key: `${A.key}:${c}:${host}`,
       })
     }
   }
@@ -154,15 +208,26 @@ export function makeCharacter(seed: number, f: number): Cluster {
     })
   const isF = A.lean === "f" ? true : A.lean === "m" ? false : r() < 0.5
   const pool = isF ? NAMES_F : NAMES_M
-  const host = pool[Math.floor(r() * pool.length)]
+  // Permuted, not hashed — consecutive seeds walk the whole pool before any
+  // name comes round again (see nameIndex).
+  const host = pool[nameIndex(seed, pool.length)]
   const h: Heat = f < 0.4 ? "w" : f < 0.72 ? "m" : "f"
   const start = Math.floor(r() * A.lines.length)
   const lines = [0, 1, 2].map((k) => A.lines[(start + k) % A.lines.length])
   const name = A.names[Math.floor(r() * A.names.length)]
   // Seeded voice so the orb you tap and the voice you hear agree, and adjacent
-  // dots sound like different people. Same seed → same voice, every time.
+  // dots sound like different people. Same permutation trick as the names, with
+  // its own offset, so a run of characters cycles the voice pool instead of
+  // landing on the same few voices over and over. A plain offset (rather than a
+  // multiplicative stride) is used here because the catalog length is whatever
+  // the catalog happens to be — an offset is a bijection for ANY length, with
+  // no coprimality precondition to silently violate later.
   const vpool = isF ? F_VOICES : M_VOICES
-  const voiceId = vpool.length ? vpool[Math.floor(r() * vpool.length)] : undefined
-  return { f, n: 1, h, archetype: A.key, name, vibe: A.vibe, host, gender: isF ? "female" : "male", lines, voiceId }
+  const voiceId = vpool.length ? vpool[((seed >>> 0) + 7) % vpool.length] : undefined
+  // Unique per seed — NOT per name. Two characters may both be called Mara and
+  // still be two entirely different people, with different faces, accents and
+  // histories, because everything identity-shaped keys off this.
+  const key = `${A.key}:${(seed >>> 0).toString(36)}:${host}`
+  return { f, n: 1, h, archetype: A.key, name, vibe: A.vibe, host, gender: isF ? "female" : "male", lines, voiceId, key }
 }
 

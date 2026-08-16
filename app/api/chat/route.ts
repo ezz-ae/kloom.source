@@ -5,6 +5,7 @@ import { streamLLM, type LLMMessage } from "@/lib/llm-backends"
 import { normSentence, isRepeatSentence, joinSentences, isHallucinatedBoilerplate } from "@/lib/text-dedup"
 import { adultEnabled } from "@/lib/variant"
 import { analyzeIntent, refusalFor } from "@/lib/intent"
+import { arabicDialectLine } from "@/lib/airraw/accent"
 
 export const maxDuration = 60
 
@@ -14,6 +15,13 @@ interface Persona {
   speakingStyle: string
   backstory: string
   language?: string
+  /**
+   * The persona's stable identity seed. The regional dialect is derived from this
+   * SERVER-SIDE (lib/airraw/accent.ts) rather than sent as text, so a client can't
+   * smuggle arbitrary instructions in through a "dialect" field. Deterministic, so
+   * the dialect always matches the face the same seed generated.
+   */
+  seedKey?: string
   warmth?: number
   talkStyle?: number
   barTalk?: number
@@ -506,9 +514,11 @@ function languageLine(persona: Persona) {
   const lang = persona.language
   if (!lang || lang === "English") return ""
   if (lang === "Arabic" || lang === "ar") {
+    // Derived from the persona's seed, never from client-supplied text.
+    const dialect = arabicDialectLine(persona.seedKey || persona.name || "")
     return `\n\n=== LANGUAGE — CRITICAL ===
-Reply ONLY in spoken colloquial Arabic — the way real people actually talk, NOT Modern Standard Arabic (MSA) or formal written Arabic.
-Match the user's dialect: Levantine if they use shu/halla2/hayk; Gulf if they use shnoo/il7een/zain.
+Reply ONLY in spoken colloquial Arabic — the way real people actually talk, NOT Modern Standard Arabic (MSA) or formal written Arabic.${dialect}
+${dialect ? "You keep your own dialect even when the other person speaks a different one — that's what a real person does." : "Match the user's dialect: Levantine if they use shu/halla2/hayk; Gulf if they use shnoo/il7een/zain."}
 AVOID formal chatbot phrases like "I am all ears", "with pleasure", "how may I help you", "what would you like to share" — those sound like a customer-service bot, not a person.
 NEVER say anything like "اشتركوا في القناة", "تابعونا", "لايك واشتراك", or any other YouTube/video-outro line — you are not a video host, you are a person on a call. That phrase must never appear, in any form.
 NEVER narrate what you are doing. Do NOT write things like "يضحك"، "تضحك"، "يبتسم"، "يتنهد"، "بصوت خافت"، "ثم يقول" — those get read out loud by the voice and ruin it. If something is funny, LAUGH IN THE WORDS ("هههه") — never write that you laughed.

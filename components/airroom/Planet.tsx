@@ -965,7 +965,7 @@ function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos }: { onJoin: 
         <div style={{ display: "flex", alignItems: "center" }}>
           {room.cast.map((m, k) => (
             <span key={k} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", border: `2px solid hsla(${co.h},70%,62%,.85)`, marginLeft: k ? -14 : 0, boxShadow: "0 8px 22px -8px rgba(0,0,0,.75)", background: `hsl(${co.h},45%,30%)` }}>
-              <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <Face persona={{ name: m.host, gender: m.gender, seed: m.key }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </span>
           ))}
           <span style={{ marginLeft: 12, fontSize: 13, color: "rgba(238,244,248,.62)" }}>{room.n} in here</span>

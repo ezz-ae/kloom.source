@@ -19,6 +19,7 @@ import { ProSheet } from "@/components/airroom/ProSheet"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
 import { dossierLine } from "@/lib/airraw/dossier"
+import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySink, bindMediaSession, type OutputDevice } from "@/lib/airraw/audio-output"
 
 interface Msg { who: "host" | "you"; text: string }
 
@@ -93,6 +94,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [chatOpen, setChatOpen] = useState(false)
   const [micHint, setMicHint] = useState("")
   const [muted, setMuted] = useState(false)
+  const [volume, setVolume] = useState(1)
+  const [audioPanel, setAudioPanel] = useState(false)
+  const [outputs, setOutputs] = useState<OutputDevice[]>([])
+  const [sink, setSink] = useState("")
   const [humanNote, setHumanNote] = useState(false)
   const [pro] = useState(() => isPro())
   const [credits] = useState(() => pro ? Infinity : getCredits())
@@ -127,29 +132,87 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   // first was silently lost. Coalesced on flush so two halves of one thought
   // ("I was thinking…" [breath] "…about last night") arrive as ONE message.
   const pendingRef = useRef<string[]>([])
-  const audioQueueRef = useRef<Array<{ url: string }>>([])
+  // Chunks are fetched in PARALLEL but must play in order, so each carries the
+  // sequence number it was requested with and playback waits for the next one in
+  // line rather than playing whatever landed first. A chunk whose TTS failed is
+  // queued with a null url so it's skipped instead of stalling the queue forever.
+  const audioQueueRef = useRef<Array<{ url: string | null; seq: number }>>([])
   const qPlayingRef = useRef(false)
+  const seqRef = useRef(0)        // next sequence number to hand out
+  const playSeqRef = useRef(0)    // next sequence number that may play
+  const inflightRef = useRef(0)   // TTS requests still outstanding for this reply
+  const volumeRef = useRef(1)
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
   useEffect(() => { setSttOk(canListen()) }, [])
   useEffect(() => { try { if (!localStorage.getItem("airraw_human_note")) setHumanNote(true) } catch { /* */ } }, [])
+
+  // Restore the saved volume / speaker choice, and register the call with the OS
+  // so the sound keeps going when the page isn't on screen.
+  useEffect(() => {
+    const v = loadVolume()
+    setVolume(v); volumeRef.current = v
+    if (audioRef.current) audioRef.current.volume = v
+    const saved = loadSink()
+    if (saved && audioRef.current) {
+      applySink(audioRef.current, saved).then((ok) => { if (ok) setSink(saved) })
+    }
+    const release = bindMediaSession({
+      title: cluster.host,
+      artist: cluster.vibe,
+      onStop: () => { stopSpeaking(); setMuted(true); mutedRef.current = true },
+    })
+    return release
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const changeVolume = (v: number) => {
+    setVolume(v); volumeRef.current = v; saveVolume(v)
+    if (audioRef.current) audioRef.current.volume = v
+  }
+
+  const openAudioPanel = async () => {
+    setAudioPanel((o) => !o)
+    if (!outputs.length && canChooseOutput()) setOutputs(await listOutputs())
+  }
+
+  const chooseSink = async (id: string) => {
+    if (audioRef.current && await applySink(audioRef.current, id)) setSink(id)
+  }
   const dismissHumanNote = () => { setHumanNote(false); try { localStorage.setItem("airraw_human_note", "1") } catch { /* */ } }
 
-  const drainQueue = () => {
-    const next = audioQueueRef.current.shift()
-    if (!next) {
-      qPlayingRef.current = false
-      hostSpeakingRef.current = false; setSpeaking(false)
-      if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } }
+  /** Play whatever is next IN ORDER. Returns quietly if the next chunk in the
+   *  sequence hasn't finished downloading yet — the chunk's own arrival calls
+   *  pump() again, so playback resumes the moment it lands. */
+  const pump = () => {
+    if (qPlayingRef.current) return
+    const i = audioQueueRef.current.findIndex((q) => q.seq === playSeqRef.current)
+    if (i === -1) {
+      // Nothing playable. Either we're waiting on an earlier chunk (queue has
+      // later ones) or the reply is finished.
+      if (!audioQueueRef.current.length && !inflightRef.current) {
+        hostSpeakingRef.current = false; setSpeaking(false)
+        if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } }
+      }
       return
     }
+    const [next] = audioQueueRef.current.splice(i, 1)
+    playSeqRef.current++
+    if (!next.url) { pump(); return }   // failed chunk — skip, don't stall
     const a = audioRef.current
-    if (!a) { URL.revokeObjectURL(next.url); drainQueue(); return }
-    const done = () => { URL.revokeObjectURL(next.url); drainQueue() }
+    if (!a) { URL.revokeObjectURL(next.url); pump(); return }
+    qPlayingRef.current = true
+    hostSpeakingRef.current = true; setSpeaking(true)
+    const done = () => {
+      qPlayingRef.current = false
+      try { URL.revokeObjectURL(next.url!) } catch { /* */ }
+      pump()
+    }
     a.onended = done; a.onerror = done
     a.src = next.url
+    a.volume = volumeRef.current
     // If play() is rejected (blocked autoplay), still advance the queue rather than
     // wedge it — but log it, so "AI went silent" is diagnosable instead of invisible.
     a.play().catch((err) => { console.error("[air] audio play blocked:", err?.message || err); done() })
@@ -157,6 +220,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   const speakChunk = async (text: string, tok: number, prevText = "") => {
     if (mutedRef.current || tok !== speakTokenRef.current) return
+    const seq = seqRef.current++
+    inflightRef.current++
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -169,22 +234,24 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         body: JSON.stringify({ text, personaName: cluster.host, seedKey: cluster.key, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice", prevText }),
         signal: AbortSignal.timeout(30000),
       })
-      if (!res.ok || tok !== speakTokenRef.current) return
+      if (tok !== speakTokenRef.current) return
+      if (!res.ok) { audioQueueRef.current.push({ url: null, seq }); return }
       const blob = await res.blob()
       if (tok !== speakTokenRef.current) return
-      const url = URL.createObjectURL(blob)
-      audioQueueRef.current.push({ url })
-      if (!qPlayingRef.current) {
-        qPlayingRef.current = true
-        hostSpeakingRef.current = true; setSpeaking(true)
-        // NOTE: the mic deliberately stays LIVE here. It used to be aborted
-        // (segRef.abort()), which made barge-in physically impossible — there was
-        // no VAD and no recorder running, so there was nothing to interrupt with.
-        // getUserMedia already requests hardware echo-cancellation (phoneMicAudio),
-        // so the character's own voice is largely cancelled out of the capture.
-        drainQueue()
-      }
-    } catch { /* skip failed chunk */ }
+      audioQueueRef.current.push({ url: URL.createObjectURL(blob), seq })
+      // NOTE: the mic deliberately stays LIVE while the character speaks. It used
+      // to be aborted (segRef.abort()), which made barge-in physically impossible
+      // — there was no VAD and no recorder running, so there was nothing to
+      // interrupt with. getUserMedia already requests hardware echo-cancellation
+      // (phoneMicAudio), so the character's own voice is largely cancelled out.
+    } catch {
+      // Queue a hole rather than nothing, or every later chunk waits forever on a
+      // sequence number that will never arrive.
+      if (tok === speakTokenRef.current) audioQueueRef.current.push({ url: null, seq })
+    } finally {
+      inflightRef.current--
+      if (tok === speakTokenRef.current) pump()
+    }
   }
 
   /** Cut the character off mid-sentence: kill in-flight TTS, drop everything queued,
@@ -192,19 +259,28 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
    *  call instead of a walkie-talkie. */
   const stopSpeaking = () => {
     speakTokenRef.current++            // invalidates any TTS still in flight
-    audioQueueRef.current.forEach((q) => { try { URL.revokeObjectURL(q.url) } catch { /* */ } })
+    audioQueueRef.current.forEach((q) => { if (q.url) { try { URL.revokeObjectURL(q.url) } catch { /* */ } } })
     audioQueueRef.current = []
     qPlayingRef.current = false
+    seqRef.current = 0; playSeqRef.current = 0; inflightRef.current = 0
     const a = audioRef.current
     if (a) { try { a.pause(); a.removeAttribute("src"); a.load() } catch { /* */ } }
     hostSpeakingRef.current = false; setSpeaking(false)
   }
 
+  /** Start a fresh reply: new token, empty queue, sequence counters back to zero. */
+  const resetSpeech = () => {
+    const tok = ++speakTokenRef.current
+    audioQueueRef.current.forEach((q) => { if (q.url) { try { URL.revokeObjectURL(q.url) } catch { /* */ } } })
+    audioQueueRef.current = []
+    qPlayingRef.current = false
+    seqRef.current = 0; playSeqRef.current = 0; inflightRef.current = 0
+    return tok
+  }
+
   const speak = async (text: string) => {
     if (mutedRef.current) return
-    const tok = ++speakTokenRef.current
-    audioQueueRef.current = []; qPlayingRef.current = false
-    speakChunk(text, tok)
+    speakChunk(text, resetSpeech())
   }
 
   useEffect(() => { speak(cluster.lines[0]) }, []) // greet on open
@@ -222,8 +298,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const requestReply = async () => {
     busyRef.current = true; setBusy(true); setTrouble(false)
     // New speak token: cancels any in-flight TTS and clears the play queue
-    const tok = ++speakTokenRef.current
-    audioQueueRef.current = []; qPlayingRef.current = false
+    const tok = resetSpeech()
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -231,32 +306,57 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       })
       if (!res.ok) { setTrouble(true); return }
       let accumulated = ""
-      let firstSentText = ""
-      let firstFired = false
+      let spokenUpTo = 0        // how much of `accumulated` has been sent to TTS
+      let spokenSoFar = ""      // for prosody continuity across chunks
+
+      // Sentence end. Includes the Arabic question mark and a newline. The old
+      // pattern was Latin-only: it caught an Arabic full stop, but never ؟, so any
+      // Arabic reply made of questions ("شو عم تعمل هلق؟ وانت شو قصتك؟") matched
+      // nothing at all and no audio started until the whole reply had generated.
+      const SENT_END = /[.!?…؟](?:\s|$)|\n/
+
+      // Speak every sentence the moment it completes, not just the first. The
+      // rest of the reply used to be requested only after the stream ENDED, so
+      // there was a dead gap after sentence one while its TTS round-trip ran.
+      // Now chunk N+1 is already downloading while chunk N plays.
+      const flush = (final: boolean) => {
+        for (;;) {
+          const rest = accumulated.slice(spokenUpTo)
+          const m = SENT_END.exec(rest)
+          if (!m) break
+          const end = m.index + m[0].length
+          const piece = rest.slice(0, end).trim()
+          // Too short to be worth its own request — wait for more text so we don't
+          // cut a reply into one-word audio files with seams between them.
+          if (piece.length < 12 && !final) break
+          spokenUpTo += end
+          if (piece) {
+            speakChunk(piece, tok, spokenSoFar)
+            spokenSoFar = `${spokenSoFar} ${piece}`.trim().slice(-280)
+          }
+        }
+        if (final) {
+          const tail = accumulated.slice(spokenUpTo).trim()
+          spokenUpTo = accumulated.length
+          if (tail) speakChunk(tail, tok, spokenSoFar)
+        }
+      }
+
       if (res.body) {
         const reader = res.body.getReader(); const dec = new TextDecoder()
         for (;;) {
           const { done, value } = await reader.read(); if (done) break
-          accumulated += dec.decode(value)
-          // Fire TTS for first sentence as soon as it's complete — audio starts
-          // downloading while the rest of the reply is still generating.
-          if (!firstFired) {
-            const m = /[.!?…](?:\s|$)/.exec(accumulated)
-            if (m && m.index > 10) {
-              firstFired = true
-              firstSentText = accumulated.slice(0, m.index + 1).trim()
-              speakChunk(firstSentText, tok)
-            }
-          }
+          accumulated += dec.decode(value, { stream: true })
+          flush(false)
         }
       }
       const fallbackIdx = (msgsRef.current.filter(m => m.who === "host").length) % cluster.lines.length
       const fullText = accumulated.trim() || cluster.lines[fallbackIdx] || cluster.lines[0]
       const after: Msg[] = [...msgsRef.current, { who: "host", text: fullText }]
       msgsRef.current = after; setMsgs(after)
-      // Speak the remainder; if no sentence boundary was found, speak the whole thing
-      const remainder = firstFired ? fullText.slice(firstSentText.length).trim() : fullText
-      if (remainder) speakChunk(remainder, tok, firstSentText)
+      // Nothing streamed at all → speak the fallback line; otherwise flush the tail.
+      if (!accumulated.trim()) speakChunk(fullText, tok)
+      else flush(true)
       // Style profiling: show one 2-word choice after AI's 2nd, 5th, 9th, 13th reply.
       // Never while leaving (it would cover the parting line — the emotional peak the
       // upsell rides on), and auto-dismiss after 12s: the quiz borrows the caption
@@ -455,16 +555,58 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </span>
           <span style={{ fontSize: 12, color: muted ? "rgba(240,232,255,.35)" : "rgba(240,232,255,.6)", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{muted ? "muted · text only" : "on air · just you two"}</span>
         </div>
+        {/* One button, not three. It opens the sound panel below — mute, level and
+            (where the browser allows it) which speaker — so the top bar keeps
+            exactly the one control it had. */}
         <div style={{ flex: "0 0 auto" }}>
           <button
-            onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }}
-            aria-label={muted ? "unmute" : "mute"}
-            style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18, color: muted ? "#fb7185" : "rgba(240,232,255,.55)", background: "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.10)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={openAudioPanel}
+            aria-label="sound"
+            aria-expanded={audioPanel}
+            style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18, color: muted ? "#fb7185" : "rgba(240,232,255,.55)", background: audioPanel ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.10)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            {muted ? "🔇" : "🔊"}
+            {muted ? "🔇" : volume < 0.34 ? "🔈" : volume < 0.67 ? "🔉" : "🔊"}
           </button>
         </div>
       </div>
+
+      {audioPanel && (
+        <div style={{ margin: "0 max(18px, env(safe-area-inset-right)) 6px max(18px, env(safe-area-inset-left))", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.10)", borderRadius: 14, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n) stopSpeaking(); return n }) }}
+              aria-label={muted ? "unmute" : "mute"}
+              style={{ flex: "0 0 auto", height: 34, padding: "0 12px", borderRadius: 10, fontSize: 12, fontWeight: 600, color: muted ? "#0d0418" : "rgba(240,232,255,.75)", background: muted ? "#fb7185" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.10)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+            >
+              {muted ? "muted" : "mute"}
+            </button>
+            <input
+              type="range" min={0} max={1} step={0.05}
+              value={volume}
+              onChange={(e) => changeVolume(Number(e.target.value))}
+              aria-label="volume"
+              style={{ flex: 1, accentColor: accent, height: 34, cursor: "pointer" }}
+            />
+            <span style={{ flex: "0 0 auto", width: 34, textAlign: "right", fontSize: 11, color: "rgba(240,232,255,.5)", fontVariantNumeric: "tabular-nums" }}>{Math.round(volume * 100)}</span>
+          </div>
+
+          {/* Only rendered where the browser can actually switch output. On iOS there
+              is no such API, so nothing appears rather than a control that lies. */}
+          {outputs.length > 1 && (
+            <select
+              value={sink}
+              onChange={(e) => chooseSink(e.target.value)}
+              aria-label="speaker"
+              style={{ width: "100%", height: 34, borderRadius: 10, fontSize: 12, color: "rgba(240,232,255,.75)", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.10)", padding: "0 8px", cursor: "pointer" }}
+            >
+              <option value="">speaker · system default</option>
+              {outputs.filter((d) => d.id && d.id !== "default").map((d) => (
+                <option key={d.id} value={d.id}>{d.label}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
 
       {humanNote && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px max(18px, env(safe-area-inset-right)) 2px max(18px, env(safe-area-inset-left))", fontSize: 12, color: "rgba(240,232,255,.8)", background: fill, border: `.5px solid ${accent}50`, borderRadius: 12, padding: "9px 12px" }}>
@@ -636,7 +778,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       )}
 
       {showPro && <ProSheet onClose={() => setShowPro(false)} />}
-      <audio ref={audioRef} style={{ display: "none" }} />
+      {/* playsInline keeps iOS from hijacking playback into a fullscreen player,
+          which would tear down the call UI mid-conversation. */}
+      <audio ref={audioRef} playsInline style={{ display: "none" }} />
     </div>
   )
 }

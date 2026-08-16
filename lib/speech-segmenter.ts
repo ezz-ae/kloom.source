@@ -84,6 +84,13 @@ export class SpeechSegmenter {
   private source: MediaStreamAudioSourceNode | null = null
   private data: Uint8Array<ArrayBuffer> | null = null
   private raf: number | null = null
+  // Audio-thread metronome. requestAnimationFrame is frozen the moment the tab is
+  // hidden, which froze VAD with it — the mic visibly "turned off" whenever the
+  // user switched tabs or apps. AudioContext callbacks run on the audio thread and
+  // are NOT throttled by page visibility, so they keep the line open. rAF stays as
+  // a fallback for anything that can't create the node.
+  private metronome: ScriptProcessorNode | null = null
+  private sink: GainNode | null = null
 
   private recorder: MediaRecorder | null = null
   private chunks: Blob[] = []
@@ -118,6 +125,19 @@ export class SpeechSegmenter {
       maxUtteranceMs: 13000,
       ...options,
     }
+    // Coming back to the page can find the AudioContext suspended (the OS suspends
+    // it while backgrounded). Nothing else would ever resume it, so the mic would
+    // stay dead after switching back — indistinguishable from "the mic broke".
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", this.onVisible)
+    }
+  }
+
+  private onVisible = () => {
+    if (this.destroyed || document.visibilityState !== "visible") return
+    if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {})
+    // rAF fallback path stops being scheduled while hidden — restart it.
+    if (!this.metronome && this.running && this.raf == null) this.loop()
   }
 
   /** Begin or resume listening. Idempotent. */
@@ -126,7 +146,10 @@ export class SpeechSegmenter {
     this.running = true
     this.paused = false
     this.ensureAnalyser()
-    if (this.raf == null) this.loop()
+    // A context suspended by the autoplay policy — or by the OS while the page was
+    // backgrounded — stops the metronome dead. Resume on every start().
+    if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {})
+    if (!this.metronome && this.raf == null) this.loop()
   }
 
   /** Pause listening and drop any in-progress utterance without transcribing. */
@@ -146,8 +169,11 @@ export class SpeechSegmenter {
     this.destroyed = true
     this.running = false
     this.paused = true
+    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.onVisible)
     this.discardRecorder()
     if (this.raf != null) { cancelAnimationFrame(this.raf); this.raf = null }
+    if (this.metronome) { this.metronome.onaudioprocess = null; try { this.metronome.disconnect() } catch {} ; this.metronome = null }
+    if (this.sink) { try { this.sink.disconnect() } catch {} ; this.sink = null }
     try { this.source?.disconnect() } catch {}
     this.source = null
     this.analyser = null
@@ -166,8 +192,46 @@ export class SpeechSegmenter {
       this.analyser.fftSize = 512
       this.source.connect(this.analyser)
       this.data = new Uint8Array(new ArrayBuffer(this.analyser.fftSize))
+      this.startMetronome()
     } catch (err) {
       this.opts.onError?.(err instanceof Error ? err.message : "Could not start mic analysis")
+    }
+  }
+
+  /**
+   * Drive the VAD from the audio thread instead of the render loop, so it keeps
+   * running while the tab is in the background.
+   *
+   * ScriptProcessorNode is deprecated in favour of AudioWorklet, but it needs no
+   * separate module file, is supported everywhere, and here it does nothing but
+   * fire a timer — it never touches the samples. Its output is routed through a
+   * silent gain so it's inaudible but still pulled by the graph (a node with no
+   * downstream connection is not guaranteed to be processed at all).
+   *
+   * 1024 frames ≈ 21ms at 48kHz — finer than a 60Hz render loop, so VAD gets
+   * slightly MORE responsive as well as background-proof.
+   *
+   * NOTE ON MOBILE: this covers backgrounded browser tabs. It cannot cover
+   * switching away from the browser entirely on iOS, where the OS suspends the
+   * AudioContext and mutes getUserMedia tracks — no web API can hold the mic
+   * open there. Playback survives that (see the media session in AirBubble);
+   * capture does not.
+   */
+  private startMetronome() {
+    if (this.metronome || !this.ctx) return
+    try {
+      const node = this.ctx.createScriptProcessor(1024, 1, 1)
+      node.onaudioprocess = () => this.tick()
+      const sink = this.ctx.createGain()
+      sink.gain.value = 0
+      node.connect(sink)
+      sink.connect(this.ctx.destination)
+      this.metronome = node
+      this.sink = sink
+      // The render loop is now redundant; stop it so VAD isn't ticked twice.
+      if (this.raf != null) { cancelAnimationFrame(this.raf); this.raf = null }
+    } catch {
+      // No ScriptProcessorNode — stay on requestAnimationFrame (foreground only).
     }
   }
 
@@ -183,10 +247,16 @@ export class SpeechSegmenter {
     return Math.sqrt(sum / this.data.length)
   }
 
+  /** requestAnimationFrame driver — only used when the metronome can't be built. */
   private loop = () => {
     if (this.destroyed || !this.running) { this.raf = null; return }
     this.raf = requestAnimationFrame(this.loop)
-    if (this.paused) return
+    this.tick()
+  }
+
+  /** One VAD step. Called from the audio thread (background-safe) or from rAF. */
+  private tick() {
+    if (this.destroyed || !this.running || this.paused) return
 
     // PHONE-LINE CAPTURE: the recorder rolls the whole time we're listening, so by
     // the time VAD notices speech the onset is already on tape. The old design

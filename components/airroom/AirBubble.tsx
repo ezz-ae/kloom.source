@@ -16,7 +16,7 @@ import { VoiceWave } from "@/components/airroom/VoiceWave"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { getCredits } from "@/lib/airroom/credits"
 import { ProSheet } from "@/components/airroom/ProSheet"
-import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
+import { LANGUAGE_TO_BCP47, isoForLanguage } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
 import { dossierLine } from "@/lib/airraw/dossier"
 import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySink, bindMediaSession, type OutputDevice } from "@/lib/airraw/audio-output"
@@ -125,10 +125,28 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [styleQ, setStyleQ] = useState<StyleQuestion | null>(null)
   const mutedRef = useRef(false)
   const vibeRef = useRef("")
-  const langRef = useRef(lang)
+  // The language this call is actually in. Starts from whatever the surface asked
+  // for, but is switchable mid-call from the top bar, so it can't just mirror the
+  // prop. A bilingual person shouldn't have to leave the call to change it.
+  const [activeLang, setActiveLang] = useState(() => lang || getLangPrefs().primary || "English")
+  const [myLangs] = useState(() => spokenLanguages())
+  const langRef = useRef(activeLang)
   useEffect(() => { mutedRef.current = muted }, [muted])
   useEffect(() => { vibeRef.current = vibe }, [vibe])
-  useEffect(() => { langRef.current = lang }, [lang])
+  useEffect(() => { langRef.current = activeLang }, [activeLang])
+  // A surface that changes the language out from under us still wins.
+  useEffect(() => { if (lang) setActiveLang(lang) }, [lang])
+
+  /** Step to the next language they speak. Only reachable when there's more than one. */
+  const cycleLang = () => {
+    if (myLangs.length < 2) return
+    const i = myLangs.indexOf(activeLang)
+    const next = myLangs[(i + 1) % myLangs.length]
+    setActiveLang(next)
+    langRef.current = next          // set now: the segmenter reads the ref, not the state
+    setMicHint(`switched to ${next.toLowerCase()}`)
+    setTimeout(() => setMicHint((h) => (h.startsWith("switched to") ? "" : h)), 1800)
+  }
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -626,7 +644,18 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         {/* One button, not three. It opens the sound panel below — mute, level and
             (where the browser allows it) which speaker — so the top bar keeps
             exactly the one control it had. */}
-        <div style={{ flex: "0 0 auto" }}>
+        <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Language switch. Only exists when they actually speak more than one —
+              a switch with a single option is clutter pretending to be a feature. */}
+          {myLangs.length > 1 && (
+            <button
+              onClick={cycleLang}
+              aria-label={`chatting in ${activeLang} — switch language`}
+              style={{ height: 44, minWidth: 44, padding: "0 12px", borderRadius: 12, fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "rgba(240,232,255,.75)", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.10)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}
+            >
+              {(isoForLanguage(activeLang) || activeLang.slice(0, 2)).toUpperCase()}
+            </button>
+          )}
           <button
             onClick={openAudioPanel}
             aria-label="sound"

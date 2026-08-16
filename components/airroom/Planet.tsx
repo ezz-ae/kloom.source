@@ -19,6 +19,7 @@ import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
+import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
@@ -804,7 +805,7 @@ export function Planet() {
 
       {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
       {started && onboarded && deckOpen && !selected && !group && (
-        <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} />
+        <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} />
       )}
       {/* back to AiR from the open sky */}
       {started && !deckOpen && !selected && !group && (
@@ -870,7 +871,13 @@ export function Planet() {
 // world, left/right jumps to a different KIND of room. No written guides — if
 // the user sits still, four faint arrows breathe in. The only other control is
 // RAW (the open sky).
-function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos }: { onJoin: (j: Join) => void; onExplore: () => void; air: string; onProfile: () => void; pos: { c: number; i: number }; setPos: React.Dispatch<React.SetStateAction<{ c: number; i: number }>> }) {
+function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos, onResume }: { onJoin: (j: Join) => void; onExplore: () => void; air: string; onProfile: () => void; pos: { c: number; i: number }; setPos: React.Dispatch<React.SetStateAction<{ c: number; i: number }>>; onResume: (c: Cluster) => void }) {
+  // Threads waiting to be picked back up. Empty for a free session and for anyone
+  // who has switched memory off, so the strip simply isn't there rather than
+  // being an empty shelf advertising a feature.
+  const [talks, setTalks] = useState<SavedTalk[]>([])
+  useEffect(() => { setTalks(listTalks()) }, [])
+
   const [dir, setDir] = useState<"up" | "down" | "left" | "right">("up")
   const [hintOn, setHintOn] = useState(false)
   const swipe = useRef<{ x: number; y: number } | null>(null)
@@ -959,6 +966,34 @@ function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos }: { onJoin: 
         @keyframes deckleft{from{opacity:0;transform:translateX(46px)}to{opacity:1;transform:none}}
         @keyframes deckright{from{opacity:0;transform:translateX(-46px)}to{opacity:1;transform:none}}
       `}</style>
+      {/* Pick a thread back up. Sits ABOVE the swiping card and stops pointer
+          events from reaching it, so tapping a face never also flings the deck. */}
+      {talks.length > 0 && (
+        <div
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerMove={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 58px)", left: 0, right: 0, zIndex: 22, display: "flex", gap: 10, overflowX: "auto", padding: "0 16px 4px", touchAction: "pan-x", WebkitOverflowScrolling: "touch" }}
+        >
+          {talks.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => onResume(t.cluster)}
+              aria-label={`back to ${t.cluster.host}`}
+              style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 12px 0 4px", borderRadius: 999, background: "rgba(4,5,11,.62)", border: ".5px solid rgba(255,255,255,.14)", cursor: "pointer", WebkitTapHighlightColor: "transparent", color: "#eef4f8", fontFamily: "inherit" }}
+            >
+              <span style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", flex: "0 0 auto", background: "rgba(255,255,255,.08)" }}>
+                <Face persona={{ name: t.cluster.host, gender: t.cluster.gender, seed: t.cluster.key }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </span>
+              <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t.cluster.host}</span>
+                <span style={{ fontSize: 10.5, color: "rgba(238,244,248,.55)" }}>{agoLabel(t.at)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div key={`${room.c}-${pos.i}`} ref={cardRef} style={{ position: "absolute", inset: 0, willChange: "transform, opacity", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: "24px 26px", background: `radial-gradient(120% 85% at 50% 25%, hsla(${co.h},62%,26%,.6), rgba(4,5,11,0) 72%)`, animation: `deck${dir} .42s cubic-bezier(.18,.85,.25,1.06) both`, boxSizing: "border-box" }}>
         <div style={{ fontSize: 11, letterSpacing: 2.5, textTransform: "uppercase", color: `hsla(${co.h},70%,74%,.92)` }}>{co.n}{co.adult ? " · 18+" : ""}</div>
         <div style={{ fontSize: "clamp(28px, 8vw, 40px)", fontWeight: 600, color: "#eef4f8", textAlign: "center", lineHeight: 1.12, letterSpacing: -0.5 }}>{room.topic}</div>

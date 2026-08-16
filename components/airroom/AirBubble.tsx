@@ -20,6 +20,7 @@ import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
 import { dossierLine } from "@/lib/airraw/dossier"
 import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySink, bindMediaSession, type OutputDevice } from "@/lib/airraw/audio-output"
+import { loadTalk, saveTalk, forgetTalk, memoryEnabled } from "@/lib/airraw/memory"
 
 interface Msg { who: "host" | "you"; text: string }
 
@@ -82,7 +83,15 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const fill   = HEAT_FILL[cluster.h]
   const grad   = HEAT_GRAD[cluster.h]
 
-  const [msgs, setMsgs] = useState<Msg[]>([{ who: "host", text: cluster.lines[0] }])
+  // Reopen where the thread left off (Pro only — see lib/airraw/memory.ts). The
+  // initial state is computed lazily so the restore happens before first paint
+  // and the user never sees the greeting flash in over their old conversation.
+  const [msgs, setMsgs] = useState<Msg[]>(() => {
+    const saved = loadTalk(cluster.key)
+    return saved?.msgs.length ? saved.msgs : [{ who: "host", text: cluster.lines[0] }]
+  })
+  const [resumed] = useState(() => !!loadTalk(cluster.key)?.msgs.length)
+  const [micMuted, setMicMuted] = useState(false)
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
   const [sttOk, setSttOk] = useState(false)
@@ -142,6 +151,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const playSeqRef = useRef(0)    // next sequence number that may play
   const inflightRef = useRef(0)   // TTS requests still outstanding for this reply
   const volumeRef = useRef(1)
+  const micMutedRef = useRef(false)
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
@@ -167,6 +177,31 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     return release
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /**
+   * Mute YOUR mic — distinct from the speaker control, which mutes the character.
+   * There was no way to stay on a call without being heard: the only options were
+   * to be recorded or to hang up.
+   *
+   * This aborts the segmenter rather than just flagging a boolean, so capture
+   * genuinely stops and any part-recorded utterance is discarded. A mute that
+   * only hid the transcript would still be uploading audio.
+   */
+  const toggleMicMute = () => {
+    setMicMuted((m) => {
+      const next = !m
+      micMutedRef.current = next
+      if (next) {
+        try { segRef.current?.abort() } catch { /* */ }
+        try { onceRecRef.current?.stop() } catch { /* */ }
+        setMicHint("your mic is off — they can't hear you")
+      } else {
+        if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } }
+        setMicHint("")
+      }
+      return next
+    })
+  }
 
   const changeVolume = (v: number) => {
     setVolume(v); volumeRef.current = v; saveVolume(v)
@@ -194,7 +229,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       // later ones) or the reply is finished.
       if (!audioQueueRef.current.length && !inflightRef.current) {
         hostSpeakingRef.current = false; setSpeaking(false)
-        if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } }
+        // Never re-arm a mic the user muted — the character finishing its turn is
+        // not consent to start listening again.
+        if (hfRef.current && !micMutedRef.current) { try { segRef.current?.start() } catch { /* */ } }
       }
       return
     }
@@ -287,7 +324,16 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     speakChunk(text, resetSpeech())
   }
 
-  useEffect(() => { speak(cluster.lines[0]) }, []) // greet on open
+  // Greet on open — but NOT when picking an old thread back up, where a canned
+  // opener over the top of a conversation you already had reads as amnesia.
+  useEffect(() => { if (!resumed) speak(cluster.lines[0]) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist the thread as it goes, so closing the tab mid-sentence still leaves
+  // something to come back to. No-op entirely for a free session.
+  useEffect(() => {
+    if (!memoryEnabled()) return
+    saveTalk(cluster, msgs)
+  }, [msgs, cluster])
 
   useEffect(() => {
     const idle = setInterval(() => {
@@ -500,7 +546,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         // user can't see. They left the screen; they should know the mic went off
         // with them, and that it came back when they did.
         onPrivacyPause: () => setMicHint("mic off — you left the call screen"),
-        onPrivacyResume: () => { setMicHint("mic back on"); setTimeout(() => setMicHint((h) => (h === "mic back on" ? "" : h)), 2000) },
+        onPrivacyResume: () => {
+          // The segmenter un-pauses itself on return; if the USER had muted, put it
+          // straight back. Their mute outranks the visibility handler's resume.
+          if (micMutedRef.current) { try { segRef.current?.abort() } catch { /* */ } ; setMicHint("your mic is off — they can't hear you"); return }
+          setMicHint("mic back on"); setTimeout(() => setMicHint((h) => (h === "mic back on" ? "" : h)), 2000)
+        },
         onText: (t) => {
           setMicHint("")
           // BARGE-IN: this used to be `if (hostSpeakingRef.current) return` — your
@@ -523,7 +574,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         },
       })
       segRef.current = seg
-      seg.start()
+      if (!micMutedRef.current) seg.start()
     })()
 
     return () => {
@@ -562,7 +613,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               <span key={i} style={{ width: 3, height: 14, borderRadius: 2, background: muted ? "rgba(240,232,255,.2)" : accent, transformOrigin: "center", animation: (speaking && !muted) ? `aireq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)", transition: "background .3s" }} />
             ))}
           </span>
-          <span style={{ fontSize: 12, color: muted ? "rgba(240,232,255,.35)" : "rgba(240,232,255,.6)", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{muted ? "muted · text only" : "on air · just you two"}</span>
+          <span style={{ fontSize: 12, color: micMuted ? "#fb7185" : muted ? "rgba(240,232,255,.35)" : "rgba(240,232,255,.6)", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{micMuted ? "your mic is off" : muted ? "muted · text only" : "on air · just you two"}</span>
         </div>
         {/* One button, not three. It opens the sound panel below — mute, level and
             (where the browser allows it) which speaker — so the top bar keeps
@@ -572,9 +623,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             onClick={openAudioPanel}
             aria-label="sound"
             aria-expanded={audioPanel}
-            style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18, color: muted ? "#fb7185" : "rgba(240,232,255,.55)", background: audioPanel ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.10)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18, color: (muted || micMuted) ? "#fb7185" : "rgba(240,232,255,.55)", background: audioPanel ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.10)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            {muted ? "🔇" : volume < 0.34 ? "🔈" : volume < 0.67 ? "🔉" : "🔊"}
+            {micMuted ? "🎙️" : muted ? "🔇" : volume < 0.34 ? "🔈" : volume < 0.67 ? "🔉" : "🔊"}
           </button>
         </div>
       </div>
@@ -598,6 +649,30 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             />
             <span style={{ flex: "0 0 auto", width: 34, textAlign: "right", fontSize: 11, color: "rgba(240,232,255,.5)", fontVariantNumeric: "tabular-nums" }}>{Math.round(volume * 100)}</span>
           </div>
+
+          {/* Your mic. Separate row from the speaker controls above on purpose —
+              muting THEM and muting YOU are opposite things and sat one tap apart. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={toggleMicMute}
+              aria-label={micMuted ? "unmute your microphone" : "mute your microphone"}
+              aria-pressed={micMuted}
+              style={{ flex: 1, height: 34, borderRadius: 10, fontSize: 12, fontWeight: 600, color: micMuted ? "#0d0418" : "rgba(240,232,255,.75)", background: micMuted ? "#fb7185" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.10)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            >
+              {micMuted ? "🎙️ your mic is off" : "🎙️ your mic is on"}
+            </button>
+          </div>
+
+          {/* Only shown to someone who actually has a saved thread, so it never
+              advertises storage that isn't happening. */}
+          {memoryEnabled() && resumed && (
+            <button
+              onClick={() => { forgetTalk(cluster.key); setMsgs([{ who: "host", text: cluster.lines[0] }]); msgsRef.current = [{ who: "host", text: cluster.lines[0] }]; setAudioPanel(false) }}
+              style={{ height: 32, borderRadius: 10, fontSize: 11.5, color: "rgba(240,232,255,.55)", background: "transparent", border: ".5px solid rgba(255,255,255,.12)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+            >
+              forget this conversation
+            </button>
+          )}
 
           {/* Only rendered where the browser can actually switch output. On iOS there
               is no such API, so nothing appears rather than a control that lies. */}

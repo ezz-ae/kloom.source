@@ -3,7 +3,7 @@ import { isoForLanguage } from "@/lib/languages"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
-import { warmAccentPools, discoveredAccentPool } from "@/lib/airraw/voice-discovery"
+import { warmAccentPools, discoveredAccentPool, discoveredLangPool } from "@/lib/airraw/voice-discovery"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
@@ -391,7 +391,12 @@ function elVoiceFor(name?: string, gender?: string, language?: string, seedKey?:
   if (iso && iso !== "en") {
     const pool = langPool(iso.toUpperCase(), gender)
     if (pool.length) return hashPick(pool, seed)
-    // No language-native pool curated → still give per-persona VARIETY from the gender
+    // Voices on the account whose NATIVE language this is. Without this an Arabic
+    // persona fell through to the built-in gender pool — which is entirely English
+    // voices — and that is the "the Arabic voices sound English" complaint.
+    const native = discoveredLangPool(iso, gender)
+    if (native.length) return hashPick(native, seed)
+    // Nothing native available → still give per-persona VARIETY from the gender
     // pool (never the single pinned voice, which made "all Arabic same voice").
     return hashPick(genderPool(gender), seed)
   }

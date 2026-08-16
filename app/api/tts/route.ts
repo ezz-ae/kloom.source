@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   // its male speaker reads flat/robotic. Eleven first; CSM is now the fallback.
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
-    const el = await elevenTTS(ttsText, elKey, seedKey || personaName, gender, elevenId, mode, prevText, language)
+    const el = await elevenTTS(ttsText, elKey, seedKey || personaName, gender, elevenId, mode, prevText, language, seedKey)
     if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast } })
     // fall through to Sesame / CosyVoice / Fish
   }
@@ -363,13 +363,19 @@ function accentPool(accentKey: string, gender?: string): string[] {
   )
 }
 
-function elVoiceFor(name?: string, gender?: string, language?: string): string {
+function elVoiceFor(name?: string, gender?: string, language?: string, seedKey?: string): string {
   const seed = name || "x"
   // Regional accent first — the most specific casting we have, and the only one
   // that can make a Moroccan character sound Moroccan rather than generically
   // "Arabic". Derived from the persona's FACE ethnicity, so they always agree.
-  const accented = accentPool(accentForSeed(seed).key, gender)
-  if (accented.length) return hashPick(accented, seed)
+  //
+  // Gated on an explicit seedKey, which only AIRRAW's floor sends. A Kloom persona
+  // must not start drawing from these pools the moment one is curated — its voice
+  // casting has to stay exactly as it is.
+  if (seedKey) {
+    const accented = accentPool(accentForSeed(seedKey).key, gender)
+    if (accented.length) return hashPick(accented, seedKey)
+  }
   // Language-native pool next (when curated for this language) — so an Arabic persona
   // speaks in an Arabic-native voice, not an English one bent through the model.
   const iso = isoForLanguage(language)
@@ -385,9 +391,9 @@ function elVoiceFor(name?: string, gender?: string, language?: string): string {
   if (gender !== "male" && name && isSouthAsianSeed(name)) return SA_FEMALE_VOICE
   return hashPick(genderPool(gender), seed)
 }
-async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string, language?: string): Promise<ArrayBuffer | null> {
+async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string, language?: string, seedKey?: string): Promise<ArrayBuffer | null> {
   try {
-    const voice = elevenId?.trim() || elVoiceFor(name, gender, language)
+    const voice = elevenId?.trim() || elVoiceFor(name, gender, language, seedKey)
     const iso = isoForLanguage(language)
     // turbo_v2_5 handles Latin-script languages with the LOWEST latency, but it's
     // measurably weaker on Arabic (and other non-Latin scripts) — softer consonants,

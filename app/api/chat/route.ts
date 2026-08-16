@@ -515,7 +515,11 @@ function languageLine(persona: Persona) {
   if (!lang || lang === "English") return ""
   if (lang === "Arabic" || lang === "ar") {
     // Derived from the persona's seed, never from client-supplied text.
-    const dialect = arabicDialectLine(persona.seedKey || persona.name || "")
+    // Deliberately NOT falling back to persona.name: only AIRRAW's floor sends a
+    // seedKey, so a Kloom persona — whose name would otherwise hash to some
+    // ethnicity and acquire a dialect it was never given — is left exactly as it
+    // was. This must stay a no-op for Kloom.
+    const dialect = persona.seedKey ? arabicDialectLine(persona.seedKey) : ""
     return `\n\n=== LANGUAGE — CRITICAL ===
 Reply ONLY in spoken colloquial Arabic — the way real people actually talk, NOT Modern Standard Arabic (MSA) or formal written Arabic.${dialect}
 ${dialect ? "You keep your own dialect even when the other person speaks a different one — that's what a real person does." : "Match the user's dialect: Levantine if they use shu/halla2/hayk; Gulf if they use shnoo/il7een/zain."}

@@ -87,6 +87,23 @@ export async function POST(request: Request) {
   }
 
   const language = typeof form.get("language") === "string" ? (form.get("language") as string) : undefined
+  const isArabic = language === "ar"
+
+  // ── ElevenLabs Scribe — Arabic only (tier 0) ──────────────────────────────
+  // Whisper is weak on spoken Arabic: it was trained overwhelmingly on Modern
+  // Standard Arabic, so it "corrects" everyday dialect into MSA-shaped words and
+  // a word comes back as a DIFFERENT word — the "I say something and the AI hears
+  // something else" bug. Scribe handles dialect markedly better.
+  //
+  // Deliberately scoped to Arabic: English via Groq is already accurate and much
+  // cheaper, so this buys accuracy exactly where it was missing and nowhere else.
+  // Set STT_SCRIBE=0 to turn it off and fall back to the Whisper path below.
+  const elKey = process.env.ELEVENLABS_API_KEY
+  if (isArabic && elKey && process.env.STT_SCRIBE !== "0") {
+    const t = await scribeSTT(file, elKey, language)
+    if (t !== null) return Response.json({ text: cleanTranscript(t) }, { headers: { "Cache-Control": "no-store" } })
+    // fall through to Whisper on any failure — never leave the call without STT
+  }
 
   // ── Groq Whisper (primary — fast, cheap, direct upload, no cold starts) ──
   const groqKey = process.env.GROQ_API_KEY
@@ -96,7 +113,6 @@ export async function POST(request: Request) {
     // Arabic needs the full large-v3 model — turbo sacrifices too much accuracy
     // for non-Latin scripts and produces garbled / wrong transcriptions noticeably
     // more often. The extra latency (~1-2s) is worth it for correctness.
-    const isArabic = language === "ar"
     const groqModel = isArabic
       ? (process.env.GROQ_STT_MODEL_AR || "whisper-large-v3")
       : (process.env.GROQ_STT_MODEL || "whisper-large-v3-turbo")
@@ -181,6 +197,70 @@ export async function POST(request: Request) {
 
   const data = (await upstream.json().catch(() => ({}))) as { text?: string }
   return Response.json({ text: cleanTranscript(data.text) }, { headers: { "Cache-Control": "no-store" } })
+}
+
+// Circuit breaker for the Scribe tier. Because Scribe sits IN FRONT of a working
+// fallback, a broken or misconfigured Scribe would otherwise add its full timeout
+// to every single Arabic turn before falling through — making the thing slower
+// than it was. Two consecutive failures park it for five minutes; the call keeps
+// working on Whisper in the meantime and Scribe is retried automatically.
+let scribeFails = 0
+let scribeParkedUntil = 0
+const SCRIBE_TRIP = 2
+const SCRIBE_PARK_MS = 5 * 60_000
+
+function scribeAvailable(): boolean {
+  if (Date.now() < scribeParkedUntil) return false
+  if (scribeParkedUntil) { scribeParkedUntil = 0; scribeFails = 0 }   // park expired — try again
+  return true
+}
+function scribeFailed() {
+  if (++scribeFails >= SCRIBE_TRIP) {
+    scribeParkedUntil = Date.now() + SCRIBE_PARK_MS
+    console.error(`[stt] scribe parked for ${SCRIBE_PARK_MS / 60_000}m after ${scribeFails} failures`)
+  }
+}
+
+/**
+ * ElevenLabs Scribe. Returns the transcript, or null on ANY failure so the caller
+ * falls through to Whisper — a live call must never be left without speech input
+ * because one provider had a bad minute.
+ *
+ * Timeout is tight (8s): this sits in front of a working fallback, so waiting
+ * costs more than moving on. An utterance is a few seconds of audio; a healthy
+ * response lands well inside this.
+ */
+async function scribeSTT(file: Blob, key: string, language?: string): Promise<string | null> {
+  if (!scribeAvailable()) return null
+  try {
+    const form = new FormData()
+    form.append("file", file, (file as File).name || "audio.webm")
+    form.append("model_id", process.env.ELEVENLABS_STT_MODEL || "scribe_v1")
+    if (language) form.append("language_code", language)
+    // We want words, not "[door slams]" — audio-event tags would be read out by
+    // the character as if they were something the user said.
+    form.append("tag_audio_events", "false")
+    form.append("diarize", "false")
+    const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
+      method: "POST",
+      headers: { "xi-api-key": key },
+      body: form,
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) {
+      console.error("[stt] scribe failed:", res.status, (await res.text().catch(() => "")).slice(0, 200))
+      scribeFailed()
+      return null
+    }
+    const data = (await res.json()) as { text?: string }
+    if (typeof data.text !== "string") { scribeFailed(); return null }
+    scribeFails = 0
+    return data.text
+  } catch (e) {
+    console.error("[stt] scribe error:", e instanceof Error ? e.message : String(e))
+    scribeFailed()
+    return null
+  }
 }
 
 // RunPod faster-whisper worker. Sends audio as base64, polls if cold-starting.

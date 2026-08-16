@@ -23,6 +23,7 @@ import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { listenOnce, canListen } from "@/lib/voice-once"
 import { resolveAirrawHandle } from "@/lib/airroom/onboard"
 import { stripHallucinatedSentences } from "@/lib/text-dedup"
+import { dossierLine } from "@/lib/airraw/dossier"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
@@ -102,7 +103,10 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   const speak = async (text: string, m: Cluster) => {
     if (mutedRef.current) return   // muted: skip the voices (the words still arrive)
     try {
-      const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, gender: m.gender, language: langRef.current, voiceId: m.voiceId }) })
+      // seedKey, not the display name — the same key this member's FACE is generated
+      // from, so the voice and the face are the same person and two members who
+      // happen to share a name still sound different.
+      const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, seedKey: m.key, gender: m.gender, language: langRef.current, voiceId: m.voiceId }) })
       if (!res.ok) return
       const url = URL.createObjectURL(await res.blob())
       const a = audioRef.current
@@ -164,8 +168,15 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     // The Pro "vibe" steer is sent separately and gated server-side on a real Pro token.
     const persona = {
       name: mem.host,
-      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. You are warm, real, human — never a corporate assistant, never robotic. React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.${topic ? ` Tonight the room keeps circling one thing: "${topic}" — drift back to it when the thread goes quiet.` : ""}`,
+      // Same fix as the 1:1 call: every member used to be described by one generic
+      // sentence, so nobody in the room had anything of their own to say and they
+      // all converged on echoing whatever was said last. The dossier gives each
+      // one a job, a night, an opinion — which is also what makes them sound like
+      // different people to each other.
+      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. ${dossierLine(mem.key || mem.host)} React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.${topic ? ` Tonight the room keeps circling one thing: "${topic}" — drift back to it when the thread goes quiet.` : ""}`,
       speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am", backstory: "", language: langRef.current,
+      // The server derives this member's regional dialect from the seed itself.
+      seedKey: mem.key || mem.host,
     }
     const msgs = linesRef.current.map((l) => l.kind === "ai" && l.handle === mem.host
       ? { role: "assistant" as const, content: l.content }

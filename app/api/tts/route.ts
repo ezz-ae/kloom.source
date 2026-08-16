@@ -197,6 +197,18 @@ function shapeForSpeech(input: string): string {
   // 3) Strip stage directions / sound cues — engines voice them literally.
   t = t.replace(/\((?:laughs?|sighs?|giggles?|whispers?|pauses?|smiles?|grins?|chuckles?|clears throat|beat|gasps?|inhales?|exhales?|softly|coughs?)[^)]*\)/gi, " ")
   t = t.replace(/\[(?:laughs?|sighs?|music|sound|sfx|pause|beat|applause)[^\]]*\]/gi, " ")
+  t = t.replace(/\*[^*\n]{1,60}\*/g, " ")   // *laughs* / *يضحك* — asterisk form
+  // ARABIC stage directions. The rules above only caught English inside brackets, so
+  // Arabic narration with NO delimiters ("يضحك بصوت عالي ثم يقول ...") passed straight
+  // through and the voice engine READ IT ALOUD instead of the character performing it.
+  // Bracketed/parenthesised Arabic narration — safe to remove wholesale.
+  t = t.replace(/[([]\s*(?:[يت](?:ضحك|بتسم|تنهد|همس|صمت|نظر|قول)|بصوت|بابتسامة|بهدوء)[^)\]]*[)\]]/g, " ")
+  // Bare leading narration: "يضحك ثم يقول: ..." / "تبتسم وتقول ..." — strip ONLY when it
+  // is a narration PREFIX that hands off to speech (…يقول/تقول/وتقول), so ordinary
+  // dialogue containing "يقول" mid-sentence ("قال إنه يقول الحقيقة") is left intact.
+  t = t.replace(/^\s*[يت](?:ضحك|بتسم|تنهد|همس|صمت|نظر)\b[^.!?…؟\n]{0,40}?\s*(?:ثم\s*)?[وف]?[يت]قول\s*:?\s*/u, "")
+  // A bare leading narration verb with no hand-off: "يضحك بصوت عالي." on its own.
+  t = t.replace(/^\s*[يت](?:ضحك|بتسم|تنهد|همس)\b(?:\s+(?:بصوت|بهدوء|بخفوت)\s+\S+)?\s*[.،]\s*/u, "")
 
   // 4) Strip emoji & pictographs.
   t = t.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}]/gu, " ")

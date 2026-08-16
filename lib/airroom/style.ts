@@ -46,7 +46,11 @@ export function stylePromptLine(profile: StyleProfile): string {
   else if (c.pace)                       notes.push("can go deeper — user enjoys more detail")
   if (c.tone === "be real with me")      notes.push("direct and unfiltered — no softening")
   else if (c.tone)                       notes.push("ease in gently, warm approach")
-  if (c.energy === "match my energy")    notes.push("mirror the user's exact energy level")
+  // NEVER the word "mirror": this line lands at the END of the system prompt —
+  // after every anti-mirroring rule — so it won the recency contest and literally
+  // instructed the model to echo the user. That was the "AI just repeats what I
+  // say / feels like an interview" bug. Match INTENSITY, never content.
+  if (c.energy === "match my energy")    notes.push("match their intensity — but with your OWN material, never by repeating their words")
   else if (c.energy)                     notes.push("relaxed steady pace regardless of their energy")
   if (c.humor === "make me laugh")       notes.push("humor and jokes land — use them")
   else if (c.humor)                      notes.push("genuine over funny — skip the jokes")

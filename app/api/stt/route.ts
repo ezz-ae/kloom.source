@@ -42,6 +42,14 @@ const ARABIC_HALLUCINATIONS = new Set([
   "تابعونا", "للمزيد", "نهاية",
 ])
 
+// Decoding hint for Arabic. Whisper is trained heavily on Modern Standard Arabic,
+// so left unbiased it "corrects" everyday spoken Arabic into MSA-shaped words —
+// which is how a word comes back as a completely different word. This seed tells it
+// to expect casual spoken register instead. Kept deliberately short (~15 tokens):
+// longer prompts measurably increase hallucinated insertions on brief clips.
+// Override per-deployment with STT_PROMPT_AR.
+const AR_STYLE_SEED = "مكالمة صوتية بالعامية، كلام عفوي وقصير."
+
 function cleanTranscript(text: string | null | undefined): string {
   const t = (text || "").trim()
   if (!t) return ""
@@ -95,6 +103,15 @@ export async function POST(request: Request) {
     groqForm.append("model", groqModel)
     groqForm.append("response_format", "json")
     if (language) groqForm.append("language", language)
+    // Pin sampling off. Left unset, a short clip can decode differently run to run —
+    // the same word coming back as two different words on two tries.
+    groqForm.append("temperature", "0")
+    // Whisper's `prompt` biases spelling/vocabulary/register toward what it expects.
+    // Untuned, Whisper leans MSA and mangles everyday spoken Arabic (measured
+    // ~59% WER on Egyptian, ~60% on Gulf — every other word wrong). Deliberately
+    // SHORT: accuracy degrades past ~16 tokens as the decoder starts inserting
+    // hallucinated continuations, and our clips are short enough to be at risk.
+    if (isArabic) groqForm.append("prompt", process.env.STT_PROMPT_AR || AR_STYLE_SEED)
     try {
       const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
         method: "POST",

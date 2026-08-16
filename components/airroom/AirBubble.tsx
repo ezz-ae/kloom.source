@@ -102,7 +102,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const speakTokenRef = useRef(0)
   const leavingRef = useRef(false)
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
-  const pendingRef = useRef<string | null>(null)
+  // A QUEUE, not a single slot. It used to be one string: if you spoke twice while
+  // the character was thinking, the second utterance overwrote the first and the
+  // first was silently lost. Coalesced on flush so two halves of one thought
+  // ("I was thinking…" [breath] "…about last night") arrive as ONE message.
+  const pendingRef = useRef<string[]>([])
   const audioQueueRef = useRef<Array<{ url: string }>>([])
   const qPlayingRef = useRef(false)
 
@@ -149,10 +153,27 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       if (!qPlayingRef.current) {
         qPlayingRef.current = true
         hostSpeakingRef.current = true; setSpeaking(true)
-        try { segRef.current?.abort() } catch { /* */ }
+        // NOTE: the mic deliberately stays LIVE here. It used to be aborted
+        // (segRef.abort()), which made barge-in physically impossible — there was
+        // no VAD and no recorder running, so there was nothing to interrupt with.
+        // getUserMedia already requests hardware echo-cancellation (phoneMicAudio),
+        // so the character's own voice is largely cancelled out of the capture.
         drainQueue()
       }
     } catch { /* skip failed chunk */ }
+  }
+
+  /** Cut the character off mid-sentence: kill in-flight TTS, drop everything queued,
+   *  and stop the audio element. This is what makes interrupting feel like a phone
+   *  call instead of a walkie-talkie. */
+  const stopSpeaking = () => {
+    speakTokenRef.current++            // invalidates any TTS still in flight
+    audioQueueRef.current.forEach((q) => { try { URL.revokeObjectURL(q.url) } catch { /* */ } })
+    audioQueueRef.current = []
+    qPlayingRef.current = false
+    const a = audioRef.current
+    if (a) { try { a.pause(); a.removeAttribute("src"); a.load() } catch { /* */ } }
+    hostSpeakingRef.current = false; setSpeaking(false)
   }
 
   const speak = async (text: string) => {
@@ -229,8 +250,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       setTrouble(true)
     } finally {
       busyRef.current = false; setBusy(false)
-      const p = pendingRef.current
-      if (p) { pendingRef.current = null; setTimeout(() => send(p), 0) }
+      // Flush everything said while the character was busy, joined into one line —
+      // nothing spoken is ever dropped now.
+      if (pendingRef.current.length) {
+        const p = pendingRef.current.join(" ").trim()
+        pendingRef.current = []
+        if (p) setTimeout(() => send(p), 0)
+      }
     }
   }
 
@@ -300,7 +326,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         const r = e.results?.[e.results.length - 1]
         if (!r || !r.isFinal) return
         const t = r[0]?.transcript?.trim()
-        if (t && !hostSpeakingRef.current) { if (busyRef.current) pendingRef.current = t; else send(t) }
+        // Same barge-in contract as the Whisper path: interrupting cuts the
+        // character off instead of the user's words being discarded.
+        if (t) {
+          if (hostSpeakingRef.current) stopSpeaking()
+          if (busyRef.current) pendingRef.current.push(t)
+          else send(t)
+        }
       }
       rec.onerror = (ev: any) => { if (ev?.error === "not-allowed" || ev?.error === "service-not-allowed") setHandsFree(false) }
       rec.onend = () => { if (!stopped) { try { rec.start() } catch { /* */ } } }
@@ -336,7 +368,15 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         getLanguage: () => (LANGUAGE_TO_BCP47[langRef.current] || "en").split("-")[0],
         onLevel: (l) => { micLevelRef.current = l },
         onCapture: () => { if (!hostSpeakingRef.current) setMicHint("heard you — one sec…") },
-        onText: (t) => { if (hostSpeakingRef.current) return; setMicHint(""); if (busyRef.current) { pendingRef.current = t; return } send(t) },
+        onText: (t) => {
+          setMicHint("")
+          // BARGE-IN: this used to be `if (hostSpeakingRef.current) return` — your
+          // words were thrown away whenever the character happened to be talking,
+          // with no feedback at all. Now speaking over it CUTS IT OFF, like a phone.
+          if (hostSpeakingRef.current) stopSpeaking()
+          if (busyRef.current) { pendingRef.current.push(t); return }
+          send(t)
+        },
         onError: () => setMicHint(`couldn't catch that — try again`),
         onUnavailable: () => {
           try { seg?.destroy() } catch { /* */ }

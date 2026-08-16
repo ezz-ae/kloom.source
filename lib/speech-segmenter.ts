@@ -100,13 +100,19 @@ export class SpeechSegmenter {
   // speech gates. Starts near a quiet room and re-learns fast when the room quiets.
   private noiseFloor = 0.004
   // While idle, rotate the always-on recorder this often so an utterance never
-  // carries more than ~3s of leading room tone into the STT request.
-  private static readonly PREROLL_WINDOW_MS = 3000
+  // carries a long tail of leading room tone into the STT request. Was 3000: that
+  // meant up to 3s of silence uploaded and transcribed on EVERY turn — pure added
+  // latency and cost, and extra room tone for the recogniser to hallucinate on.
+  // 1200ms is still far more pre-roll than needed to catch a word's onset.
+  private static readonly PREROLL_WINDOW_MS = 1200
 
   constructor(options: SegmenterOptions) {
     this.opts = {
       silenceMs: 800,      // end-of-speech after this much silence.
-      minSpeechMs: 350,    // ignore blips shorter than real speech (coughs, clicks, a breath).
+      // 350ms discarded REAL short words — "no", "wait", "stop", "yes", "لأ" — which
+      // are exactly the words used to interrupt someone. Dropping them made barge-in
+      // impossible even once the mic stayed live. 200ms still rejects clicks/coughs.
+      minSpeechMs: 200,
       startRms: 0.015,     // start-of-speech energy. 0.02 was too high: quieter mics/voices never crossed it, so capture never began while the visualizer still danced ("reads the mic but nothing sends"). Echo is handled by PAUSING the mic while the host speaks — not by a high gate.
       endRms: 0.008,
       maxUtteranceMs: 13000,

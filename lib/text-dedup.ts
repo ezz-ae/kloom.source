@@ -43,11 +43,31 @@ export function joinSentences(parts: string[]): string {
 // sit inside an otherwise-real sentence), unlike the STT hallucination list which only
 // ever sees a clean, isolated utterance. Checked per-sentence in the chat stream so a
 // hit drops just that sentence, never the character's real line around it.
-const BOILERPLATE_RE =
-  /اشتركوا?\s+في\s+القناة|القناة|لايك\s*(?:و)?\s*اشتراك|تابعونا\s+(?:على|في)|subscribe\s+to\s+(?:my|the|our)\s+channel|like\s+and\s+subscribe|smash\s+that\s+(?:like|subscribe)|thanks?\s+for\s+watching/i
+// Arabic is written inconsistently — the SAME phrase appears as القناة or القناه
+// (ta-marbuta vs ha), اشتركوا or اشتركو (with/without the final alef), أ/إ/آ or ا,
+// ى or ي. The previous regex demanded one exact spelling, so real output like
+// "اشتركو في القناه" walked straight past it. Normalise the text first, then match
+// against normalised patterns — one rule now covers every spelling variant.
+function normArabic(s: string): string {
+  return s
+    .replace(/[ً-ٰٟـ]/g, "")  // strip diacritics + tatweel
+    .replace(/[أإآٱ]/g, "ا")
+    .replace(/ة/g, "ه")                            // ta-marbuta → ha
+    .replace(/[ىی]/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/\s+/g, " ")
+}
+
+// Matched against NORMALISED text (so القناه covers القناة, اشتركو covers اشتركوا).
+const BOILERPLATE_AR =
+  /اشترك\S*\s*(؟?)(في|ب)?\s*(ال)?قنا|الاشتراك\s*(في|ب)?\s*(ال)?قنا|لا\s*تنسو?ا?\s*الاشتراك|لايك\s*و?\s*اشتراك|فعل\S*\s*الجرس|تابعو?نا\s+(علي|في)|اشترك\S*\s*(في|ب)?\s*قناتنا/
+
+const BOILERPLATE_EN =
+  /subscribe\s+to\s+(?:my|the|our)\s+channel|like\s+and\s+subscribe|hit\s+the\s+bell|smash\s+that\s+(?:like|subscribe)|don'?t\s+forget\s+to\s+subscribe|thanks?\s+for\s+watching/i
 
 export function isHallucinatedBoilerplate(text: string): boolean {
-  return BOILERPLATE_RE.test(text)
+  return BOILERPLATE_EN.test(text) || BOILERPLATE_AR.test(normArabic(text))
 }
 
 // For callers that get one accumulated reply string instead of a live sentence

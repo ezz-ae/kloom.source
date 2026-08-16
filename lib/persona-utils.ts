@@ -50,13 +50,19 @@ export function portraitSlug(name: string): string {
  * deep radial aura in a curated duotone, soft ring, serif monogram —
  * as an SVG data URI. Both work directly as <img src>.
  */
-export function imageFor(persona: { name: string; photoUrl?: string }): string {
+export function imageFor(persona: { name: string; photoUrl?: string; seed?: string }): string {
   // An explicit generated photo (Supabase Storage url) always wins.
   if (persona.photoUrl) return persona.photoUrl
   const name = persona.name || "?"
   const slug = portraitSlug(name)
   if (PORTRAIT_SLUGS.has(slug)) return `/cast/${slug}.jpg?v=${CAST_VERSION}`
-  const h = nameHash(name)
+  // The LETTER comes from the display name; the COLOUR comes from the identity
+  // seed when one is given. Keeping them separate matters: identity seeds are
+  // structured strings like "Lesbian:3f:Mara", so deriving the letter from the
+  // seed put the same initial on every character in a room — four identical
+  // circles where the whole point of the screen is that these are four different
+  // people. The aura still varies per identity, so they don't look stamped.
+  const h = nameHash(persona.seed || name)
   const [c1, c2] = AURAS[h % AURAS.length]
   // Aura position drifts per identity so cards don't look stamped.
   const cx = 30 + (h % 41)            // 30–70
@@ -91,5 +97,5 @@ export function imageFor(persona: { name: string; photoUrl?: string }): string {
  * looks coherent. `bot`/`seed` kept for call-site compatibility.
  */
 export function avatarForName(name: string, opts?: { bot?: boolean; seed?: string }): string {
-  return imageFor({ name: opts?.seed ?? name })
+  return imageFor({ name, seed: opts?.seed })
 }

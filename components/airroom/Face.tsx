@@ -15,7 +15,9 @@ export function Face({ persona, alt = "", style, className, lazy = true }: {
   className?: string
   lazy?: boolean
 }) {
-  const fallback = imageFor({ name: persona.seed || persona.name })
+  // Name for the letter, seed for the colour — see imageFor. Passing the seed as
+  // the name put the same initial on every character sharing a room.
+  const fallback = imageFor({ name: persona.name, seed: persona.seed })
   const [src, setSrc] = useState<string>(() => cachedFace(persona) || fallback)
   const [loaded, setLoaded] = useState(false)
   const key = persona.seed || persona.name

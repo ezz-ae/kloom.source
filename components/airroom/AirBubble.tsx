@@ -350,9 +350,21 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     speakChunk(text, resetSpeech())
   }
 
-  // Greet on open — but NOT when picking an old thread back up, where a canned
-  // opener over the top of a conversation you already had reads as amnesia.
-  useEffect(() => { if (!resumed) speak(cluster.lines[0]) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // The greeting is spoken when the CALL starts, not when the card opens.
+  //
+  // It used to fire on mount, so a character started talking at you while the
+  // screen still said "tap call to start" — you hadn't called anyone and a voice
+  // was already going. The line is on screen as text from the moment you open the
+  // card; the voice now waits until you actually place the call.
+  //
+  // Not spoken at all when picking an old thread back up, where a canned opener
+  // over a conversation you already had reads as amnesia.
+  const greetedRef = useRef(false)
+  const greetIfNeeded = () => {
+    if (greetedRef.current || resumed) return
+    greetedRef.current = true
+    speak(cluster.lines[0])
+  }
 
   // Persist the thread as it goes, so closing the tab mid-sentence still leaves
   // something to come back to. No-op entirely for a free session.
@@ -463,6 +475,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const send = async (override?: string) => {
     const text = (override ?? input).trim()
     if (!text || busyRef.current) return
+    // Typing counts as starting too — the canned hello must never arrive on top
+    // of a conversation the user has already begun in their own words.
+    greetedRef.current = true
     lastActivityRef.current = Date.now()
     setInput("")
     if (!talkedRef.current) { talkedRef.current = true; onTalked?.() }
@@ -485,12 +500,20 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   useEffect(() => {
     const o = opening?.trim()
     if (!o) return
+    greetedRef.current = true   // they opened with their own line; no canned hello
     const id = setTimeout(() => send(o), 500)
     return () => clearTimeout(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const onTalk = () => { setMicHint(""); lastActivityRef.current = Date.now(); setHandsFree((h) => !h) }
+  const onTalk = () => {
+    setMicHint(""); lastActivityRef.current = Date.now()
+    setHandsFree((h) => {
+      const next = !h
+      if (next) greetIfNeeded()   // the call is starting — now they say hello
+      return next
+    })
+  }
 
   const leaveCall = () => {
     if (leaving || msgs.length <= 1) { onClose(); return }
@@ -631,9 +654,20 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     <div onPointerDown={onSwipeDown} onPointerUp={onSwipeUp} className="air-rise" style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: `radial-gradient(130% 90% at 50% 0%, #1a0828 0%, #0d0418 55%, #07040f 100%)`, display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#f0e8ff" }}>
       <style>{`@keyframes airpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.18);opacity:0}100%{transform:scale(1.18);opacity:0}}@keyframes aireq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes airblink{0%,50%{opacity:1}51%,100%{opacity:0}}`}</style>
 
-      {/* top bar — status + mute + leave */}
+      {/* top bar — leave + status + sound */}
       <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(18px, env(safe-area-inset-right)) 6px max(18px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
         <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          {/* The way OUT. There wasn't one: opening a face gave you a screen whose
+              only control was "call", and the only escape was an undiscoverable
+              swipe-down. Backing out of someone you opened by mistake is the most
+              basic thing this screen has to do. */}
+          <button
+            onClick={() => (leaving ? onClose() : leaveCall())}
+            aria-label="leave"
+            style={{ flex: "0 0 auto", width: 36, height: 36, borderRadius: 11, fontSize: 17, lineHeight: 1, color: "rgba(240,232,255,.72)", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.10)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
+          >
+            ‹
+          </button>
           <span style={{ display: "flex", alignItems: "center", gap: 2, height: 14, flexShrink: 0 }}>
             {[0, 1, 2].map((i) => (
               <span key={i} style={{ width: 3, height: 14, borderRadius: 2, background: muted ? "rgba(240,232,255,.2)" : accent, transformOrigin: "center", animation: (speaking && !muted) ? `aireq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)", transition: "background .3s" }} />

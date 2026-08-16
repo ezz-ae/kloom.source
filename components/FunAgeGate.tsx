@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Site-entry 18+ gate for the .fun variant.
+ * Site-entry 18+ gate for the adult variant (airraw.com).
  *
  * Kloom.fun is an entirely unrestricted / adult product, so — unlike the per-room
  * AdultGate on .io — a single age confirmation must block the WHOLE site on first
@@ -37,7 +37,7 @@ export function FunAgeGate() {
         </div>
         <h2 className="text-2xl font-black tracking-tight">Adults only.</h2>
         <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-          Kloom.fun is an 18+ space — conversations here are unrestricted and can be
+          This is an 18+ space — conversations here are unrestricted and can be
           explicit. By entering you confirm you are <span className="text-foreground font-semibold">18 or older</span> and
           that adult content is legal where you live.
         </p>

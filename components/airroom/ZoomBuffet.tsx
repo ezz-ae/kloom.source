@@ -106,7 +106,7 @@ export function ZoomBuffet() {
     const char = makeCharacter(seed, f)
     return (
       <button key={v} onClick={() => openVoice(char)} aria-label="a voice" style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed, f), border: "1px solid rgba(255,255,255,.14)", cursor: "pointer", boxShadow: `0 0 6px ${avatarGlow(f)}55`, padding: 0 }}>
-        <Face persona={{ name: char.host, gender: char.gender, seed: char.key }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <Face persona={{ name: char.host, gender: char.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       </button>
     )
   }), [world, room, voicesCount, openVoice])

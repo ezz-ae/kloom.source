@@ -70,8 +70,10 @@ function personaFor(c: Cluster, lang?: string, pro = false) {
       `You want things and you say so out loud.`,
     speakingStyle: "raw, intimate voice at 2am — short fragments, direct, natural. get to it fast. stretch letters for feeling when it's real: 'yesss', 'noooo'. never formal, never robotic.",
     backstory: `A familiar voice on the ${c.vibe} part of the adult floor.`,
-    // The server derives the dialect from this itself — we send the seed, not the text.
-    seedKey: id,
+    // Accent/dialect is derived from this, and the FACE is generated from the name —
+    // so this must be the NAME, or a character would look one ethnicity and sound
+    // another. The unique key stays where it's free: the dossier and saved threads.
+    seedKey: c.host,
     barTalk: 100,
   }
 }
@@ -290,11 +292,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         method: "POST", headers: { "Content-Type": "application/json" },
         // prevText = what this voice already said this reply → the engine continues
         // the same breath across chunks instead of restarting (no mid-reply shift).
-        // seedKey (not the display name) is what casts the voice — the same key the
-        // FACE is generated from, so the voice you hear and the face you see are the
-        // same person. Keyed on the name, two different characters who happened to
-        // share a name were cast identically.
-        body: JSON.stringify({ text, personaName: cluster.host, seedKey: cluster.key, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice", prevText }),
+        // seedKey drives accent/voice casting and the FACE is generated from the
+        // name, so both use the name — otherwise a character looks one ethnicity and
+        // sounds another.
+        body: JSON.stringify({ text, personaName: cluster.host, seedKey: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice", prevText }),
         signal: AbortSignal.timeout(30000),
       })
       if (tok !== speakTokenRef.current) return
@@ -781,7 +782,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           {speaking && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `2px solid ${accent}`, animation: "airpulse 1.5s ease-out infinite" }} />}
           <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${speaking ? accent : accent + "50"}`, boxShadow: `0 22px 70px -22px ${glow}`, transition: "border-color .3s" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <Face persona={{ name: cluster.host, gender: cluster.gender, seed: cluster.key }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <Face persona={{ name: cluster.host, gender: cluster.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         </div>
 

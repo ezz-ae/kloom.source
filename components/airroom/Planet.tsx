@@ -15,11 +15,12 @@
  * confirm your age by opening one.
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
+import { makeCharacter, pickForLanguages, type Cluster } from "@/lib/airroom/roster"
 import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
+import { matchesPrefs } from "@/lib/airraw/lang-prefs"
 import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
@@ -897,7 +898,9 @@ function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos, onResume }: 
     const c = ((pos.c % CONTINENTS.length) + CONTINENTS.length) % CONTINENTS.length
     const seed = ihash(c * 131 + pos.i * 17 + 5, c * 7 + pos.i * 3 + 11)
     const n = 5 + (seed % 60)
-    const cast = Array.from({ length: 4 }, (_, k) => makeCharacter(seed * 7 + k + 1, CONTINENTS[c].f))
+    // Steered toward people who open in a language the user speaks (Pro only —
+    // unfiltered otherwise). Always returns somebody, so the deck can never empty.
+    const cast = Array.from({ length: 4 }, (_, k) => pickForLanguages(seed * 7 + k + 1, CONTINENTS[c].f, (key) => matchesPrefs(key)))
     return { c, seed, topic: TOPICS[c][seed % TOPICS[c].length], n, cast }
   }, [pos])
   const co = CONTINENTS[room.c]

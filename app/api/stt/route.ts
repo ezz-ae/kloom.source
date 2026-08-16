@@ -100,7 +100,11 @@ export async function POST(request: Request) {
   // Set STT_SCRIBE=0 to turn it off and fall back to the Whisper path below.
   const elKey = process.env.ELEVENLABS_API_KEY
   if (isArabic && elKey && process.env.STT_SCRIBE !== "0") {
-    const t = await scribeSTT(file, elKey, language)
+    // No language pinned: Scribe detects it, which is what lets an Arabic-set
+    // character understand a line of English without losing Arabic accuracy.
+    // Whisper below still pins for Arabic, because it needs the help — that's the
+    // fallback path only, and only when Scribe is unavailable.
+    const t = await scribeSTT(file, elKey)
     if (t !== null) return Response.json({ text: cleanTranscript(t) }, { headers: { "Cache-Control": "no-store" } })
     // fall through to Whisper on any failure — never leave the call without STT
   }
@@ -118,7 +122,15 @@ export async function POST(request: Request) {
       : (process.env.GROQ_STT_MODEL || "whisper-large-v3-turbo")
     groqForm.append("model", groqModel)
     groqForm.append("response_format", "json")
-    if (language) groqForm.append("language", language)
+    // Pin the decoder to a language ONLY for Arabic, where it measurably helps a
+    // non-Latin script. For everyone else the language is left to auto-detect.
+    //
+    // It used to be pinned to whatever the UI was set to, which meant a bilingual
+    // user with English selected who said something in Arabic had it force-decoded
+    // as English — Whisper doesn't refuse, it invents English words that sound
+    // similar, so the character received something the user never said. Detecting
+    // costs nothing here and is what makes "speak either language" actually work.
+    if (isArabic && language) groqForm.append("language", language)
     // Pin sampling off. Left unset, a short clip can decode differently run to run —
     // the same word coming back as two different words on two tries.
     groqForm.append("temperature", "0")
@@ -231,6 +243,8 @@ function scribeFailed() {
  * response lands well inside this.
  */
 async function scribeSTT(file: Blob, key: string, language?: string): Promise<string | null> {
+  // `language` is optional and normally omitted — Scribe auto-detects, which is
+  // what makes a character bilingual. Pass one only to force a specific language.
   if (!scribeAvailable()) return null
   try {
     const form = new FormData()

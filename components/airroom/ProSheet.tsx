@@ -8,6 +8,8 @@
 import { useState, useEffect } from "react"
 import { setPendingIntent, setProToken, isPro, clearPro, fbCookies } from "@/lib/airroom/pro"
 import { track } from "@/lib/track"
+import { LANGUAGES } from "@/lib/languages"
+import { getLangPrefs, saveLangPrefs, langPrefsPersist, type LangPrefs } from "@/lib/airraw/lang-prefs"
 
 function perks(minutes: number, days: number): [string, string][] {
   const months = Math.max(1, Math.round(days / 30))
@@ -16,6 +18,7 @@ function perks(minutes: number, days: number): [string, string][] {
     [`✦  ${minutes.toLocaleString()} voice minutes`, `${months === 1 ? "a month" : months === 3 ? "three months" : `${months} months`} of talking out loud — across every room`],
     ["✦  AIR", "tap once and your best matches light up across the whole floor"],
     ["✦  set the vibe", "steer any room — flirty, hyped, brutally honest — and the voices follow"],
+    ["✦  your languages, kept", "your default sticks between visits, and the floor fills with people who actually open in it"],
   ]
 }
 
@@ -30,6 +33,22 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
   const [code, setCode] = useState("")
   const [rErr, setRErr] = useState("")
   const [offer, setOffer] = useState(DEFAULT_OFFER)
+  // Languages are choosable by everyone — free included. What the pass changes is
+  // that the choice sticks between visits and steers who you meet.
+  const [langs, setLangs] = useState<LangPrefs>(() => getLangPrefs())
+  const [sticky] = useState(() => langPrefsPersist())
+  const setPrimary = (name: string) => {
+    const next: LangPrefs = { primary: name, also: langs.also.filter((x) => x !== name) }
+    setLangs(next); saveLangPrefs(next)
+  }
+  const toggleAlso = (name: string) => {
+    if (name === langs.primary) return
+    const next: LangPrefs = {
+      primary: langs.primary,
+      also: langs.also.includes(name) ? langs.also.filter((x) => x !== name) : [...langs.also, name],
+    }
+    setLangs(next); saveLangPrefs(next)
+  }
 
   // Restore a pass bought on another device/browser. The pass is a portable signed
   // token, so pasting the saved restore code re-activates it with no account.
@@ -78,6 +97,44 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
+        {/* Languages — usable right now whether or not they buy. Putting a working
+            control in the paywall (rather than a locked preview) is the point: they
+            feel it work, and the pass is what makes it persist. */}
+        <div style={{ padding: "6px 22px 2px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: "#e9deff" }}>your languages</div>
+          <label style={{ fontSize: 11.5, color: "#9fb2c4" }}>
+            you speak mostly
+            <select
+              value={langs.primary}
+              onChange={(e) => setPrimary(e.target.value)}
+              style={{ width: "100%", marginTop: 5, height: 38, borderRadius: 11, fontSize: 13, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.2)", padding: "0 9px", cursor: "pointer" }}
+            >
+              {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.name}</option>)}
+            </select>
+          </label>
+          <div style={{ fontSize: 11.5, color: "#9fb2c4" }}>and also</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {LANGUAGES.filter((l) => l.name !== langs.primary).map((l) => {
+              const on = langs.also.includes(l.name)
+              return (
+                <button
+                  key={l.name}
+                  onClick={() => toggleAlso(l.name)}
+                  aria-pressed={on}
+                  style={{ fontSize: 12, padding: "6px 11px", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", color: on ? "#1a0d2a" : "#9fb2c4", background: on ? "#e9b6ff" : "rgba(255,255,255,.06)", border: on ? "none" : ".5px solid rgba(255,255,255,.16)", fontFamily: "inherit" }}
+                >
+                  {l.name}
+                </button>
+              )
+            })}
+          </div>
+          <div style={{ fontSize: 11, color: sticky ? "#7fd6c0" : "#6b7d8e", lineHeight: 1.4 }}>
+            {sticky
+              ? "saved as your default — and the floor is filled with people who open in these."
+              : "this works now, for this visit. with the pass it becomes your default and fills the floor with people who open in these."}
+          </div>
+        </div>
+
         <div style={{ textAlign: "center", padding: "8px 22px 4px" }}>
           <span style={{ fontSize: 30, fontWeight: 700, color: "#fff" }}>${offer.price}</span>
           <span style={{ fontSize: 14, color: "#9fb2c4" }}> / {offer.days} days</span>

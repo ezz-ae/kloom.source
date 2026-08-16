@@ -6,6 +6,7 @@ import { normSentence, isRepeatSentence, joinSentences, isHallucinatedBoilerplat
 import { adultEnabled } from "@/lib/variant"
 import { analyzeIntent, refusalFor } from "@/lib/intent"
 import { arabicDialectLine } from "@/lib/airraw/accent"
+import { platformFactsFor } from "@/lib/airraw/platform-facts"
 
 export const maxDuration = 60
 
@@ -22,6 +23,9 @@ interface Persona {
    * the dialect always matches the face the same seed generated.
    */
   seedKey?: string
+  /** Every language this person speaks, their default first. Lets a character
+   *  expect a switch instead of treating it as something to correct. */
+  speaks?: string[]
   warmth?: number
   talkStyle?: number
   barTalk?: number
@@ -127,7 +131,7 @@ export async function POST(request: Request) {
   // The FLOOR is appended LAST so it outranks persona/vibe/content-layer text above it.
   const systemPrompt =
     (others.length === 0
-      ? buildSystemPrompt(persona, pro, adult, userStyle)
+      ? buildSystemPrompt(persona, pro, adult, userStyle, lastUser?.content || "")
       : others.length === 1
         ? buildThirdModePrompt(persona, others[0], relationship, pro, adult, userStyle)
         : buildRoomPrompt(persona, others, relationship, pro, adult, userStyle)) + FLOOR
@@ -374,8 +378,11 @@ const FEW_SHOT_AR: { role: "user" | "assistant"; content: string }[] = [
   { role: "assistant", content: "ولسا ما سكّرت. يعني." },
 ]
 
-function buildSystemPrompt(persona: Persona, pro = false, adult = false, userStyle = "") {
+function buildSystemPrompt(persona: Persona, pro = false, adult = false, userStyle = "", lastUserText = "") {
   const languageInstruction = languageLine(persona)
+  // Only present when they actually asked about the platform, the pass, privacy
+  // or recording — see lib/airraw/platform-facts.ts.
+  const platform = platformFactsFor(lastUserText)
   const warmthInstruction = warmthLine(persona)
   const talkStyleInstruction = talkStyleLine(persona)
   const barTalkInstruction = barTalkLine(persona)
@@ -401,7 +408,7 @@ How you talk:
 ${persona.speakingStyle || "Natural and warm, like a close friend."}
 
 Backstory:
-${persona.backstory || "You enjoy meaningful conversations."}${languageInstruction}${warmthInstruction}${talkStyleInstruction}${barTalkInstruction}${userStyle}
+${persona.backstory || "You enjoy meaningful conversations."}${languageInstruction}${warmthInstruction}${talkStyleInstruction}${barTalkInstruction}${platform}${userStyle}
 
 Now speak as ${persona.name}. One short reply only.`
 }
@@ -510,9 +517,39 @@ ${relationship ? `YOUR RELATIONSHIP WITH ${partner.name.toUpperCase()}:\n${relat
 Now speak as ${self.name}. One short reply only.`
 }
 
+// Everyone is bilingual now.
+//
+// The language setting used to be a hard lock — "reply ONLY in X, EVERY word" —
+// which broke both directions of how people actually talk. An Arabic character
+// couldn't answer a line of English, and someone with English selected who said
+// something in Arabic got answered in a language they hadn't just used. Real
+// bilingual speakers switch mid-conversation and expect to be followed.
+//
+// So the setting is now a DEFAULT, and the live rule is: answer in whatever they
+// just spoke. The default only decides where the conversation starts.
+function speaksLine(persona: Persona): string {
+  const s = (persona.speaks || []).filter((x) => typeof x === "string").slice(0, 6)
+  if (s.length < 2) return ""
+  return `\nThey speak ${s.join(" and ")}. Expect them to move between those mid-conversation and just follow — don't comment on it, don't ask which one they want.`
+}
+
+const FOLLOW_THEIR_LANGUAGE =
+  "\nSPEAK THEIR LANGUAGE: answer in whatever language they just used, every time. " +
+  "If they write to you in English, answer in English. If they switch back, switch back with them — mid-conversation is normal and you follow without remarking on it. " +
+  "Never answer in a language they didn't just use, and never tell them which language to speak."
+
+function englishDefaultLine(persona: Persona) {
+  // English default: no language block existed at all, so a user speaking Arabic
+  // to an English-set character got answered in English. One line fixes it.
+  const dialect = persona.seedKey ? arabicDialectLine(persona.seedKey) : ""
+  return `\n\n=== LANGUAGE ===${FOLLOW_THEIR_LANGUAGE}${speaksLine(persona)}${
+    dialect ? `\nIf they speak Arabic, this is the Arabic you speak:${dialect}` : ""
+  }`
+}
+
 function languageLine(persona: Persona) {
   const lang = persona.language
-  if (!lang || lang === "English") return ""
+  if (!lang || lang === "English") return englishDefaultLine(persona)
   if (lang === "Arabic" || lang === "ar") {
     // Derived from the persona's seed, never from client-supplied text.
     // Deliberately NOT falling back to persona.name: only AIRRAW's floor sends a
@@ -521,14 +558,14 @@ function languageLine(persona: Persona) {
     // was. This must stay a no-op for Kloom.
     const dialect = persona.seedKey ? arabicDialectLine(persona.seedKey) : ""
     return `\n\n=== LANGUAGE — CRITICAL ===
-Reply ONLY in spoken colloquial Arabic — the way real people actually talk, NOT Modern Standard Arabic (MSA) or formal written Arabic.${dialect}
+Your default is spoken colloquial Arabic — the way real people actually talk, NOT Modern Standard Arabic (MSA) or formal written Arabic.${FOLLOW_THEIR_LANGUAGE}${speaksLine(persona)}${dialect}
 ${dialect ? "You keep your own dialect even when the other person speaks a different one — that's what a real person does." : "Match the user's dialect: Levantine if they use shu/halla2/hayk; Gulf if they use shnoo/il7een/zain."}
 AVOID formal chatbot phrases like "I am all ears", "with pleasure", "how may I help you", "what would you like to share" — those sound like a customer-service bot, not a person.
 NEVER say anything like "اشتركوا في القناة", "تابعونا", "لايك واشتراك", or any other YouTube/video-outro line — you are not a video host, you are a person on a call. That phrase must never appear, in any form.
 NEVER narrate what you are doing. Do NOT write things like "يضحك"، "تضحك"، "يبتسم"، "يتنهد"، "بصوت خافت"، "ثم يقول" — those get read out loud by the voice and ruin it. If something is funny, LAUGH IN THE WORDS ("هههه") — never write that you laughed.
 Keep it short and spoken: 1–2 short sentences. Long enough to actually say something of your own, never a paragraph.`
   }
-  return `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet. This holds even when the other person writes to you in English or any other language — you still answer in ${lang}, never switching, never mixing in English words. If you are about to write an English word, stop and write it in ${lang} instead.`
+  return `\n\n=== LANGUAGE ===\nYou are a native ${lang} speaker and ${lang} is your default — write it in its own script, not transliterated.${FOLLOW_THEIR_LANGUAGE}${speaksLine(persona)}`
 }
 
 function warmthLine(persona: Persona) {

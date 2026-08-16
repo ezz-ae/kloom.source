@@ -231,3 +231,31 @@ export function makeCharacter(seed: number, f: number): Cluster {
   return { f, n: 1, h, archetype: A.key, name, vibe: A.vibe, host, gender: isF ? "female" : "male", lines, voiceId, key }
 }
 
+
+/**
+ * The same as makeCharacter, but skewed toward people the user can actually open
+ * a conversation with — see lib/airraw/lang-prefs.ts. Walks forward from the seed
+ * until it finds a character whose native language the user speaks.
+ *
+ * ALWAYS returns somebody. If nothing matches within the scan window (a user
+ * whose languages the native mapping doesn't cover, or a very lopsided pool) it
+ * returns the character the seed would have produced anyway — a filtered floor
+ * that comes up empty is far worse than one that isn't perfectly filtered.
+ *
+ * Deterministic: same seed + same language settings → same person, every time.
+ * Changing languages reshuffles who you meet, which is the point.
+ */
+export function pickForLanguages(
+  seed: number,
+  f: number,
+  matches: (seedKey: string) => boolean,
+  scan = 24,
+): Cluster {
+  const first = makeCharacter(seed, f)
+  if (matches(first.key)) return first
+  for (let i = 1; i < scan; i++) {
+    const c = makeCharacter((seed + i * 7919) >>> 0, f)   // 7919 prime: spreads the walk
+    if (matches(c.key)) return c
+  }
+  return first
+}

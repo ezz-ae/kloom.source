@@ -21,6 +21,7 @@ import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQues
 import { dossierLine } from "@/lib/airraw/dossier"
 import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySink, bindMediaSession, type OutputDevice } from "@/lib/airraw/audio-output"
 import { loadTalk, saveTalk, forgetTalk, memoryEnabled } from "@/lib/airraw/memory"
+import { getLangPrefs, spokenLanguages } from "@/lib/airraw/lang-prefs"
 
 interface Msg { who: "host" | "you"; text: string }
 
@@ -53,8 +54,15 @@ const HEAT_GRAD:  Record<Heat, string> = {
 // implies character.
 function personaFor(c: Cluster, lang?: string, pro = false) {
   const id = c.key || c.host
+  // The caller's language wins when the surface pinned one; otherwise the user's
+  // own setting decides, rather than everyone starting in English.
+  const prefs = getLangPrefs()
+  const spoken = spokenLanguages(prefs)
   return {
-    language: lang || "English",
+    language: lang || prefs.primary || "English",
+    // Every language they speak, so switching mid-call is expected rather than
+    // treated as a mistake to correct.
+    speaks: spoken,
     name: c.host,
     personality:
       `You are ${c.host}, on a late-night adult voice floor — the "${c.name}" room (vibe: ${c.vibe}). ` +

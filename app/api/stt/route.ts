@@ -1,7 +1,15 @@
 // Server-side speech-to-text. Backend priority:
-//   1. Groq Whisper (GROQ_API_KEY) — fast, direct upload, no cold starts
-//   2. RunPod faster-whisper serverless (RUNPOD_STT_ENDPOINT_ID)
-//   3. OpenAI-compatible /audio/transcriptions (STT_BASE_URL) — last resort
+//   Arabic only, in front:
+//     0. Gemini 3.5 Transcribe (GEMINI_API_KEY + STT_GEMINI=1) — opt-in; the only
+//        tier that can be handed an explicit dialect vocabulary
+//     1. ElevenLabs Scribe (ELEVENLABS_API_KEY) — Arabic default
+//   Everything, in order:
+//     2. Groq Whisper (GROQ_API_KEY) — fast, direct upload, no cold starts
+//     3. RunPod faster-whisper serverless (RUNPOD_STT_ENDPOINT_ID)
+//     4. OpenAI-compatible /audio/transcriptions (STT_BASE_URL) — last resort
+//
+// Every tier returns null on failure and falls through to the next, so a live
+// call can never be left with no recogniser at all.
 //
 // Browser STT fallback is handled client-side when NEXT_PUBLIC_STT_BROWSER=1.
 
@@ -89,15 +97,29 @@ export async function POST(request: Request) {
   const language = typeof form.get("language") === "string" ? (form.get("language") as string) : undefined
   const isArabic = language === "ar"
 
-  // ── ElevenLabs Scribe — Arabic only (tier 0) ──────────────────────────────
-  // Whisper is weak on spoken Arabic: it was trained overwhelmingly on Modern
-  // Standard Arabic, so it "corrects" everyday dialect into MSA-shaped words and
-  // a word comes back as a DIFFERENT word — the "I say something and the AI hears
-  // something else" bug. Scribe handles dialect markedly better.
+  // ── Gemini 3.5 Transcribe (tier 0 for Arabic, opt-in) ─────────────────────
+  // The one recogniser here that can be TOLD what dialect words to expect. Whisper
+  // and Scribe both have to infer that; this takes an explicit vocabulary, which is
+  // the most direct lever there is on a spoken dialect word arriving as a different
+  // word. Verified against the account before wiring in: the model is present and
+  // the Interactions API accepts inline audio with custom_vocabulary.
   //
-  // Deliberately scoped to Arabic: English via Groq is already accurate and much
-  // cheaper, so this buys accuracy exactly where it was missing and nowhere else.
-  // Set STT_SCRIBE=0 to turn it off and fall back to the Whisper path below.
+  // OFF unless STT_GEMINI=1. It is slower than Scribe in measurement (~3s vs ~1s on
+  // a one-second clip), so it trades turn latency for accuracy — that is a product
+  // decision, not one to make silently on someone's behalf.
+  const gemKey = process.env.GEMINI_API_KEY
+  if (isArabic && gemKey && process.env.STT_GEMINI === "1") {
+    const t = await geminiSTT(file, gemKey, language)
+    if (t !== null) return Response.json({ text: cleanTranscript(t) }, { headers: { "Cache-Control": "no-store" } })
+  }
+
+  // ── ElevenLabs Scribe — Arabic (tier 1) ───────────────────────────────────
+  // Whisper is weak on spoken Arabic: trained overwhelmingly on Modern Standard
+  // Arabic, it "corrects" everyday dialect into MSA-shaped words and a word comes
+  // back as a DIFFERENT word. Scribe handles dialect markedly better, and is the
+  // Arabic default because it is roughly three times faster than Gemini on a short
+  // clip. Scoped to Arabic: English through Groq is already accurate and cheaper.
+  // STT_SCRIBE=0 turns it off and falls through to Whisper.
   const elKey = process.env.ELEVENLABS_API_KEY
   if (isArabic && elKey && process.env.STT_SCRIBE !== "0") {
     // No language pinned: Scribe detects it, which is what lets an Arabic-set
@@ -209,6 +231,93 @@ export async function POST(request: Request) {
 
   const data = (await upstream.json().catch(() => ({}))) as { text?: string }
   return Response.json({ text: cleanTranscript(data.text) }, { headers: { "Cache-Control": "no-store" } })
+}
+
+// Spoken-dialect vocabulary for Gemini Transcribe.
+//
+// This is the payload that makes the model worth using. Whisper leans Modern
+// Standard Arabic and "corrects" everyday speech into MSA-shaped words — which is
+// how a word comes back as a completely different word. Handing the recogniser the
+// words people ACTUALLY say, across every dialect on the floor, biases it the
+// other way.
+//
+// All dialects are sent together on purpose: the speaker is a caller, and which
+// dialect they speak is exactly what we don't know in advance. The cap is 1,000
+// terms and this is well under it.
+const AR_DIALECT_VOCAB = [
+  // Levantine
+  "شو", "هلق", "هيك", "كتير", "منيح", "بدي", "ليش", "شوي", "لسا", "عنجد", "بعرف", "مبارح",
+  // Egyptian
+  "إزيك", "عامل ايه", "دلوقتي", "كده", "أوي", "عايز", "ماشي", "بص", "خلاص", "يلا", "مش", "إيه",
+  // Gulf / Khaleeji
+  "شنو", "الحين", "زين", "وايد", "أبغى", "وش", "مو", "عاد", "چذي", "يبه", "تراني", "شفيك",
+  // Moroccan Darija
+  "واش", "دابا", "بزاف", "غادي", "ديالي", "مزيان", "بغيت", "صافي", "شحال", "فين", "دير",
+  // Tunisian Derja
+  "شنوة", "برشا", "توا", "باهي", "ياخي", "نحب", "فمة", "برك", "قداش",
+  // Common across dialects, and the ones most often mangled into MSA
+  "إنت", "إنتي", "احنا", "هدول", "هدا", "كيفك", "شلونك", "عشان", "علشان", "بكرا", "امبارح",
+  "طيب", "أكيد", "يعني", "لأ", "أيوة", "إيوا", "معليش", "خلص", "حبيبي", "حبيبتي",
+]
+
+// Circuit breaker for the Gemini tier — same reasoning as Scribe's: it sits in
+// FRONT of working recognisers, so a broken one must not add its timeout to every
+// Arabic turn.
+let gemFails = 0
+let gemParkedUntil = 0
+
+/**
+ * Gemini 3.5 Transcribe via the Interactions API. Returns the transcript, or null
+ * on any failure so the caller falls through to Scribe and then Whisper.
+ *
+ * verbatim, NOT the "smart" mode. Smart mode strips filler words and resolves
+ * spoken self-corrections — sensible for meeting notes, wrong here. On an intimate
+ * late-night call a hesitation is content, and a character that never hears one
+ * loses the thing it is supposed to be responding to.
+ *
+ * No diarization, no word timestamps: one speaker, and both cost latency we can't
+ * spare on a live turn.
+ */
+async function geminiSTT(file: Blob, key: string, language?: string): Promise<string | null> {
+  if (Date.now() < gemParkedUntil) return null
+  if (gemParkedUntil) { gemParkedUntil = 0; gemFails = 0 }
+  const fail = () => {
+    if (++gemFails >= 2) {
+      gemParkedUntil = Date.now() + 5 * 60_000
+      console.error("[stt] gemini parked for 5m after repeated failures")
+    }
+  }
+  try {
+    const b64 = Buffer.from(await file.arrayBuffer()).toString("base64")
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        model: process.env.GEMINI_STT_MODEL || "gemini-3.5-transcribe",
+        input: [{ type: "audio", data: b64, mime_type: (file as File).type || "audio/webm" }],
+        generation_config: {
+          transcription_config: {
+            language_codes: [language || "ar"],
+            ...(language === "ar" ? { custom_vocabulary: AR_DIALECT_VOCAB } : {}),
+            mode: { type: "verbatim" },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(9000),
+    })
+    if (!res.ok) {
+      console.error("[stt] gemini failed:", res.status, (await res.text().catch(() => "")).slice(0, 200))
+      fail(); return null
+    }
+    const data = (await res.json()) as { output_text?: string; text?: string }
+    const text = data.output_text ?? data.text
+    if (typeof text !== "string") { fail(); return null }
+    gemFails = 0
+    return text
+  } catch (e) {
+    console.error("[stt] gemini error:", e instanceof Error ? e.message : String(e))
+    fail(); return null
+  }
 }
 
 // Circuit breaker for the Scribe tier. Because Scribe sits IN FRONT of a working

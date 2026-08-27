@@ -71,10 +71,12 @@ async function post(url, body) {
   } catch (e) { return { ok: false, status: 0, ms: Date.now() - t0, text: String(e) } }
 }
 
+const results = []
 const show = (label, r) => {
   const head = r.text.replace(/\s+/g, " ").slice(0, 300)
   console.log(`\n${r.ok ? "OK  " : "FAIL"} [${r.status}] ${r.ms}ms  ${label}`)
   console.log(`     ${head}`)
+  results.push({ label, ok: r.ok, status: r.status, ms: r.ms, head })
 }
 
 console.log("=== 1. Does the model exist? ===")
@@ -128,15 +130,28 @@ show("POST /v1beta/models/gemini-2.5-flash:generateContent", await post(
   },
 ))
 
-console.log(`
-=== WHAT TO DO WITH THIS ===
-- If (2) is OK: the Interactions API is real and custom_vocabulary works. That is
-  the one worth wiring in — the dialect word list is the direct fix for Arabic
-  words arriving as different words.
-- If (2) fails but (3) is OK: the model exists but is driven through
-  generateContent. Still usable, minus custom vocabulary.
-- If (2) and (3) fail but (4) is OK: the key is fine and this model is not
-  available to the account yet. Nothing to do but wait.
-- Paste the output back and the integration gets written against what actually
-  answered, not against a guess.
-`)
+// Everything above scrolls. The single block worth pasting back goes LAST.
+const [interactions, genContent, control] = results
+const verdict =
+  interactions?.ok ? "INTERACTIONS_API_WORKS  (custom_vocabulary available — the dialect fix)"
+  : genContent?.ok ? "GENERATECONTENT_WORKS   (model usable, no custom vocabulary)"
+  : control?.ok    ? "MODEL_UNAVAILABLE       (key is fine; this model isn't on the account yet)"
+  :                  "KEY_OR_NETWORK_PROBLEM  (even the control call failed)"
+
+const summary = [
+  "───────── PASTE THIS BACK ─────────",
+  `models visible : ${names.length}`,
+  `transcribe     : ${transcribe.length ? transcribe.join(", ") : "(none found)"}`,
+  `model used     : ${MODEL}`,
+  ...results.map((r) => `${r.ok ? "OK  " : "FAIL"} [${String(r.status).padEnd(3)}] ${String(r.ms).padStart(5)}ms  ${r.label}`),
+  ...results.filter((r) => !r.ok).map((r) => `   why: ${r.head.slice(0, 180)}`),
+  `VERDICT: ${verdict}`,
+  "───────────────────────────────────",
+].join("\n")
+
+console.log("\n" + summary)
+try {
+  const { writeFileSync } = await import("node:fs")
+  writeFileSync("gemini-probe.txt", summary + "\n")
+  console.log("(also written to gemini-probe.txt)")
+} catch { /* printing is enough */ }

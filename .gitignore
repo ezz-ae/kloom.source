@@ -41,3 +41,4 @@ node_modules/
 
 # Variant dev build dirs (.fun / .io parallel servers)
 .next-*/
+gemini-probe.txt

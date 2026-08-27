@@ -29,7 +29,7 @@ const WHAT = {
   "ortho-test":       "accent never predicts personality",
   "match-test":       "voice accents match on words, not substrings",
   "platform-facts":   "platform answers fire when asked, stay silent otherwise",
-  "air-test":         "AiR is earn-only, capped, and cannot be bought",
+  "fai-test":         "FAI is earn-only, capped, and cannot be bought",
   "talks-test":       "the talks board moves, fills, and is never a dead end",
 }
 

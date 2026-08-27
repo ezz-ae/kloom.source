@@ -30,7 +30,7 @@ import { ProfileSheet } from "@/components/airroom/ProfileSheet"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
 import { hasOnboarded, markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
 import { getCredits, spendCredits } from "@/lib/airroom/credits"
-import { getAir } from "@/lib/airraw/air"
+import { getFai, earnFai } from "@/lib/airraw/fai"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
 import { track } from "@/lib/airraw/track"
 
@@ -199,9 +199,29 @@ export function Planet() {
   const [showProfile, setShowProfile] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [credits, setCredits] = useState(0)
-  // AiR is its own thing now — earned, never bought. See lib/airraw/air.ts.
-  const [air, setAir] = useState(0)
-  useEffect(() => { setProfile(getProfile()); setCredits(getCredits()); setAir(getAir()) }, [])
+  // FAI is earned, never bought — one per talk you finish. See lib/airraw/fai.ts.
+  const [fai, setFai] = useState(0)
+  const [faiToast, setFaiToast] = useState(false)
+  // Set when the character has actually been spoken to — AirBubble reports this
+  // on the first real exchange, which is exactly the "was this a talk?" signal.
+  const talkedRef = useRef(false)
+  /**
+   * Finishing a talk pays a FAI. This is the loop the product is named after:
+   * end a conversation, earn the thing that opens the next one.
+   *
+   * Only a talk you actually HAD counts. Opening a card and closing it is not a
+   * conversation, and paying out for it would turn the currency into a tap
+   * counter — which is the same failure mode the daily cap exists to prevent.
+   */
+  const endedTalk = () => {
+    if (!talkedRef.current) return
+    talkedRef.current = false
+    earnFai(1, "finished a talk")
+    setFai(getFai())
+    setFaiToast(true)
+    setTimeout(() => setFaiToast(false), 2600)
+  }
+  useEffect(() => { setProfile(getProfile()); setCredits(getCredits()); setFai(getFai()) }, [])
   // Grant the pass on return from Ziina — but reconcile on EVERY load, not just the
   // redirect: if Ziina doesn't bounce the buyer back (or marks the intent completed a
   // beat later), the pending intent is claimed next time they open airraw.com.
@@ -863,12 +883,12 @@ export function Planet() {
       {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
       {started && onboarded && deckOpen && !selected && !group && (
         roomsOpen
-          ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setRoomsOpen(false)} />
-          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} air={pro ? "∞" : String(air)} onProfile={() => setShowProfile(true)} onEarned={() => setAir(getAir())} />
+          ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={pro ? "∞" : String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setRoomsOpen(false)} />
+          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={pro ? "∞" : String(fai)} onProfile={() => setShowProfile(true)} onEarned={() => setFai(getFai())} />
       )}
-      {/* back to AiR from the open sky */}
+      {/* back to the people deck from the open sky */}
       {started && !deckOpen && !selected && !group && (
-        <button onClick={() => setDeckOpen(true)} aria-label="AiR — back to the rooms" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 24, minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 999, cursor: "pointer", boxShadow: "0 10px 26px -10px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>AiR</button>
+        <button onClick={() => setDeckOpen(true)} aria-label="back to people" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 24, minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 999, cursor: "pointer", boxShadow: "0 10px 26px -10px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>people</button>
       )}
 
       {/* one-time gesture hint — sky mode only */}
@@ -888,7 +908,7 @@ export function Planet() {
 
       {started && hud.hearing && !deckOpen && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
 
-      {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { setSelected(null); setOpening(""); zoomFnRef.current(0.55) }} onTalked={() => track("airraw_talk", { surface: "planet" })} />}
+      {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { endedTalk(); setSelected(null); setOpening(""); zoomFnRef.current(0.55) }} onTalked={() => { talkedRef.current = true; track("airraw_talk", { surface: "planet" }) }} />}
 
       {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} topic={group.c != null ? TOPICS[group.c][group.seed % TOPICS[group.c].length] : undefined} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening(""); zoomFnRef.current(0.55) }}
         onCall={(m) => {
@@ -915,6 +935,12 @@ export function Planet() {
       )}
 
       {showPro && <ProSheet onClose={() => setShowPro(false)} />}
+      {faiToast && (
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", zIndex: 40, display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 999, background: "rgba(4,5,11,.86)", border: ".5px solid rgba(127,214,192,.4)", color: "#7fd6c0", fontSize: 13, fontWeight: 600, fontFamily: "var(--font-geist), system-ui, sans-serif", pointerEvents: "none", animation: "airrise .3s ease both" }}>
+          <span aria-hidden>✦</span> +1 FAI — that talk earned it
+        </div>
+      )}
+
       {showProfile && <ProfileSheet onClose={() => { setShowProfile(false); setProfile(getProfile()); setCredits(getCredits()) }} onUpgrade={() => { setShowProfile(false); setShowPro(true) }} />}
       {proMsg && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 150px)", zIndex: 35, maxWidth: "86vw", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", padding: "11px 18px", borderRadius: 14, boxShadow: "0 12px 32px -8px rgba(0,0,0,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{proMsg}</div>
@@ -930,7 +956,7 @@ export function Planet() {
 // world, left/right jumps to a different KIND of room. No written guides — if
 // the user sits still, four faint arrows breathe in. The only other control is
 // RAW (the open sky).
-function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos, onResume, onBack }: { onJoin: (j: Join) => void; onExplore: () => void; air: string; onProfile: () => void; pos: { c: number; i: number }; setPos: React.Dispatch<React.SetStateAction<{ c: number; i: number }>>; onResume: (c: Cluster) => void; onBack?: () => void }) {
+function RoomDeck({ onJoin, onExplore, fai, onProfile, pos, setPos, onResume, onBack }: { onJoin: (j: Join) => void; onExplore: () => void; fai: string; onProfile: () => void; pos: { c: number; i: number }; setPos: React.Dispatch<React.SetStateAction<{ c: number; i: number }>>; onResume: (c: Cluster) => void; onBack?: () => void }) {
   // Threads waiting to be picked back up. Empty for a free session and for anyone
   // who has switched memory off, so the strip simply isn't there rather than
   // being an empty shelf advertising a feature.
@@ -1078,7 +1104,7 @@ function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos, onResume, on
       <span style={{ ...arrow, left: 14, top: "50%", transform: "translateY(-50%)" }}>‹</span>
       <span style={{ ...arrow, right: 14, top: "50%", transform: "translateY(-50%)" }}>›</span>
       {/* your AIR — the one number money runs on, always visible, taps to the profile */}
-      <button onClick={onProfile} aria-label="your AiR balance" style={{ position: "absolute", left: 14, top: "calc(env(safe-area-inset-top) + 12px)", minHeight: 36, padding: "0 14px", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{air} AiR</button>
+      <button onClick={onProfile} aria-label="your FAI balance" style={{ position: "absolute", left: 14, top: "calc(env(safe-area-inset-top) + 12px)", minHeight: 36, padding: "0 14px", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{fai} FAI</button>
       {/* the ONE other control */}
       <button onClick={onExplore} aria-label="RAW — drift the open sky" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#cfe0ee", background: "rgba(4,5,11,.6)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>RAW</button>
     </div>

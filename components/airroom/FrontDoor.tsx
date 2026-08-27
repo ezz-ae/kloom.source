@@ -17,7 +17,7 @@ import { useMemo, useRef, useState } from "react"
 import { makeCharacter, pickForLanguages, type Cluster } from "@/lib/airroom/roster"
 import { matchesPrefs } from "@/lib/airraw/lang-prefs"
 import { cardLinesFor } from "@/lib/airraw/dossier"
-import { earnAir, canEarnToday, DAILY_EARN_CAP, earnedToday } from "@/lib/airraw/air"
+import { earnFai, canEarnToday, DAILY_EARN_CAP, earnedToday } from "@/lib/airraw/fai"
 import { Face } from "@/components/airroom/Face"
 
 // Walk the whole soft→wild gradient rather than one band, so consecutive cards
@@ -33,10 +33,10 @@ const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#f
 const REWARD_EVERY = 7
 const isReward = (i: number) => i > 0 && i % REWARD_EVERY === 0
 
-export function FrontDoor({ onCall, onRooms, air, onProfile, onEarned }: {
+export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned }: {
   onCall: (c: Cluster) => void
   onRooms: () => void
-  air: string
+  fai: string
   onProfile: () => void
   /** Fired after AiR is earned so the balance in the corner updates immediately. */
   onEarned?: () => void
@@ -71,7 +71,7 @@ export function FrontDoor({ onCall, onRooms, air, onProfile, onEarned }: {
    */
   const claim = () => {
     if (claimed || !canEarnToday()) return
-    earnAir(1, "front-door reward card")
+    earnFai(1, "front-door reward card")
     setClaimed(true)
     onEarned?.()
   }
@@ -151,12 +151,12 @@ export function FrontDoor({ onCall, onRooms, air, onProfile, onEarned }: {
         <div key={`r${i}`} ref={cardRef} style={{ position: "absolute", inset: 0, willChange: "transform, opacity", animation: "fdIn .4s ease both", background: "radial-gradient(120% 80% at 50% 35%, #123c33 0%, #0a1a18 55%, #07040f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18, padding: "0 34px", textAlign: "center" }}>
           <div style={{ fontSize: 54, lineHeight: 1 }} aria-hidden>✦</div>
           <div style={{ fontSize: "clamp(26px, 8vw, 34px)", fontWeight: 600, color: "#eafff7", letterSpacing: -0.5, lineHeight: 1.15 }}>
-            {claimed ? "that's yours" : "swipe up for free AiR"}
+            {claimed ? "that's yours" : "swipe up for a free FAI"}
           </div>
           <div style={{ fontSize: 14, color: "rgba(200,240,228,.7)", lineHeight: 1.5, maxWidth: "30ch" }}>
             {claimed
               ? "one seat, whenever you want it."
-              : "AiR opens a seat in a talk. It isn't for sale and the pass doesn't include it — you find it."}
+              : "FAI opens a seat in a talk. You get one every time you end a talk — this one's just a gift."}
           </div>
           {!claimed && (
             <div style={{ fontSize: 12, color: "rgba(200,240,228,.45)", marginTop: 4 }}>
@@ -219,9 +219,9 @@ export function FrontDoor({ onCall, onRooms, air, onProfile, onEarned }: {
       )}
 
       {/* Quiet corners: credits, and the way through to rooms. */}
-      <button onClick={onProfile} aria-label="you"
+      <button onClick={onProfile} aria-label="your FAI"
         style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: 14, zIndex: 24, minHeight: 34, padding: "0 13px", fontSize: 12, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}>
-        {air} AiR
+        {fai} FAI
       </button>
       <button onClick={onRooms} aria-label="rooms with more than one person"
         style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 14, zIndex: 24, minHeight: 34, padding: "0 13px", fontSize: 12, fontWeight: 600, color: "rgba(240,232,255,.7)", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}>

@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/brand"
 import type { NextRequest } from "next/server"
 import { createPaymentIntent, getPaymentIntent, usdToMinor, ziinaConfigured } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
@@ -28,7 +29,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   // return the buyer to the public host they're on (proxy-aware), like the kloom flow
-  const origin = process.env.AIRRAW_ORIGIN || req.nextUrl.origin || "https://airraw.com"
+  const origin = process.env.AIRRAW_ORIGIN || req.nextUrl.origin || SITE_URL
   if (!ziinaConfigured()) return Response.json({ error: "payments not configured" }, { status: 503 })
   const rl = rateLimit(`airrawpro:${clientIp(req)}`, 20, 60_000)
   if (!rl.ok) return Response.json({ error: "slow down a sec" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })

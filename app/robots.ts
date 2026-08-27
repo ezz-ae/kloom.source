@@ -1,7 +1,8 @@
+import { SITE_URL as BRAND_SITE } from "@/lib/brand"
 import type { MetadataRoute } from "next"
 
 const AIRRAW = process.env.AIRRAW_HOME === "1"
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || (AIRRAW ? "https://airraw.com" : "https://kloom.io")
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || (AIRRAW ? BRAND_SITE : "https://kloom.io")
 
 export default function robots(): MetadataRoute.Robots {
   return {

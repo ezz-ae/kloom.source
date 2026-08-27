@@ -1,16 +1,17 @@
+import { BRAND, SITE_URL } from "@/lib/brand"
 import type { Metadata } from "next"
 import { ZoomBuffet } from "@/components/airroom/ZoomBuffet"
 
 export const metadata: Metadata = {
-  title: { absolute: "AIRRAW — the whole universe" },
+  title: { absolute: `${BRAND} — the whole universe` },
   description:
     "Fall in: 20 worlds → ~1,000 rooms → endless voices. Tap any face to air off, or step into a room where real people and AI mingle and you can't always tell which is which.",
-  alternates: { canonical: "https://airraw.com/universe" },
+  alternates: { canonical: `${SITE_URL}/universe` },
   openGraph: {
-    title: "AIRRAW — the whole universe",
+    title: `${BRAND} — the whole universe`,
     description: "20 worlds, ~1,000 rooms, endless voices. Tap a face, air off, or step into a room.",
-    url: "https://airraw.com/universe",
-    siteName: "AIRRAW",
+    url: `${SITE_URL}/universe`,
+    siteName: BRAND,
     type: "website",
   },
 }

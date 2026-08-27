@@ -1,3 +1,4 @@
+import { BRAND, SITE_URL } from "@/lib/brand"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -9,17 +10,17 @@ const IS_AIRRAW = process.env.AIRRAW_HOME === "1"
 
 // The floor is a client component, so its metadata lives here on the route segment.
 export const metadata: Metadata = {
-  title: { absolute: "AIRRAW — walk the floor" },
+  title: { absolute: `${BRAND} — walk the floor` },
   description:
     "Drift down the water→fire floor and overhear whoever you're nearest. Stop, listen, join. It's the now.",
   // The floor is the live 18+ chat surface — keep it out of search indexes.
   robots: { index: false, follow: false },
-  alternates: { canonical: "https://airraw.com/floor" },
+  alternates: { canonical: `${SITE_URL}/floor` },
   openGraph: {
-    title: "AIRRAW — walk the floor",
+    title: `${BRAND} — walk the floor`,
     description: "Drift the water→fire floor and overhear whoever you're near. Stop, listen, join.",
-    url: "https://airraw.com/floor",
-    siteName: "AIRRAW",
+    url: `${SITE_URL}/floor`,
+    siteName: BRAND,
     type: "website",
   },
 }

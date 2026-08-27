@@ -1,3 +1,4 @@
+import { BRAND, SITE_URL } from "@/lib/brand"
 import { ImageResponse } from "next/og"
 
 export const runtime = "edge"
@@ -8,7 +9,7 @@ export const runtime = "edge"
 const AIRRAW = process.env.AIRRAW_HOME === "1"
 
 export const alt = AIRRAW
-  ? "AIRRAW — a sky of voices. tap anyone and talk, right now."
+  ? `${BRAND} — a sky of voices. tap anyone and talk, right now.`
   : "Kloom — Every conversation is a room"
 export const size = { width: 1200, height: 630 }
 export const contentType = "image/png"

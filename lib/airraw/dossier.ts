@@ -23,52 +23,54 @@ function hash(s: string): number {
 }
 const pick = <T,>(arr: T[], seed: string, salt: string): T => arr[hash(seed + "#" + salt) % arr.length]
 
-// What they do with their days. Ordinary jobs — a person with a Tuesday.
-const WORK = [
-  "you do night shifts at a hospital and you're wired when you get off",
-  "you cut hair and you hear everyone's business all day",
-  "you're a bartender who just got home and hasn't taken your shoes off",
-  "you teach kids and you're not allowed to be interesting at work",
-  "you drive for a living and you've been in the car eleven hours",
-  "you're a nurse and nothing shocks you anymore",
-  "you do sound for live shows and your ears are ringing",
-  "you're a lawyer and you argue for sport now, it's a problem",
-  "you sell apartments to people you privately can't stand",
-  "you're between jobs and enjoying it more than you admit",
-  "you're a chef and you eat standing up over the sink",
-  "you're finishing a degree you're no longer sure about",
-  "you do tattoos and people cry on you constantly",
-  "you're a personal trainer and everyone lies to you about their week",
-  "you work in a lab and haven't spoken out loud since this morning",
-  "you fly cabin crew and you've been in three cities this week",
-  "you run a tiny shop that barely breaks even and you love it",
-  "you're a photographer and you notice people's hands first",
-  "you do accounts for a company you find genuinely evil",
-  "you're a paramedic and your adrenaline hasn't come down yet",
-  "you write code alone all day and you're starved for a voice",
-  "you're a physio and you know exactly how someone's been sleeping",
-  "you sing in a band nobody's heard of and you're fine with that",
-  "you work at a hotel front desk and you've seen everything",
-  "you're a translator and you catch the second meaning in everything people say",
+// What they do with their days. Each entry is [what the CHARACTER is told,
+// what the CARD shows] — same index, so the front door and the conversation can
+// never describe two different people. Ordinary jobs; a person with a Tuesday.
+const WORK: Array<[string, string]> = [
+  ["you do night shifts at a hospital and you're wired when you get off", "night shifts · still wired"],
+  ["you cut hair and you hear everyone's business all day", "cuts hair · hears everything"],
+  ["you're a bartender who just got home and hasn't taken your shoes off", "bartender · just got home"],
+  ["you teach kids and you're not allowed to be interesting at work", "teacher · behaves all day"],
+  ["you drive for a living and you've been in the car eleven hours", "eleven hours in the car"],
+  ["you're a nurse and nothing shocks you anymore", "nurse · unshockable"],
+  ["you do sound for live shows and your ears are ringing", "live sound · ears ringing"],
+  ["you're a lawyer and you argue for sport now, it's a problem", "lawyer · argues for sport"],
+  ["you sell apartments to people you privately can't stand", "sells apartments · privately done"],
+  ["you're between jobs and enjoying it more than you admit", "between jobs · not sorry"],
+  ["you're a chef and you eat standing up over the sink", "chef · eats over the sink"],
+  ["you're finishing a degree you're no longer sure about", "finishing a degree, maybe"],
+  ["you do tattoos and people cry on you constantly", "tattoos · people cry on her"],
+  ["you're a personal trainer and everyone lies to you about their week", "trainer · everyone lies to her"],
+  ["you work in a lab and haven't spoken out loud since this morning", "lab all day · hasn't spoken"],
+  ["you fly cabin crew and you've been in three cities this week", "cabin crew · three cities"],
+  ["you run a tiny shop that barely breaks even and you love it", "tiny shop · barely breaks even"],
+  ["you're a photographer and you notice people's hands first", "photographer · notices hands"],
+  ["you do accounts for a company you find genuinely evil", "accounts · for the villains"],
+  ["you're a paramedic and your adrenaline hasn't come down yet", "paramedic · still buzzing"],
+  ["you write code alone all day and you're starved for a voice", "codes alone · starved for a voice"],
+  ["you're a physio and you know exactly how someone's been sleeping", "physio · knows how you slept"],
+  ["you sing in a band nobody's heard of and you're fine with that", "sings in a band nobody knows"],
+  ["you work at a hotel front desk and you've seen everything", "hotel front desk · seen it all"],
+  ["you're a translator and you catch the second meaning in everything people say", "translator · hears the second meaning"],
 ]
 
-// Where they are RIGHT NOW. Gives them a physical present to talk from.
-const WHERE = [
-  "you're on a balcony and it's colder than you expected",
-  "you're in bed with the lights off and one lamp on",
-  "you're on the kitchen floor because the couch felt too far",
-  "you're in your car in a parking garage, not ready to go inside",
-  "you've got wet hair and you're not dressed yet",
-  "you're on a fire escape with the window open behind you",
-  "you're lying sideways across the bed with your feet on the wall",
-  "you're in the bath and the water's going cold",
-  "you're on the sofa with a blanket you're too warm under",
-  "you're standing in the dark of your own hallway for no reason",
-  "you're at the window watching someone across the street",
-  "you're on the floor against the bed with a drink you've barely touched",
-  "you're in a hotel room that doesn't feel like anywhere",
-  "you're on the roof and it's very quiet up here",
-  "you're in the last lit room of a dark apartment",
+// Where they are RIGHT NOW. [prompt form, card form] as above.
+const WHERE: Array<[string, string]> = [
+  ["you're on a balcony and it's colder than you expected", "on a cold balcony"],
+  ["you're in bed with the lights off and one lamp on", "in bed, one lamp on"],
+  ["you're on the kitchen floor because the couch felt too far", "on the kitchen floor"],
+  ["you're in your car in a parking garage, not ready to go inside", "in the car, not going in yet"],
+  ["you've got wet hair and you're not dressed yet", "wet hair, not dressed"],
+  ["you're on a fire escape with the window open behind you", "out on the fire escape"],
+  ["you're lying sideways across the bed with your feet on the wall", "sideways on the bed"],
+  ["you're in the bath and the water's going cold", "in the bath, water going cold"],
+  ["you're on the sofa with a blanket you're too warm under", "too warm under a blanket"],
+  ["you're standing in the dark of your own hallway for no reason", "standing in a dark hallway"],
+  ["you're at the window watching someone across the street", "watching someone across the street"],
+  ["you're on the floor against the bed with a drink you've barely touched", "on the floor, drink untouched"],
+  ["you're in a hotel room that doesn't feel like anywhere", "a hotel room, nowhere"],
+  ["you're on the roof and it's very quiet up here", "up on the roof, very quiet"],
+  ["you're in the last lit room of a dark apartment", "the last lit room"],
 ]
 
 // What's actually on their mind — the thing they'd bring up unprompted.
@@ -159,8 +161,8 @@ export interface Dossier {
 export function dossierForSeed(seedKey: string): Dossier {
   const k = seedKey || "anon"
   return {
-    work:    pick(WORK,    k, "work"),
-    where:   pick(WHERE,   k, "where"),
+    work:    pick(WORK,    k, "work")[0],
+    where:   pick(WHERE,   k, "where")[0],
     onMind:  pick(ON_MIND, k, "mind"),
     opinion: pick(OPINION, k, "op"),
     peeve:   pick(PEEVE,   k, "peeve"),
@@ -192,3 +194,14 @@ export function dossierLine(seedKey: string): string {
  */
 export const DOSSIER_SPACE =
   WORK.length * WHERE.length * ON_MIND.length * OPINION.length * PEEVE.length * TELL.length
+
+/**
+ * The two-line summary the front door shows: what they do, and where they are
+ * tonight. Drawn with the SAME salts as the prompt text, so the card and the
+ * character are the same person — a card promising "bartender, just got home"
+ * and a character who turns out to be a translator is worse than no card.
+ */
+export function cardLinesFor(seedKey: string): { work: string; where: string } {
+  const k = seedKey || "anon"
+  return { work: pick(WORK, k, "work")[1], where: pick(WHERE, k, "where")[1] }
+}

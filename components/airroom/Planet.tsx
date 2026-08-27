@@ -21,6 +21,7 @@ import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { matchesPrefs, getLangPrefs, saveLangPrefs, langPrefsPersist } from "@/lib/airraw/lang-prefs"
+import { FrontDoor } from "@/components/airroom/FrontDoor"
 import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
@@ -121,6 +122,8 @@ export function Planet() {
   // The room DECK is the front door (swipe-up browser); the free-roam sky is the
   // optional "explore" mode behind it.
   const [deckOpen, setDeckOpen] = useState(true)
+  // Rooms sit BEHIND the front door now — one tap away, not the first thing shown.
+  const [roomsOpen, setRoomsOpen] = useState(false)
   // The one-time welcome — resolved client-only (localStorage) so it never SSR-
   // mismatches; defaults to "true" (skip) until the check runs, so a fresh
   // browser never flashes the deck before the welcome.
@@ -856,7 +859,9 @@ export function Planet() {
 
       {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
       {started && onboarded && deckOpen && !selected && !group && (
-        <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => setDeckOpen(false)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} />
+        roomsOpen
+          ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setRoomsOpen(false)} />
+          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} />
       )}
       {/* back to AiR from the open sky */}
       {started && !deckOpen && !selected && !group && (
@@ -922,7 +927,7 @@ export function Planet() {
 // world, left/right jumps to a different KIND of room. No written guides — if
 // the user sits still, four faint arrows breathe in. The only other control is
 // RAW (the open sky).
-function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos, onResume }: { onJoin: (j: Join) => void; onExplore: () => void; air: string; onProfile: () => void; pos: { c: number; i: number }; setPos: React.Dispatch<React.SetStateAction<{ c: number; i: number }>>; onResume: (c: Cluster) => void }) {
+function RoomDeck({ onJoin, onExplore, air, onProfile, pos, setPos, onResume, onBack }: { onJoin: (j: Join) => void; onExplore: () => void; air: string; onProfile: () => void; pos: { c: number; i: number }; setPos: React.Dispatch<React.SetStateAction<{ c: number; i: number }>>; onResume: (c: Cluster) => void; onBack?: () => void }) {
   // Threads waiting to be picked back up. Empty for a free session and for anyone
   // who has switched memory off, so the strip simply isn't there rather than
   // being an empty shelf advertising a feature.

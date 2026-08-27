@@ -8,12 +8,16 @@ import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { faceUrl, cachedFace, type FacePersona } from "@/lib/airraw/face"
 import { imageFor } from "@/lib/persona-utils"
 
-export function Face({ persona, alt = "", style, className, lazy = true }: {
+export function Face({ persona, alt = "", style, className, lazy = true, onLive }: {
   persona: FacePersona
   alt?: string
   style?: CSSProperties
   className?: string
   lazy?: boolean
+  /** Fires when the real portrait replaces the monogram fallback. Lets a caller
+   *  treat the placeholder differently — a monogram that reads fine in a small
+   *  avatar is a billboard at full-screen size. */
+  onLive?: (live: boolean) => void
 }) {
   // Name for the letter, seed for the colour — see imageFor. Passing the seed as
   // the name put the same initial on every character sharing a room.
@@ -34,6 +38,7 @@ export function Face({ persona, alt = "", style, className, lazy = true }: {
   }, [key])
 
   const isLive = src !== fallback
+  useEffect(() => { onLive?.(isLive) }, [isLive]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <img
       src={src}

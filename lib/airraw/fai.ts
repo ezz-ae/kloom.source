@@ -14,12 +14,29 @@
 // names a reason. Anything that hands out FAI is therefore greppable, which is
 // the property that keeps an economy honest as it grows.
 
+import { isPro } from "@/lib/airroom/pro"
+
 const BAL   = "faitalk_fai"
 const GRANT = "faitalk_fai_granted"
 const DAY   = "faitalk_fai_day"      // "YYYY-MM-DD:count" — the daily earn ledger
 
 export const FIRST_GRANT = 3        // enough to try the thing, not enough to coast
-export const DAILY_EARN_CAP = 5     // see canEarnToday
+export const DAILY_EARN_CAP = 5     // free ceiling — see canEarnToday
+export const PRO_EARN_CAP = 12      // the pass raises the ceiling; it never removes it
+
+/**
+ * The ceiling on a single day's earnings.
+ *
+ * The pass may make FAI arrive FASTER. It must never make it arrive for free.
+ * That distinction is the whole point: a seat you can buy is not scarce, and
+ * "you cannot buy FAI" stops being true the moment a paid tier reads ∞. So Pro
+ * moves this number and touches nothing else — spendFai() still deducts, an
+ * empty balance still refuses, and a Pro user who has not earned today still
+ * cannot open a seat.
+ */
+export function dailyCap(): number {
+  return isPro() ? PRO_EARN_CAP : DAILY_EARN_CAP
+}
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -49,7 +66,7 @@ export function earnedToday(): number {
  * makes a day's swiping worth a handful of seats and no more.
  */
 export function canEarnToday(): boolean {
-  return earnedToday() < DAILY_EARN_CAP
+  return earnedToday() < dailyCap()
 }
 
 /**
@@ -61,7 +78,7 @@ export function canEarnToday(): boolean {
 export function earnFai(n: number, reason: string): number {
   const want = Math.max(0, Math.floor(n))
   if (!want) return getFai()
-  const room = Math.max(0, DAILY_EARN_CAP - earnedToday())
+  const room = Math.max(0, dailyCap() - earnedToday())
   const give = Math.min(want, room)
   if (!give) return getFai()
   const next = getFai() + give

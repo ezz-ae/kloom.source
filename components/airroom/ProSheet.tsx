@@ -16,7 +16,8 @@ function perks(minutes: number, days: number): [string, string][] {
   return [
     ["✦  fully unrestricted", "the whole floor wide open — no limits, no gates, nothing held back"],
     [`✦  ${minutes.toLocaleString()} voice minutes`, `${months === 1 ? "a month" : months === 3 ? "three months" : `${months} months`} of talking out loud — across every room`],
-    ["✦  AIR", "tap once and your best matches light up across the whole floor"],
+    ["✦  best matches, lit up", "tap once and the people most worth your night light up across the whole floor"],
+    ["✦  FAI twice as fast", "FAI still cannot be bought — the pass just lets you earn far more of it in a day"],
     ["✦  set the vibe", "steer any room — flirty, hyped, brutally honest — and the voices follow"],
     ["✦  your languages, kept", "your default sticks between visits, and the floor fills with people who actually open in it"],
   ]

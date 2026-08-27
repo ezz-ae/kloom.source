@@ -53,5 +53,20 @@ check((src.match(/localStorage\.setItem\(BAL/g) || []).length === 0, "balance is
 check(/export function earnFai/.test(src) && /reason: string/.test(src),
   "every source of FAI must name a reason (keeps the economy greppable)")
 
+// The pass may raise the CEILING. It must never bypass the SPEND — a Pro user
+// with an empty balance still cannot open a seat, or "you cannot buy FAI" is a
+// lie told by a subscription page.
+const spend = src.slice(src.indexOf("export function spendFai"))
+check(!/isPro|dailyCap|PRO_/.test(spend.slice(0, 400)),
+  "spending is pro-blind — the pass cannot conjure a seat from an empty balance")
+check(/export function dailyCap/.test(src) && /isPro\(\)/.test(src),
+  "the pass moves the daily ceiling and nothing else")
+
+// And no surface may render a FAI balance as infinite.
+const fs = (await import("node:fs"))
+const surfaces = ["components/airroom/Planet.tsx", "components/airroom/FrontDoor.tsx", "components/airroom/Talks.tsx"]
+const inf = surfaces.filter(f => /fai=\{[^}]*∞|∞[^}]*: *String\(fai\)/.test(fs.readFileSync(f, "utf8")))
+check(inf.length === 0, `no screen shows FAI as ∞ (${inf.join(", ") || "none do"})`)
+
 console.log(fail===0?"\nPASS":`\nFAIL — ${fail}`)
 process.exit(fail?1:0)

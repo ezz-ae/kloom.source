@@ -897,8 +897,8 @@ export function Planet() {
               }}
             />
           : legacyRooms
-          ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={pro ? "∞" : String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setLegacyRooms(false)} />
-          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={pro ? "∞" : String(fai)} onProfile={() => setShowProfile(true)} onEarned={() => setFai(getFai())} />
+          ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setLegacyRooms(false)} />
+          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={String(fai)} onProfile={() => setShowProfile(true)} onEarned={() => setFai(getFai())} />
       )}
       {/* back to the people deck from the open sky */}
       {started && !deckOpen && !selected && !group && (

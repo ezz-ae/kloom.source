@@ -13,11 +13,12 @@
  * Passing is cheap and reversible, so the gesture does that; calling costs
  * minutes and attention, so it takes a deliberate tap.
  */
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { makeCharacter, pickForLanguages, type Cluster } from "@/lib/airroom/roster"
 import { matchesPrefs } from "@/lib/airraw/lang-prefs"
 import { cardLinesFor } from "@/lib/airraw/dossier"
 import { earnFai, canEarnToday, DAILY_EARN_CAP, earnedToday } from "@/lib/airraw/fai"
+import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
 import { Face } from "@/components/airroom/Face"
 
 // Walk the whole soft→wild gradient rather than one band, so consecutive cards
@@ -41,6 +42,21 @@ export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned }: {
   /** Fired after AiR is earned so the balance in the corner updates immediately. */
   onEarned?: () => void
 }) {
+  // A talk with room in it, surfaced while you're swiping. This is the "15 seats
+  // open for a talk on …" moment: something is happening elsewhere and you can
+  // still get in. Deliberately ONE, and only when there's real room — a banner
+  // that's always there is wallpaper, and one advertising a full talk is a lie.
+  const [nudge, setNudge] = useState<{ title: string; left: number } | null>(null)
+  useEffect(() => {
+    const pick = () => {
+      const open = liveTalks().filter((t) => seatsLeft(t) >= 4)
+      const best = open.sort((a, b) => seatsLeft(b) - seatsLeft(a))[0]
+      setNudge(best ? { title: best.title, left: seatsLeft(best) } : null)
+    }
+    pick()
+    const id = setInterval(pick, 25_000)
+    return () => clearInterval(id)
+  }, [])
   const [i, setI] = useState(0)
   // Whether the real portrait has arrived. The fallback is a monogram card, which
   // reads fine as a small avatar and terribly as a full-screen letter — so it's
@@ -92,18 +108,24 @@ export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned }: {
       style={{ position: "absolute", inset: 0, zIndex: 18, overflow: "hidden", background: "#07040f", touchAction: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}
       onPointerDown={(e) => {
         swipe.current = { x: e.clientX, y: e.clientY }; dragged.current = false
-        // Capture the pointer, or a swipe that carries past the edge of the screen
-        // never delivers its pointerup here — the card freezes mid-drag, half
-        // transparent, and the deck is stuck. Easy to hit: a fast flick from the
-        // middle of a phone screen leaves the viewport well before it ends.
-        try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* older browser */ }
+        // NOTE: the pointer is deliberately NOT captured here. Capturing on
+        // pointerdown retargets every later event to this container, and the
+        // browser then computes the click target from those — so no button
+        // inside the card would ever be clicked again, "call" included. Capture
+        // is taken in pointermove, once a real drag has begun.
         const c = cardRef.current; if (c) c.style.transition = "none"
       }}
       onPointerMove={(e) => {
         const s = swipe.current, c = cardRef.current
         if (!s || !c) return
         const dx = e.clientX - s.x, dy = e.clientY - s.y
-        if (Math.hypot(dx, dy) > 10) dragged.current = true
+        if (Math.hypot(dx, dy) > 10 && !dragged.current) {
+          dragged.current = true
+          // NOW capture — this is a drag, not a tap. Without it a swipe that
+          // carries past the edge of the screen never delivers its pointerup and
+          // the card freezes mid-drag, half transparent, with the deck stuck.
+          try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch { /* older browser */ }
+        }
         c.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 26}deg)`
         c.style.opacity = String(Math.max(0.5, 1 - Math.hypot(dx, dy) / 700))
       }}
@@ -218,14 +240,25 @@ export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned }: {
       </div>
       )}
 
-      {/* Quiet corners: credits, and the way through to rooms. */}
+      {nudge && !reward && (
+        <button
+          onClick={onRooms}
+          style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 56px)", left: 14, right: 14, zIndex: 23, display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", borderRadius: 14, background: "rgba(4,5,11,.72)", border: ".5px solid rgba(127,214,192,.34)", backdropFilter: "blur(8px)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", WebkitTapHighlightColor: "transparent" }}
+        >
+          <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 800, letterSpacing: .6, color: "#06121e", background: "#7fd6c0", borderRadius: 6, padding: "3px 6px" }}>{nudge.left} SEATS</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#eafff7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nudge.title}</span>
+          <span style={{ flex: "0 0 auto", fontSize: 15, color: "rgba(234,255,247,.5)" }} aria-hidden>›</span>
+        </button>
+      )}
+
+      {/* Quiet corners: your FAI, and the way through to talks. */}
       <button onClick={onProfile} aria-label="your FAI"
         style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: 14, zIndex: 24, minHeight: 34, padding: "0 13px", fontSize: 12, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}>
         {fai} FAI
       </button>
-      <button onClick={onRooms} aria-label="rooms with more than one person"
+      <button onClick={onRooms} aria-label="talks happening now"
         style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 14, zIndex: 24, minHeight: 34, padding: "0 13px", fontSize: 12, fontWeight: 600, color: "rgba(240,232,255,.7)", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}>
-        rooms
+        talks
       </button>
     </div>
   )

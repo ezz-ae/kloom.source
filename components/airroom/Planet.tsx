@@ -22,6 +22,7 @@ import { AirBubble } from "@/components/airroom/AirBubble"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { matchesPrefs, getLangPrefs, saveLangPrefs, langPrefsPersist } from "@/lib/airraw/lang-prefs"
 import { FrontDoor } from "@/components/airroom/FrontDoor"
+import { Talks } from "@/components/airroom/Talks"
 import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
@@ -106,7 +107,7 @@ export function Planet() {
   const zoomFnRef = useRef<(f: number) => void>(() => {})
 
   const [selected, setSelected] = useState<Cluster | null>(null)
-  const [group, setGroup] = useState<{ seed: number; f: number; count: number; c?: number } | null>(null)
+  const [group, setGroup] = useState<{ seed: number; f: number; count: number; c?: number; title?: string } | null>(null)
   const [pending, setPending] = useState<Cluster | null>(null)   // deep voice awaiting 18+ confirm
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null) // deep group awaiting 18+ confirm
   const [nearDeep, setNearDeep] = useState(false)   // you're descending toward the deep → age screen
@@ -125,6 +126,8 @@ export function Planet() {
   const [deckOpen, setDeckOpen] = useState(true)
   // Rooms sit BEHIND the front door now — one tap away, not the first thing shown.
   const [roomsOpen, setRoomsOpen] = useState(false)
+  // The old continent room-deck, still reachable from the sky but no longer the door.
+  const [legacyRooms, setLegacyRooms] = useState(false)
   // The one-time welcome — resolved client-only (localStorage) so it never SSR-
   // mismatches; defaults to "true" (skip) until the check runs, so a fresh
   // browser never flashes the deck before the welcome.
@@ -883,7 +886,18 @@ export function Planet() {
       {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
       {started && onboarded && deckOpen && !selected && !group && (
         roomsOpen
-          ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={pro ? "∞" : String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setRoomsOpen(false)} />
+          ? <Talks
+              onBack={() => setRoomsOpen(false)}
+              onSpent={() => setFai(getFai())}
+              onJoin={(t) => {
+                // A talk becomes a live room: its title is the subject, its open
+                // seats are how many voices are in it, and heat picks the tone.
+                setRoomsOpen(false)
+                setGroup({ seed: t.seed, f: t.heat === "w" ? 0.3 : t.heat === "m" ? 0.6 : 0.9, count: Math.min(12, t.seats), title: t.title })
+              }}
+            />
+          : legacyRooms
+          ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={pro ? "∞" : String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setLegacyRooms(false)} />
           : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={pro ? "∞" : String(fai)} onProfile={() => setShowProfile(true)} onEarned={() => setFai(getFai())} />
       )}
       {/* back to the people deck from the open sky */}
@@ -910,7 +924,7 @@ export function Planet() {
 
       {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { endedTalk(); setSelected(null); setOpening(""); zoomFnRef.current(0.55) }} onTalked={() => { talkedRef.current = true; track("airraw_talk", { surface: "planet" }) }} />}
 
-      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} topic={group.c != null ? TOPICS[group.c][group.seed % TOPICS[group.c].length] : undefined} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening(""); zoomFnRef.current(0.55) }}
+      {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} topic={group.title ?? (group.c != null ? TOPICS[group.c][group.seed % TOPICS[group.c].length] : undefined)} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening(""); zoomFnRef.current(0.55) }}
         onCall={(m) => {
           // from the room's people sheet: leave the crowd, call this one directly.
           // Same AIR gate as any conversation; 18+ was already confirmed to be here.

@@ -33,7 +33,10 @@ const WHAT = {
   "talks-test":       "the talks board moves, fills, and is never a dead end",
 }
 
-const files = readdirSync(here).filter((f) => f.endsWith(".mjs") && f !== "run.mjs").sort()
+// ui-check.mjs drives a real browser and needs a server, so it is excluded from
+// the default run. Start one and call it directly:
+//   npx next start -p 3131 &   PORT=3131 node tests/ui-check.mjs
+const files = readdirSync(here).filter((f) => f.endsWith(".mjs") && f !== "run.mjs" && f !== "ui-check.mjs").sort()
 let failed = 0
 for (const f of files) {
   const name = f.replace(/\.mjs$/, "")

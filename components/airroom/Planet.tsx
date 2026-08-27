@@ -30,6 +30,7 @@ import { ProfileSheet } from "@/components/airroom/ProfileSheet"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
 import { hasOnboarded, markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
 import { getCredits, spendCredits } from "@/lib/airroom/credits"
+import { getAir } from "@/lib/airraw/air"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
 import { track } from "@/lib/airraw/track"
 
@@ -198,7 +199,9 @@ export function Planet() {
   const [showProfile, setShowProfile] = useState(false)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [credits, setCredits] = useState(0)
-  useEffect(() => { setProfile(getProfile()); setCredits(getCredits()) }, [])
+  // AiR is its own thing now — earned, never bought. See lib/airraw/air.ts.
+  const [air, setAir] = useState(0)
+  useEffect(() => { setProfile(getProfile()); setCredits(getCredits()); setAir(getAir()) }, [])
   // Grant the pass on return from Ziina — but reconcile on EVERY load, not just the
   // redirect: if Ziina doesn't bounce the buyer back (or marks the intent completed a
   // beat later), the pending intent is claimed next time they open airraw.com.
@@ -861,7 +864,7 @@ export function Planet() {
       {started && onboarded && deckOpen && !selected && !group && (
         roomsOpen
           ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setRoomsOpen(false)} />
-          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} air={pro ? "∞" : String(credits)} onProfile={() => setShowProfile(true)} />
+          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} air={pro ? "∞" : String(air)} onProfile={() => setShowProfile(true)} onEarned={() => setAir(getAir())} />
       )}
       {/* back to AiR from the open sky */}
       {started && !deckOpen && !selected && !group && (

@@ -17,6 +17,7 @@ import { useMemo, useRef, useState } from "react"
 import { makeCharacter, pickForLanguages, type Cluster } from "@/lib/airroom/roster"
 import { matchesPrefs } from "@/lib/airraw/lang-prefs"
 import { cardLinesFor } from "@/lib/airraw/dossier"
+import { earnAir, canEarnToday, DAILY_EARN_CAP, earnedToday } from "@/lib/airraw/air"
 import { Face } from "@/components/airroom/Face"
 
 // Walk the whole soft→wild gradient rather than one band, so consecutive cards
@@ -27,17 +28,26 @@ const fAt = (i: number) => F_WALK[i % F_WALK.length]
 
 const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#fb7185")
 
-export function FrontDoor({ onCall, onRooms, air, onProfile }: {
+// A reward card lands every Nth swipe. 7 is far enough apart that it reads as a
+// find rather than a slot machine, and close enough that a first session hits one.
+const REWARD_EVERY = 7
+const isReward = (i: number) => i > 0 && i % REWARD_EVERY === 0
+
+export function FrontDoor({ onCall, onRooms, air, onProfile, onEarned }: {
   onCall: (c: Cluster) => void
   onRooms: () => void
   air: string
   onProfile: () => void
+  /** Fired after AiR is earned so the balance in the corner updates immediately. */
+  onEarned?: () => void
 }) {
   const [i, setI] = useState(0)
   // Whether the real portrait has arrived. The fallback is a monogram card, which
   // reads fine as a small avatar and terribly as a full-screen letter — so it's
   // blurred back into texture until the photograph replaces it.
   const [live, setLive] = useState(false)
+  const [claimed, setClaimed] = useState(false)
+  const reward = isReward(i)
   const [dir, setDir] = useState<"up" | "left">("up")
   const cardRef = useRef<HTMLDivElement | null>(null)
   const swipe = useRef<{ x: number; y: number } | null>(null)
@@ -52,7 +62,19 @@ export function FrontDoor({ onCall, onRooms, air, onProfile }: {
   const accent = HEAT(person.h)
   const card = cardLinesFor(person.key)
 
-  const go = () => { setLive(false); setI((n) => n + 1) }
+  const go = () => { setLive(false); setClaimed(false); setI((n) => n + 1) }
+
+  /**
+   * Swiping UP on a reward card claims it. Any other direction skips it — the
+   * AiR is offered, never forced, and a user who flicks past shouldn't be
+   * silently credited for a card they didn't read.
+   */
+  const claim = () => {
+    if (claimed || !canEarnToday()) return
+    earnAir(1, "front-door reward card")
+    setClaimed(true)
+    onEarned?.()
+  }
 
   const fling = (d: "up" | "left") => {
     setDir(d)
@@ -96,6 +118,16 @@ export function FrontDoor({ onCall, onRooms, air, onProfile }: {
           c.style.transform = ""; c.style.opacity = ""
           return
         }
+        const up = Math.abs(dy) > Math.abs(dx) && dy < 0
+        if (reward && up) {
+          claim()
+          // Let the confirmation land before moving on, so the card isn't a
+          // reward that vanishes before it's been read.
+          setTimeout(() => fling("up"), 620)
+          const c2 = cardRef.current
+          if (c2) { c2.style.transition = "transform .3s ease"; c2.style.transform = "" ; c2.style.opacity = "1" }
+          return
+        }
         fling(Math.abs(dy) > Math.abs(dx) ? "up" : "left")
       }}
       onPointerCancel={() => {
@@ -115,6 +147,27 @@ export function FrontDoor({ onCall, onRooms, air, onProfile }: {
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "brightness(.5)" }} />
       </div>
 
+      {reward ? (
+        <div key={`r${i}`} ref={cardRef} style={{ position: "absolute", inset: 0, willChange: "transform, opacity", animation: "fdIn .4s ease both", background: "radial-gradient(120% 80% at 50% 35%, #123c33 0%, #0a1a18 55%, #07040f 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18, padding: "0 34px", textAlign: "center" }}>
+          <div style={{ fontSize: 54, lineHeight: 1 }} aria-hidden>✦</div>
+          <div style={{ fontSize: "clamp(26px, 8vw, 34px)", fontWeight: 600, color: "#eafff7", letterSpacing: -0.5, lineHeight: 1.15 }}>
+            {claimed ? "that's yours" : "swipe up for free AiR"}
+          </div>
+          <div style={{ fontSize: 14, color: "rgba(200,240,228,.7)", lineHeight: 1.5, maxWidth: "30ch" }}>
+            {claimed
+              ? "one seat, whenever you want it."
+              : "AiR opens a seat in a talk. It isn't for sale and the pass doesn't include it — you find it."}
+          </div>
+          {!claimed && (
+            <div style={{ fontSize: 12, color: "rgba(200,240,228,.45)", marginTop: 4 }}>
+              {canEarnToday() ? `${DAILY_EARN_CAP - earnedToday()} left to find today` : "that's all of today's"}
+            </div>
+          )}
+          <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) + 26px)", fontSize: 12, color: "rgba(200,240,228,.4)" }}>
+            {claimed ? "swipe on" : "↑ swipe up"}
+          </div>
+        </div>
+      ) : (
       <div key={i} ref={cardRef} style={{ position: "absolute", inset: 0, willChange: "transform, opacity", animation: "fdIn .4s ease both" }}>
         <Face persona={{ name: person.host, gender: person.gender }} lazy={false} onLive={setLive}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
@@ -163,6 +216,7 @@ export function FrontDoor({ onCall, onRooms, air, onProfile }: {
           </div>
         </div>
       </div>
+      )}
 
       {/* Quiet corners: credits, and the way through to rooms. */}
       <button onClick={onProfile} aria-label="you"

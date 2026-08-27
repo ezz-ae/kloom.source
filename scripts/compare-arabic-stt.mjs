@@ -126,7 +126,7 @@ console.log(`
 Read the transcripts, not the timings alone. If Gemini-with-vocabulary is the
 only one that gets your words right, the extra second is worth it:
 
-  vercel env add STT_GEMINI production      # value: 1
+  vercel env add STT_GEMINI production --value 1 && vercel --prod
 
 If Scribe is already correct, leave it — it is about three times faster.
 ─────────────────────────────────────────────`)

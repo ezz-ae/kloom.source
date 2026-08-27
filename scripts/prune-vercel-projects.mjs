@@ -21,13 +21,40 @@
 // under-protecting is deleting the live product.
 const PROTECTED = ["airroom", "airraw", "kloom", "entrestate"]
 
-const TOKEN = process.env.VERCEL_TOKEN
-if (!TOKEN) {
-  console.error(`No VERCEL_TOKEN.
+// The Vercel CLI already holds a token on disk. Reuse it rather than asking for a
+// new one to be minted: a fresh long-lived token is a real credential to look
+// after, and creating one just to LIST projects isn't a fair trade.
+import { readFileSync, existsSync } from "node:fs"
+import { homedir } from "node:os"
+import { join } from "node:path"
 
-  1. https://vercel.com/account/tokens  →  Create Token (scope: the team you're pruning)
-  2. export VERCEL_TOKEN=xxxxx
-  3. node scripts/prune-vercel-projects.mjs
+function cliToken() {
+  const candidates = [
+    join(homedir(), "Library", "Application Support", "com.vercel.cli", "auth.json"), // macOS
+    join(homedir(), ".local", "share", "com.vercel.cli", "auth.json"),                // Linux
+    join(homedir(), ".config", "com.vercel.cli", "auth.json"),
+    join(homedir(), ".vercel", "auth.json"),
+  ]
+  for (const f of candidates) {
+    if (!existsSync(f)) continue
+    try {
+      const t = JSON.parse(readFileSync(f, "utf8")).token
+      if (t) { console.error(`(using the token the Vercel CLI already has)`); return t }
+    } catch { /* unreadable or a shape we don't know — try the next */ }
+  }
+  return ""
+}
+
+const TOKEN = process.env.VERCEL_TOKEN || cliToken()
+if (!TOKEN) {
+  console.error(`No Vercel credentials found.
+
+Either log the CLI in — which this script then reuses:
+  vercel login
+
+or provide a token explicitly:
+  https://vercel.com/account/tokens  →  Create Token
+  export VERCEL_TOKEN=xxxxx
 
 Dry run by default — nothing is deleted until you add --delete.`)
   process.exit(1)

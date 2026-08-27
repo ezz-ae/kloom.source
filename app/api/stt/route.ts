@@ -14,6 +14,7 @@
 // Browser STT fallback is handled client-side when NEXT_PUBLIC_STT_BROWSER=1.
 
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
+import { adultEnabled } from "@/lib/variant"
 
 export const runtime = "nodejs"
 export const maxDuration = 300   // RunPod Whisper can cold-start; give it room (capped by plan)
@@ -96,6 +97,8 @@ export async function POST(request: Request) {
 
   const language = typeof form.get("language") === "string" ? (form.get("language") as string) : undefined
   const isArabic = language === "ar"
+  // AIRRAW only. Kloom keeps the original behaviour throughout this route.
+  const adult = adultEnabled()
 
   // ── Gemini 3.5 Transcribe (tier 0 for Arabic, opt-in) ─────────────────────
   // The one recogniser here that can be TOLD what dialect words to expect. Whisper
@@ -108,7 +111,7 @@ export async function POST(request: Request) {
   // a one-second clip), so it trades turn latency for accuracy — that is a product
   // decision, not one to make silently on someone's behalf.
   const gemKey = process.env.GEMINI_API_KEY
-  if (isArabic && gemKey && process.env.STT_GEMINI === "1") {
+  if (adult && isArabic && gemKey && process.env.STT_GEMINI === "1") {
     const t = await geminiSTT(file, gemKey, language)
     if (t !== null) return Response.json({ text: cleanTranscript(t) }, { headers: { "Cache-Control": "no-store" } })
   }
@@ -121,7 +124,7 @@ export async function POST(request: Request) {
   // clip. Scoped to Arabic: English through Groq is already accurate and cheaper.
   // STT_SCRIBE=0 turns it off and falls through to Whisper.
   const elKey = process.env.ELEVENLABS_API_KEY
-  if (isArabic && elKey && process.env.STT_SCRIBE !== "0") {
+  if (adult && isArabic && elKey && process.env.STT_SCRIBE !== "0") {
     // No language pinned: Scribe detects it, which is what lets an Arabic-set
     // character understand a line of English without losing Arabic accuracy.
     // Whisper below still pins for Arabic, because it needs the help — that's the
@@ -152,7 +155,10 @@ export async function POST(request: Request) {
     // as English — Whisper doesn't refuse, it invents English words that sound
     // similar, so the character received something the user never said. Detecting
     // costs nothing here and is what makes "speak either language" actually work.
-    if (isArabic && language) groqForm.append("language", language)
+    // Kloom pins whatever the UI selected, exactly as before. On AIRRAW the pin is
+    // Arabic-only and everything else auto-detects, which is what lets a bilingual
+    // caller with English selected still be understood in Arabic.
+    if (language && (!adult || isArabic)) groqForm.append("language", language)
     // Pin sampling off. Left unset, a short clip can decode differently run to run —
     // the same word coming back as two different words on two tries.
     groqForm.append("temperature", "0")

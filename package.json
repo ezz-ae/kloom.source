@@ -12,7 +12,9 @@
     "start:standalone": "node deploy/start-web.js",
     "bloom:create": "npx tsx scripts/create-bloom-token.ts",
     "bloom:airdrop": "npx tsx scripts/airdrop-early-users.ts",
-    "assets:standalone": "rm -rf .next/standalone/.next/static .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public"
+    "assets:standalone": "rm -rf .next/standalone/.next/static .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public",
+    "test": "node tests/run.mjs",
+    "verify": "tsc --noEmit && node tests/run.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.65",

@@ -379,10 +379,12 @@ const FEW_SHOT_AR: { role: "user" | "assistant"; content: string }[] = [
 ]
 
 function buildSystemPrompt(persona: Persona, pro = false, adult = false, userStyle = "", lastUserText = "") {
-  const languageInstruction = languageLine(persona)
+  const languageInstruction = languageLine(persona, adult)
   // Only present when they actually asked about the platform, the pass, privacy
-  // or recording — see lib/airraw/platform-facts.ts.
-  const platform = platformFactsFor(lastUserText)
+  // or recording — see lib/airraw/platform-facts.ts. AIRRAW-only: these facts name
+  // AIRRAW and describe its pass, so on kloom.io they would be a persona
+  // confidently describing a product it isn't part of.
+  const platform = adult ? platformFactsFor(lastUserText) : ""
   const warmthInstruction = warmthLine(persona)
   const talkStyleInstruction = talkStyleLine(persona)
   const barTalkInstruction = barTalkLine(persona)
@@ -415,7 +417,7 @@ Now speak as ${persona.name}. One short reply only.`
 
 // Prompt for an N>=3-person room (you + 2+ other AIs).
 function buildRoomPrompt(self: Persona, others: Persona[], relationship?: string, pro = false, adult = false, userStyle = "") {
-  const languageInstruction = languageLine(self)
+  const languageInstruction = languageLine(self, adult)
   const warmthInstruction = warmthLine(self)
   const talkStyleInstruction = talkStyleLine(self)
   const barTalkInstruction = barTalkLine(self)
@@ -475,7 +477,7 @@ Now speak as ${self.name}. One short reply only.`
 }
 
 function buildThirdModePrompt(self: Persona, partner: Persona, relationship?: string, pro = false, adult = false, userStyle = "") {
-  const languageInstruction = languageLine(self)
+  const languageInstruction = languageLine(self, adult)
   const warmthInstruction = warmthLine(self)
   const talkStyleInstruction = talkStyleLine(self)
   const barTalkInstruction = barTalkLine(self)
@@ -547,9 +549,28 @@ function englishDefaultLine(persona: Persona) {
   }`
 }
 
-function languageLine(persona: Persona) {
+/**
+ * `follow` = does this build let a character switch language with the speaker?
+ *
+ * AIRRAW only. Kloom keeps the original strict behaviour — a persona set to a
+ * language replies in that language, full stop. Bilingual switching was asked for
+ * on the adult floor and is a real behaviour change; applying it to Kloom's
+ * personas would alter a live product nobody asked to change.
+ */
+function languageLine(persona: Persona, follow = false) {
   const lang = persona.language
-  if (!lang || lang === "English") return englishDefaultLine(persona)
+  if (!lang || lang === "English") return follow ? englishDefaultLine(persona) : ""
+  if (!follow) {
+    // ── Kloom: exactly as it was before the bilingual work ──
+    if (lang === "Arabic" || lang === "ar") {
+      return `\n\n=== LANGUAGE — CRITICAL ===
+Reply ONLY in spoken colloquial Arabic — the way real people actually talk, NOT Modern Standard Arabic (MSA) or formal written Arabic.
+Match the user's dialect: Levantine if they use shu/halla2/hayk; Gulf if they use shnoo/il7een/zain.
+AVOID formal chatbot phrases like "I am all ears", "with pleasure", "how may I help you", "what would you like to share" — those sound like a customer-service bot, not a person.
+Keep it short and spoken: 1–2 short sentences.`
+    }
+    return `\n\n=== LANGUAGE — CRITICAL, OVERRIDES EVERYTHING ===\nYou are a native ${lang} speaker and you reply ONLY in ${lang}. EVERY word of EVERY reply must be written in ${lang}, using ${lang}'s own script/alphabet. This holds even when the other person writes to you in English or any other language — you still answer in ${lang}, never switching, never mixing in English words.`
+  }
   if (lang === "Arabic" || lang === "ar") {
     // Derived from the persona's seed, never from client-supplied text.
     // Deliberately NOT falling back to persona.name: only AIRRAW's floor sends a

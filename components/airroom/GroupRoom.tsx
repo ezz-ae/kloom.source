@@ -13,7 +13,7 @@
  * real, and — that's the whole point — you can't always tell.
  */
 import { useEffect, useRef, useState } from "react"
-import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
+import { groupCast, type Cluster } from "@/lib/airroom/roster"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
 import { Face } from "@/components/airroom/Face"
@@ -25,7 +25,6 @@ import { resolveAirrawHandle } from "@/lib/airroom/onboard"
 import { stripHallucinatedSentences } from "@/lib/text-dedup"
 import { dossierLine } from "@/lib/airraw/dossier"
 
-const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const dot = (f: number) => (f < 0.4 ? "#6fd6e6" : f < 0.72 ? "#ffce7a" : "#ff7a4d")
 const rid = () => Math.random().toString(36).slice(2) + Date.now().toString(36)
 
@@ -50,10 +49,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   // Deterministic cast of N — the same crowd for everyone who enters this room.
   // The zoom level chose N (a 60-voice floor or a 4-voice booth); members spread
   // across a small temperature band around the room so the room has texture.
-  const [members] = useState<Cluster[]>(() => {
-    const n = Math.max(1, Math.min(120, Math.round(count)))
-    return Array.from({ length: n }, (_, i) => makeCharacter(seed * 7 + i + 1, clamp01(f + ((i / n) - 0.5) * 0.08)))
-  })
+  const [members] = useState<Cluster[]>(() => groupCast(seed, f, count))
   // if they gave a name on the welcome, that's who they are in the room — not
   // a random Guest-XXXX. Airraw-only wrapper; Kloom's resolveHandle() is untouched.
   const handle = useRef(resolveAirrawHandle(resolveHandle)).current

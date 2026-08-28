@@ -233,6 +233,24 @@ export function makeCharacter(seed: number, f: number): Cluster {
 
 
 /**
+ * The cast of a group room, as ONE formula.
+ *
+ * Exported because two screens need the same crowd: the talks board shows small
+ * faces of who is already in a talk, and GroupRoom builds the people who
+ * actually speak in it. Derived separately, the board promised five faces and
+ * the room opened on five different ones — and a product whose whole claim is
+ * "you forget they're AI" cannot afford to lie about who is in the room.
+ *
+ * Members spread across a narrow temperature band around the room so the crowd
+ * has texture rather than being five variations of one mood.
+ */
+export function groupCast(seed: number, f: number, count: number): Cluster[] {
+  const n = Math.max(1, Math.min(120, Math.round(count)))
+  const c01 = (x: number) => Math.max(0, Math.min(1, x))
+  return Array.from({ length: n }, (_, i) => makeCharacter(seed * 7 + i + 1, c01(f + ((i / n) - 0.5) * 0.08)))
+}
+
+/**
  * The same as makeCharacter, but skewed toward people the user can actually open
  * a conversation with — see lib/airraw/lang-prefs.ts. Walks forward from the seed
  * until it finds a character whose native language the user speaks.

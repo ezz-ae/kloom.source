@@ -12,14 +12,49 @@
  * actually had. That is what stops this being a list of chat rooms.
  */
 import { useEffect, useMemo, useState } from "react"
-import { liveTalks, seatsLeft, ageLabel, type Talk } from "@/lib/airraw/talks"
+import { liveTalks, seatsLeft, ageLabel, talkRoom, heatF, type Talk, type TalkRoom } from "@/lib/airraw/talks"
 import { getFai, spendFai, canAfford } from "@/lib/airraw/fai"
+import { groupCast } from "@/lib/airroom/roster"
+import { Face } from "@/components/airroom/Face"
 
 const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#fb7185")
 
+// How many faces a card shows before it collapses to "+N". Four is enough to
+// read as a crowd and few enough that four cards don't turn the board into a
+// wall of circles — the title is still the thing being sold.
+const SHOWN = 4
+
+/**
+ * Who is already in there.
+ *
+ * A row of numbers ("9 in") states a fact; four faces make it a room you are
+ * late to. These are the REAL cast — the same people groupCast() hands the room
+ * when you take a seat — so the faces on the card are the voices you meet.
+ */
+function Who({ t }: { t: Talk }) {
+  const room = talkRoom(t)
+  const cast = useMemo(() => groupCast(room.seed, room.f, room.count).slice(0, SHOWN), [room.seed, room.f, room.count])
+  const more = Math.max(0, t.taken - cast.length)
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <div style={{ display: "flex" }}>
+        {cast.map((m, i) => (
+          <span key={m.key} style={{ width: 26, height: 26, borderRadius: "50%", overflow: "hidden", display: "block", marginLeft: i ? -8 : 0, border: ".5px solid rgba(255,255,255,.22)", boxShadow: "0 2px 8px -2px rgba(0,0,0,.7)", background: "#160f24", zIndex: SHOWN - i }}>
+            <Face persona={{ name: m.host, gender: m.gender }} alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          </span>
+        ))}
+      </div>
+      {more > 0 && (
+        <span style={{ fontSize: 11, color: "rgba(240,232,255,.45)", fontVariantNumeric: "tabular-nums" }}>+{more}</span>
+      )}
+    </div>
+  )
+}
+
 export function Talks({ onJoin, onBack, onSpent }: {
-  /** seats = how many voices are in the room; title becomes the room's subject. */
-  onJoin: (t: { seed: number; seats: number; title: string; heat: string }) => void
+  /** The room to open, already resolved by talkRoom() so nothing recomputes it. */
+  onJoin: (r: TalkRoom) => void
   onBack: () => void
   onSpent: () => void
 }) {
@@ -44,7 +79,7 @@ export function Talks({ onJoin, onBack, onSpent }: {
   const take = (t: Talk) => {
     if (!canAfford(1)) { setDenied(true); setTimeout(() => setDenied(false), 3200); return }
     spendFai(1); setFaiState(getFai()); onSpent()
-    onJoin({ seed: t.seed, seats: Math.max(2, t.seats - t.taken), title: t.title, heat: t.heat })
+    onJoin(talkRoom(t))
   }
 
   const create = () => {
@@ -54,7 +89,7 @@ export function Talks({ onJoin, onBack, onSpent }: {
     spendFai(1); setFaiState(getFai()); onSpent()
     // Your own talk starts empty and fills with voices as it runs — you're first
     // in rather than last, which is the other half of "you can arrive early".
-    onJoin({ seed: (Date.now() >>> 0), seats, title: clean, heat: "m" })
+    onJoin({ seed: (Date.now() >>> 0), f: heatF("m"), count: seats, title: clean, heat: "m" })
   }
 
   return (
@@ -86,9 +121,8 @@ export function Talks({ onJoin, onBack, onSpent }: {
             <div key={t.id} style={{ borderRadius: 16, padding: "14px 15px", background: "rgba(255,255,255,.045)", border: `.5px solid ${c}33`, display: "flex", flexDirection: "column", gap: 9 }}>
               <div style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.3, color: "#f4ecff" }}>{t.title}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "rgba(240,232,255,.55)" }}>
+                <Who t={t} />
                 <span style={{ color: c, fontWeight: 700 }}>{left} seat{left === 1 ? "" : "s"} open</span>
-                <span aria-hidden>·</span>
-                <span>{t.taken} in</span>
                 <span aria-hidden>·</span>
                 <span>{ageLabel(t)}</span>
               </div>

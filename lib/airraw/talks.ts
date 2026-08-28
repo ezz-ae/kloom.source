@@ -111,3 +111,34 @@ export const seatsLeft = (t: Talk) => Math.max(0, t.seats - t.taken)
 export function ageLabel(t: Talk): string {
   return t.startedMinsAgo < 2 ? "just started" : `${t.startedMinsAgo} min in`
 }
+
+/** Heat → where the talk sits on the roster's soft→wild gradient. */
+export const heatF = (h: Talk["heat"]) => (h === "w" ? 0.3 : h === "m" ? 0.6 : 0.9)
+
+export interface TalkRoom {
+  seed: number
+  f: number
+  count: number
+  title: string
+  heat: Talk["heat"]
+}
+
+/**
+ * The room a talk opens into.
+ *
+ * ONE definition, shared by the board (which shows small faces of who is in
+ * there) and by the room itself. This used to be computed in two places — the
+ * board in Talks.tsx and the handoff in Planet.tsx — which meant the faces on
+ * the card and the people who turned up could disagree. For a product whose
+ * north star is "he forgot they are AI", a room that opens on a different crowd
+ * than the one advertised is the single most expensive kind of bug.
+ */
+export function talkRoom(t: Talk): TalkRoom {
+  return {
+    seed: t.seed,
+    f: heatF(t.heat),
+    count: Math.min(12, Math.max(2, seatsLeft(t))),
+    title: t.title,
+    heat: t.heat,
+  }
+}

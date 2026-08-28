@@ -12,6 +12,13 @@
  * borrowing it for "start a voice call" would place calls by accident all day.
  * Passing is cheap and reversible, so the gesture does that; calling costs
  * minutes and attention, so it takes a deliberate tap.
+ *
+ * THE CHROME IS TWO PILLS. It used to be four floating things — a FAI count, a
+ * language selector, a talks button and a full-width seats banner — stacked in
+ * two rows over the top third of a photograph. Four controls competing with the
+ * face is not a front door, it's a dashboard. Everything that is a SETTING now
+ * lives behind the left pill; everything that is NEWS (seats opening) arrives as
+ * a toast that leaves, exactly as a notification should.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { makeCharacter, pickForLanguages, type Cluster } from "@/lib/airroom/roster"
@@ -20,6 +27,8 @@ import { cardLinesFor } from "@/lib/airraw/dossier"
 import { earnFai, canEarnToday, DAILY_EARN_CAP, earnedToday } from "@/lib/airraw/fai"
 import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
 import { Face } from "@/components/airroom/Face"
+import { LANGUAGES } from "@/lib/languages"
+import { getLangPrefs, saveLangPrefs, langPrefsPersist, type LangPrefs } from "@/lib/airraw/lang-prefs"
 
 // Walk the whole soft→wild gradient rather than one band, so consecutive cards
 // are different KINDS of person, not five variations on one mood.
@@ -34,13 +43,15 @@ const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#f
 const REWARD_EVERY = 7
 const isReward = (i: number) => i > 0 && i % REWARD_EVERY === 0
 
-export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned }: {
+export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned, onLangChange }: {
   onCall: (c: Cluster) => void
   onRooms: () => void
   fai: string
   onProfile: () => void
-  /** Fired after AiR is earned so the balance in the corner updates immediately. */
+  /** Fired after FAI is earned so the balance in the corner updates immediately. */
   onEarned?: () => void
+  /** Keeps the surrounding planet's language state in step with the menu. */
+  onLangChange?: (primary: string) => void
 }) {
   // A talk with room in it, surfaced while you're swiping. This is the "15 seats
   // open for a talk on …" moment: something is happening elsewhere and you can
@@ -57,6 +68,37 @@ export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned }: {
     const id = setInterval(pick, 25_000)
     return () => clearInterval(id)
   }, [])
+  // The nudge is a NOTIFICATION, not furniture: it appears when a different talk
+  // becomes the one worth knowing about, then leaves. A banner that is always
+  // there is wallpaper — and it was eating a whole row of a photograph.
+  const [nudgeOn, setNudgeOn] = useState(false)
+  const shown = useRef<string | null>(null)
+  useEffect(() => {
+    if (!nudge) { setNudgeOn(false); return }
+    if (shown.current === nudge.title) return
+    shown.current = nudge.title
+    setNudgeOn(true)
+    const id = setTimeout(() => setNudgeOn(false), 9000)
+    return () => clearTimeout(id)
+  }, [nudge])
+
+  // Settings live behind one pill. Language was previously a permanently visible
+  // control in the middle of the top edge, over the face.
+  const [menu, setMenu] = useState(false)
+  const [alsoOpen, setAlsoOpen] = useState(false)
+  const [prefs, setPrefs] = useState<LangPrefs>({ primary: "English", also: [] })
+  useEffect(() => { setPrefs(getLangPrefs()) }, [])
+  const setPrimary = (name: string) => {
+    const next: LangPrefs = { primary: name, also: prefs.also.filter((x) => x !== name) }
+    setPrefs(next); saveLangPrefs(next); onLangChange?.(name)
+  }
+  const toggleAlso = (name: string) => {
+    if (name === prefs.primary) return
+    const also = prefs.also.includes(name) ? prefs.also.filter((x) => x !== name) : [...prefs.also, name]
+    const next: LangPrefs = { primary: prefs.primary, also }
+    setPrefs(next); saveLangPrefs(next)
+  }
+
   const [i, setI] = useState(0)
   // Whether the real portrait has arrived. The fallback is a monogram card, which
   // reads fine as a small avatar and terribly as a full-screen letter — so it's
@@ -240,26 +282,110 @@ export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned }: {
       </div>
       )}
 
-      {nudge && !reward && (
+      {/* THE CHROME — one row, two pills. A settings menu on the left, the way
+          through to talks on the right, and nothing else standing on the face. */}
+      <div
+        style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: 14, right: 14, zIndex: 26, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, pointerEvents: "none" }}
+        // The card behind this listens for drags on the whole screen. Without
+        // this, opening the language list or scrolling the menu also flung the
+        // person off-screen.
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerMove={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+      >
+        <div style={{ position: "relative", pointerEvents: "auto" }}>
+          <button onClick={() => setMenu((o) => !o)} aria-label="your FAI and settings" aria-expanded={menu}
+            style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 34, padding: "0 12px", fontSize: 12.5, fontWeight: 700, letterSpacing: .4, color: "#7fd6c0", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(127,214,192,.32)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit", backdropFilter: "blur(8px)" }}>
+            <span aria-hidden>✦</span>
+            <span style={{ fontVariantNumeric: "tabular-nums" }}>{fai}</span>
+            <span aria-hidden style={{ fontSize: 9, opacity: .55, transform: menu ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
+          </button>
+
+          {menu && (
+            <div role="menu" style={{ position: "absolute", top: 42, left: 0, width: "min(78vw, 300px)", padding: 13, borderRadius: 16, background: "rgba(8,6,16,.94)", border: ".5px solid rgba(255,255,255,.13)", backdropFilter: "blur(16px)", boxShadow: "0 28px 64px -24px #000", display: "flex", flexDirection: "column", gap: 12, animation: "fdRise .2s ease both", maxHeight: "min(70vh, 460px)", overflowY: "auto" }}>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#7fd6c0", letterSpacing: .4 }}>{fai} FAI</div>
+                <div style={{ fontSize: 11.5, color: "rgba(240,232,255,.5)", lineHeight: 1.45, marginTop: 3 }}>
+                  one takes a seat in a talk. you earn one every time you finish a talk — it isn&apos;t for sale.
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: "rgba(255,255,255,.08)" }} />
+
+              <div>
+                <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "rgba(240,232,255,.4)", marginBottom: 6 }}>you speak</div>
+                <select value={prefs.primary} onChange={(e) => setPrimary(e.target.value)} aria-label="your language"
+                  style={{ width: "100%", minHeight: 38, borderRadius: 10, background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.15)", color: "#e8dfff", fontSize: 13.5, fontFamily: "inherit", padding: "0 10px", outline: "none", cursor: "pointer" }}>
+                  {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{l.name}</option>)}
+                </select>
+                <button onClick={() => setAlsoOpen((o) => !o)} aria-expanded={alsoOpen}
+                  style={{ marginTop: 7, width: "100%", minHeight: 32, borderRadius: 999, fontSize: 12, fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent", color: prefs.also.length ? "#06121e" : "rgba(240,232,255,.6)", background: prefs.also.length ? "#7fd6c0" : "rgba(255,255,255,.06)", border: prefs.also.length ? "none" : ".5px solid rgba(255,255,255,.14)" }}>
+                  {prefs.also.length ? `also ${prefs.also.join(", ")}` : "+ another language"}
+                </button>
+                {alsoOpen && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
+                    {LANGUAGES.filter((l) => l.name !== prefs.primary).map((l) => {
+                      const on = prefs.also.includes(l.name)
+                      return (
+                        <button key={l.name} onClick={() => toggleAlso(l.name)} aria-pressed={on}
+                          style={{ fontSize: 11.5, padding: "5px 9px", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit", color: on ? "#06121e" : "rgba(240,232,255,.6)", background: on ? "#7fd6c0" : "rgba(255,255,255,.06)", border: on ? "none" : ".5px solid rgba(255,255,255,.14)" }}>
+                          {l.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                <div style={{ fontSize: 10.5, color: "rgba(240,232,255,.34)", marginTop: 7 }}>
+                  {langPrefsPersist() ? "saved as your default" : "kept for this visit"}
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: "rgba(255,255,255,.08)" }} />
+
+              <button onClick={() => { setMenu(false); onProfile() }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 38, padding: "0 2px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13.5, color: "rgba(240,232,255,.8)", fontFamily: "inherit", WebkitTapHighlightColor: "transparent" }}>
+                your profile <span aria-hidden style={{ opacity: .5 }}>›</span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <button onClick={onRooms} aria-label="talks happening now" style={{ pointerEvents: "auto", position: "relative", display: "flex", alignItems: "center", gap: 7, minHeight: 34, padding: "0 13px", fontSize: 12.5, fontWeight: 600, color: "rgba(240,232,255,.75)", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.15)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit", backdropFilter: "blur(8px)" }}>
+          talks
+          {/* The seat count lives ON the button once the toast has gone, so the
+              news survives without occupying a row of its own. */}
+          {nudge && (
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: "#06121e", background: "#7fd6c0", borderRadius: 999, padding: "2px 6px", fontVariantNumeric: "tabular-nums" }}>{nudge.left}</span>
+          )}
+        </button>
+      </div>
+
+      {/* Tapping anywhere else closes the menu — and swallows that tap, so it
+          doesn't also start a swipe on the person underneath. */}
+      {menu && (
+        <div
+          onClick={() => { setMenu(false); setAlsoOpen(false) }}
+          onPointerDown={(e) => { e.stopPropagation(); }}
+          onPointerUp={(e) => e.stopPropagation()}
+          style={{ position: "absolute", inset: 0, zIndex: 25 }}
+          aria-hidden
+        />
+      )}
+
+      {/* The seats notification. Arrives, is readable, leaves. */}
+      {nudgeOn && !reward && !menu && (
         <button
           onClick={onRooms}
-          style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 56px)", left: 14, right: 14, zIndex: 23, display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", borderRadius: 14, background: "rgba(4,5,11,.72)", border: ".5px solid rgba(127,214,192,.34)", backdropFilter: "blur(8px)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", WebkitTapHighlightColor: "transparent" }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onPointerUp={(e) => e.stopPropagation()}
+          style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 56px)", left: 14, right: 14, zIndex: 24, display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", borderRadius: 14, background: "rgba(4,5,11,.8)", border: ".5px solid rgba(127,214,192,.34)", backdropFilter: "blur(10px)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", WebkitTapHighlightColor: "transparent", animation: "fdRise .3s ease both" }}
         >
-          <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 800, letterSpacing: .6, color: "#06121e", background: "#7fd6c0", borderRadius: 6, padding: "3px 6px" }}>{nudge.left} SEATS</span>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#eafff7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nudge.title}</span>
+          <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 800, letterSpacing: .6, color: "#06121e", background: "#7fd6c0", borderRadius: 6, padding: "3px 6px" }}>{nudge?.left} SEATS</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#eafff7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nudge?.title}</span>
           <span style={{ flex: "0 0 auto", fontSize: 15, color: "rgba(234,255,247,.5)" }} aria-hidden>›</span>
         </button>
       )}
 
-      {/* Quiet corners: your FAI, and the way through to talks. */}
-      <button onClick={onProfile} aria-label="your FAI"
-        style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: 14, zIndex: 24, minHeight: 34, padding: "0 13px", fontSize: 12, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}>
-        {fai} FAI
-      </button>
-      <button onClick={onRooms} aria-label="talks happening now"
-        style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 14, zIndex: 24, minHeight: 34, padding: "0 13px", fontSize: 12, fontWeight: 600, color: "rgba(240,232,255,.7)", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit" }}>
-        talks
-      </button>
     </div>
   )
 }

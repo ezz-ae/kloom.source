@@ -76,5 +76,28 @@ for (let ms = 1000; ms < SLOT_MS; ms += 5000) {
 }
 check(regressions === 0, "seats never un-fill while a slot runs")
 
+
+// ONE definition of the room a talk opens into. The board shows small faces of
+// who is in a talk; the room builds the people who speak. If those two derive
+// the cast independently they drift, and the card becomes a lie about who is in
+// there — the most expensive bug available to a product whose north star is
+// "he forgot they are AI". Structural, not behavioural: assert the callers go
+// through the shared helpers rather than re-deriving heat or seat counts.
+const fs = await import("node:fs")
+const strip = (f) => fs.readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+const talksSrc = strip("lib/airraw/talks.ts")
+const boardSrc = strip("components/airroom/Talks.tsx")
+const planetSrc = strip("components/airroom/Planet.tsx")
+const roomSrc = strip("components/airroom/GroupRoom.tsx")
+
+check(/export function talkRoom/.test(talksSrc) && /export const heatF/.test(talksSrc),
+  "talks.ts owns the talk -> room mapping")
+check(/talkRoom\(/.test(boardSrc) && /groupCast\(/.test(boardSrc),
+  "the board derives its faces from the shared helpers")
+check(!/heat === "w"/.test(boardSrc) && !/heat === "w"/.test(planetSrc),
+  "nobody re-derives heat -> temperature by hand")
+check(/groupCast\(seed, f, count\)/.test(roomSrc),
+  "the room builds its cast with the same function the board displays")
+
 console.log(fail===0?"\nPASS":`\nFAIL — ${fail}`)
 process.exit(fail?1:0)

@@ -825,7 +825,7 @@ export function Planet() {
           a sheet asking you for $9. Also now shown on the deck, which is the front
           door and previously had no language control at all.
           Still hidden inside a room/call: it floated over their top bars. */}
-      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: (intro || selected || group) ? "none" : "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
+      <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: (intro || selected || group || (deckOpen && !legacyRooms)) ? "none" : "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px" }}>
           <span style={{ fontSize: 12 }} aria-hidden>🌐</span>
           <select value={lang} onChange={(e) => pickPrimary(e.target.value)} aria-label="language" style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", color: "#cfe0ee", border: "none", fontSize: 12.5, fontFamily: "inherit", padding: "2px 2px 2px 4px", cursor: "pointer", outline: "none" }}>
@@ -889,16 +889,17 @@ export function Planet() {
           ? <Talks
               onBack={() => setRoomsOpen(false)}
               onSpent={() => setFai(getFai())}
-              onJoin={(t) => {
-                // A talk becomes a live room: its title is the subject, its open
-                // seats are how many voices are in it, and heat picks the tone.
+              onJoin={(r) => {
+                // The board already resolved the room via talkRoom(), so nothing
+                // is recomputed here — the crowd whose faces were on the card is
+                // exactly the crowd that opens.
                 setRoomsOpen(false)
-                setGroup({ seed: t.seed, f: t.heat === "w" ? 0.3 : t.heat === "m" ? 0.6 : 0.9, count: Math.min(12, t.seats), title: t.title })
+                setGroup({ seed: r.seed, f: r.f, count: r.count, title: r.title })
               }}
             />
           : legacyRooms
           ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setLegacyRooms(false)} />
-          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={String(fai)} onProfile={() => setShowProfile(true)} onEarned={() => setFai(getFai())} />
+          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={String(fai)} onProfile={() => setShowProfile(true)} onEarned={() => setFai(getFai())} onLangChange={pickPrimary} />
       )}
       {/* back to the people deck from the open sky */}
       {started && !deckOpen && !selected && !group && (

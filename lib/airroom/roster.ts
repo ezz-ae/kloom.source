@@ -456,7 +456,29 @@ export function makeCharacter(seed: number, f: number): Cluster {
 export function groupCast(seed: number, f: number, count: number): Cluster[] {
   const n = Math.max(1, Math.min(120, Math.round(count)))
   const c01 = (x: number) => Math.max(0, Math.min(1, x))
-  return Array.from({ length: n }, (_, i) => makeCharacter(seed * 7 + i + 1, c01(f + ((i / n) - 0.5) * 0.08)))
+  return Array.from({ length: n }, (_, i) => makeCharacter(seed * 7 + i + 1, c01(f + spread(i))))
+}
+
+/**
+ * Member i's offset inside the room's temperature band — a function of i ALONE.
+ *
+ * This is load-bearing and the reason it isn't the obvious `(i/n - 0.5) * 0.08`.
+ * With `n` in it the cast is not prefix-stable: growing a room from four people
+ * to five changes the temperature of all four, which changes their seeds, which
+ * makes them five ENTIRELY DIFFERENT people. The talks board re-derives every
+ * fifteen seconds and a filling talk's seat count moves every time, so that
+ * version asked /api/character-photo for ~99 distinct portraits per twelve-minute
+ * slot — a generation firehose pointed at a paid image API, for a card showing
+ * four faces. It also meant the people in a talk were silently replaced by
+ * different people as the talk filled, which is not how a room works.
+ *
+ * Index-only means groupCast(seed, f, 4) is exactly the first four of
+ * groupCast(seed, f, 12): the room grows by ADDING people. The board can show a
+ * fixed four and know they are the four you will meet.
+ */
+function spread(i: number): number {
+  const h = Math.imul((i + 1) >>> 0, 2654435761) >>> 0
+  return (h / 4294967296 - 0.5) * 0.08
 }
 
 /**

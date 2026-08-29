@@ -118,10 +118,20 @@ export const heatF = (h: Talk["heat"]) => (h === "w" ? 0.3 : h === "m" ? 0.6 : 0
 export interface TalkRoom {
   seed: number
   f: number
+  /** How many voices are in the room — the people already seated. */
   count: number
   title: string
   heat: Talk["heat"]
 }
+
+/**
+ * How many faces the board shows for a talk. Fixed, and deliberately small.
+ *
+ * groupCast() is prefix-stable (see roster.ts), so these are always the FIRST
+ * members of whatever cast the room opens with — the faces on the card are the
+ * people you meet, and they do not churn as the talk fills.
+ */
+export const BOARD_FACES = 4
 
 /**
  * The room a talk opens into.
@@ -137,7 +147,10 @@ export function talkRoom(t: Talk): TalkRoom {
   return {
     seed: t.seed,
     f: heatF(t.heat),
-    count: Math.min(12, Math.max(2, seatsLeft(t))),
+    // The people already IN the talk, not the empty chairs. `seatsLeft` was used
+    // here, which meant a filling room got QUIETER as more arrived — backwards —
+    // and, before groupCast was made prefix-stable, replaced everyone in it.
+    count: Math.min(12, Math.max(2, t.taken)),
     title: t.title,
     heat: t.heat,
   }

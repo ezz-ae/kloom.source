@@ -43,6 +43,27 @@ const TOGETHER_LADDER: { model: string; steps: number }[] = (() => {
 })()
 const togetherOff = new Set<string>()   // models this key can't use (cached 4xx)
 
+/**
+ * When the image provider REJECTS THE KEY, stop asking.
+ *
+ * A rejected key does not recover by being tried again, but every failed
+ * generation was answered with a 502 — which reads as transient, so the client
+ * re-requested on every render and each one burned a provider round-trip. That
+ * is the "character-photo 502s correlated with upstream auth errors" alert: one
+ * dead credential turned into sustained traffic against a paid API.
+ *
+ * Latched with a TTL rather than forever, because the cure (top up the account,
+ * rotate the key) happens outside this process and the route must heal on its
+ * own without a redeploy.
+ */
+const AUTH_OFF_MS = 10 * 60_000
+let authOffUntil = 0
+const providerRejected = () => Date.now() < authOffUntil
+function markProviderRejected(provider: string, status: number) {
+  authOffUntil = Date.now() + AUTH_OFF_MS
+  console.error(`[character-photo] ${provider} rejected the key (${status}) — pausing generation for ${AUTH_OFF_MS / 60000}m`)
+}
+
 const WORLD_STYLE: Record<string, string> = {
   // Adult floor categories
   stories:    "warm dim bedroom lamp, intimate close-up, soft focus, sensual atmosphere, late night mood",
@@ -193,8 +214,11 @@ async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL,
       signal: AbortSignal.timeout(60000),
     })
     if (!res.ok) {
+      // Auth/billing, not "this model": the key itself is no good, so nothing
+      // will work until a human fixes it. Latch the whole provider off.
+      if (res.status === 401 || res.status === 403 || res.status === 402) markProviderRejected("together", res.status)
       // 4xx on a non-base model → the key can't use it; remember so we skip that rung.
-      if (model !== TOGETHER_MODEL && res.status >= 400 && res.status < 500) togetherOff.add(model)
+      else if (model !== TOGETHER_MODEL && res.status >= 400 && res.status < 500) togetherOff.add(model)
       console.error("together image error", model, res.status, (await res.text()).slice(0, 300)); return null
     }
     const d = await res.json()
@@ -332,7 +356,10 @@ export async function POST(request: Request) {
   if (provider === "none"
       || ((provider === "runpod" || provider === "qwen") && !RP_KEY)
       || (provider === "fal" && !FAL_KEY)
-      || (provider === "together" && !TOGETHER_KEY)) {
+      || (provider === "together" && !TOGETHER_KEY)
+      || providerRejected()) {
+    // Same shape as "no key configured", because it is the same situation from
+    // the client's side: no photo is coming, show the monogram and stop asking.
     return Response.json({ error: "image generation disabled", disabled: true }, { status: 503 })
   }
   if (!hasAdmin()) return Response.json({ error: "storage unavailable" }, { status: 503 })

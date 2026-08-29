@@ -32,6 +32,7 @@ const WHAT = {
   "fai-test":         "FAI is earn-only, capped, and cannot be bought",
   "talks-test":       "the talks board moves, fills, and is never a dead end",
   "voices-test":      "one accent table; every tier reachable, with enough to say",
+  "faces-test":       "a talk's cast can't churn, and a dead key isn't retried",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

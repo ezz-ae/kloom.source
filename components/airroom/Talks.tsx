@@ -12,33 +12,37 @@
  * actually had. That is what stops this being a list of chat rooms.
  */
 import { useEffect, useMemo, useState } from "react"
-import { liveTalks, seatsLeft, ageLabel, talkRoom, heatF, type Talk, type TalkRoom } from "@/lib/airraw/talks"
+import { liveTalks, seatsLeft, ageLabel, talkRoom, heatF, BOARD_FACES, type Talk, type TalkRoom } from "@/lib/airraw/talks"
 import { getFai, spendFai, canAfford } from "@/lib/airraw/fai"
 import { groupCast } from "@/lib/airroom/roster"
 import { Face } from "@/components/airroom/Face"
 
 const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#fb7185")
 
-// How many faces a card shows before it collapses to "+N". Four is enough to
-// read as a crowd and few enough that four cards don't turn the board into a
-// wall of circles — the title is still the thing being sold.
-const SHOWN = 4
+const SHOWN = BOARD_FACES
 
 /**
  * Who is already in there.
  *
  * A row of numbers ("9 in") states a fact; four faces make it a room you are
- * late to. These are the REAL cast — the same people groupCast() hands the room
- * when you take a seat — so the faces on the card are the voices you meet.
+ * late to. These are the REAL cast — groupCast() is prefix-stable, so these are
+ * the first members of whatever the room opens with, and the faces on the card
+ * are the voices you meet.
+ *
+ * Deliberately derived from a FIXED count rather than the room's, so the four
+ * faces never change while a talk fills. Keyed off the seed alone, this is four
+ * portraits per talk per slot; the earlier version re-derived from the live seat
+ * count every fifteen seconds and asked the image API for ~99.
  */
 function Who({ t }: { t: Talk }) {
-  const room = talkRoom(t)
-  const cast = useMemo(() => groupCast(room.seed, room.f, room.count).slice(0, SHOWN), [room.seed, room.f, room.count])
-  const more = Math.max(0, t.taken - cast.length)
+  const seed = t.seed, f = heatF(t.heat)
+  const cast = useMemo(() => groupCast(seed, f, SHOWN), [seed, f])
+  const shown = cast.slice(0, Math.max(1, Math.min(SHOWN, t.taken)))
+  const more = Math.max(0, t.taken - shown.length)
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <div style={{ display: "flex" }}>
-        {cast.map((m, i) => (
+        {shown.map((m, i) => (
           <span key={m.key} style={{ width: 26, height: 26, borderRadius: "50%", overflow: "hidden", display: "block", marginLeft: i ? -8 : 0, border: ".5px solid rgba(255,255,255,.22)", boxShadow: "0 2px 8px -2px rgba(0,0,0,.7)", background: "#160f24", zIndex: SHOWN - i }}>
             <Face persona={{ name: m.host, gender: m.gender }} alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />

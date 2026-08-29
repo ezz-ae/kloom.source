@@ -79,5 +79,25 @@ check(walk.every((f) => archFor(f)), "no walk step falls outside every band")
 const adjacent = walk.filter((f, i) => i > 0 && archFor(f) === archFor(walk[i - 1])).length
 check(adjacent === 0, "no two consecutive cards come from the same archetype")
 
+
+// ── discovery has to actually RUN ───────────────────────────────────────────
+// The pools are filled by a background refresh that was never awaited, so the
+// first call on an instance cast from empty pools. On serverless with modest
+// traffic most instances serve a few requests and die, which made "the first
+// call" most calls — regional casting almost never happened while the right
+// voices sat on the account unused.
+const disc = strip("lib/airraw/voice-discovery.ts")
+const tts = strip("app/api/tts/route.ts")
+check(/export async function ensureAccentPools/.test(disc), "there is a way to wait for the pools")
+check(/everLoaded/.test(disc), "it blocks only until the first SUCCESSFUL load, not on a backed-off failure")
+check(/FIRST_WAIT_MS/.test(disc) && /Promise\.race/.test(disc), "the wait is capped — a slow voice list can't cost a call")
+check(/if \(seedKey\) await ensureAccentPools/.test(tts), "AIRRAW waits once per cold instance")
+check(/else warmAccentPools\(elKey\)/.test(tts), "Kloom's path is unchanged — it never reads these pools")
+
+// The native-language gate, which is what stopped British voices being Gulf Arabs.
+check(/native && native !== spec\.lang/.test(disc), "a voice's own language gates which accents it can carry")
+check(/function haystackFor\(v: ElevenVoice, lang: string\)/.test(disc),
+  "an accent claim is only evidence about the language it was made in")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

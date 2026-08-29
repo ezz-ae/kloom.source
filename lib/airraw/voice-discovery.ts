@@ -66,6 +66,9 @@ let pools: Record<string, string[]> = {}
 // iso|gender -> voice ids for voices whose NATIVE language is that language
 let langPools: Record<string, string[]> = {}
 let fetchedAt = 0
+// Whether a refresh has ever SUCCEEDED. Distinct from fetchedAt, which is also
+// nudged forward on failure to back off a broken key.
+let everLoaded = false
 let inflight: Promise<void> | null = null
 const TTL_MS = 6 * 60 * 60_000     // 6h — voices change when a human adds one
 
@@ -171,6 +174,7 @@ async function refresh(key: string): Promise<void> {
   pools = next
   langPools = nextLang
   fetchedAt = Date.now()
+  everLoaded = true
   const found = Object.entries(next).map(([k, v]) => `${k}=${v.length}`).join(" ")
   const langs = Object.entries(nextLang).map(([k, v]) => `${k}=${v.length}`).join(" ")
   console.log(`[voices] accents: ${found || "(none)"} | native: ${langs || "(none)"}`)
@@ -191,10 +195,32 @@ export function warmAccentPools(key: string | undefined): void {
 }
 
 /**
+ * Wait for discovery, but only the first time an instance ever needs it.
+ *
+ * warmAccentPools() alone was sound reasoning for a long-lived server and wrong
+ * for this one. It never blocks, so the first call after a cold start casts from
+ * empty pools — and on serverless with modest traffic most instances serve a
+ * handful of requests and die, so "the first call" is a large share of ALL
+ * calls. The effect on the live floor was that regional casting almost never
+ * happened: an Egyptian character kept being cast from the flat Arabic pool
+ * while two Egyptian voices sat unused on the account.
+ *
+ * So: block once, briefly, and never again. Warm instances keep the old
+ * behaviour exactly, which is what matters for the chunks of a reply already in
+ * flight. The cap means a slow voice-list can cost a fraction of a second, not a
+ * call.
+ */
+const FIRST_WAIT_MS = 1200
+export async function ensureAccentPools(key: string | undefined): Promise<void> {
+  warmAccentPools(key)
+  if (!key || everLoaded || !inflight) return
+  await Promise.race([inflight, new Promise((r) => setTimeout(r, FIRST_WAIT_MS))])
+}
+
+/**
  * Discovered voices for an accent. Synchronous by design: TTS casting sits on the
- * hot path of a live call and must never wait on a voice-list round trip. The
- * first call after a cold start returns empty (casting falls through to the
- * existing pools) and the background refresh fills it for every call after.
+ * hot path of a live call and must never wait on a voice-list round trip — see
+ * ensureAccentPools() for the one deliberate exception.
  */
 export function discoveredAccentPool(accentKey: string, gender?: string): string[] {
   if (!accentKey || accentKey === "NEUTRAL") return []

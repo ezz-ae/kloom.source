@@ -3,7 +3,7 @@ import { isoForLanguage } from "@/lib/languages"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
-import { warmAccentPools, discoveredAccentPool, discoveredLangPool } from "@/lib/airraw/voice-discovery"
+import { warmAccentPools, ensureAccentPools, discoveredAccentPool, discoveredLangPool } from "@/lib/airraw/voice-discovery"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
@@ -52,9 +52,13 @@ export async function POST(request: Request) {
   // its male speaker reads flat/robotic. Eleven first; CSM is now the fallback.
   const elKey = process.env.ELEVENLABS_API_KEY
   if (elKey) {
-    // Refresh the accent pools in the background if stale. Never awaited — this
-    // call must not wait on a voice-list round trip.
-    warmAccentPools(elKey)
+    // Refresh the accent pools if stale. Background for Kloom, which never reads
+    // them (accent casting is gated on seedKey, which only AIRRAW's floor sends)
+    // — its path stays exactly as it was. AIRRAW waits once per cold instance,
+    // because otherwise the first call casts from empty pools and, on
+    // serverless, "the first call" is most of them.
+    if (seedKey) await ensureAccentPools(elKey)
+    else warmAccentPools(elKey)
     const el = await elevenTTS(ttsText, elKey, seedKey || personaName, gender, elevenId, mode, prevText, language, seedKey)
     if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast } })
     // fall through to Sesame / CosyVoice / Fish

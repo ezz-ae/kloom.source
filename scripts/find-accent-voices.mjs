@@ -75,11 +75,15 @@ const LANGS = [...new Set(SPECS.map((s) => s.lang))]
 const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 const hasWord = (h, t) => new RegExp(`\\b${esc(t)}\\b`).test(h)
 
-// Name + accent labels + locales ONLY. Matching free-text descriptions is how
-// "Romanian" (contains "omani") and every "woman" became Gulf Arabs.
-const hay = (v) => [
+// Name + accent label + the verified rows FOR THAT LANGUAGE. Matching free-text
+// descriptions is how "Romanian" (contains "omani") and every "woman" became
+// Gulf Arabs; flattening ALL verified rows into one string is how English voices
+// carrying an ar-SA verification became them a second time.
+const hay = (v, lang) => [
   v.name, v.accent, v.labels?.accent,
-  ...(v.verified_languages || []).flatMap((x) => [x.accent, x.locale]),
+  ...(v.verified_languages || [])
+    .filter((x) => String(x.language || "").toLowerCase() === lang)
+    .flatMap((x) => [x.accent, x.locale]),
 ].filter(Boolean).join(" ").toLowerCase()
 
 const langsOf = (v) => {
@@ -92,9 +96,16 @@ const langsOf = (v) => {
 
 /** The ONE accent this voice belongs to, or null. */
 const accentOf = (v) => {
-  const h = hay(v), L = langsOf(v)
+  const L = langsOf(v)
+  // A voice's own language decides which regional accents it can carry. The
+  // locale on a verification row says which language it was verified in, not
+  // where the speaker is from — read as an accent it filed British and Indian
+  // voices as Khaleeji. Same gate as lib/airraw/voice-discovery.ts.
+  const native = String(v.labels?.language || v.language || "").toLowerCase()
   for (const s of SPECS) {
     if (!L.has(s.lang)) continue
+    if (native && native !== s.lang) continue
+    const h = hay(v, s.lang)
     if (s.locales.some((l) => h.includes(l))) return s.key
     if (s.terms.some((t) => hasWord(h, t))) return s.key
   }

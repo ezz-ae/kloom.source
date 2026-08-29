@@ -70,13 +70,25 @@ let inflight: Promise<void> | null = null
 const TTL_MS = 6 * 60 * 60_000     // 6h — voices change when a human adds one
 
 /**
- * Text an accent could be named in. Deliberately NOT the free-text description:
- * descriptions are marketing prose and matching them is how "a warm woman" and
- * "Romanian narrator" became Gulf Arabs. Name, accent labels and locales only.
+ * Text an accent could be named in, FOR ONE LANGUAGE.
+ *
+ * Deliberately NOT the free-text description: descriptions are marketing prose
+ * and matching them is how "a warm woman" and "Romanian narrator" became Gulf
+ * Arabs. Name, accent label, and the verified-language rows FOR THAT LANGUAGE.
+ *
+ * The per-language filter is the fix for a second wave of the same bug, found by
+ * running this against the real account rather than hand-written fixtures. Every
+ * verified_languages row was being flattened into one string, so a voice
+ * verified for Spanish with accent "latin american" matched the ENGLISH Latin
+ * spec, and English voices carrying an ar-SA verification row matched Khaleeji.
+ * An accent claim is only evidence about the language it was made in.
  */
-function haystack(v: ElevenVoice): string {
+function haystackFor(v: ElevenVoice, lang: string): string {
   const parts = [v.name || "", v.labels?.accent || ""]
-  for (const vl of v.verified_languages || []) parts.push(vl.accent || "", vl.locale || "")
+  for (const vl of v.verified_languages || []) {
+    if ((vl.language || "").toLowerCase() !== lang) continue
+    parts.push(vl.accent || "", vl.locale || "")
+  }
   return parts.join(" ").toLowerCase()
 }
 
@@ -95,13 +107,28 @@ function genderOf(v: ElevenVoice): "MALE" | "FEMALE" | null {
   return null   // "neutral"/unknown — don't guess, it would mis-cast the voice
 }
 
-/** The ONE accent this voice belongs to, or null. First (most specific) wins. */
+/**
+ * The ONE accent this voice belongs to, or null. First (most specific) wins.
+ *
+ * The NATIVE-LANGUAGE GATE is the load-bearing line. ElevenLabs stamps a
+ * representative locale on a language verification — an English voice verified
+ * for Arabic carries `ar-SA` — and that locale says which language it was
+ * verified in, NOT where the speaker is from. Read as an accent it put
+ * EN-Christina, EN-Archer, EN-David, "James - Professional British Male" and two
+ * Hindi voices into the Khaleeji pool on the live account: nine "Gulf Arabs",
+ * most of them British or Indian. A voice's own language decides which regional
+ * accents it can carry; being able to pronounce Arabic is not being Arab.
+ */
 function accentOf(v: ElevenVoice): string | null {
-  const hay = haystack(v)
   const langs = languagesOf(v)
+  const native = (v.labels?.language || "").toLowerCase()
   for (const [key, spec] of ACCENT_SPECS) {
     // Must actually speak the language the accent belongs to.
     if (!langs.has(spec.lang)) continue
+    // ...and must not be natively something else. Unknown native language falls
+    // through, so a voice that simply doesn't declare one is still reachable.
+    if (native && native !== spec.lang) continue
+    const hay = haystackFor(v, spec.lang)
     if (spec.locales.some((l) => hay.includes(l))) return key
     if (spec.terms.some((t) => hasWord(hay, t))) return key
   }

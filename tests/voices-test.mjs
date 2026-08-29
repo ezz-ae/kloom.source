@@ -99,5 +99,14 @@ check(/native && native !== spec\.lang/.test(disc), "a voice's own language gate
 check(/function haystackFor\(v: ElevenVoice, lang: string\)/.test(disc),
   "an accent claim is only evidence about the language it was made in")
 
+
+// The env inspector must never be able to delete anything itself — it reads a
+// pulled env file and PRINTS commands. A script that removes production config
+// on its own is not something to run while debugging.
+const envcheck = strip("scripts/check-voice-env.mjs")
+check(!/execFile|execSync|spawn|child_process/.test(envcheck), "the env inspector cannot run commands")
+check(/readFileSync\("app\/api\/tts\/route\.ts"/.test(envcheck),
+  "it reads the English pool from the shipped route, so it can't drift")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

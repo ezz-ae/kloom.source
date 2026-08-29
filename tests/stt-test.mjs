@@ -41,5 +41,25 @@ check(/adult && isArabic/.test(route), "the Arabic tiers stay behind the variant
 check(/if \(language && \(!adult \|\| isArabic\)\)/.test(route),
   "Kloom still pins whatever language the UI selected")
 
+
+// ── the gate has to mean the same thing on both sides ───────────────────────
+// A NEXT_PUBLIC_ variable is inlined into the client bundle at build time; a
+// route handler reads process.env at request time from its own runtime env.
+// They are allowed to disagree, and on airraw.com they did — the browser showed
+// the age gate and the adult floor while every server route saw undefined, so
+// the Arabic tiers reported "not-adult-variant" on a site that looked entirely
+// adult. Nothing errored; it just quietly behaved like Kloom underneath.
+const variant = strip("lib/variant.ts")
+const gate = variant.slice(variant.indexOf("export const adultEnabled"))
+const gateBody = gate.slice(0, gate.indexOf("\n\n") + 1 || 400)
+check(/AIRRAW_HOME === "1"/.test(gateBody),
+  "the adult gate reads a plain SERVER variable, not only a NEXT_PUBLIC_ one")
+check(/VARIANT === "fun"/.test(gateBody), "and still honours the .fun variant")
+
+// Kloom sets neither AIRRAW_HOME nor NEXT_PUBLIC_ADULT_ENABLED, so this must not
+// have widened anything for it.
+check(!/AIRRAW_HOME/.test(strip("lib/rooms.ts") + strip("lib/category-meta.ts")),
+  "no Kloom surface gained a new way to turn adult content on")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

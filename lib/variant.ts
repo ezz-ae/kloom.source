@@ -31,8 +31,27 @@ export const funLive = () => process.env.NEXT_PUBLIC_FUN_LIVE === "1"
 /** Adult / sexual / zero-restriction content.
  *  True on .fun, OR on any deployment that explicitly sets NEXT_PUBLIC_ADULT_ENABLED=1
  *  (e.g. airraw.com — a dedicated adult platform that still needs premium models,
- *  so it can't use VARIANT=fun which disables premiumModelsEnabled). */
-export const adultEnabled = () => VARIANT === "fun" || process.env.NEXT_PUBLIC_ADULT_ENABLED === "1"
+ *  so it can't use VARIANT=fun which disables premiumModelsEnabled).
+ *
+ *  AIRRAW_HOME IS PART OF THE TEST, and that is not belt-and-braces. A
+ *  NEXT_PUBLIC_ variable is inlined into the client bundle at build time; a route
+ *  handler reads process.env at REQUEST time, from the function's own runtime
+ *  environment. Those two are allowed to disagree, and on airraw.com they did:
+ *  the browser had NEXT_PUBLIC_ADULT_ENABLED=1 (the age gate appeared, the adult
+ *  floor rendered) while every server route saw undefined — so the Arabic STT
+ *  tiers, the platform answers and the content gate were all silently off on a
+ *  site that looked entirely adult. It cost an afternoon to find because nothing
+ *  errored; the product just quietly behaved like Kloom underneath.
+ *
+ *  AIRRAW_HOME is a plain server variable, already set on this deploy and on no
+ *  other, and it means exactly "this is the AIRRAW deployment". Reading it here
+ *  makes the server agree with the browser by construction rather than by
+ *  someone remembering to set two variables in two scopes. Kloom sets neither,
+ *  so nothing there changes. */
+export const adultEnabled = () =>
+  VARIANT === "fun"
+  || process.env.NEXT_PUBLIC_ADULT_ENABLED === "1"
+  || process.env.AIRRAW_HOME === "1"
 
 /** .fun is anonymous: no account gate, no persisted memory. (.me TBD → safe io default.) */
 export const requiresAccountForPay = () => VARIANT !== "fun"

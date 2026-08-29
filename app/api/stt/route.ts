@@ -57,7 +57,54 @@ const ARABIC_HALLUCINATIONS = new Set([
 // to expect casual spoken register instead. Kept deliberately short (~15 tokens):
 // longer prompts measurably increase hallucinated insertions on brief clips.
 // Override per-deployment with STT_PROMPT_AR.
-const AR_STYLE_SEED = "مكالمة صوتية بالعامية، كلام عفوي وقصير."
+// Whisper's `prompt` biases the decoder's vocabulary. Untuned it leans Modern
+// Standard Arabic and "corrects" everyday speech into MSA-shaped words — a
+// measured round trip through the live site turned "أنا مش قادرة أنام" into
+// "أنا مش أدرى نام" and "صاحية" into "صحية": one word in five wrong on CLEAN
+// synthetic audio, before a real phone microphone is involved.
+//
+// A style sentence alone ("a casual spoken call") doesn't help, because it names
+// no words. What biases a decoder is the WORDS themselves, so this seeds the
+// everyday function words the MSA pull erases — deliberately pan-dialect, since
+// the floor is Egyptian, Levantine, Gulf and Maghrebi at once, and deliberately
+// short: Whisper's accuracy degrades past roughly 16 tokens as the decoder
+// starts inventing continuations, and our clips are short enough to be at risk.
+const AR_STYLE_SEED = "مكالمة بالعامية: إزيك، لسه، دلوقتي، مش، عايز، كده، أوي، بص، شو، هلق، وين، بزاف"
+
+/**
+ * Every successful transcript, tagged with the tier that produced it.
+ *
+ * Added because a report of "the Arabic is barely understood" could not be
+ * acted on: five tiers can answer this route, which one actually did was
+ * invisible from outside, and the obvious suspect (Gemini) turned out to be
+ * switched off entirely. X-TTS-Provider has made the voice side debuggable for
+ * a while; this is the same thing for the ear.
+ */
+function transcript(text: string | null | undefined, provider: string, model?: string, why?: string): Response {
+  const headers: Record<string, string> = {
+    "Cache-Control": "no-store",
+    "X-STT-Provider": model ? `${provider}/${model}` : provider,
+  }
+  // Why the better tiers didn't answer. Arabic falling through to Whisper is the
+  // difference between understood and not, and from outside the two are
+  // indistinguishable — the transcript comes back either way, just wrong.
+  if (why) headers["X-STT-Fallback"] = why
+  return Response.json({ text: cleanTranscript(text) }, { headers })
+}
+
+/** Human-readable reason the Arabic tiers above Whisper were skipped. */
+function arabicTierNote(adult: boolean, isArabic: boolean, gemKey?: string, elKey?: string): string {
+  if (!isArabic) return ""
+  if (!adult) return "not-adult-variant"
+  const bits: string[] = []
+  if (!gemKey) bits.push("gemini:no-key")
+  else if (process.env.STT_GEMINI !== "1") bits.push("gemini:off")
+  if (!elKey) bits.push("scribe:no-key")
+  else if (process.env.STT_SCRIBE === "0") bits.push("scribe:off")
+  else if (Date.now() < scribeParkedUntil) bits.push("scribe:parked")
+  else bits.push("scribe:failed")
+  return bits.join(",")
+}
 
 function cleanTranscript(text: string | null | undefined): string {
   const t = (text || "").trim()
@@ -113,7 +160,7 @@ export async function POST(request: Request) {
   const gemKey = process.env.GEMINI_API_KEY
   if (adult && isArabic && gemKey && process.env.STT_GEMINI === "1") {
     const t = await geminiSTT(file, gemKey, language)
-    if (t !== null) return Response.json({ text: cleanTranscript(t) }, { headers: { "Cache-Control": "no-store" } })
+    if (t !== null) return transcript(t, "gemini", process.env.GEMINI_STT_MODEL || "gemini-3.5-transcribe")
   }
 
   // ── ElevenLabs Scribe — Arabic (tier 1) ───────────────────────────────────
@@ -130,7 +177,7 @@ export async function POST(request: Request) {
     // Whisper below still pins for Arabic, because it needs the help — that's the
     // fallback path only, and only when Scribe is unavailable.
     const t = await scribeSTT(file, elKey)
-    if (t !== null) return Response.json({ text: cleanTranscript(t) }, { headers: { "Cache-Control": "no-store" } })
+    if (t !== null) return transcript(t, "scribe", process.env.ELEVENLABS_STT_MODEL || "scribe_v1")
     // fall through to Whisper on any failure — never leave the call without STT
   }
 
@@ -177,7 +224,7 @@ export async function POST(request: Request) {
       })
       if (res.ok) {
         const data = (await res.json()) as { text?: string }
-        return Response.json({ text: cleanTranscript(data.text) }, { headers: { "Cache-Control": "no-store" } })
+        return transcript(data.text, "groq", groqModel, arabicTierNote(adult, isArabic, gemKey, elKey))
       }
       console.error("[stt] groq failed:", res.status, (await res.text().catch(() => "")).slice(0, 200))
     } catch (e) {
@@ -191,7 +238,7 @@ export async function POST(request: Request) {
   if (rpSTTEndpoint && rpKey) {
     const r = await runpodWhisper(file, rpSTTEndpoint, rpKey, language)
     if (r.text !== null) {
-      return Response.json({ text: cleanTranscript(r.text) }, { headers: { "Cache-Control": "no-store" } })
+      return transcript(r.text, "runpod")
     }
     if (!process.env.STT_API_KEY && !process.env.OPENAI_API_KEY) {
       return Response.json({ error: `STT failed: ${r.error || "unknown"}` }, { status: 502 })
@@ -236,7 +283,7 @@ export async function POST(request: Request) {
   }
 
   const data = (await upstream.json().catch(() => ({}))) as { text?: string }
-  return Response.json({ text: cleanTranscript(data.text) }, { headers: { "Cache-Control": "no-store" } })
+  return transcript(data.text, "openai-compatible")
 }
 
 // Spoken-dialect vocabulary for Gemini Transcribe.

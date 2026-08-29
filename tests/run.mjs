@@ -33,6 +33,7 @@ const WHAT = {
   "talks-test":       "the talks board moves, fills, and is never a dead end",
   "voices-test":      "one accent table; every tier reachable, with enough to say",
   "faces-test":       "a talk's cast can't churn, and a dead key isn't retried",
+  "stt-test":         "every recogniser names itself, and Arabic is seeded",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

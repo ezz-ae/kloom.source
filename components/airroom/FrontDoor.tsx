@@ -32,7 +32,22 @@ import { getLangPrefs, saveLangPrefs, langPrefsPersist, type LangPrefs } from "@
 
 // Walk the whole soft→wild gradient rather than one band, so consecutive cards
 // are different KINDS of person, not five variations on one mood.
-const F_WALK = [0.34, 0.72, 0.12, 0.55, 0.88, 0.26, 0.63, 0.44, 0.95, 0.18, 0.79, 0.5]
+//
+// EVERY value must land in a DIFFERENT archetype, and between them they must
+// cover all ten. The old walk didn't: its top value was 0.95, which falls inside
+// BDSM's band [0.82, 0.96], and the roster takes the first band that matches —
+// so "no limits · raw" [0.92, 1.00] was never once shown on the front door.
+// The wildest tier in the product, the one the pass is largely for, was
+// unreachable by swiping, while three others turned up twice as often as the
+// rest. Nothing failed; it was simply invisible. roster-reach in the test suite
+// now asserts all ten are hit.
+//
+// Twenty entries — each archetype twice, in two different orders — so the cycle
+// of vibes is long enough not to read as a loop.
+const F_WALK = [
+  0.36, 0.79, 0.05, 0.58, 0.97, 0.25, 0.68, 0.46, 0.88, 0.15,
+  0.68, 0.05, 0.88, 0.36, 0.15, 0.97, 0.46, 0.79, 0.25, 0.58,
+]
 const seedAt = (i: number) => ((i + 1) * 2654435761) >>> 0
 const fAt = (i: number) => F_WALK[i % F_WALK.length]
 

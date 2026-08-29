@@ -23,6 +23,13 @@
 /**
  * Accent key (see accent.ts) → how to recognise it on a voice.
  *
+ * The table itself lives in accent-specs.json because TWO things need it: this
+ * module, which sorts the account's voices into pools at runtime, and
+ * scripts/find-accent-voices.mjs, which finds voices to add in the first place.
+ * They used to keep private copies with a comment asking whoever edited one to
+ * remember the other — and they drifted, so the script hunted 10 accents while
+ * the server could use 22. A shared file cannot drift.
+ *
  * `lang`    the language the accent belongs to. A voice is only considered for an
  *           accent if it's actually verified for that language — otherwise an
  *           English voice merely *verified for Spanish* lands in the Latin pool.
@@ -35,34 +42,13 @@
  * Order matters: the first entry that matches wins, so a country beats the region
  * it sits in and one voice can't be both Egyptian and Khaleeji.
  */
+import SPECS from "@/lib/airraw/accent-specs.json"
+
 interface AccentSpec { lang: string; locales: string[]; terms: string[] }
 
-const ACCENT_SPECS: Array<[string, AccentSpec]> = [
-  ["AR_EG",   { lang: "ar", locales: ["ar-eg"], terms: ["egyptian", "egypt", "cairo", "masri", "masry"] }],
-  ["AR_MA",   { lang: "ar", locales: ["ar-ma"], terms: ["moroccan", "morocco", "darija", "maghrebi"] }],
-  ["AR_TN",   { lang: "ar", locales: ["ar-tn"], terms: ["tunisian", "tunisia", "derja"] }],
-  ["AR_LB",   { lang: "ar", locales: ["ar-lb", "ar-sy", "ar-jo", "ar-ps"],
-                terms: ["lebanese", "lebanon", "levantine", "syrian", "jordanian", "shami", "palestinian"] }],
-  ["AR_GULF", { lang: "ar", locales: ["ar-sa", "ar-ae", "ar-kw", "ar-qa", "ar-bh", "ar-om"],
-                terms: ["gulf", "khaleeji", "saudi", "emirati", "kuwaiti", "qatari", "bahraini", "omani"] }],
-  ["EN_RU",   { lang: "en", locales: [], terms: ["russian", "slavic", "ukrainian"] }],
-  ["EN_TR",   { lang: "en", locales: [], terms: ["turkish"] }],
-  ["EN_FA",   { lang: "en", locales: [], terms: ["persian", "iranian", "farsi"] }],
-  ["EN_IT",   { lang: "en", locales: [], terms: ["italian"] }],
-  ["EN_IE",   { lang: "en", locales: ["en-ie"], terms: ["irish"] }],
-  ["EN_DE",   { lang: "en", locales: [], terms: ["german"] }],
-  ["EN_SE",   { lang: "en", locales: [], terms: ["swedish", "norwegian", "danish", "nordic", "scandinavian"] }],
-  ["EN_NG",   { lang: "en", locales: ["en-ng"], terms: ["nigerian", "ghanaian", "kenyan", "west african"] }],
-  ["EN_CARIB",{ lang: "en", locales: [], terms: ["caribbean", "jamaican", "trinidadian"] }],
-  ["EN_IN",   { lang: "en", locales: ["en-in"], terms: ["indian", "pakistani", "bengali", "sri lankan", "hindi"] }],
-  ["EN_LATAM",{ lang: "en", locales: [], terms: ["mexican", "colombian", "argentinian", "chilean", "latin american", "latino", "latina"] }],
-  ["EN_BR",   { lang: "en", locales: [], terms: ["brazilian"] }],
-  ["EN_PH",   { lang: "en", locales: ["en-ph"], terms: ["filipino", "tagalog"] }],
-  ["EN_JP",   { lang: "en", locales: [], terms: ["japanese"] }],
-  ["EN_KR",   { lang: "en", locales: [], terms: ["korean"] }],
-  ["EN_CN",   { lang: "en", locales: [], terms: ["chinese", "mandarin", "cantonese"] }],
-  ["EN_US_AAVE", { lang: "en", locales: [], terms: ["african american", "aave"] }],
-]
+const ACCENT_SPECS: Array<[string, AccentSpec]> =
+  (SPECS as Array<{ key: string; lang: string; locales: string[]; terms: string[] }>)
+    .map((s) => [s.key, { lang: s.lang, locales: s.locales, terms: s.terms }])
 
 const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 /** Word-boundary match. "omani" must not fire on "Romanian". */

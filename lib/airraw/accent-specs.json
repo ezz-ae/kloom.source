@@ -1,0 +1,275 @@
+[
+  {
+    "key": "AR_EG",
+    "label": "Egyptian",
+    "lang": "ar",
+    "locales": [
+      "ar-eg"
+    ],
+    "terms": [
+      "egyptian",
+      "egypt",
+      "cairo",
+      "masri",
+      "masry"
+    ]
+  },
+  {
+    "key": "AR_MA",
+    "label": "Moroccan",
+    "lang": "ar",
+    "locales": [
+      "ar-ma"
+    ],
+    "terms": [
+      "moroccan",
+      "morocco",
+      "darija",
+      "maghrebi"
+    ]
+  },
+  {
+    "key": "AR_TN",
+    "label": "Tunisian",
+    "lang": "ar",
+    "locales": [
+      "ar-tn"
+    ],
+    "terms": [
+      "tunisian",
+      "tunisia",
+      "derja"
+    ]
+  },
+  {
+    "key": "AR_LB",
+    "label": "Levantine",
+    "lang": "ar",
+    "locales": [
+      "ar-lb",
+      "ar-sy",
+      "ar-jo",
+      "ar-ps"
+    ],
+    "terms": [
+      "lebanese",
+      "lebanon",
+      "levantine",
+      "syrian",
+      "jordanian",
+      "shami",
+      "palestinian"
+    ]
+  },
+  {
+    "key": "AR_GULF",
+    "label": "Khaleeji",
+    "lang": "ar",
+    "locales": [
+      "ar-sa",
+      "ar-ae",
+      "ar-kw",
+      "ar-qa",
+      "ar-bh",
+      "ar-om"
+    ],
+    "terms": [
+      "gulf",
+      "khaleeji",
+      "saudi",
+      "emirati",
+      "kuwaiti",
+      "qatari",
+      "bahraini",
+      "omani"
+    ]
+  },
+  {
+    "key": "EN_RU",
+    "label": "Slavic",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "russian",
+      "slavic",
+      "ukrainian"
+    ]
+  },
+  {
+    "key": "EN_TR",
+    "label": "Turkish",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "turkish"
+    ]
+  },
+  {
+    "key": "EN_FA",
+    "label": "Persian",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "persian",
+      "iranian",
+      "farsi"
+    ]
+  },
+  {
+    "key": "EN_IT",
+    "label": "Italian",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "italian"
+    ]
+  },
+  {
+    "key": "EN_IE",
+    "label": "Irish",
+    "lang": "en",
+    "locales": [
+      "en-ie"
+    ],
+    "terms": [
+      "irish"
+    ]
+  },
+  {
+    "key": "EN_DE",
+    "label": "German",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "german"
+    ]
+  },
+  {
+    "key": "EN_SE",
+    "label": "Nordic",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "swedish",
+      "norwegian",
+      "danish",
+      "nordic",
+      "scandinavian"
+    ]
+  },
+  {
+    "key": "EN_NG",
+    "label": "Nigerian",
+    "lang": "en",
+    "locales": [
+      "en-ng"
+    ],
+    "terms": [
+      "nigerian",
+      "ghanaian",
+      "kenyan",
+      "west african"
+    ]
+  },
+  {
+    "key": "EN_CARIB",
+    "label": "Caribbean",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "caribbean",
+      "jamaican",
+      "trinidadian"
+    ]
+  },
+  {
+    "key": "EN_IN",
+    "label": "Indian",
+    "lang": "en",
+    "locales": [
+      "en-in"
+    ],
+    "terms": [
+      "indian",
+      "pakistani",
+      "bengali",
+      "sri lankan",
+      "hindi"
+    ]
+  },
+  {
+    "key": "EN_LATAM",
+    "label": "Latin",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "mexican",
+      "colombian",
+      "argentinian",
+      "chilean",
+      "latin american",
+      "latino",
+      "latina"
+    ]
+  },
+  {
+    "key": "EN_BR",
+    "label": "Brazilian",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "brazilian"
+    ]
+  },
+  {
+    "key": "EN_PH",
+    "label": "Filipino",
+    "lang": "en",
+    "locales": [
+      "en-ph"
+    ],
+    "terms": [
+      "filipino",
+      "tagalog"
+    ]
+  },
+  {
+    "key": "EN_JP",
+    "label": "Japanese",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "japanese"
+    ]
+  },
+  {
+    "key": "EN_KR",
+    "label": "Korean",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "korean"
+    ]
+  },
+  {
+    "key": "EN_CN",
+    "label": "Chinese",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "chinese",
+      "mandarin",
+      "cantonese"
+    ]
+  },
+  {
+    "key": "EN_US_AAVE",
+    "label": "Black American",
+    "lang": "en",
+    "locales": [],
+    "terms": [
+      "african american",
+      "aave"
+    ]
+  }
+]

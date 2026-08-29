@@ -31,6 +31,7 @@ const WHAT = {
   "platform-facts":   "platform answers fire when asked, stay silent otherwise",
   "fai-test":         "FAI is earn-only, capped, and cannot be bought",
   "talks-test":       "the talks board moves, fills, and is never a dead end",
+  "voices-test":      "one accent table; every tier reachable, with enough to say",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

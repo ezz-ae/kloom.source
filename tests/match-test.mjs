@@ -1,16 +1,10 @@
 // Plain-JS mirror of the rewritten matcher, run against the exact voices that
 // were mis-cast in the real output.
-const SPECS = [
-  ["AR_EG",{lang:"ar",locales:["ar-eg"],terms:["egyptian","egypt","cairo","masri","masry"]}],
-  ["AR_MA",{lang:"ar",locales:["ar-ma"],terms:["moroccan","morocco","darija","maghrebi"]}],
-  ["AR_TN",{lang:"ar",locales:["ar-tn"],terms:["tunisian","tunisia","derja"]}],
-  ["AR_LB",{lang:"ar",locales:["ar-lb","ar-sy","ar-jo","ar-ps"],terms:["lebanese","lebanon","levantine","syrian","jordanian","shami","palestinian"]}],
-  ["AR_GULF",{lang:"ar",locales:["ar-sa","ar-ae","ar-kw","ar-qa","ar-bh","ar-om"],terms:["gulf","khaleeji","saudi","emirati","kuwaiti","qatari","bahraini","omani"]}],
-  ["EN_RU",{lang:"en",locales:[],terms:["russian","slavic","ukrainian"]}],
-  ["EN_TR",{lang:"en",locales:[],terms:["turkish"]}],
-  ["EN_IN",{lang:"en",locales:["en-in"],terms:["indian","pakistani","bengali","sri lankan","hindi"]}],
-  ["EN_LATAM",{lang:"en",locales:[],terms:["mexican","colombian","argentinian","chilean","latin american","latino","latina"]}],
-]
+// The REAL table, not a copy of it. This test guards the matcher against the
+// voices it actually mis-cast, so it has to run against the specs the server
+// ships — a private copy would keep passing while the shipped table rotted.
+const SPECS = JSON.parse((await import("node:fs")).readFileSync("lib/airraw/accent-specs.json", "utf8"))
+  .map((s) => [s.key, { lang: s.lang, locales: s.locales, terms: s.terms }])
 const esc=t=>t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")
 const hasWord=(h,t)=>new RegExp(`\\b${esc(t)}\\b`).test(h)
 const hay=v=>[v.name||"",v.accent||"",...(v.vl||[]).flatMap(x=>[x.accent||"",x.locale||""])].join(" ").toLowerCase()
@@ -30,7 +24,13 @@ const cases = [
   ["EN-Archer",                          ["en"], null],
   ["Sara - Soft, Calm and Gentle",       ["ar","en"], null],
   ["Romanian narrator",                  ["en"], null],
-  ["Aya - Friendly Casual Japanese Voice", ["en","ja"], null],
+  // Not a false positive: this voice NAMES its language and is verified for
+  // English, which is exactly what EN_JP is for — a Japanese speaker's English.
+  // It expected null only because this test used to carry a truncated copy of
+  // the table with no EN_JP row in it; running against the shipped specs is
+  // what surfaced that. The rows above are the real guard — a name that merely
+  // CONTAINS something accent-shaped ("R-omani-an") must still match nothing.
+  ["Aya - Friendly Casual Japanese Voice", ["en","ja"], "EN_JP"],
   // must still be found
   ["Fatima - Expressive Egyptian",       ["ar"], "AR_EG"],
   ["Ghozlan - Professional Support Agent", ["ar"], null],   // name carries no accent

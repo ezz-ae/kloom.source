@@ -34,6 +34,7 @@ const WHAT = {
   "voices-test":      "one accent table; every tier reachable, with enough to say",
   "faces-test":       "a talk's cast can't churn, and a dead key isn't retried",
   "stt-test":         "every recogniser names itself, and Arabic is seeded",
+  "shell-test":       "the app shell wraps what you browse, never the front door",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

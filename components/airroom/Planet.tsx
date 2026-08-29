@@ -27,7 +27,8 @@ import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
-import { ProfileSheet } from "@/components/airroom/ProfileSheet"
+import { AirShell, type AirTab } from "@/components/airroom/AirShell"
+import { YouPage } from "@/components/airroom/YouPage"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
 import { hasOnboarded, markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
 import { getCredits, spendCredits } from "@/lib/airroom/credits"
@@ -883,22 +884,42 @@ export function Planet() {
         <OnboardGate onDone={(c) => { setDeckPos({ c, i: 0 }); setOnboardedState(true) }} />
       )}
 
-      {/* THE FRONT DOOR — the 4-way swipe deck. RAW (the sky) waits behind it. */}
+      {/* THE FLOOR.
+          The front door is IMMERSIVE — a full-screen person with two small
+          controls, deliberately kept clear of chrome. Everything you BROWSE
+          (talks, you) is wrapped in AirShell, which gives it the sidebar and
+          glass dock the Kloom app has and the adult side never did. Same split
+          Kloom makes: its dock hides inside a live room for the same reason. */}
       {started && onboarded && deckOpen && !selected && !group && (
-        roomsOpen
-          ? <Talks
-              onBack={() => setRoomsOpen(false)}
-              onSpent={() => setFai(getFai())}
-              onJoin={(r) => {
-                // The board already resolved the room via talkRoom(), so nothing
-                // is recomputed here — the crowd whose faces were on the card is
-                // exactly the crowd that opens.
-                setRoomsOpen(false)
-                setGroup({ seed: r.seed, f: r.f, count: r.count, title: r.title })
-              }}
-            />
-          : legacyRooms
+        legacyRooms && !showProfile
           ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setLegacyRooms(false)} />
+          : roomsOpen || showProfile
+          ? <AirShell
+              tab={showProfile ? "you" : "talks"}
+              onTab={(t: AirTab) => {
+                setShowProfile(t === "you")
+                setRoomsOpen(t === "talks")
+                if (t === "you") { setProfile(getProfile()); setCredits(getCredits()) }
+                if (t === "people") setFai(getFai())
+              }}
+              fai={String(fai)}
+              pro={pro}
+              onPass={() => setShowPro(true)}
+            >
+              {showProfile
+                ? <YouPage onPass={() => setShowPro(true)} onResume={(t) => { setShowProfile(false); setSelected(t.cluster) }} />
+                : <Talks
+                    onBack={() => setRoomsOpen(false)}
+                    onSpent={() => setFai(getFai())}
+                    onJoin={(r) => {
+                      // The board already resolved the room via talkRoom(), so
+                      // nothing is recomputed here — the crowd whose faces were
+                      // on the card is exactly the crowd that opens.
+                      setRoomsOpen(false)
+                      setGroup({ seed: r.seed, f: r.f, count: r.count, title: r.title })
+                    }}
+                  />}
+            </AirShell>
           : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={String(fai)} onProfile={() => setShowProfile(true)} onEarned={() => setFai(getFai())} onLangChange={pickPrimary} />
       )}
       {/* back to the people deck from the open sky */}
@@ -956,7 +977,9 @@ export function Planet() {
         </div>
       )}
 
-      {showProfile && <ProfileSheet onClose={() => { setShowProfile(false); setProfile(getProfile()); setCredits(getCredits()) }} onUpgrade={() => { setShowProfile(false); setShowPro(true) }} />}
+      {/* "You" is a page inside AirShell now (see the floor switch above) rather
+          than a sheet floating over the canvas — which is why ProfileSheet is
+          gone entirely. */}
       {proMsg && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 150px)", zIndex: 35, maxWidth: "86vw", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", padding: "11px 18px", borderRadius: 14, boxShadow: "0 12px 32px -8px rgba(0,0,0,.55)", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{proMsg}</div>
       )}

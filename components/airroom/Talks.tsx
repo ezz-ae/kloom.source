@@ -56,10 +56,11 @@ function Who({ t }: { t: Talk }) {
   )
 }
 
-export function Talks({ onJoin, onBack, onSpent }: {
+export function Talks({ onJoin, onSpent }: {
   /** The room to open, already resolved by talkRoom() so nothing recomputes it. */
   onJoin: (r: TalkRoom) => void
-  onBack: () => void
+  /** Kept for callers outside the shell; the board renders no back control. */
+  onBack?: () => void
   onSpent: () => void
 }) {
   // Re-derive on a timer: the board is a function of the clock, so seats fill and
@@ -98,9 +99,10 @@ export function Talks({ onJoin, onBack, onSpent }: {
 
   return (
     <div style={{ position: "absolute", inset: 0, zIndex: 19, overflowY: "auto", background: "radial-gradient(120% 70% at 50% 0%, #16102a 0%, #0a0713 60%, #07040f 100%)", fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#f0e8ff", WebkitOverflowScrolling: "touch" }}>
-      <div style={{ padding: "calc(env(safe-area-inset-top) + 16px) 18px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-        <button onClick={onBack} aria-label="back to people"
-          style={{ minHeight: 34, padding: "0 12px", fontSize: 12, color: "rgba(240,232,255,.7)", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, cursor: "pointer", fontFamily: "inherit" }}>‹ people</button>
+      {/* No back button: the shell's dock (and the desktop rail) is how you leave
+          a tab now, and a second way out in the corner is just clutter. The FAI
+          count stays — you are one tap from spending one. */}
+      <div style={{ padding: "calc(env(safe-area-inset-top) + 16px) 18px 4px", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
         <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0" }}>{fai} FAI</span>
       </div>
 

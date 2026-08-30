@@ -228,7 +228,17 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
       <div key={i} ref={cardRef} style={{ position: "absolute", inset: 0, willChange: "transform, opacity", animation: "fdIn .4s ease both" }}>
         <Face persona={{ name: person.host, gender: person.gender }} lazy={false} onLive={setLive}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
-                   filter: live ? "none" : "blur(26px) saturate(1.3)", transform: live ? "none" : "scale(1.15)",
+                   filter: live ? "none" : "blur(26px) saturate(1.3)",
+                   // Lift the face out of the copy. The portraits are 3:4 and a
+                   // phone is roughly 1:2, so `cover` crops the SIDES and shows
+                   // the full height — which puts the subject's chin exactly
+                   // where the name and the vibe land. Worse, the block grows
+                   // when the character's line wraps to two, so on a real device
+                   // the label ends up on their mouth. Scaling up and shifting
+                   // up moves the face into the clear third of the screen and
+                   // crops the shoulders instead, which are under the heaviest
+                   // part of the scrim anyway.
+                   transform: live ? "scale(1.12) translateY(-5%)" : "scale(1.15)",
                    transition: "filter .5s ease" }} />
 
         {/* Scrim, LIT BY WHO THEY ARE. Text on a photograph is unreadable without
@@ -288,7 +298,11 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
           </div>
 
           {/* Something they'd say. The reason to press call. */}
-          <div style={{ fontSize: 16.5, color: "#efe6ff", lineHeight: 1.4, fontStyle: "italic", maxWidth: "34ch" }}>
+          {/* Two lines, hard. The stack is anchored to the bottom and grows
+              upward, so an unbounded quote is an unbounded bite out of the
+              portrait — and the lines vary in length by design. */}
+          <div style={{ fontSize: 16.5, color: "#efe6ff", lineHeight: 1.4, fontStyle: "italic", maxWidth: "34ch",
+                        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             &ldquo;{person.lines[0]}&rdquo;
           </div>
 

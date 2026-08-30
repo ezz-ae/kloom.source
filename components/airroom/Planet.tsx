@@ -891,11 +891,14 @@ export function Planet() {
           glass dock the Kloom app has and the adult side never did. Same split
           Kloom makes: its dock hides inside a live room for the same reason. */}
       {started && onboarded && deckOpen && !selected && !group && (
-        legacyRooms && !showProfile
+        legacyRooms && !showProfile && !roomsOpen
           ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setLegacyRooms(false)} />
-          : roomsOpen || showProfile
-          ? <AirShell
-              tab={showProfile ? "you" : "talks"}
+          : <AirShell
+              tab={showProfile ? "you" : roomsOpen ? "talks" : "people"}
+              // The front door positions itself and clears the dock on its own —
+              // an absolutely-positioned card ignores the scroll container's
+              // padding, so the shell must not try to reserve space for it.
+              immersive={!showProfile && !roomsOpen}
               onTab={(t: AirTab) => {
                 setShowProfile(t === "you")
                 setRoomsOpen(t === "talks")
@@ -908,8 +911,8 @@ export function Planet() {
             >
               {showProfile
                 ? <YouPage onPass={() => setShowPro(true)} onResume={(t) => { setShowProfile(false); setSelected(t.cluster) }} />
-                : <Talks
-                    onBack={() => setRoomsOpen(false)}
+                : roomsOpen
+                ? <Talks
                     onSpent={() => setFai(getFai())}
                     onJoin={(r) => {
                       // The board already resolved the room via talkRoom(), so
@@ -918,9 +921,9 @@ export function Planet() {
                       setRoomsOpen(false)
                       setGroup({ seed: r.seed, f: r.f, count: r.count, title: r.title })
                     }}
-                  />}
+                  />
+                : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={String(fai)} onEarned={() => setFai(getFai())} onLangChange={pickPrimary} />}
             </AirShell>
-          : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={String(fai)} onProfile={() => setShowProfile(true)} onEarned={() => setFai(getFai())} onLangChange={pickPrimary} />
       )}
       {/* back to the people deck from the open sky */}
       {started && !deckOpen && !selected && !group && (

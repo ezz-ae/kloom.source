@@ -15,11 +15,12 @@
  *    chosen by React state (the deck, a talk, a call), so there is no pathname
  *    to read — the caller passes the current tab and gets a callback.
  *
- * 2. The front door and live calls stay IMMERSIVE — no dock. The full-screen
- *    person is the product and it was explicitly cut back to two small controls;
- *    putting a nav bar under the call button would undo that, and the bottom of
- *    that screen is already the busiest part of it. Kloom hides its dock in a
- *    live room for the same reason. The dock is for the surfaces you BROWSE.
+ * 2. `immersive` for the front door. The full-screen person owns the viewport —
+ *    no scroll container, no padding reserved at the bottom — because the card
+ *    is absolutely positioned and would ignore that padding anyway. It clears
+ *    the dock itself (see FrontDoor's bottom block). A LIVE CALL still renders
+ *    outside the shell entirely: its own controls sit where the dock would be,
+ *    and you should not be one mis-tap from leaving a conversation.
  */
 import type { ReactNode } from "react"
 import { Flame, Users, User } from "lucide-react"
@@ -32,20 +33,22 @@ const TABS: Array<{ id: AirTab; label: string; icon: typeof Flame }> = [
   { id: "you",    label: "You",    icon: User },
 ]
 
-export function AirShell({ tab, onTab, fai, onPass, pro, children }: {
+export function AirShell({ tab, onTab, fai, onPass, pro, immersive, children }: {
   tab: AirTab
   onTab: (t: AirTab) => void
   /** Balance shown in the rail. Earned only — see lib/airraw/fai.ts. */
   fai: string
   onPass: () => void
   pro?: boolean
+  /** Full-viewport content that positions itself (the front door). */
+  immersive?: boolean
   children: ReactNode
 }) {
   return (
     <div className="airraw-skin fixed inset-0 z-[19] flex h-[100dvh] overflow-hidden bg-[#07040f] text-[#f0e8ff]">
       {/* Ambient backdrop — the same drifting blobs as the Kloom app, re-skinned
           to the floor's purple/pink in globals.css. */}
-      <div className="app-ambient" aria-hidden><div className="blob-3" /></div>
+      {!immersive && <div className="app-ambient" aria-hidden><div className="blob-3" /></div>}
 
       {/* ── desktop rail ── */}
       <aside className="relative z-10 hidden w-60 shrink-0 flex-col border-r border-white/[0.06] bg-black/40 px-3 py-5 lg:flex">
@@ -102,7 +105,11 @@ export function AirShell({ tab, onTab, fai, onPass, pro, children }: {
           Kloom's shell learned this the hard way: rendering children in a
           desktop block AND a mobile block double-mounts every page, which for a
           live room meant two realtime channels and two voice hooks per user. */}
-      <main className="relative z-10 min-w-0 flex-1 overflow-y-auto pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+5rem))] lg:pb-0">
+      <main className={`relative z-10 min-w-0 flex-1 ${
+        immersive
+          ? "overflow-hidden"
+          : "overflow-y-auto pb-[max(5.5rem,calc(env(safe-area-inset-bottom)+5rem))] lg:pb-0"
+      }`}>
         {children}
       </main>
 

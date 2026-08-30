@@ -71,7 +71,7 @@ const chrome = await p.evaluate(() => {
     .map((e) => (e.textContent || "").trim().replace(/\s+/g, " ") || e.getAttribute("aria-label") || e.tagName)
 })
 console.log("   top-edge controls:", JSON.stringify(chrome))
-check(chrome.length <= 2, `only ${chrome.length} control(s) sit on the face`)
+check(chrome.length <= 1, `only ${chrome.length} control(s) sit on the face`)
 
 // 2. No loose language <select> outside the menu.
 const selBefore = await selects()
@@ -84,7 +84,8 @@ if (SHOTS) await p.screenshot({ path: `${SHOTS}/menu.png` })
 const menuTxt = await p.$eval("body", (e) => e.innerText)
 check(/FAI/.test(menuTxt), "the menu shows your FAI")
 check(await selects() === 1, "language lives inside the menu")
-check(/your profile/i.test(menuTxt), "the menu reaches your profile")
+// "Your profile" moved to the dock — the menu keeps only what a tab can't hold.
+check(!/your profile/i.test(menuTxt), "the menu no longer duplicates the You tab")
 
 // 4. It closes again on an outside tap, without flinging the card.
 const before = await who()
@@ -92,6 +93,18 @@ await p.mouse.click(201, 700)
 await p.waitForTimeout(400)
 check(await selects() === 0, "tapping away closes the menu")
 check(await who() === before, "closing the menu does not swipe the person away")
+
+// 4b. THE DOCK MUST NOT COVER THE CALL BUTTON. It is a fixed overlay and the
+// card is absolutely positioned, so nothing makes room automatically.
+const overlap = await p.evaluate(() => {
+  const call = [...document.querySelectorAll("button")].find((b) => /^call /.test((b.textContent || "").trim()))
+  const dock = document.querySelector("nav .glass-strong")
+  if (!call || !dock) return { ok: false, why: `call=${!!call} dock=${!!dock}` }
+  const c = call.getBoundingClientRect(), d = dock.getBoundingClientRect()
+  return { ok: c.bottom <= d.top, gap: Math.round(d.top - c.bottom) }
+})
+console.log("   call → dock gap:", JSON.stringify(overlap))
+check(overlap.ok, "the dock sits clear of the call button")
 
 // 5. THE REGRESSION TEST: a button must still click.
 await click(/someone else/)
@@ -106,8 +119,8 @@ await p.mouse.up(); await p.waitForTimeout(800)
 check(await who() !== c1, "a swipe leaving the screen still advances")
 if (SHOTS) await p.screenshot({ path: `${SHOTS}/front.png` })
 
-// 7. The talks board opens and shows faces of who is in there.
-await click(/talks happening now/i)
+// 7. The talks board opens from the dock and shows faces of who is in there.
+await p.locator("nav button:visible", { hasText: "Talks" }).first().click({ force: true })
 check(await waitFor(/happening now/i, "talks board"), "the talks board opens")
 await p.waitForTimeout(1500)
 const imgs = await p.$$eval("img", (els) => els.filter((e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().width < 40).length)

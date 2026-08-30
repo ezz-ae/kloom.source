@@ -58,11 +58,11 @@ const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#f
 const REWARD_EVERY = 7
 const isReward = (i: number) => i > 0 && i % REWARD_EVERY === 0
 
-export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned, onLangChange }: {
+export function FrontDoor({ onCall, onRooms, fai, onEarned, onLangChange }: {
   onCall: (c: Cluster) => void
+  /** The seats toast taps through to the talks board. */
   onRooms: () => void
   fai: string
-  onProfile: () => void
   /** Fired after FAI is earned so the balance in the corner updates immediately. */
   onEarned?: () => void
   /** Keeps the surrounding planet's language state in step with the menu. */
@@ -242,7 +242,7 @@ export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned, onLangCha
               {canEarnToday() ? `${DAILY_EARN_CAP - earnedToday()} left to find today` : "that's all of today's"}
             </div>
           )}
-          <div style={{ position: "absolute", left: 0, right: 0, bottom: "calc(env(safe-area-inset-bottom) + 26px)", fontSize: 12, color: "rgba(200,240,228,.4)" }}>
+          <div className="bottom-[calc(env(safe-area-inset-bottom)+6.25rem)] lg:bottom-[calc(env(safe-area-inset-bottom)+1.625rem)]" style={{ position: "absolute", left: 0, right: 0, fontSize: 12, color: "rgba(200,240,228,.4)" }}>
             {claimed ? "swipe on" : "↑ swipe up"}
           </div>
         </div>
@@ -258,7 +258,13 @@ export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned, onLangCha
             so the face still reads as a face. */}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,4,15,.55) 0%, rgba(7,4,15,0) 26%, rgba(7,4,15,.18) 52%, rgba(7,4,15,.88) 82%, #07040f 100%)" }} />
 
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: "0 22px calc(env(safe-area-inset-bottom) + 22px)", display: "flex", flexDirection: "column", gap: 10, animation: "fdRise .45s ease both" }}>
+        {/* Bottom padding clears the shell's dock on phones (the dock is a fixed
+            overlay, so an absolutely-positioned card has to make room itself).
+            On desktop the rail is a flex sibling and there is no bottom bar. */}
+        <div
+          className="px-[22px] pb-[calc(env(safe-area-inset-bottom)+5.75rem)] lg:mx-auto lg:max-w-2xl lg:pb-[calc(env(safe-area-inset-bottom)+1.375rem)]"
+          style={{ position: "absolute", left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", gap: 10, animation: "fdRise .45s ease both" }}
+        >
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
             <span style={{ fontSize: "clamp(30px, 9vw, 42px)", fontWeight: 600, letterSpacing: -0.8, color: "#f6f1ff", lineHeight: 1 }}>{person.host}</span>
             <span style={{ fontSize: 12, letterSpacing: 1.6, textTransform: "uppercase", color: accent }}>{person.vibe}</span>
@@ -355,24 +361,14 @@ export function FrontDoor({ onCall, onRooms, fai, onProfile, onEarned, onLangCha
                 </div>
               </div>
 
-              <div style={{ height: 1, background: "rgba(255,255,255,.08)" }} />
-
-              <button onClick={() => { setMenu(false); onProfile() }}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 38, padding: "0 2px", background: "transparent", border: "none", cursor: "pointer", fontSize: 13.5, color: "rgba(240,232,255,.8)", fontFamily: "inherit", WebkitTapHighlightColor: "transparent" }}>
-                your profile <span aria-hidden style={{ opacity: .5 }}>›</span>
-              </button>
             </div>
           )}
         </div>
 
-        <button onClick={onRooms} aria-label="talks happening now" style={{ pointerEvents: "auto", position: "relative", display: "flex", alignItems: "center", gap: 7, minHeight: 34, padding: "0 13px", fontSize: 12.5, fontWeight: 600, color: "rgba(240,232,255,.75)", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.15)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit", backdropFilter: "blur(8px)" }}>
-          talks
-          {/* The seat count lives ON the button once the toast has gone, so the
-              news survives without occupying a row of its own. */}
-          {nudge && (
-            <span style={{ fontSize: 10.5, fontWeight: 800, color: "#06121e", background: "#7fd6c0", borderRadius: 999, padding: "2px 6px", fontVariantNumeric: "tabular-nums" }}>{nudge.left}</span>
-          )}
-        </button>
+        {/* No "talks" pill and no "your profile" row: both are tabs in the dock
+            now, and a second route to the same place on the busiest screen in
+            the product is exactly the clutter that got cut. What stays is the
+            one thing the dock can't hold — your balance and your language. */}
       </div>
 
       {/* Tapping anywhere else closes the menu — and swallows that tap, so it

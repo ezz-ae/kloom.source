@@ -52,5 +52,18 @@ check(/airraw-skin/.test(shell), "the shell opts into the skin explicitly")
 const talks = strip("components/airroom/Talks.tsx")
 check(!/back to people/.test(talks), "the board has no second back control competing with the dock")
 
+
+// ── the card is lit by who the person is ────────────────────────────────────
+// A neutral black scrim makes every card identical, and with no portrait loaded
+// it makes them all the same grey blur. The wash carries the character's own
+// heat colour, which is the gradient the whole product is built on.
+check(/\$\{accent\}1f/.test(front), "the scrim is tinted by the character's heat, not a flat black")
+check(/feTurbulence/.test(front), "and carries grain, so a card without a photo still reads as a portrait")
+check(/person\.f \* 48/.test(front), "the heat rail marks where this person sits on the soft-to-wild gradient")
+
+// Nothing is pinned to the top of the front door at all.
+check(!/position: "absolute", top: "calc\(env\(safe-area-inset-top\)/.test(front),
+  "no control is anchored to the top edge")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

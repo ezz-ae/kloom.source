@@ -27,8 +27,6 @@ import { cardLinesFor } from "@/lib/airraw/dossier"
 import { earnFai, canEarnToday, DAILY_EARN_CAP, earnedToday } from "@/lib/airraw/fai"
 import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
 import { Face } from "@/components/airroom/Face"
-import { LANGUAGES } from "@/lib/languages"
-import { getLangPrefs, saveLangPrefs, langPrefsPersist, type LangPrefs } from "@/lib/airraw/lang-prefs"
 
 // Walk the whole soft→wild gradient rather than one band, so consecutive cards
 // are different KINDS of person, not five variations on one mood.
@@ -58,15 +56,12 @@ const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#f
 const REWARD_EVERY = 7
 const isReward = (i: number) => i > 0 && i % REWARD_EVERY === 0
 
-export function FrontDoor({ onCall, onRooms, fai, onEarned, onLangChange }: {
+export function FrontDoor({ onCall, onRooms, onEarned }: {
   onCall: (c: Cluster) => void
   /** The seats toast taps through to the talks board. */
   onRooms: () => void
-  fai: string
   /** Fired after FAI is earned so the balance in the corner updates immediately. */
   onEarned?: () => void
-  /** Keeps the surrounding planet's language state in step with the menu. */
-  onLangChange?: (primary: string) => void
 }) {
   // A talk with room in it, surfaced while you're swiping. This is the "15 seats
   // open for a talk on …" moment: something is happening elsewhere and you can
@@ -96,23 +91,6 @@ export function FrontDoor({ onCall, onRooms, fai, onEarned, onLangChange }: {
     const id = setTimeout(() => setNudgeOn(false), 9000)
     return () => clearTimeout(id)
   }, [nudge])
-
-  // Settings live behind one pill. Language was previously a permanently visible
-  // control in the middle of the top edge, over the face.
-  const [menu, setMenu] = useState(false)
-  const [alsoOpen, setAlsoOpen] = useState(false)
-  const [prefs, setPrefs] = useState<LangPrefs>({ primary: "English", also: [] })
-  useEffect(() => { setPrefs(getLangPrefs()) }, [])
-  const setPrimary = (name: string) => {
-    const next: LangPrefs = { primary: name, also: prefs.also.filter((x) => x !== name) }
-    setPrefs(next); saveLangPrefs(next); onLangChange?.(name)
-  }
-  const toggleAlso = (name: string) => {
-    if (name === prefs.primary) return
-    const also = prefs.also.includes(name) ? prefs.also.filter((x) => x !== name) : [...prefs.also, name]
-    const next: LangPrefs = { primary: prefs.primary, also }
-    setPrefs(next); saveLangPrefs(next)
-  }
 
   const [i, setI] = useState(0)
   // Whether the real portrait has arrived. The fallback is a monogram card, which
@@ -253,10 +231,27 @@ export function FrontDoor({ onCall, onRooms, fai, onEarned, onLangChange }: {
                    filter: live ? "none" : "blur(26px) saturate(1.3)", transform: live ? "none" : "scale(1.15)",
                    transition: "filter .5s ease" }} />
 
-        {/* Scrim: the portraits are photographs and text on them is unreadable
-            without one. Heavy at the bottom where the words are, clear at the top
-            so the face still reads as a face. */}
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(7,4,15,.55) 0%, rgba(7,4,15,0) 26%, rgba(7,4,15,.18) 52%, rgba(7,4,15,.88) 82%, #07040f 100%)" }} />
+        {/* Scrim, LIT BY WHO THEY ARE. Text on a photograph is unreadable without
+            one, but a neutral black wash also makes every card identical — and
+            with no portrait yet it makes them all the same grey blur. This one
+            carries the character's own heat colour through the middle, so a card
+            from the soft end of the floor is lilac-lit and one from the wild end
+            burns red. It is the same gradient the whole product is built on,
+            finally visible on the screen that matters. */}
+        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, rgba(7,4,15,.6) 0%, rgba(7,4,15,.05) 22%, ${accent}1f 44%, rgba(7,4,15,.55) 68%, rgba(7,4,15,.93) 84%, #07040f 100%)` }} />
+
+        {/* Grain. Photographs have it and flat gradients don't, which is most of
+            why an un-loaded card reads as "broken image" rather than "portrait
+            not here yet". Pure CSS — an inline SVG, no request. */}
+        <div aria-hidden style={{ position: "absolute", inset: 0, opacity: live ? 0.16 : 0.3, mixBlendMode: "overlay", pointerEvents: "none",
+          backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+
+        {/* THE HEAT RAIL — where this person sits on the soft→wild gradient, as a
+            hairline down the edge of the screen with a bead at their position.
+            The floor has always been a gradient from tender to wild; until now
+            you could only feel it by swiping and hoping. Costs four pixels. */}
+        <div aria-hidden style={{ position: "absolute", top: "18%", bottom: "34%", right: 0, width: 2, borderRadius: 2, background: "linear-gradient(180deg, #c084fc 0%, #f472b6 52%, #fb7185 100%)", opacity: .35 }} />
+        <div aria-hidden style={{ position: "absolute", right: -2.5, top: `calc(18% + ${(person.f * 48).toFixed(1)}%)`, width: 7, height: 7, borderRadius: 999, background: accent, boxShadow: `0 0 12px 1px ${accent}`, transition: "top .45s cubic-bezier(.2,.9,.25,1.1)" }} />
 
         {/* Bottom padding clears the shell's dock on phones (the dock is a fixed
             overlay, so an absolutely-positioned card has to make room itself).
@@ -265,10 +260,14 @@ export function FrontDoor({ onCall, onRooms, fai, onEarned, onLangChange }: {
           className="px-[22px] pb-[calc(env(safe-area-inset-bottom)+5.75rem)] lg:mx-auto lg:max-w-2xl lg:pb-[calc(env(safe-area-inset-bottom)+1.375rem)]"
           style={{ position: "absolute", left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", gap: 10, animation: "fdRise .45s ease both" }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: "clamp(30px, 9vw, 42px)", fontWeight: 600, letterSpacing: -0.8, color: "#f6f1ff", lineHeight: 1 }}>{person.host}</span>
-            <span style={{ fontSize: 12, letterSpacing: 1.6, textTransform: "uppercase", color: accent }}>{person.vibe}</span>
+          {/* The vibe leads and the name lands under it — a masthead rather than
+              a label trailing a heading. It also stops long vibes wrapping the
+              name onto its own ragged second line. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: -2 }}>
+            <span style={{ width: 14, height: 1.5, borderRadius: 2, background: accent, flex: "0 0 auto" }} aria-hidden />
+            <span style={{ fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", color: accent, fontWeight: 600 }}>{person.vibe}</span>
           </div>
+          <div style={{ fontSize: "clamp(38px, 12vw, 56px)", fontWeight: 600, letterSpacing: -1.6, color: "#fbf7ff", lineHeight: .95 }}>{person.host}</div>
 
           {/* Who they are — the same facts they'll actually have in the call. */}
           <div style={{ fontSize: 13.5, color: "rgba(240,232,255,.72)", lineHeight: 1.45 }}>
@@ -303,93 +302,21 @@ export function FrontDoor({ onCall, onRooms, fai, onEarned, onLangChange }: {
       </div>
       )}
 
-      {/* THE CHROME — one row, two pills. A settings menu on the left, the way
-          through to talks on the right, and nothing else standing on the face. */}
-      <div
-        style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: 14, right: 14, zIndex: 26, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, pointerEvents: "none" }}
-        // The card behind this listens for drags on the whole screen. Without
-        // this, opening the language list or scrolling the menu also flung the
-        // person off-screen.
-        onPointerDown={(e) => e.stopPropagation()}
-        onPointerMove={(e) => e.stopPropagation()}
-        onPointerUp={(e) => e.stopPropagation()}
-      >
-        <div style={{ position: "relative", pointerEvents: "auto" }}>
-          <button onClick={() => setMenu((o) => !o)} aria-label="your FAI and settings" aria-expanded={menu}
-            style={{ display: "flex", alignItems: "center", gap: 6, minHeight: 34, padding: "0 12px", fontSize: 12.5, fontWeight: 700, letterSpacing: .4, color: "#7fd6c0", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(127,214,192,.32)", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit", backdropFilter: "blur(8px)" }}>
-            <span aria-hidden>✦</span>
-            <span style={{ fontVariantNumeric: "tabular-nums" }}>{fai}</span>
-            <span aria-hidden style={{ fontSize: 9, opacity: .55, transform: menu ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
-          </button>
+      {/* NO HEADER. Nothing is pinned to the top of this screen at all.
+          The last thing up there was a pill holding your FAI and your language,
+          and both now live on the You tab — so it was a control that existed to
+          duplicate a tab. What is left is the person, edge to edge, which is the
+          only thing this screen is for. */}
 
-          {menu && (
-            <div role="menu" style={{ position: "absolute", top: 42, left: 0, width: "min(78vw, 300px)", padding: 13, borderRadius: 16, background: "rgba(8,6,16,.94)", border: ".5px solid rgba(255,255,255,.13)", backdropFilter: "blur(16px)", boxShadow: "0 28px 64px -24px #000", display: "flex", flexDirection: "column", gap: 12, animation: "fdRise .2s ease both", maxHeight: "min(70vh, 460px)", overflowY: "auto" }}>
-              <div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: "#7fd6c0", letterSpacing: .4 }}>{fai} FAI</div>
-                <div style={{ fontSize: 11.5, color: "rgba(240,232,255,.5)", lineHeight: 1.45, marginTop: 3 }}>
-                  one takes a seat in a talk. you earn one every time you finish a talk — it isn&apos;t for sale.
-                </div>
-              </div>
-
-              <div style={{ height: 1, background: "rgba(255,255,255,.08)" }} />
-
-              <div>
-                <div style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: "rgba(240,232,255,.4)", marginBottom: 6 }}>you speak</div>
-                <select value={prefs.primary} onChange={(e) => setPrimary(e.target.value)} aria-label="your language"
-                  style={{ width: "100%", minHeight: 38, borderRadius: 10, background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.15)", color: "#e8dfff", fontSize: 13.5, fontFamily: "inherit", padding: "0 10px", outline: "none", cursor: "pointer" }}>
-                  {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{l.name}</option>)}
-                </select>
-                <button onClick={() => setAlsoOpen((o) => !o)} aria-expanded={alsoOpen}
-                  style={{ marginTop: 7, width: "100%", minHeight: 32, borderRadius: 999, fontSize: 12, fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent", color: prefs.also.length ? "#06121e" : "rgba(240,232,255,.6)", background: prefs.also.length ? "#7fd6c0" : "rgba(255,255,255,.06)", border: prefs.also.length ? "none" : ".5px solid rgba(255,255,255,.14)" }}>
-                  {prefs.also.length ? `also ${prefs.also.join(", ")}` : "+ another language"}
-                </button>
-                {alsoOpen && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
-                    {LANGUAGES.filter((l) => l.name !== prefs.primary).map((l) => {
-                      const on = prefs.also.includes(l.name)
-                      return (
-                        <button key={l.name} onClick={() => toggleAlso(l.name)} aria-pressed={on}
-                          style={{ fontSize: 11.5, padding: "5px 9px", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontFamily: "inherit", color: on ? "#06121e" : "rgba(240,232,255,.6)", background: on ? "#7fd6c0" : "rgba(255,255,255,.06)", border: on ? "none" : ".5px solid rgba(255,255,255,.14)" }}>
-                          {l.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-                <div style={{ fontSize: 10.5, color: "rgba(240,232,255,.34)", marginTop: 7 }}>
-                  {langPrefsPersist() ? "saved as your default" : "kept for this visit"}
-                </div>
-              </div>
-
-            </div>
-          )}
-        </div>
-
-        {/* No "talks" pill and no "your profile" row: both are tabs in the dock
-            now, and a second route to the same place on the busiest screen in
-            the product is exactly the clutter that got cut. What stays is the
-            one thing the dock can't hold — your balance and your language. */}
-      </div>
-
-      {/* Tapping anywhere else closes the menu — and swallows that tap, so it
-          doesn't also start a swipe on the person underneath. */}
-      {menu && (
-        <div
-          onClick={() => { setMenu(false); setAlsoOpen(false) }}
-          onPointerDown={(e) => { e.stopPropagation(); }}
-          onPointerUp={(e) => e.stopPropagation()}
-          style={{ position: "absolute", inset: 0, zIndex: 25 }}
-          aria-hidden
-        />
-      )}
-
-      {/* The seats notification. Arrives, is readable, leaves. */}
-      {nudgeOn && !reward && !menu && (
+      {/* The seats notification — now it rises from the bottom, next to the dock
+          it belongs to, rather than hanging off a header that no longer exists. */}
+      {nudgeOn && !reward && (
         <button
           onClick={onRooms}
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={(e) => e.stopPropagation()}
-          style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 56px)", left: 14, right: 14, zIndex: 24, display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", borderRadius: 14, background: "rgba(4,5,11,.8)", border: ".5px solid rgba(127,214,192,.34)", backdropFilter: "blur(10px)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", WebkitTapHighlightColor: "transparent", animation: "fdRise .3s ease both" }}
+          className="bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] lg:bottom-[calc(env(safe-area-inset-bottom)+1.5rem)]"
+          style={{ position: "absolute", left: 14, right: 14, zIndex: 24, display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", borderRadius: 14, background: "rgba(4,5,11,.8)", border: ".5px solid rgba(127,214,192,.34)", backdropFilter: "blur(10px)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", WebkitTapHighlightColor: "transparent", animation: "fdRise .3s ease both" }}
         >
           <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 800, letterSpacing: .6, color: "#06121e", background: "#7fd6c0", borderRadius: 6, padding: "3px 6px" }}>{nudge?.left} SEATS</span>
           <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#eafff7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nudge?.title}</span>

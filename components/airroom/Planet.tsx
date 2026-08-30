@@ -922,7 +922,7 @@ export function Planet() {
                       setGroup({ seed: r.seed, f: r.f, count: r.count, title: r.title })
                     }}
                   />
-                : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} fai={String(fai)} onEarned={() => setFai(getFai())} onLangChange={pickPrimary} />}
+                : <FrontDoor onCall={(c) => setSelected(c)} onRooms={() => setRoomsOpen(true)} onEarned={() => setFai(getFai())} />}
             </AirShell>
       )}
       {/* back to the people deck from the open sky */}

@@ -49,50 +49,30 @@ await p.waitForTimeout(1200)
 let fail = 0
 const check = (c, l) => { console.log(`${c ? "ok  " : "FAIL"} ${l}`); if (!c) fail++ }
 
-// 1. The seats toast is a notification, so it must go away on its own — and
-// once it has, the top edge must be TWO controls, not four.
+// 1. NOTHING is pinned to the top of this screen any more.
 const topNow = () => p.evaluate(() => {
   const top = window.innerHeight * 0.14
   return [...document.querySelectorAll("button, select")]
     .filter((e) => { const r = e.getBoundingClientRect(); return r.top < top && r.width > 0 && r.height > 0 })
     .map((e) => (e.textContent || "").trim().replace(/\s+/g, " ") || e.getAttribute("aria-label") || e.tagName)
 })
-console.log("   while the toast is up:", JSON.stringify(await topNow()))
+const chrome = await topNow()
+console.log("   top-edge controls:", JSON.stringify(chrome))
+check(chrome.length === 0, `the header is empty (${chrome.length} control(s) found)`)
+
+// The seats toast now rises from the bottom, beside the dock — and still leaves.
 let gone = false
 for (let i = 0; i < 24; i++) {
   await p.waitForTimeout(600)
   if (!/SEATS/.test(await p.$eval("body", (e) => e.innerText))) { gone = true; break }
 }
 check(gone, "the seats notification leaves on its own")
-const chrome = await p.evaluate(() => {
-  const top = window.innerHeight * 0.14
-  return [...document.querySelectorAll("button, select")]
-    .filter((e) => { const r = e.getBoundingClientRect(); return r.top < top && r.width > 0 && r.height > 0 })
-    .map((e) => (e.textContent || "").trim().replace(/\s+/g, " ") || e.getAttribute("aria-label") || e.tagName)
-})
-console.log("   top-edge controls:", JSON.stringify(chrome))
-check(chrome.length <= 1, `only ${chrome.length} control(s) sit on the face`)
 
 // 2. No loose language <select> outside the menu.
-const selBefore = await selects()
-check(selBefore === 0, "no language selector floating over the portrait")
+check(await selects() === 0, "no language selector floating over the portrait")
 
-// 3. The menu opens and carries FAI + language + profile.
-await click(/your FAI and settings/i)
-await p.waitForTimeout(400)
-if (SHOTS) await p.screenshot({ path: `${SHOTS}/menu.png` })
-const menuTxt = await p.$eval("body", (e) => e.innerText)
-check(/FAI/.test(menuTxt), "the menu shows your FAI")
-check(await selects() === 1, "language lives inside the menu")
-// "Your profile" moved to the dock — the menu keeps only what a tab can't hold.
-check(!/your profile/i.test(menuTxt), "the menu no longer duplicates the You tab")
-
-// 4. It closes again on an outside tap, without flinging the card.
+// 3. FAI and language moved to the You tab — the header held neither.
 const before = await who()
-await p.mouse.click(201, 700)
-await p.waitForTimeout(400)
-check(await selects() === 0, "tapping away closes the menu")
-check(await who() === before, "closing the menu does not swipe the person away")
 
 // 4b. THE DOCK MUST NOT COVER THE CALL BUTTON. It is a fixed overlay and the
 // card is absolutely positioned, so nothing makes room automatically.

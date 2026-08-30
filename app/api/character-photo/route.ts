@@ -26,7 +26,19 @@ const FAL_KEY  = process.env.FAL_KEY || ""
 // Together AI hosts FLUX.1 — the simplest "real model" path since TOGETHER_API_KEY
 // is already configured. FLUX.1-schnell-Free is free + fast (4 steps).
 const TOGETHER_KEY   = process.env.TOGETHER_API_KEY || ""
-const TOGETHER_MODEL = process.env.TOGETHER_IMAGE_MODEL || "black-forest-labs/FLUX.1-schnell"
+// The FLOOR is a LIST, not one model.
+//
+// Together moves models between serverless and dedicated-endpoint-only, and when
+// one moves the API answers 400 "Unable to access non-serverless model … please
+// create a dedicated endpoint". Pinning a single name meant that the day
+// FLUX.1-schnell stopped being serverless, every portrait on the floor failed —
+// with a working key and a healthy account. The route now walks candidates and
+// remembers which ones the account cannot reach, so a model going dedicated
+// costs one failed request per instance instead of the whole feature.
+const TOGETHER_FLOOR: string[] = (process.env.TOGETHER_IMAGE_MODEL || "").trim()
+  ? [process.env.TOGETHER_IMAGE_MODEL!.trim()]
+  : ["black-forest-labs/FLUX.1-schnell-Free", "black-forest-labs/FLUX.1-schnell", "black-forest-labs/FLUX.1-dev"]
+const TOGETHER_MODEL = TOGETHER_FLOOR[0]
 const TOGETHER_STEPS = Number(process.env.TOGETHER_IMAGE_STEPS || (TOGETHER_MODEL.includes("schnell") ? "4" : "28"))
 // AIRRAW (diverse) wants MAXIMUM realism. The diverse path climbs a LADDER of Together
 // FLUX models (best→cheapest) and uses the best the key can actually reach; a 4xx on a
@@ -216,10 +228,16 @@ async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL,
     if (!res.ok) {
       // Auth/billing, not "this model": the key itself is no good, so nothing
       // will work until a human fixes it. Latch the whole provider off.
+      const body = (await res.text()).slice(0, 300)
       if (res.status === 401 || res.status === 403 || res.status === 402) markProviderRejected("together", res.status)
-      // 4xx on a non-base model → the key can't use it; remember so we skip that rung.
-      else if (model !== TOGETHER_MODEL && res.status >= 400 && res.status < 500) togetherOff.add(model)
-      console.error("together image error", model, res.status, (await res.text()).slice(0, 300)); return null
+      // "Unable to access non-serverless model" is about THIS model, not the key
+      // or the account — remember it even when it is the floor, or the route
+      // keeps asking for a model that has moved behind a dedicated endpoint.
+      else if (res.status === 429) { /* rate limit: transient, never remembered */ }
+      else if (res.status >= 400 && res.status < 500 && (model !== TOGETHER_MODEL || /non-serverless|unable to access|not available/i.test(body))) {
+        togetherOff.add(model)
+      }
+      console.error("together image error", model, res.status, body); return null
     }
     const d = await res.json()
     const url: string = d?.data?.[0]?.url || ""
@@ -414,9 +432,14 @@ export async function POST(request: Request) {
         const fb = await genFal(prompt, dseed)
         if (fb) { usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return fb }
       }
-      const b = await genTogether(prompt, dseed)   // schnell base (the floor)
-      if (b) usedModel = TOGETHER_MODEL
-      return b
+      // The floor is a list: walk it, skipping anything this account has already
+      // been told it cannot reach.
+      for (const m of TOGETHER_FLOOR) {
+        if (togetherOff.has(m)) continue
+        const b = await genTogether(prompt, dseed, m)
+        if (b) { usedModel = m; return b }
+      }
+      return null
     }
     if (provider === "fal") { const b = await genFal(prompt, dseed); if (b) usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return b }
     const b = await genRunpod(prompt, negative, dseed); if (b) usedModel = "runpod-sdxl"; return b
@@ -442,6 +465,11 @@ export async function POST(request: Request) {
   let bytes: Buffer | null = null
   const MAX_TRIES = dp ? 3 : 1
   for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
+    // Space the retries. Three generations fired back-to-back is a burst, and
+    // Together rate-limits on traffic SHAPE, not just volume — the live logs
+    // showed 429 "too many requests in a short window" from a single visitor
+    // loading one card. Their own guidance is to retry from ~2s with backoff.
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1200 * attempt))
     const b = await genWithSeed((seed + attempt * 7919) % 2147483647)
     if (!b || b.length < 8000) continue
     bytes = b                                       // keep the latest good bytes (best-effort)

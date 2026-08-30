@@ -59,5 +59,25 @@ check(/offUntil = Date\.now\(\)/.test(face), "'disabled' stops the client asking
 check(!/localStorage\.setItem\([^)]*failed/.test(face) && !/lsKey\(k\), *""/.test(face),
   "negatives are never persisted (an outage must not blank faces forever)")
 
+
+// ── a model that moves does not take the feature down ───────────────────────
+// Together shifts models between serverless and dedicated-endpoint-only. When
+// FLUX.1-schnell moved, the API answered 400 "Unable to access non-serverless
+// model" and EVERY portrait failed — with a working key and a healthy account —
+// because the floor was one hardcoded name whose 4xx was explicitly not
+// remembered ("4xx on a NON-BASE model → skip that rung").
+check(/const TOGETHER_FLOOR/.test(route), "the floor is a list of candidate models, not one name")
+check(/non-serverless\|unable to access/.test(route),
+  "a model the account cannot reach is remembered even when it is the floor")
+check(/for \(const m of TOGETHER_FLOOR\)/.test(route), "and the floor is walked, not just tried once")
+
+// A 429 is transient and must NEVER be remembered — parking a model over a rate
+// limit would take it out for the life of the instance.
+const t429 = route.indexOf("res.status === 429")
+const tOff = route.indexOf("togetherOff.add(model)")
+check(t429 > 0 && t429 < tOff, "a rate limit is short-circuited BEFORE anything is remembered")
+check(/setTimeout\(r, 1200 \* attempt\)/.test(route),
+  "retries are spaced — three generations back-to-back is what triggered the 429s")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

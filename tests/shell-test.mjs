@@ -57,7 +57,8 @@ check(!/back to people/.test(talks), "the board has no second back control compe
 // A neutral black scrim makes every card identical, and with no portrait loaded
 // it makes them all the same grey blur. The wash carries the character's own
 // heat colour, which is the gradient the whole product is built on.
-check(/\$\{accent\}1f/.test(front), "the scrim is tinted by the character's heat, not a flat black")
+const scrim = (front.match(/linear-gradient\(180deg[^`]*/) || [""])[0]
+check(/\$\{accent\}/.test(scrim), "the scrim is tinted by the character's heat, not a flat black")
 check(/feTurbulence/.test(front), "and carries grain, so a card without a photo still reads as a portrait")
 check(/person\.f \* 48/.test(front), "the heat rail marks where this person sits on the soft-to-wild gradient")
 

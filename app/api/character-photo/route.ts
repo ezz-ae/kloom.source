@@ -434,11 +434,18 @@ export async function POST(request: Request) {
       }
       // The floor is a list: walk it, skipping anything this account has already
       // been told it cannot reach.
+      const tried: string[] = []
       for (const m of TOGETHER_FLOOR) {
-        if (togetherOff.has(m)) continue
+        if (togetherOff.has(m)) { tried.push(`${m}(known-unreachable)`); continue }
+        tried.push(m)
         const b = await genTogether(prompt, dseed, m)
         if (b) { usedModel = m; return b }
       }
+      // Exhausting the floor used to return null in silence, which is the worst
+      // possible failure to debug: a 502 with no log line and no clue which
+      // models were even attempted. Say it, in the log AND in the response body.
+      genErr = `together floor exhausted: ${tried.join(", ") || "(all known-unreachable)"}`
+      console.error(`[character-photo] ${genErr}`)
       return null
     }
     if (provider === "fal") { const b = await genFal(prompt, dseed); if (b) usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return b }

@@ -211,6 +211,50 @@ async function genFal(prompt: string, seed: number): Promise<Buffer | null> {
   } catch { return null }
 }
 
+/**
+ * Ask Together which image models THIS ACCOUNT can actually run.
+ *
+ * The floor was a hardcoded guess, and guessing is how we got here: Together
+ * moves models between serverless and dedicated-endpoint-only, availability is
+ * per-plan, and the account came back "unable to access non-serverless model"
+ * for every FLUX name we knew. Rather than keep pinning names and redeploying to
+ * find out, read the list — the key is right here, and /v1/models returns what
+ * the account is entitled to.
+ *
+ * Same shape as the ElevenLabs voice discovery: read-only, cached per instance,
+ * and it degrades to the hardcoded list rather than failing shut.
+ */
+let discovered: string[] | null = null
+let discoveredAt = 0
+const DISCOVER_TTL = 6 * 60 * 60_000
+
+async function togetherImageModels(): Promise<string[]> {
+  if (discovered && Date.now() - discoveredAt < DISCOVER_TTL) return discovered
+  try {
+    const r = await fetch("https://api.together.xyz/v1/models", {
+      headers: { Authorization: `Bearer ${TOGETHER_KEY}` },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!r.ok) { console.error("[character-photo] model list", r.status); return [] }
+    const raw = (await r.json()) as unknown
+    const list = Array.isArray(raw) ? raw : (raw as { data?: unknown[] })?.data || []
+    const ids = (list as Array<{ id?: string; type?: string }>)
+      .filter((m) => String(m?.type || "").toLowerCase() === "image" && m?.id)
+      .map((m) => m.id as string)
+    // Photoreal first, then anything else the account has — a portrait from an
+    // unfamiliar image model beats a monogram.
+    const score = (id: string) => (/flux/i.test(id) ? 0 : 5) + (/dev|pro|1\.1/i.test(id) ? 0 : 1) + (/free/i.test(id) ? -1 : 0)
+    ids.sort((a, b) => score(a) - score(b))
+    discovered = ids
+    discoveredAt = Date.now()
+    console.log(`[character-photo] account image models: ${ids.join(", ") || "(none)"}`)
+    return ids
+  } catch (e) {
+    console.error("[character-photo] model list failed:", e instanceof Error ? e.message : String(e))
+    return []
+  }
+}
+
 // Together AI → FLUX.1. Returns image bytes (or null).
 async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL, steps = TOGETHER_STEPS): Promise<Buffer | null> {
   if (!TOGETHER_KEY) return null
@@ -432,10 +476,12 @@ export async function POST(request: Request) {
         const fb = await genFal(prompt, dseed)
         if (fb) { usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return fb }
       }
-      // The floor is a list: walk it, skipping anything this account has already
-      // been told it cannot reach.
+      // The floor: what the account actually has, then the hardcoded guesses as
+      // a safety net if the model list can't be read.
+      const found = await togetherImageModels()
+      const floor = found.length ? [...found, ...TOGETHER_FLOOR.filter((m) => !found.includes(m))] : TOGETHER_FLOOR
       const tried: string[] = []
-      for (const m of TOGETHER_FLOOR) {
+      for (const m of floor) {
         if (togetherOff.has(m)) { tried.push(`${m}(known-unreachable)`); continue }
         tried.push(m)
         const b = await genTogether(prompt, dseed, m)
@@ -444,7 +490,7 @@ export async function POST(request: Request) {
       // Exhausting the floor used to return null in silence, which is the worst
       // possible failure to debug: a 502 with no log line and no clue which
       // models were even attempted. Say it, in the log AND in the response body.
-      genErr = `together floor exhausted: ${tried.join(", ") || "(all known-unreachable)"}`
+      genErr = `together floor exhausted (account lists ${found.length} image model(s)${found.length ? ": " + found.slice(0, 8).join(", ") : ""}); tried: ${tried.join(", ") || "(all known-unreachable)"}`
       console.error(`[character-photo] ${genErr}`)
       return null
     }

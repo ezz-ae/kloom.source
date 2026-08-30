@@ -238,7 +238,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
             from the soft end of the floor is lilac-lit and one from the wild end
             burns red. It is the same gradient the whole product is built on,
             finally visible on the screen that matters. */}
-        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, rgba(7,4,15,.6) 0%, rgba(7,4,15,.05) 22%, ${accent}1f 44%, rgba(7,4,15,.55) 68%, rgba(7,4,15,.93) 84%, #07040f 100%)` }} />
+        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, rgba(7,4,15,.55) 0%, rgba(7,4,15,.04) 20%, ${accent}1c 38%, rgba(7,4,15,.42) 54%, rgba(7,4,15,.84) 68%, rgba(7,4,15,.97) 80%, #07040f 100%)` }} />
 
         {/* Grain. Photographs have it and flat gradients don't, which is most of
             why an un-loaded card reads as "broken image" rather than "portrait
@@ -260,6 +260,19 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
           className="px-[22px] pb-[calc(env(safe-area-inset-bottom)+5.75rem)] lg:mx-auto lg:max-w-2xl lg:pb-[calc(env(safe-area-inset-bottom)+1.375rem)]"
           style={{ position: "absolute", left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", gap: 10, animation: "fdRise .45s ease both" }}
         >
+          {nudgeOn && (
+            <button
+              onClick={() => { if (!dragged.current) onRooms() }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 4, padding: "9px 12px", borderRadius: 14, background: "rgba(4,5,11,.82)", border: ".5px solid rgba(127,214,192,.34)", backdropFilter: "blur(10px)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", WebkitTapHighlightColor: "transparent", animation: "fdRise .3s ease both" }}
+            >
+              <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 800, letterSpacing: .6, color: "#06121e", background: "#7fd6c0", borderRadius: 6, padding: "3px 6px" }}>{nudge?.left} SEATS</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#eafff7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nudge?.title}</span>
+              <span style={{ flex: "0 0 auto", fontSize: 15, color: "rgba(234,255,247,.5)" }} aria-hidden>›</span>
+            </button>
+          )}
+
           {/* The vibe leads and the name lands under it — a masthead rather than
               a label trailing a heading. It also stops long vibes wrapping the
               name onto its own ragged second line. */}
@@ -308,21 +321,12 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
           duplicate a tab. What is left is the person, edge to edge, which is the
           only thing this screen is for. */}
 
-      {/* The seats notification — now it rises from the bottom, next to the dock
-          it belongs to, rather than hanging off a header that no longer exists. */}
-      {nudgeOn && !reward && (
-        <button
-          onClick={onRooms}
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={(e) => e.stopPropagation()}
-          className="bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] lg:bottom-[calc(env(safe-area-inset-bottom)+1.5rem)]"
-          style={{ position: "absolute", left: 14, right: 14, zIndex: 24, display: "flex", alignItems: "center", gap: 9, padding: "10px 13px", borderRadius: 14, background: "rgba(4,5,11,.8)", border: ".5px solid rgba(127,214,192,.34)", backdropFilter: "blur(10px)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", WebkitTapHighlightColor: "transparent", animation: "fdRise .3s ease both" }}
-        >
-          <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 800, letterSpacing: .6, color: "#06121e", background: "#7fd6c0", borderRadius: 6, padding: "3px 6px" }}>{nudge?.left} SEATS</span>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#eafff7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nudge?.title}</span>
-          <span style={{ flex: "0 0 auto", fontSize: 15, color: "rgba(234,255,247,.5)" }} aria-hidden>›</span>
-        </button>
-      )}
+      {/* The seats notification lives INSIDE the card's bottom stack — see below.
+          Floated absolutely above the dock, it landed straight on top of the
+          call button: the second time a fixed overlay has covered the one
+          control this screen exists for. A flex column cannot overlap itself;
+          geometry hand-tuned against two other absolutely-positioned things
+          can, and did. */}
 
     </div>
   )

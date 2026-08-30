@@ -56,6 +56,24 @@ const topNow = () => p.evaluate(() => {
     .filter((e) => { const r = e.getBoundingClientRect(); return r.top < top && r.width > 0 && r.height > 0 })
     .map((e) => (e.textContent || "").trim().replace(/\s+/g, " ") || e.getAttribute("aria-label") || e.tagName)
 })
+const coveringNow = () => p.evaluate(() => {
+  const call = [...document.querySelectorAll("button")].find((b) => /^call /.test((b.textContent || "").trim()))
+  if (!call) return "(no call button)"
+  const c = call.getBoundingClientRect()
+  // Whatever the browser says is on top at the centre of the button must BE the
+  // button — that is what a real tap would hit.
+  const hit = document.elementFromPoint(c.left + c.width / 2, c.top + c.height / 2)
+  return hit && (hit === call || call.contains(hit)) ? "" : (hit?.textContent || hit?.tagName || "?").trim().slice(0, 40)
+})
+
+// THE TOAST IS UP RIGHT NOW. That is the moment the bug existed, so that is the
+// moment to look: a notification floated over the card once landed square on the
+// call button and this check, run afterwards, saw nothing.
+const seatsUp = /SEATS/.test(await p.$eval("body", (e) => e.innerText))
+const coveredDuringToast = await coveringNow()
+console.log(`   with the toast ${seatsUp ? "UP" : "already gone"}: ${coveredDuringToast || "call button is clear"}`)
+check(coveredDuringToast === "", "nothing covers the call button while the toast is showing")
+
 const chrome = await topNow()
 console.log("   top-edge controls:", JSON.stringify(chrome))
 check(chrome.length === 0, `the header is empty (${chrome.length} control(s) found)`)
@@ -85,6 +103,12 @@ const overlap = await p.evaluate(() => {
 })
 console.log("   call → dock gap:", JSON.stringify(overlap))
 check(overlap.ok, "the dock sits clear of the call button")
+
+// NOTHING may overlap the call button — not the dock, not a toast, not anything
+// added later. The toast covered it once by being absolutely positioned against
+// hand-tuned geometry, so this checks every floating element, not one by name.
+const covered = await coveringNow()
+check(covered === "", `nothing covers the call button with the toast gone${covered ? ` (${covered})` : ""}`)
 
 // 5. THE REGRESSION TEST: a button must still click.
 await click(/someone else/)

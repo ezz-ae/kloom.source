@@ -581,6 +581,33 @@ export async function* streamLLM(
     catch { yield* houseFallback(messages, opts, backend); return }
   }
 
+/**
+ * Stop asking a backend that has REJECTED THE KEY.
+ *
+ * A rejected credential does not recover by being tried again, but the seat was
+ * retried on every single turn — production logs showed the xAI seat failing on
+ * every /api/chat request for hours, each one a wasted round trip in front of a
+ * live person waiting for a reply. That is the same shape as the image key: an
+ * error that will never succeed, treated as if it might.
+ *
+ * TTL, not permanent: the cure is someone pasting a new key into the dashboard,
+ * which happens outside this process, so the seat has to come back on its own.
+ * Only auth/billing rejections latch — a rate limit or a network blip is exactly
+ * the kind of failure that IS worth retrying.
+ */
+const AUTH_OFF_MS = 10 * 60_000
+const seatOffUntil: Partial<Record<Backend, number>> = {}
+const seatRejected = (b: Backend) => Date.now() < (seatOffUntil[b] ?? 0)
+function noteSeatFailure(b: Backend, err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err)
+  // Providers disagree on status codes for a bad key — xAI answers 400 — so
+  // match the message too rather than trusting the number alone.
+  if (/\b40[123]\b/.test(msg) || /incorrect api key|invalid api key|unauthorized|invalid_api_key|authentication/i.test(msg)) {
+    seatOffUntil[b] = Date.now() + AUTH_OFF_MS
+    console.error(`[llm] ${b} seat parked ${AUTH_OFF_MS / 60_000}m — its key was rejected`)
+  }
+}
+
   // Claude / Gemini / GPT — run the seat's real API. If it fails BEFORE emitting
   // anything (bad/missing key, rate limit, network), fall back to Gemini so the
   // room never dead-ends. Mid-stream failures rethrow (don't duplicate output).
@@ -588,6 +615,9 @@ export async function* streamLLM(
                 : backend === "gemini" ? streamGemini
                 : backend === "xai"    ? streamXai
                 : streamOpenAI
+  // Skip a seat whose key was just rejected — going straight to the fallback is
+  // strictly faster than a round trip that is certain to 401.
+  if (seatRejected(backend)) { yield* houseFallback(messages, opts, backend); return }
   let emitted = false
   try {
     for await (const chunk of primary(messages, opts)) {
@@ -596,6 +626,7 @@ export async function* streamLLM(
     }
   } catch (err) {
     console.error(`[llm] ${backend} seat failed (emitted=${emitted}): ${err instanceof Error ? err.message : err}`)
+    noteSeatFailure(backend, err)
     if (emitted) throw err
     yield* houseFallback(messages, opts, backend)
   }
@@ -619,13 +650,16 @@ async function* houseFallback(
     ["xai", streamXai], ["gemini", streamGemini], ["openai", streamOpenAI],
   ]
   for (const [name, fn] of candidates) {
-    if (name === failed || !backendAvailable(name)) continue
+    // A parked seat is skipped here too, or the fallback pays the same certain
+    // 401 the primary just paid — twice the wasted latency, same dead key.
+    if (name === failed || !backendAvailable(name) || seatRejected(name)) continue
     let emitted = false
     try {
       for await (const chunk of fn(messages, opts)) { emitted = true; yield chunk }
       return
     } catch (err) {
       console.error(`[llm] fallback ${name} failed (emitted=${emitted}): ${err instanceof Error ? err.message : err}`)
+      noteSeatFailure(name, err)
       if (emitted) return
     }
   }

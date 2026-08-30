@@ -88,7 +88,13 @@ function transcript(text: string | null | undefined, provider: string, model?: s
   // Why the better tiers didn't answer. Arabic falling through to Whisper is the
   // difference between understood and not, and from outside the two are
   // indistinguishable — the transcript comes back either way, just wrong.
-  if (why) headers["X-STT-Fallback"] = why
+  if (why) {
+    headers["X-STT-Fallback"] = why
+    // Also on the server, because the header only helps whoever is holding a
+    // curl. Reading the deployment's logs is how this was diagnosed in the first
+    // place, and "which recogniser answered" was the one thing they didn't say.
+    console.log(`[stt] ${provider}${model ? "/" + model : ""} — ${why}`)
+  }
   return Response.json({ text: cleanTranscript(text) }, { headers })
 }
 

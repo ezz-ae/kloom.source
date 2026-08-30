@@ -241,10 +241,27 @@ async function togetherImageModels(): Promise<string[]> {
     const ids = (list as Array<{ id?: string; type?: string }>)
       .filter((m) => String(m?.type || "").toLowerCase() === "image" && m?.id)
       .map((m) => m.id as string)
-    // Photoreal first, then anything else the account has — a portrait from an
-    // unfamiliar image model beats a monogram.
-    const score = (id: string) => (/flux/i.test(id) ? 0 : 5) + (/dev|pro|1\.1/i.test(id) ? 0 : 1) + (/free/i.test(id) ? -1 : 0)
-    ids.sort((a, b) => score(a) - score(b))
+    // Rank them. This is not "prefer FLUX" — the live account turned out to hold
+    // 29 image models and NONE of the FLUX.1 family the old floor named, which is
+    // why guessing failed. What it has is FLUX.2, Seedream, Imagen, Qwen-Image
+    // and friends, so the ordering has to be about what makes a good PORTRAIT
+    // cheaply, not about a family name:
+    //
+    //   • kontext is an image EDITING model — it wants an input image, and asking
+    //     it for text-to-image is a wasted call. The first live run picked
+    //     kontext-pro on name alone. Demoted hard.
+    //   • dev / flex tiers before pro / max: this generates a few hundred
+    //     portraits, once, and the pro tiers cost several times more for a face
+    //     that will be seen at 400px.
+    const score = (id: string) => {
+      if (/kontext/i.test(id)) return 90              // editing model, not text-to-image
+      let n = /flux/i.test(id) ? 0 : /seedream|imagen|qwen-image|ideogram/i.test(id) ? 10 : 30
+      if (/flux\.?2/i.test(id)) n -= 2                 // the generation this account actually has
+      if (/dev|flex|lightning|fast/i.test(id)) n -= 3  // cheap tiers first
+      if (/pro|max|ultra/i.test(id)) n += 4            // capable, and several times the price
+      return n
+    }
+    ids.sort((a, b) => score(a) - score(b) || a.localeCompare(b))
     discovered = ids
     discoveredAt = Date.now()
     console.log(`[character-photo] account image models: ${ids.join(", ") || "(none)"}`)

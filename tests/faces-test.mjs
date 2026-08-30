@@ -90,5 +90,17 @@ check(/found\.length \? \[\.\.\.found/.test(route),
 check(/return \[\]/.test(route.slice(route.indexOf("async function togetherImageModels"))),
   "a failed lookup degrades to the old list instead of failing shut")
 
+
+// Ranking is about what makes a cheap PORTRAIT, not a family name. The live
+// account holds 29 image models and none of the FLUX.1 family the old floor
+// named — and the first run picked FLUX.1-kontext-pro on the word "flux" alone,
+// which is an image EDITING model that wants an input image.
+check(/kontext/i.test(route), "image-editing models are recognised and demoted")
+const rank = route.slice(route.indexOf("const score = (id: string)"))
+const body = rank.slice(0, rank.indexOf("\n    }") + 6)
+check(/return 90/.test(body), "kontext is ranked last, not merely deprioritised")
+check(/pro\|max\|ultra/.test(body), "the expensive tiers rank below the cheap ones")
+check(/dev\|flex\|lightning\|fast/.test(body), "and dev/flex tiers come first")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

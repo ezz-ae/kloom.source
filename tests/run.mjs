@@ -36,6 +36,7 @@ const WHAT = {
   "stt-test":         "every recogniser names itself, and Arabic is seeded",
   "shell-test":       "the app shell wraps what you browse, never the front door",
   "llm-seat-test":    "a rejected model key is asked once, not every turn",
+  "media-test":       "text/voice to media is always the SAME her",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

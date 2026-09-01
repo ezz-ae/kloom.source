@@ -126,6 +126,14 @@ export async function POST(request: Request) {
       slug: `${(name || "char")}-${sceneId}`,  // cache path — varies per scene
       description: scene,                      // the route's field name for a scene
       diverse: true,
+      // Resolve the provider the SAME way the browser does. /api/character-photo
+      // falls back to IMAGE_PROVIDER, which is set to a provider that no longer
+      // works — the floor only renders because the client overrides it per
+      // request. A server-side caller that omits it silently gets the dead one,
+      // which is how this route 502'd on its first live call while portraits
+      // were generating fine two feet away. Two callers of one endpoint must not
+      // resolve its provider differently.
+      provider: process.env.NEXT_PUBLIC_AIRRAW_IMG_PROVIDER || "together",
     }),
   })
   const data = await res.json().catch(() => ({}))

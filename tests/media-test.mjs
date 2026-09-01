@@ -51,5 +51,12 @@ check(!/whisper|scribe|gemini/i.test(media), "and contains no recogniser of its 
 check(/isPro\(\) \? localStorage : sessionStorage/.test(char),
   "a free session keeps nothing — the same rule memory.ts follows")
 
+
+// The browser overrides the image provider per request because IMAGE_PROVIDER is
+// stale; a server-side caller that omits it inherits the dead one. Portraits
+// worked and media 502'd for exactly this reason on the first live call.
+check(/provider: process\.env\.NEXT_PUBLIC_AIRRAW_IMG_PROVIDER \|\| "together"/.test(media),
+  "the route resolves the image provider the same way the browser does")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

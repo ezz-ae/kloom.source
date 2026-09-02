@@ -25,7 +25,7 @@ function perks(minutes: number, days: number): [string, string][] {
 
 // Display fallback only — the real offer comes from GET /api/airraw-pro (the same
 // env the checkout charges from), so UI and charge can't drift apart.
-const DEFAULT_OFFER = { price: 9, days: 90, minutes: 6000 }
+const DEFAULT_OFFER = { price: 9, days: 90, minutes: 6000, methods: ["card"] as string[] }
 
 export function ProSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
@@ -70,19 +70,21 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
     let live = { ...DEFAULT_OFFER }
     fetch("/api/airraw-pro")
       .then((r) => r.json())
-      .then((d) => { if (typeof d?.price === "number") { live = { price: d.price, days: d.days || 90, minutes: d.minutes || 6000 }; setOffer(live) } })
+      .then((d) => { if (typeof d?.price === "number") { live = { price: d.price, days: d.days || 90, minutes: d.minutes || 6000, methods: Array.isArray(d.methods) && d.methods.length ? d.methods : ["card"] }; setOffer(live) } })
       .catch(() => {})
       .finally(() => { try { track("paywall_view", { value: live.price, currency: "USD", kind: "pass" }) } catch { /* */ } })
   }, [])
 
-  const go = async () => {
+  // One function, either rail. The server decides what a method means and refuses
+  // one it can't honour; this only has to say which was asked for.
+  const go = async (method: "card" | "crypto" = "card") => {
     setBusy(true); setErr("")
     try {
-      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", ...fbCookies() }) })
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", method, ...fbCookies() }) })
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || "couldn’t start checkout — try again"); setBusy(false); return }
       setPendingIntent(d.intentId, d.t, d.s)
-      try { track("initiate_checkout", { value: d.price ?? offer.price, currency: "USD", method: "ziina", kind: "pass" }, d.intentId) } catch { /* never block redirect */ }
+      try { track("initiate_checkout", { value: d.price ?? offer.price, currency: "USD", method: method === "crypto" ? "nowpayments" : "ziina", kind: "pass" }, d.intentId) } catch { /* never block redirect */ }
       window.location.href = d.url
     } catch { setErr("network hiccup — try again"); setBusy(false) }
   }
@@ -157,9 +159,17 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
         </div>
         {err && <div style={{ fontSize: 12.5, color: "#ffb59c", textAlign: "center", padding: "2px 22px 6px" }}>{err}</div>}
         <div style={{ padding: "10px 22px 22px", display: "flex", flexDirection: "column", gap: 9 }}>
-          <button onClick={go} disabled={busy} style={{ width: "100%", minHeight: 52, fontSize: 16, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", border: "none", borderRadius: 14, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{busy ? "opening checkout…" : `unlock — $${offer.price}`}</button>
+          {offer.methods.includes("card") && (
+            <button onClick={() => go("card")} disabled={busy} style={{ width: "100%", minHeight: 52, fontSize: 16, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", border: "none", borderRadius: 14, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{busy ? "opening checkout…" : `unlock — $${offer.price}`}</button>
+          )}
+          {/* Crypto is offered only when the server says that rail is live — see
+              the `methods` field. Second, not first: most buyers want a card, and
+              a crypto-first paywall reads as "we can't take normal money". */}
+          {offer.methods.includes("crypto") && (
+            <button onClick={() => go("crypto")} disabled={busy} style={{ width: "100%", minHeight: offer.methods.includes("card") ? 46 : 52, fontSize: offer.methods.includes("card") ? 14 : 16, fontWeight: 600, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(199,179,255,.32)", borderRadius: 14, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>pay with crypto</button>
+          )}
           <button onClick={onClose} style={{ width: "100%", minHeight: 44, fontSize: 13, color: "#9fb2c4", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>not now</button>
-          <div style={{ fontSize: 11, color: "#6b7d8e", textAlign: "center", marginTop: 2 }}>secure checkout · card / apple pay · one-time, {offer.days} days · adults 18+ only</div>
+          <div style={{ fontSize: 11, color: "#6b7d8e", textAlign: "center", marginTop: 2 }}>secure checkout · {offer.methods.includes("card") ? (offer.methods.includes("crypto") ? "card / apple pay / crypto" : "card / apple pay") : "crypto"} · one-time, {offer.days} days · adults 18+ only</div>
           {/* restore on a new device/browser — paste the code you saved when you bought it */}
           {!restoring ? (
             <button onClick={() => setRestoring(true)} style={{ marginTop: 4, fontSize: 12, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>already paid? restore it</button>

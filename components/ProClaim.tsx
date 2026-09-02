@@ -1,10 +1,22 @@
 "use client"
 
 // Universal pass-claim. Mounted in the root layout so it runs on EVERY page of BOTH
-// domains — after a Ziina redirect-back (?pro_ok=1) it claims the anonymous pass and
+// domains — after a redirect-back (?pro_ok=1) it claims the anonymous pass and
 // stores the signed token. The AIRRAW planet has its own copy of this effect for its
 // in-canvas toast; this one covers kloom.io and every non-planet route. Both are
 // idempotent (claim is no-op once isPro() / the pending intent is cleared).
+//
+// CARD vs CRYPTO. A card is already settled when the buyer lands back here, so one
+// claim answers. An on-chain payment is not: the buyer returns while the network is
+// still confirming, so the first claim says "not paid" about a payment that is
+// perfectly real and thirty seconds away. Claiming once would leave them looking at
+// a locked app having just paid — the single worst screen this product can show.
+//
+// So a crypto claim RETRIES, briefly and with an end: every few seconds for a couple
+// of minutes, which covers most confirmations, then it stops and leaves the pending
+// intent in place so any later page load picks the pass up. It does not poll forever
+// — an unbounded retry on every mounted page is a battery drain and a self-inflicted
+// load test.
 
 import { useEffect, useState } from "react"
 import { getPending, clearPendingIntent, isPro, setProToken, getProToken, fbCookies } from "@/lib/airroom/pro"
@@ -12,6 +24,9 @@ import { track } from "@/lib/track"
 
 export function ProClaim() {
   const [msg, setMsg] = useState("")
+  // A "waiting for the chain" message must not be swept away by the 5s
+  // auto-dismiss below — it is a live status, not a notification.
+  const [sticky, setSticky] = useState(false)
   useEffect(() => {
     try {
       const u = new URLSearchParams(window.location.search)
@@ -31,17 +46,51 @@ export function ProClaim() {
         return
       }
       const { id, t, s } = pending
-      fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id, t, s, ...fbCookies() }) })
-        .then((r) => r.json())
-        .then((d) => {
-          if (d?.paid && d?.token) { setProToken(d.token); clearPendingIntent(); setMsg("you're in ✦ — tap here to copy your restore code & save it (gets you back in on any device)"); try { track("purchase", { value: d?.price ?? 9, currency: "USD", method: "ziina", kind: "pass" }, id) } catch { /* */ } }
-          else if (["failed", "canceled", "cancelled", "expired"].includes(String(d?.status))) clearPendingIntent()
-          else if (justPaid) setMsg("payment is still processing — reopen in a moment.")
-        })
-        .catch(() => {})
+      // Crypto order ids are minted by us with this prefix (lib/pay/crypto.ts).
+      const isCrypto = String(id).startsWith("air_")
+      // Retry only on the RETURN TRIP. On any later page load a single claim is
+      // right: it still picks the pass up the moment the chain has confirmed,
+      // without every mounted page settling into a two-minute poll.
+      const MAX_TRIES = isCrypto && justPaid ? 24 : 1   // ~2 min at 5s
+      let tries = 0
+      let timer: ReturnType<typeof setTimeout> | undefined
+      let stopped = false
+
+      const attempt = () => {
+        tries++
+        fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id, t, s, ...fbCookies() }) })
+          .then((r) => r.json())
+          .then((d) => {
+            if (stopped) return
+            if (d?.paid && d?.token) {
+              setProToken(d.token); clearPendingIntent()
+              setSticky(false)
+              setMsg("you're in ✦ — tap here to copy your restore code & save it (gets you back in on any device)")
+              try { track("purchase", { value: d?.price ?? 9, currency: "USD", method: isCrypto ? "nowpayments" : "ziina", kind: "pass" }, id) } catch { /* */ }
+              return
+            }
+            // Terminal: stop and forget it, or the buyer keeps being told about a
+            // sale that is never going to complete.
+            if (["failed", "canceled", "cancelled", "expired", "refunded"].includes(String(d?.status))) { setSticky(false); clearPendingIntent(); return }
+            if (tries < MAX_TRIES) {
+              if (isCrypto) { setSticky(true); setMsg("payment seen — waiting for the network to confirm. this can take a few minutes.") }
+              timer = setTimeout(attempt, 5000)
+            } else if (justPaid) {
+              setSticky(false)
+              // Out of patience, not out of hope: the pending intent survives, so
+              // the next page load claims it.
+              setMsg(isCrypto
+                ? "still confirming on-chain — your pass unlocks itself here as soon as it lands."
+                : "payment is still processing — reopen in a moment.")
+            }
+          })
+          .catch(() => { if (!stopped && tries < MAX_TRIES) timer = setTimeout(attempt, 5000) })
+      }
+      attempt()
+      return () => { stopped = true; setSticky(false); if (timer) clearTimeout(timer) }
     } catch { /* */ }
   }, [])
-  useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(""), 5000); return () => clearTimeout(t) }, [msg])
+  useEffect(() => { if (!msg || sticky) return; const t = setTimeout(() => setMsg(""), 5000); return () => clearTimeout(t) }, [msg, sticky])
   if (!msg) return null
   return (
     <div

@@ -38,6 +38,8 @@ const WHAT = {
   "llm-seat-test":    "a rejected model key is asked once, not every turn",
   "media-test":       "text/voice to media is always the SAME her",
   "taste-test":       "the floor is filterable, and a filter is never a dead end",
+  "pay-test":         "a crypto pass needs a signed callback, never a claim",
+  "video-test":       "a clip outlives its request, is paid for once, and persists",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

@@ -317,11 +317,11 @@ async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL,
 // JPEG re-encode so the file carries the real 8x8 compression artifacts FLUX lacks.
 // @napi-rs/canvas ONLY (sharp unavailable; this lib already runs server-side in
 // lib/face-validate.ts). FAIL-OPEN: any error returns the original bytes untouched.
-const R_GRAIN      = floor0(process.env.REALISM_GRAIN, 7)     // luma grain amplitude (ISO-800-ish)
+const R_GRAIN      = floor0(process.env.REALISM_GRAIN, 10)     // luma grain amplitude (ISO-800-ish)
 const R_CHROMA     = floor0(process.env.REALISM_CHROMA, 3)    // per-channel chroma noise
-const R_CONTRAST   = numEnv(process.env.REALISM_CONTRAST, 0.10)
+const R_CONTRAST   = numEnv(process.env.REALISM_CONTRAST, 0.05)   // was .10 — the grade read as "edited"
 const R_DESAT      = numEnv(process.env.REALISM_DESAT, 0.06)
-const R_VIGNETTE   = numEnv(process.env.REALISM_VIGNETTE, 0.16)
+const R_VIGNETTE   = numEnv(process.env.REALISM_VIGNETTE, 0.07)  // was .16 — the most obvious "filtered" tell
 const R_ABERRATION = numEnv(process.env.REALISM_ABERRATION, 1) // px R/B split at edges (0 disables)
 const R_JPEG_Q     = Math.max(60, Math.min(95, Number(process.env.REALISM_JPEG_QUALITY || 88)))
 
@@ -458,7 +458,7 @@ export async function POST(request: Request) {
   // The realism pass re-encodes to JPEG; version the cache key so existing (plastic)
   // PNGs miss the HEAD check and regenerate through the pass. REALISM_OFF=1 keeps PNG.
   const realismOn = process.env.REALISM_OFF !== "1"
-  const realismVersion = process.env.REALISM_VERSION || "r3"
+  const realismVersion = process.env.REALISM_VERSION || "r4"   // bumped with the de-glammed prompt
   const path = realismOn
     ? `${slug || "char"}-${seed}-${realismVersion}.jpg`
     : `${slug || "char"}-${seed}.png`

@@ -20,6 +20,8 @@ import { getFai, DAILY_EARN_CAP, PRO_EARN_CAP, earnedToday } from "@/lib/airraw/
 import { listTalks, forgetAll, forgetTalk, memoryEnabled, memoryOff, setMemoryOff, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { getLangPrefs, saveLangPrefs, langPrefsPersist, type LangPrefs } from "@/lib/airraw/lang-prefs"
 import { LANGUAGES } from "@/lib/languages"
+import { VIBES } from "@/lib/airroom/roster"
+import { getTaste, saveTaste, tasteIsSet, type Taste, type TasteGender } from "@/lib/airraw/taste"
 import { Face } from "@/components/airroom/Face"
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -46,6 +48,7 @@ export function YouPage({ onPass, onResume }: {
   const [off, setOff] = useState(false)
   const [alsoOpen, setAlsoOpen] = useState(false)
   const [pro, setPro] = useState(false)
+  const [taste, setTaste] = useState<Taste>({ gender: "any", vibes: [] })
 
   // Everything here reads localStorage, so it has to wait for the client or the
   // server render and the first paint disagree (hydration).
@@ -55,6 +58,7 @@ export function YouPage({ onPass, onResume }: {
     setFai(getFai()); setCredits(getCredits())
     setTalks(listTalks()); setPrefs(getLangPrefs())
     setOff(memoryOff()); setPro(isPro())
+    setTaste(getTaste())
   }, [])
 
   if (!p) return <div className="p-6 text-sm text-white/30">…</div>
@@ -75,6 +79,13 @@ export function YouPage({ onPass, onResume }: {
     const next: LangPrefs = { primary: prefs.primary, also }
     setPrefs(next); saveLangPrefs(next)
   }
+
+  // Taste writes through on every tap: there is no Save button, because a filter
+  // you have to confirm is a filter people abandon half-set.
+  const putTaste = (next: Taste) => { setTaste(next); saveTaste(next) }
+  const setGender = (g: TasteGender) => putTaste({ ...taste, gender: taste.gender === g ? "any" : g })
+  const toggleVibe = (k: string) =>
+    putTaste({ ...taste, vibes: taste.vibes.includes(k) ? taste.vibes.filter((x) => x !== k) : [...taste.vibes, k] })
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pt-[max(1.25rem,env(safe-area-inset-top))]">
@@ -105,6 +116,62 @@ export function YouPage({ onPass, onResume }: {
       </div>
 
       <div className="space-y-3 pb-8">
+        {/* ── who you want to meet ──
+            The one control that changes what the front door actually shows.
+            Subtractive and empty by default (see lib/airraw/taste.ts), so this
+            card reads as "narrow it down", never as a form to fill in first. */}
+        <Card
+          title="Who you want to meet"
+          hint={tasteIsSet(taste)
+            ? "the floor is filtered to this. tap again to unset."
+            : "everyone, for now. pick anything to narrow the floor."}
+        >
+          <div className="flex gap-1.5">
+            {([["any", "anyone"], ["female", "women"], ["male", "men"]] as Array<[TasteGender, string]>).map(([g, label]) => {
+              const on = taste.gender === g
+              return (
+                <button
+                  key={g}
+                  onClick={() => setGender(g)}
+                  aria-pressed={on}
+                  className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                    on ? "brand-gradient text-[#1a0a1f]" : "border border-white/12 bg-white/[0.05] text-white/55 hover:text-white/80"
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {VIBES.map((v) => {
+              const on = taste.vibes.includes(v.key)
+              return (
+                <button
+                  key={v.key}
+                  onClick={() => toggleVibe(v.key)}
+                  aria-pressed={on}
+                  className={`rounded-full px-2.5 py-1.5 text-[11.5px] transition ${
+                    on ? "bg-fuchsia-400/90 text-[#1a0a1f]" : "border border-white/12 bg-white/[0.05] text-white/55 hover:text-white/80"
+                  }`}
+                >
+                  {v.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {tasteIsSet(taste) && (
+            <button
+              onClick={() => putTaste({ gender: "any", vibes: [] })}
+              className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-[11.5px] font-semibold text-white/45 transition hover:text-white/75"
+            >
+              Show me everyone again
+            </button>
+          )}
+        </Card>
+
         {/* ── FAI ── */}
         <Card title="Your FAI" hint="a seat in a talk costs one. it cannot be bought — you earn one every time you finish a talk.">
           <div className="flex items-end gap-3">

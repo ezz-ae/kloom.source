@@ -23,31 +23,19 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { makeCharacter, pickForLanguages, type Cluster } from "@/lib/airroom/roster"
 import { matchesPrefs } from "@/lib/airraw/lang-prefs"
+import { walkFor, matchesTaste, getTaste } from "@/lib/airraw/taste"
 import { cardLinesFor } from "@/lib/airraw/dossier"
 import { earnFai, canEarnToday, DAILY_EARN_CAP, earnedToday } from "@/lib/airraw/fai"
-import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
 import { Face } from "@/components/airroom/Face"
 
-// Walk the whole soft→wild gradient rather than one band, so consecutive cards
-// are different KINDS of person, not five variations on one mood.
-//
-// EVERY value must land in a DIFFERENT archetype, and between them they must
-// cover all ten. The old walk didn't: its top value was 0.95, which falls inside
-// BDSM's band [0.82, 0.96], and the roster takes the first band that matches —
-// so "no limits · raw" [0.92, 1.00] was never once shown on the front door.
-// The wildest tier in the product, the one the pass is largely for, was
-// unreachable by swiping, while three others turned up twice as often as the
-// rest. Nothing failed; it was simply invisible. roster-reach in the test suite
-// now asserts all ten are hit.
-//
-// Twenty entries — each archetype twice, in two different orders — so the cycle
-// of vibes is long enough not to read as a loop.
-const F_WALK = [
-  0.36, 0.79, 0.05, 0.58, 0.97, 0.25, 0.68, 0.46, 0.88, 0.15,
-  0.68, 0.05, 0.88, 0.36, 0.15, 0.97, 0.46, 0.79, 0.25, 0.58,
-]
+// The deck's gradient walk now comes from the visitor's taste — see
+// lib/airraw/taste.ts. It used to be a hardcoded list of temperatures, which
+// meant two people with opposite interests saw an identical floor in an
+// identical order, and the only way past a tier you had no interest in was to
+// keep swiping. walkFor() also derives its temperatures from the archetype bands
+// rather than by hand, which is what stopped one tier being unreachable.
 const seedAt = (i: number) => ((i + 1) * 2654435761) >>> 0
-const fAt = (i: number) => F_WALK[i % F_WALK.length]
+
 
 const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#fb7185")
 
@@ -63,35 +51,9 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
   /** Fired after FAI is earned so the balance in the corner updates immediately. */
   onEarned?: () => void
 }) {
-  // A talk with room in it, surfaced while you're swiping. This is the "15 seats
-  // open for a talk on …" moment: something is happening elsewhere and you can
-  // still get in. Deliberately ONE, and only when there's real room — a banner
-  // that's always there is wallpaper, and one advertising a full talk is a lie.
-  const [nudge, setNudge] = useState<{ title: string; left: number } | null>(null)
-  useEffect(() => {
-    const pick = () => {
-      const open = liveTalks().filter((t) => seatsLeft(t) >= 4)
-      const best = open.sort((a, b) => seatsLeft(b) - seatsLeft(a))[0]
-      setNudge(best ? { title: best.title, left: seatsLeft(best) } : null)
-    }
-    pick()
-    const id = setInterval(pick, 25_000)
-    return () => clearInterval(id)
-  }, [])
-  // The nudge is a NOTIFICATION, not furniture: it appears when a different talk
-  // becomes the one worth knowing about, then leaves. A banner that is always
-  // there is wallpaper — and it was eating a whole row of a photograph.
-  const [nudgeOn, setNudgeOn] = useState(false)
-  const shown = useRef<string | null>(null)
-  useEffect(() => {
-    if (!nudge) { setNudgeOn(false); return }
-    if (shown.current === nudge.title) return
-    shown.current = nudge.title
-    setNudgeOn(true)
-    const id = setTimeout(() => setNudgeOn(false), 9000)
-    return () => clearTimeout(id)
-  }, [nudge])
-
+  // NO NOTIFICATIONS ON THIS SCREEN. The seats nudge used to live here, and a
+  // page whose whole job is one person does not also get to interrupt. What is
+  // happening in Talks belongs in Talks; the dock carries a dot instead.
   const [i, setI] = useState(0)
   // Whether the real portrait has arrived. The fallback is a monogram card, which
   // reads fine as a small avatar and terribly as a full-screen letter — so it's
@@ -107,8 +69,28 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
   // Deterministic, and language-steered for Pro. Two cards are pre-resolved so
   // the next portrait is already being fetched while this one is on screen —
   // otherwise every swipe lands on a monogram for a second.
-  const person = useMemo(() => pickForLanguages(seedAt(i), fAt(i), matchesPrefs), [i])
-  const next = useMemo(() => pickForLanguages(seedAt(i + 1), fAt(i + 1), matchesPrefs), [i])
+  // Read once on mount: changing your taste mid-swipe would reshuffle the deck
+  // under your thumb. It takes effect next time you land on People.
+  const walk = useMemo(() => walkFor(getTaste()), [])
+  const taste = useMemo(() => getTaste(), [])
+  const fAt = (n: number) => walk[n % walk.length]
+
+  // Deterministic, language-steered, and now taste-steered. Two cards are
+  // pre-resolved so the next portrait is already loading while this one is up.
+  const pick = (n: number) => {
+    const first = pickForLanguages(seedAt(n), fAt(n), matchesPrefs)
+    if (matchesTaste(first.gender, taste)) return first
+    // Walk forward for someone who fits rather than showing nobody. The scan is
+    // bounded: an impossible taste returns the seed's own person instead of
+    // spinning, because a blank screen is worse than an imperfect match.
+    for (let k = 1; k < 20; k++) {
+      const c = pickForLanguages(seedAt(n + k * 101), fAt(n), matchesPrefs)
+      if (matchesTaste(c.gender, taste)) return c
+    }
+    return first
+  }
+  const person = useMemo(() => pick(i), [i])       // eslint-disable-line react-hooks/exhaustive-deps
+  const next = useMemo(() => pick(i + 1), [i])     // eslint-disable-line react-hooks/exhaustive-deps
 
   const accent = HEAT(person.h)
   const card = cardLinesFor(person.key)
@@ -268,20 +250,8 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
             On desktop the rail is a flex sibling and there is no bottom bar. */}
         <div
           className="px-[22px] pb-[calc(env(safe-area-inset-bottom)+5.75rem)] lg:mx-auto lg:max-w-2xl lg:pb-[calc(env(safe-area-inset-bottom)+1.375rem)]"
-          style={{ position: "absolute", left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", gap: 10, animation: "fdRise .45s ease both" }}
+          style={{ position: "absolute", left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", gap: 7, animation: "fdRise .45s ease both" }}
         >
-          {nudgeOn && (
-            <button
-              onClick={() => { if (!dragged.current) onRooms() }}
-              onPointerDown={(e) => e.stopPropagation()}
-              onPointerUp={(e) => e.stopPropagation()}
-              style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 4, padding: "9px 12px", borderRadius: 14, background: "rgba(4,5,11,.82)", border: ".5px solid rgba(127,214,192,.34)", backdropFilter: "blur(10px)", cursor: "pointer", textAlign: "left", fontFamily: "inherit", WebkitTapHighlightColor: "transparent", animation: "fdRise .3s ease both" }}
-            >
-              <span style={{ flex: "0 0 auto", fontSize: 11, fontWeight: 800, letterSpacing: .6, color: "#06121e", background: "#7fd6c0", borderRadius: 6, padding: "3px 6px" }}>{nudge?.left} SEATS</span>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#eafff7", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nudge?.title}</span>
-              <span style={{ flex: "0 0 auto", fontSize: 15, color: "rgba(234,255,247,.5)" }} aria-hidden>›</span>
-            </button>
-          )}
 
           {/* The vibe leads and the name lands under it — a masthead rather than
               a label trailing a heading. It also stops long vibes wrapping the
@@ -290,10 +260,10 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
             <span style={{ width: 14, height: 1.5, borderRadius: 2, background: accent, flex: "0 0 auto" }} aria-hidden />
             <span style={{ fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", color: accent, fontWeight: 600 }}>{person.vibe}</span>
           </div>
-          <div style={{ fontSize: "clamp(38px, 12vw, 56px)", fontWeight: 600, letterSpacing: -1.6, color: "#fbf7ff", lineHeight: .95 }}>{person.host}</div>
+          <div style={{ fontSize: "clamp(32px, 10vw, 46px)", fontWeight: 600, letterSpacing: -1.3, color: "#fbf7ff", lineHeight: .95 }}>{person.host}</div>
 
           {/* Who they are — the same facts they'll actually have in the call. */}
-          <div style={{ fontSize: 13.5, color: "rgba(240,232,255,.72)", lineHeight: 1.45 }}>
+          <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.66)", lineHeight: 1.4 }}>
             {card.work} · {card.where}
           </div>
 
@@ -301,7 +271,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
           {/* Two lines, hard. The stack is anchored to the bottom and grows
               upward, so an unbounded quote is an unbounded bite out of the
               portrait — and the lines vary in length by design. */}
-          <div style={{ fontSize: 16.5, color: "#efe6ff", lineHeight: 1.4, fontStyle: "italic", maxWidth: "34ch",
+          <div style={{ fontSize: 15, color: "#efe6ff", lineHeight: 1.38, fontStyle: "italic", maxWidth: "34ch",
                         display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
             &ldquo;{person.lines[0]}&rdquo;
           </div>
@@ -309,22 +279,26 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
             <button
               onClick={() => { if (!dragged.current) onCall(person) }}
-              style={{ flex: 1, minHeight: 58, borderRadius: 999, border: "none", cursor: "pointer", fontSize: 17, fontWeight: 700, letterSpacing: .3, color: "#150a1f", background: `linear-gradient(180deg, ${accent}, ${accent}cc)`, boxShadow: `0 14px 40px -14px ${accent}`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}
+              style={{ flex: 1, minHeight: 48, borderRadius: 999, border: "none", cursor: "pointer", fontSize: 15.5, fontWeight: 700, letterSpacing: .3, color: "#150a1f", background: `linear-gradient(180deg, ${accent}, ${accent}cc)`, boxShadow: `0 10px 30px -14px ${accent}`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}
             >
               call {person.host}
             </button>
             <button
               onClick={() => { if (!dragged.current) fling("left") }}
               aria-label="someone else"
-              style={{ flex: "0 0 auto", width: 58, height: 58, borderRadius: 999, cursor: "pointer", fontSize: 20, color: "rgba(240,232,255,.6)", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.14)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+              style={{ flex: "0 0 auto", width: 48, height: 48, borderRadius: 999, cursor: "pointer", fontSize: 20, color: "rgba(240,232,255,.6)", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.14)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
             >
               ›
             </button>
           </div>
 
-          <div style={{ textAlign: "center", fontSize: 11.5, color: "rgba(240,232,255,.34)", marginTop: 2 }}>
-            swipe for someone else
-          </div>
+          {/* Only while it is still news. After a few cards the gesture is known
+              and the line is just another thing between you and the picture. */}
+          {i < 3 && (
+            <div style={{ textAlign: "center", fontSize: 11, color: "rgba(240,232,255,.3)", marginTop: 1 }}>
+              swipe for someone else
+            </div>
+          )}
         </div>
       </div>
       )}

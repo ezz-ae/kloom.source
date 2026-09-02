@@ -49,53 +49,67 @@ const AGE = [
 ]
 
 // Sexy and attractive — adult platform, adults looking appealing and sensual.
+// WHO THEY LOOK LIKE.
+//
+// These used to be superlatives — "strikingly beautiful", "drop-dead gorgeous",
+// "perfect features", "perfect bone structure". Those words ARE the plastic AI
+// look: a diffusion model reads them as "render the average of every retouched
+// magazine cover", and returns flawless symmetric skin under studio light that
+// nobody believes for a second. The floor is meant to feel like real people who
+// happen to be attractive, not like a stock library.
+//
+// So: attractive, specific, and IMPERFECT. A crooked smile and a gap in the
+// teeth do more for "she's real" than any amount of "stunning".
 const LOOK_F = [
-  "a strikingly beautiful young woman with sultry eyes and full lips",
-  "a gorgeous sexy woman with a seductive smile and captivating gaze",
-  "a hot girl-next-door with a flirtatious look and perfect skin",
-  "a beautiful woman with a curvy figure and alluring expression",
-  "a stunning woman with bedroom eyes and a natural seductive presence",
-  "a pretty woman with an inviting smile and confident sensual look",
-  "an incredibly attractive woman with a teasing playful expression",
-  "a sexy woman with smoldering eyes and a flirtatious smirk",
-  "a drop-dead gorgeous woman with a confident intimate gaze",
-  "a beautiful seductive woman with soft lips and magnetic presence",
-  "a ravishing woman with natural curves and a come-hither look",
-  "a hot young woman with perfect features and a bold flirty attitude",
+  "an attractive woman with a warm crooked smile and slightly uneven eyebrows",
+  "a good-looking woman with freckles across her nose and tired kind eyes",
+  "a pretty woman with a small gap in her front teeth and a lopsided grin",
+  "an attractive woman with a soft round face and a mole on her cheek",
+  "a good-looking woman with strong brows, bare skin and a direct look",
+  "an attractive woman with slightly frizzy hair and no makeup",
+  "a pretty woman with a sharp nose, thin lips and an amused expression",
+  "an attractive woman with faint acne scars and a genuine open smile",
+  "a good-looking woman with heavy eyelids and a knowing half-smile",
+  "an attractive woman with a wide jaw, faint laugh lines and warm eyes",
 ]
 const LOOK_M = [
-  "a strikingly handsome muscular man with intense eyes",
-  "a very good-looking man with a chiseled jaw and magnetic presence",
-  "a ruggedly attractive man with a confident sexy look",
-  "a hot guy with sharp features and a smoldering gaze",
-  "a handsome well-built man with a seductive confident smile",
-  "a strikingly attractive man with deep eyes and strong features",
-  "a sexy man with a sculpted face and charismatic bold expression",
-  "a gorgeous man with a flirtatious charming look",
-  "a tall dark handsome man with intense penetrating eyes",
-  "an incredibly attractive man with a powerful confident aura",
+  "an attractive man with stubble, a crooked nose and tired eyes",
+  "a good-looking man with a receding hairline and an easy grin",
+  "an attractive man with a heavy brow and a small scar through one eyebrow",
+  "a good-looking man with uneven stubble and slightly gapped teeth",
+  "an attractive man with a soft jaw, freckles and a quiet expression",
+  "a good-looking man with laugh lines and a broken-looking nose",
+  "an attractive man with thick messy eyebrows and a lopsided smile",
+  "a good-looking man with a shaved head and a faint chin scar",
+  "an attractive man with a round face, warm eyes and no styling",
+  "a good-looking man with sun-damaged skin and an unpolished look",
 ]
 const LOOK_X = [
-  "a strikingly beautiful androgynous person with an alluring mysterious look",
-  "a gorgeous androgynous person with soft sensual features",
-  "a sexy non-binary person with a captivating bold presence",
-  "a stunning androgynous person with smoldering eyes and perfect bone structure",
+  "an attractive androgynous person with bare skin and an unreadable expression",
+  "a good-looking androgynous person with a crooked smile and messy hair",
+  "an attractive non-binary person with freckles and heavy eyelids",
+  "a good-looking androgynous person with strong brows and a faint scar",
 ]
 
-// Photo style — mix of real/candid with intimate/sensual settings.
+// HOW IT WAS SHOT.
+//
+// Ring lights, phone flash and "glamorous" were half the problem: they are studio
+// direction, and a diffusion model given studio direction returns a studio
+// photograph. Available light, wrong white balance and a slightly bad camera are
+// what make an image read as something a person actually took.
 const STYLE = [
-  "mirror selfie in a bedroom, phone flash, intimate setting",
-  "low-light boudoir photo, warm lamp glow, sensual mood",
-  "candid phone selfie, slightly off-center, natural lighting",
-  "warm golden-hour bedroom window light, soft and intimate",
-  "dim indoor photo, lamp light, cozy bedroom atmosphere",
-  "bathroom selfie after a shower, steamy mirror, wrapped in a towel",
-  "night club photo, neon lighting, glamorous and seductive",
-  "hotel room selfie, professional look, confident",
-  "evening webcam photo, ring light, flirtatious expression",
-  "couch selfie at night, phone glow, relaxed intimate mood",
-  "rooftop party photo at night, city lights bokeh",
-  "beach photo, golden sunlight, relaxed and confident",
+  "snapshot on an old phone, available light, slightly underexposed",
+  "candid photo, harsh overhead kitchen light, unflattering and real",
+  "bedroom photo at night, one lamp, heavy shadow on one side",
+  "mirror selfie, smudged mirror, mixed indoor light, mildly blurry",
+  "photo taken by a friend, off-centre, motion blur on the edges",
+  "early morning light through a dirty window, no makeup",
+  "photo in a car, overcast daylight through the windscreen",
+  "hallway light at 2am, grainy, slightly out of focus",
+  "sofa photo, television glow, casual and unposed",
+  "photo on a balcony, flat grey daylight, wind in the hair",
+  "back of a taxi at night, passing streetlights, uneven exposure",
+  "bathroom light, cold white bulb, plain and unretouched",
 ]
 
 const HAIR = [
@@ -104,13 +118,16 @@ const HAIR = [
 ]
 
 const BASE =
-  "ultra realistic portrait photograph, completely photorealistic, true-to-life, natural skin with visible pores, " +
+  // "cinematic color grade" and "sharp focus" were asking for the exact glossy
+  // render the floor is trying not to look like. A real photo has one plane in
+  // focus, imperfect skin, and whatever colour the room happened to be.
+  "amateur photograph, shot on a phone, unretouched, natural uneven skin with pores, blemishes and stray hairs, " +
   "one single real human face with two clear symmetric correctly-placed eyes and natural undistorted features, " +
-  "head and shoulders or bust shot, looking at the camera, authentic, cinematic color grade, sharp focus on eyes, " +
+  "head and shoulders, imperfect framing, available light, slight sensor noise, " +
   // An ordinary, completely fictional stranger — NOT a celebrity/model likeness. Diffusion
   // models reproduce recognizable famous faces when prompted "gorgeous/stunning/model"; this
   // steers to a unique everyday person nobody would recognize (likeness-rights safety).
-  "an ordinary attractive everyday adult, a completely fictional unique stranger with a normal realistic face, intimate mood"
+  "an ordinary everyday adult, a completely fictional unique stranger with a normal realistic asymmetric face"
 
 export const PORTRAIT_NEG =
   "child, minor, underage, teenager, young-looking, " +
@@ -118,7 +135,12 @@ export const PORTRAIT_NEG =
   "celebrity, famous person, public figure, well-known model, recognizable actor, actress, " +
   "influencer, deepfake, likeness of a real person, lookalike, supermodel, fashion-model face, " +
   "cartoon, anime, illustration, drawing, painting, 3d render, cgi, doll, plastic skin, waxy skin, " +
-  "airbrushed, retouched, text, watermark, logo, deformed, disfigured, distorted face, melted features, " +
+  // The "it looks so AI" cluster, named explicitly. Everything here is something
+  // a generator adds when it is trying to make a picture PRETTY rather than real.
+  "airbrushed, retouched, beauty filter, instagram filter, smooth flawless skin, poreless, " +
+  "studio lighting, ring light, softbox, professional headshot, glamour shot, magazine cover, " +
+  "hdr, oversaturated, heavy color grade, perfect symmetry, symmetrical face, " +
+  "text, watermark, logo, deformed, disfigured, distorted face, melted features, " +
   "asymmetric eyes, misaligned eyes, extra eye, mutated, glitch, double face, extra fingers, bad anatomy, lowres, blurry"
 
 function genderLooks(gender?: string, seed = ""): { pool: string[]; word: string } {

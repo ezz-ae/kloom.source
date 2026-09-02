@@ -20,6 +20,7 @@ import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
+import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
 import { matchesPrefs, getLangPrefs, saveLangPrefs, langPrefsPersist } from "@/lib/airraw/lang-prefs"
 import { FrontDoor } from "@/components/airroom/FrontDoor"
 import { Talks } from "@/components/airroom/Talks"
@@ -127,6 +128,9 @@ export function Planet() {
   const [deckOpen, setDeckOpen] = useState(true)
   // Rooms sit BEHIND the front door now — one tap away, not the first thing shown.
   const [roomsOpen, setRoomsOpen] = useState(false)
+  // Something waiting in Talks — a DOT on the tab, never a banner over the
+  // person. Re-derived on a timer because the board is a function of the clock.
+  const [talksDot, setTalksDot] = useState(false)
   // The old continent room-deck, still reachable from the sky but no longer the door.
   const [legacyRooms, setLegacyRooms] = useState(false)
   // The one-time welcome — resolved client-only (localStorage) so it never SSR-
@@ -275,6 +279,12 @@ export function Planet() {
   useEffect(() => { verifiedRef.current = verified }, [verified])
   useEffect(() => { inCallRef.current = !!selected || !!group }, [selected, group])
 
+  useEffect(() => {
+    const check = () => setTalksDot(liveTalks().some((t) => seatsLeft(t) >= 4))
+    check()
+    const id = setInterval(check, 25_000)
+    return () => clearInterval(id)
+  }, [])
   useEffect(() => { try { if (localStorage.getItem("airroom_18") === "1") setVerified(true) } catch { /* */ } }, [])
   useEffect(() => { track("airraw_land", { surface: "planet" }) }, [])
 
@@ -908,6 +918,7 @@ export function Planet() {
               fai={String(fai)}
               pro={pro}
               onPass={() => setShowPro(true)}
+              dots={{ talks: talksDot }}
             >
               {showProfile
                 ? <YouPage onPass={() => setShowPro(true)} onResume={(t) => { setShowProfile(false); setSelected(t.cluster) }} />

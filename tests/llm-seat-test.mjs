@@ -26,5 +26,22 @@ check(/incorrect api key|invalid api key|unauthorized|authentication/i.test(body
   "it matches the provider's message, since xAI answers 400 for a bad key")
 check(!/\b429\b/.test(body) && !/\b5\d\d\b/.test(body), "rate limits and server errors are NOT parked")
 
+// ── the latch has to OUTLIVE the request that set it ────────────────────────
+// It shipped declared inside streamLLM, which broke it twice over and silently:
+// seatOffUntil was a fresh const on every call, so a parked seat un-parked
+// itself before the next turn ever asked; and houseFallback — a separate
+// top-level function — couldn't see the names at all, so the fallback cascade
+// threw a ReferenceError on exactly the path the latch exists for. Nothing
+// errored at build time because the seat path only runs when a key is rejected.
+const declIdx = src.indexOf("const seatOffUntil")
+const streamIdx = src.indexOf("export async function* streamLLM")
+check(declIdx > 0 && streamIdx > 0 && declIdx < streamIdx,
+  "the parked-seat state lives at module scope, above every function that reads it")
+check(src.indexOf("function noteSeatFailure") < streamIdx,
+  "and so does the function that sets it, so the fallback cascade can call it")
+// Module scope means column zero. Anything indented is inside something.
+check(/^const seatOffUntil/m.test(src) && /^function noteSeatFailure/m.test(src) && /^const seatRejected/m.test(src),
+  "all three are declared unindented — a nested copy would be per-request state again")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

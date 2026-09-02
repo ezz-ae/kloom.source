@@ -43,7 +43,11 @@ check(/--yes/.test(script) && /Nothing was changed/.test(script),
 // behind them is — with five lines each a visitor had seen every hook in the
 // building after fifty swipes.
 const roster = readFileSync("lib/airroom/roster.ts", "utf8")
-const arch = roster.slice(roster.indexOf("const ARCH: Arch[] = ["))
+const archStart = roster.indexOf("const ARCH: Arch[] = [")
+// Bounded to the array itself: VIBES is derived from ARCH just below it and its
+// object literal also opens with `{ key: `, which parsed as an 11th archetype
+// with zero opening lines.
+const arch = roster.slice(archStart, roster.indexOf("\n]", archStart))
 const blocks = arch.split(/\{ key: /).slice(1)
 const counts = blocks.map((b) => {
   const lines = (b.match(/lines: \[([\s\S]*?)\n    \]/) || [, ""])[1]
@@ -65,8 +69,19 @@ const bands = blocks.map((b) => ({
   key: b.match(/"([A-Za-z]+)"/)[1],
   band: b.match(/band: \[([\d.]+), ([\d.]+)\]/).slice(1, 3).map(Number),
 }))
+// The walk used to be a hardcoded F_WALK list in FrontDoor. It now comes from
+// the visitor's taste (lib/airraw/taste.ts), whose temperatures are derived from
+// these same bands — which is what makes the swallowed-value bug structurally
+// impossible rather than merely fixed. Derived here the way roster.ts does it.
 const fd = readFileSync("components/airroom/FrontDoor.tsx", "utf8")
-const walk = [...fd.slice(fd.indexOf("const F_WALK")).slice(0, 500).matchAll(/0\.\d+/g)].map((m) => Number(m[0]))
+check(!/const F_WALK/.test(fd), "the front door no longer carries a hand-written gradient walk")
+check(/walkFor\(/.test(fd), "it walks whatever the visitor asked to see")
+const walk = bands.map((a, i) => {
+  const prev = bands[i - 1], next = bands[i + 1]
+  const lo = Math.max(a.band[0], prev ? prev.band[1] + 0.005 : 0)
+  const hi = next ? Math.min(a.band[1], next.band[0] - 0.005) : a.band[1]
+  return Number(((lo + hi) / 2).toFixed(3))
+})
 const archFor = (f) => (bands.find((a) => f >= a.band[0] && f <= a.band[1]) || {}).key
 const reached = new Set(walk.map(archFor))
 const missed = bands.map((a) => a.key).filter((k) => !reached.has(k))

@@ -66,5 +66,30 @@ check(/person\.f \* 48/.test(front), "the heat rail marks where this person sits
 check(!/position: "absolute", top: "calc\(env\(safe-area-inset-top\)/.test(front),
   "no control is anchored to the top edge")
 
+// ── news lives in its own tab, never on the front door ──────────────────────
+// The front door is ONE person. A toast that slides in over her is both a
+// distraction from the only thing on screen and — twice now — something that
+// physically covered the call button. So anything with news to give says so
+// with a dot on the tab that owns it, and you go there when you want to.
+check(!/toast|Toast/.test(front), "the front door raises no notifications of its own")
+check(/dots\?:\s*Partial<Record<AirTab, boolean>>/.test(shell), "the shell takes a per-tab dot")
+check((shell.match(/dots\?\.\[t\.id\]/g) || []).length === 2, "the dot shows on both the dock and the desktop rail")
+check(/dots\?\.\[t\.id\] && !active/.test(shell), "and never on the tab you are already looking at")
+check(/dots=\{\{\s*talks:/.test(planet), "the talks board is what actually raises it")
+
+// ── the dock is furniture, not the interface ───────────────────────────────
+// "MORE IMAGE, LESS TRAFFIC OF HUGE BUTTONS": the person is the product and the
+// dock is how you leave her, so it stays small enough to ignore.
+const iconSize = Number((shell.match(/<t\.icon size=\{(\d+)\} className=\{active/) || [])[1] || 99)
+check(iconSize <= 18, `the dock's icons are small (${iconSize}px)`)
+check(/max-w-\[19rem\]/.test(shell), "the dock is narrower than the card it sits under")
+check(/text-\[9px\]/.test(shell), "its labels are a caption, not a heading")
+
+// The dock is fixed and the call button is the one control under it. Padding
+// belongs in the class, not in a style prop — an inline value beat the Tailwind
+// class once and dropped the dock 64px onto the call button.
+const dock = shell.slice(shell.indexOf("mobile dock"))
+check(!/style=\{\{[^}]*padding/.test(dock), "the dock's spacing is all in classes, so nothing can silently outrank it")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

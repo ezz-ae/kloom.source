@@ -366,6 +366,28 @@ const ARCH: Arch[] = [
     ] },
 ]
 
+/**
+ * The floor's ten kinds of person, each with a temperature that lands squarely
+ * inside its own band and nowhere near its neighbours'.
+ *
+ * Exported because the front door needs to build its walk from a SUBSET once a
+ * visitor says who they want to meet. It used to carry a hardcoded list of
+ * temperatures with no way to know which archetype each one hit — which is how
+ * a value silently drifted into the wrong band and made one tier unreachable.
+ * Derived from the bands themselves, so that cannot happen again.
+ */
+export interface Vibe { key: string; label: string; f: number; lean: "f" | "m" | "x" }
+export const VIBES: Vibe[] = ARCH.map((a, i) => {
+  const prev = ARCH[i - 1], next = ARCH[i + 1]
+  // The bands OVERLAP and the lookup takes the first match, so a temperature has
+  // to clear the previous band's ceiling as well as sit inside this one. Taking
+  // the plain midpoint put GFE, Gay, Groups and Wild in their neighbour's band —
+  // the same way a hand-written walk once made "no limits" unreachable.
+  const lo = Math.max(a.band[0], prev ? prev.band[1] + 0.005 : 0)
+  const hi = next ? Math.min(a.band[1], next.band[0] - 0.005) : a.band[1]
+  return { key: a.key, label: a.vibe, f: Number(((lo + hi) / 2).toFixed(3)), lean: a.lean }
+})
+
 export function buildRoster(): Cluster[] {
   const r = rng(60606) // "showno6"
   const out: Cluster[] = []

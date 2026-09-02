@@ -555,32 +555,10 @@ async function* streamGemini(messages: LLMMessage[], opts: LLMOptions): AsyncGen
   }
 }
 
-// ── Public API ──────────────────────────────────────────────────────────────
-
-/**
- * Stream a completion from the chosen backend. Falls back to local on key-missing
- * or any backend error so the conversation never dead-ends.
- */
-export async function* streamLLM(
-  requested: Backend | undefined,
-  messages: LLMMessage[],
-  opts: LLMOptions = {},
-): AsyncGenerator<string> {
-  const backend = resolveBackend(requested)
-
-  if (backend === "local") {
-    try { yield* streamLocal(messages, opts); return }
-    catch (err) {
-      console.error(`[llm] local seat failed: ${err instanceof Error ? err.message : err}`)
-      yield* houseFallback(messages, opts, "local"); return
-    }
-  }
-  if (backend === "mistral" || backend === "dolphin") {
-    const localModel = backend === "mistral" ? "mistral:latest" : "dolphin-mistral:latest"
-    try { yield* streamLocal(messages, { ...opts, localModel }); return }
-    catch { yield* houseFallback(messages, opts, backend); return }
-  }
-
+// MODULE SCOPE, deliberately. This landed inside streamLLM once, which broke it
+// twice over: houseFallback couldn't see the names at all, and seatOffUntil was a
+// fresh const on every call, so the latch it exists to hold never survived a turn.
+// A parked seat has to outlive the request that parked it or it parks nothing.
 /**
  * Stop asking a backend that has REJECTED THE KEY.
  *
@@ -607,6 +585,32 @@ function noteSeatFailure(b: Backend, err: unknown) {
     console.error(`[llm] ${b} seat parked ${AUTH_OFF_MS / 60_000}m — its key was rejected`)
   }
 }
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
+/**
+ * Stream a completion from the chosen backend. Falls back to local on key-missing
+ * or any backend error so the conversation never dead-ends.
+ */
+export async function* streamLLM(
+  requested: Backend | undefined,
+  messages: LLMMessage[],
+  opts: LLMOptions = {},
+): AsyncGenerator<string> {
+  const backend = resolveBackend(requested)
+
+  if (backend === "local") {
+    try { yield* streamLocal(messages, opts); return }
+    catch (err) {
+      console.error(`[llm] local seat failed: ${err instanceof Error ? err.message : err}`)
+      yield* houseFallback(messages, opts, "local"); return
+    }
+  }
+  if (backend === "mistral" || backend === "dolphin") {
+    const localModel = backend === "mistral" ? "mistral:latest" : "dolphin-mistral:latest"
+    try { yield* streamLocal(messages, { ...opts, localModel }); return }
+    catch { yield* houseFallback(messages, opts, backend); return }
+  }
 
   // Claude / Gemini / GPT — run the seat's real API. If it fails BEFORE emitting
   // anything (bad/missing key, rate limit, network), fall back to Gemini so the

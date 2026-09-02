@@ -33,7 +33,7 @@ const TABS: Array<{ id: AirTab; label: string; icon: typeof Flame }> = [
   { id: "you",    label: "You",    icon: User },
 ]
 
-export function AirShell({ tab, onTab, fai, onPass, pro, immersive, children }: {
+export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, children }: {
   tab: AirTab
   onTab: (t: AirTab) => void
   /** Balance shown in the rail. Earned only — see lib/airraw/fai.ts. */
@@ -42,6 +42,12 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, children }: 
   pro?: boolean
   /** Full-viewport content that positions itself (the front door). */
   immersive?: boolean
+  /**
+   * Tabs with something waiting. A DOT, not a count and not a banner — the front
+   * door is one person and does not get interrupted, so news lives in the tab it
+   * belongs to and only says "there's something here".
+   */
+  dots?: Partial<Record<AirTab, boolean>>
   children: ReactNode
 }) {
   return (
@@ -76,6 +82,9 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, children }: 
                 )}
                 <t.icon size={18} className={`shrink-0 ${active ? "text-fuchsia-300" : ""}`} />
                 <span className="flex-1 truncate text-left">{t.label}</span>
+                {dots?.[t.id] && !active && (
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,.9)]" aria-hidden />
+                )}
               </button>
             )
           })}
@@ -115,7 +124,7 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, children }: 
 
       {/* ── mobile dock ── */}
       <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:hidden">
-        <div className="glass-strong pointer-events-auto mx-auto flex max-w-md items-center justify-around rounded-[1.75rem] px-2 py-2 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.75)]">
+        <div className="glass-strong pointer-events-auto mx-auto flex max-w-[19rem] items-center justify-around rounded-[1.4rem] px-1.5 py-1 shadow-[0_14px_34px_-14px_rgba(0,0,0,0.75)]">
           {TABS.map((t) => {
             const active = tab === t.id
             return (
@@ -123,16 +132,19 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, children }: 
                 key={t.id}
                 onClick={() => onTab(t.id)}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                className={`flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   active ? "text-fuchsia-300" : "text-white/40 hover:text-white/70"
                 }`}
               >
-                <span className={`relative rounded-xl p-1.5 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  active ? "bg-fuchsia-500/20 shadow-[0_0_16px_-2px_rgba(232,121,249,0.55)]" : ""
+                <span className={`relative rounded-lg p-1 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  active ? "bg-fuchsia-500/20 shadow-[0_0_12px_-2px_rgba(232,121,249,0.55)]" : ""
                 }`}>
-                  <t.icon size={20} className={active ? "text-fuchsia-300" : ""} />
+                  <t.icon size={17} className={active ? "text-fuchsia-300" : ""} />
+                  {dots?.[t.id] && !active && (
+                    <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,.9)]" aria-hidden />
+                  )}
                 </span>
-                <span className="text-[10px] font-semibold">{t.label}</span>
+                <span className="text-[9px] font-semibold tracking-tight">{t.label}</span>
               </button>
             )
           })}

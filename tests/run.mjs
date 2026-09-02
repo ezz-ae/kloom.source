@@ -37,6 +37,7 @@ const WHAT = {
   "shell-test":       "the app shell wraps what you browse, never the front door",
   "llm-seat-test":    "a rejected model key is asked once, not every turn",
   "media-test":       "text/voice to media is always the SAME her",
+  "taste-test":       "the floor is filterable, and a filter is never a dead end",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

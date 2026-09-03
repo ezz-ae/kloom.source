@@ -137,6 +137,17 @@ const pagesFor = (lang: string) =>
  * them all would quadruple the request count for pools that are already deep.
  */
 const ACCENT_TARGETED = new Set(["ar"])
+
+/**
+ * How many of a dialect's names to try against the accent filter.
+ *
+ * The filter's vocabulary is not ours: "lebanese" matched nothing while
+ * "egyptian", "moroccan", "tunisian" and "gulf" all did. Trying the first few
+ * spellings is cheap insurance against a dialect being invisible because we
+ * guessed its label wrong — three names across five dialects and two genders is
+ * thirty requests on a six-hour refresh.
+ */
+const ACCENT_TERMS = Math.max(1, Math.min(6, Number(process.env.ELEVENLABS_ACCENT_TERMS || 3)))
 let fetchedAt = 0
 // Whether a refresh has ever SUCCEEDED. Distinct from fetchedAt, which is also
 // nudged forward on failure to back off a broken key.
@@ -311,16 +322,24 @@ async function fetchLibrary(key: string): Promise<{ voices: ElevenVoice[]; faile
     // Go and FIND each dialect rather than hoping it turns up in a general page.
     for (const [key2, spec] of ACCENT_SPECS) {
       if (spec.lang !== lang) continue
-      for (const gender of ["female", "male"]) {
-        // The first term is the canonical dialect name ("egyptian", "khaleeji");
-        // the rest are spellings and country names the classifier also accepts.
-        const accent = spec.terms[0]
-        if (!accent) continue
-        page(
-          `${key2}/${gender}`,
-          `https://api.elevenlabs.io/v1/shared-voices?page_size=${LIB_PAGE}&language=${encodeURIComponent(lang)}&accent=${encodeURIComponent(accent)}&gender=${gender}`,
-          (n) => yields.push(`${key2}|${gender}=${n}`),
-        )
+      // SEVERAL NAMES PER DIALECT, not one. The accent filter takes a specific
+      // vocabulary and our first term is not always in it: querying "lebanese"
+      // returned 0 voices for both genders on the first live run while every
+      // other dialect returned some, and the Levantine pool grew only from the
+      // general pages. The vocabulary evidently calls it something else — most
+      // likely "levantine", which is already the third term here.
+      //
+      // So try the first few names and let the classifier sort what comes back.
+      // A name that isn't in the vocabulary costs one request and returns
+      // nothing; a dialect nobody can find costs the whole pool.
+      for (const accent of spec.terms.slice(0, ACCENT_TERMS)) {
+        for (const gender of ["female", "male"]) {
+          page(
+            `${key2}/${accent}/${gender}`,
+            `https://api.elevenlabs.io/v1/shared-voices?page_size=${LIB_PAGE}&language=${encodeURIComponent(lang)}&accent=${encodeURIComponent(accent)}&gender=${gender}`,
+            (n) => yields.push(`${key2}:${accent}|${gender}=${n}`),
+          )
+        }
       }
     }
   }

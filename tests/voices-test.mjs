@@ -196,8 +196,12 @@ check(/library pages failed/.test(disc), "and reported with which language and g
 check(/const LIB_PAGES/.test(disc) && /ar: 3/.test(disc), "Arabic is paged deeper than a language that only fills a native pool")
 check(/ACCENT_TARGETED/.test(disc), "and its dialects are searched for BY NAME, not just hoped for in a general page")
 check(/accent=\$\{encodeURIComponent\(accent\)\}/.test(disc), "using the accent filter the endpoint supports")
-check(/spec\.terms\[0\]/.test(disc),
-  "with the name taken from accent-specs, so a dialect can't be searched under one name and filed under another")
+check(/spec\.terms\.slice\(0, ACCENT_TERMS\)/.test(disc),
+  "with the names taken from accent-specs, so a dialect can't be searched under one name and filed under another")
+// The filter's vocabulary is not ours: "lebanese" matched nothing on the first
+// live run while egyptian, moroccan, tunisian and gulf all did. Trying only the
+// first name makes a dialect invisible whenever we guessed its label wrong.
+check(/const ACCENT_TERMS/.test(disc), "and more than one name is tried per dialect")
 
 // PAGING IS ZERO-INDEXED. find-accent-voices.mjs pages from 0 against the real
 // API; starting at 1 would skip the first hundred voices of every language and

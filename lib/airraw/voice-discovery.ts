@@ -300,21 +300,29 @@ async function refresh(key: string): Promise<void> {
 
   if (!LIBRARY_ON || libraryOff) return
 
-  // Phase two. Build on COPIES so a failure mid-way can never leave the live
-  // pools half-merged, and so the breaker can drop back to the account instantly.
-  const libVoices = await fetchLibrary(key)
-  if (!libVoices.length) return
-  const merged: Record<string, string[]> = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, [...v]]))
-  const mergedLang: Record<string, string[]> = Object.fromEntries(Object.entries(accLang).map(([k, v]) => [k, [...v]]))
-  const libIds = new Set<string>()
-  const before = new Set(seen)
-  sortInto(libVoices, merged, mergedLang, seen)
-  for (const id of seen) if (!before.has(id)) libIds.add(id)
+  // Phase two CANNOT fail the refresh. Phase one already published working pools;
+  // letting an exception here escape would mark the whole discovery failed, roll
+  // the TTL back, and have every instance redo all thirty requests in five
+  // minutes — punishing the account voices for the library's bad day.
+  try {
+    // Build on COPIES so a failure mid-way can never leave the live pools
+    // half-merged, and so the breaker can drop back to the account instantly.
+    const libVoices = await fetchLibrary(key)
+    if (!libVoices.length) return
+    const merged: Record<string, string[]> = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, [...v]]))
+    const mergedLang: Record<string, string[]> = Object.fromEntries(Object.entries(accLang).map(([k, v]) => [k, [...v]]))
+    const libIds = new Set<string>()
+    const before = new Set(seen)
+    sortInto(libVoices, merged, mergedLang, seen)
+    for (const id of seen) if (!before.has(id)) libIds.add(id)
 
-  pools = merged
-  langPools = mergedLang
-  fromLibrary = libIds
-  console.log(`[voices] +library ${libIds.size} voices → ${summarise(merged)} | native: ${summarise(mergedLang)}`)
+    pools = merged
+    langPools = mergedLang
+    fromLibrary = libIds
+    console.log(`[voices] +library ${libIds.size} voices → ${summarise(merged)} | native: ${summarise(mergedLang)}`)
+  } catch (e) {
+    console.error("[voices] library merge failed, account pools stand:", e instanceof Error ? e.message : String(e))
+  }
 }
 
 const summarise = (m: Record<string, string[]>) =>

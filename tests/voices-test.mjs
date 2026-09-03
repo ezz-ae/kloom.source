@@ -156,6 +156,12 @@ check(refreshFn.indexOf("publishAccountOnly()") < refreshFn.indexOf("fetchLibrar
   "so an instance that dies mid-refresh still casts from the account")
 check(/const merged/.test(refreshFn) && /\[\.\.\.v\]/.test(refreshFn),
   "the merge builds on copies, so a mid-way failure can't leave pools half-merged")
+// Phase one already published working pools. An exception in phase two must not
+// mark the whole refresh failed — that rolls the TTL back and makes every
+// instance redo all thirty requests in five minutes, punishing the account
+// voices for the library's bad day.
+check(/catch \(e\)[\s\S]{0,160}account pools stand/.test(refreshFn),
+  "a library failure cannot fail the refresh that already succeeded")
 check(/seen\.has\(v\.voice_id\)/.test(disc),
   "a voice present in both sources is counted once, not weighted twice")
 

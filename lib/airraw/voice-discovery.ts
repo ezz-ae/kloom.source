@@ -11,11 +11,23 @@
 // Any voice added to the account — cloned, or added from the shared library —
 // is picked up automatically on the next refresh.
 //
-// SAFETY: read-only. It never adds, edits or removes a voice on the account.
-// Accounts have a hard cap on custom voice slots, so silently filling them from
-// the shared library would be destructive in a way that's tedious to undo.
-// Use scripts/find-accent-voices.mjs to see what the library offers and add the
-// ones you want deliberately.
+// AND the shared VOICE LIBRARY, which is where the depth actually is. The account
+// holds ~125 voices; the library holds thousands, and a library voice_id can be
+// synthesised directly — ElevenLabs documents that saving to My Voices is
+// optional, and library voices do not consume custom-voice slots either way.
+// That retires the old reason this module read only the account: it was written
+// believing the library could only be used by COPYING voices onto the account,
+// which is capped and tedious to undo. Reading is neither.
+//
+// It is still READ-ONLY. It never adds, edits or removes a voice on the account.
+// Use scripts/find-accent-voices.mjs --fill to copy voices deliberately.
+//
+// BUT the direct-use claim is documentation, not a promise, and if it is wrong the
+// failure is the worst kind: a rejected voice id returns no audio, so a character
+// is SILENT rather than merely mis-cast. So the first rejection of a library voice
+// latches the whole library off and rebuilds the pools from the account alone —
+// same circuit-breaker shape as the dead image key and the rejected LLM seat.
+// Set ELEVENLABS_LIBRARY=0 to never consult it at all.
 //
 // Env still wins: an explicit ELEVENLABS_VOICES_<ACCENT>_<GENDER> list overrides
 // anything discovered here.
@@ -54,10 +66,23 @@ const esc = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 /** Word-boundary match. "omani" must not fire on "Romanian". */
 const hasWord = (hay: string, term: string) => new RegExp(`\\b${esc(term)}\\b`).test(hay)
 
+/**
+ * One voice, from EITHER source.
+ *
+ * The two endpoints describe the same thing differently: /v1/voices nests accent,
+ * gender and language under `labels`, while /v1/shared-voices puts them at the top
+ * level. Both shapes are declared here and every reader below checks both, so ONE
+ * classifier serves both sources — the alternative is two classifiers that drift,
+ * and the drift in this file's history is what put British voices in the Gulf pool.
+ */
 interface ElevenVoice {
   voice_id?: string
   name?: string
   labels?: Record<string, string>
+  /** shared-voices: flat, alongside `gender` and `language`. */
+  accent?: string
+  gender?: string
+  language?: string
   verified_languages?: Array<{ language?: string; accent?: string; locale?: string }>
 }
 
@@ -65,6 +90,26 @@ interface ElevenVoice {
 let pools: Record<string, string[]> = {}
 // iso|gender -> voice ids for voices whose NATIVE language is that language
 let langPools: Record<string, string[]> = {}
+// The account-only view, kept so the breaker can drop back to it without a refetch.
+let accountPools: Record<string, string[]> = {}
+let accountLangPools: Record<string, string[]> = {}
+// Which ids came from the library — the TTS route asks before blaming the library
+// for a refusal, so an account voice failing can never disable it.
+let fromLibrary = new Set<string>()
+let libraryOff = false
+
+const LIBRARY_ON = process.env.ELEVENLABS_LIBRARY !== "0"
+const LIB_PAGE = Math.max(1, Math.min(100, Number(process.env.ELEVENLABS_LIBRARY_PAGE || 100)))
+/**
+ * Languages worth paging the library for: every language the product speaks
+ * (lib/languages.ts), so a French or Japanese persona finally has NATIVE voices
+ * to be cast from instead of falling through to the English gender pool — which
+ * is the general form of the "the Arabic voices sound English" complaint.
+ *
+ * Hardcoded rather than imported to keep this module free of app-level imports;
+ * voices-test asserts the two lists agree, so they cannot drift apart silently.
+ */
+const LIB_LANGS = ["en", "ar", "es", "fr", "de", "it", "pt", "ja", "ko", "zh", "hi", "ru", "nl", "tr", "pl"]
 let fetchedAt = 0
 // Whether a refresh has ever SUCCEEDED. Distinct from fetchedAt, which is also
 // nudged forward on failure to back off a broken key.
@@ -87,7 +132,7 @@ const TTL_MS = 6 * 60 * 60_000     // 6h — voices change when a human adds one
  * An accent claim is only evidence about the language it was made in.
  */
 function haystackFor(v: ElevenVoice, lang: string): string {
-  const parts = [v.name || "", v.labels?.accent || ""]
+  const parts = [v.name || "", v.labels?.accent || "", v.accent || ""]
   for (const vl of v.verified_languages || []) {
     if ((vl.language || "").toLowerCase() !== lang) continue
     parts.push(vl.accent || "", vl.locale || "")
@@ -99,12 +144,13 @@ function haystackFor(v: ElevenVoice, lang: string): string {
 function languagesOf(v: ElevenVoice): Set<string> {
   const out = new Set<string>()
   if (v.labels?.language) out.add(v.labels.language.toLowerCase())
+  if (v.language) out.add(v.language.toLowerCase())
   for (const vl of v.verified_languages || []) if (vl.language) out.add(vl.language.toLowerCase())
   return out
 }
 
 function genderOf(v: ElevenVoice): "MALE" | "FEMALE" | null {
-  const g = (v.labels?.gender || "").toLowerCase()
+  const g = (v.labels?.gender || v.gender || "").toLowerCase()
   if (g.startsWith("m")) return "MALE"
   if (g.startsWith("f")) return "FEMALE"
   return null   // "neutral"/unknown — don't guess, it would mis-cast the voice
@@ -124,7 +170,7 @@ function genderOf(v: ElevenVoice): "MALE" | "FEMALE" | null {
  */
 function accentOf(v: ElevenVoice): string | null {
   const langs = languagesOf(v)
-  const native = (v.labels?.language || "").toLowerCase()
+  const native = (v.labels?.language || v.language || "").toLowerCase()
   for (const [key, spec] of ACCENT_SPECS) {
     // Must actually speak the language the accent belongs to.
     if (!langs.has(spec.lang)) continue
@@ -138,28 +184,28 @@ function accentOf(v: ElevenVoice): string | null {
   return null
 }
 
-async function refresh(key: string): Promise<void> {
-  const res = await fetch("https://api.elevenlabs.io/v1/voices", {
-    headers: { "xi-api-key": key },
-    signal: AbortSignal.timeout(10000),
-  })
-  if (!res.ok) throw new Error(`voices ${res.status}`)
-  const data = (await res.json()) as { voices?: ElevenVoice[] }
-  const next: Record<string, string[]> = {}
-  const nextLang: Record<string, string[]> = {}
-  for (const v of data.voices || []) {
-    if (!v.voice_id) continue
+/** Sort a list of voices into accent + native-language buckets. */
+function sortInto(
+  voices: ElevenVoice[],
+  accents: Record<string, string[]>,
+  langs: Record<string, string[]>,
+  seen: Set<string>,
+) {
+  for (const v of voices) {
+    // Dedupe across sources: a voice the account copied from the library appears
+    // in both, and casting must not weight it twice.
+    if (!v.voice_id || seen.has(v.voice_id)) continue
+    seen.add(v.voice_id)
     const g = genderOf(v)
 
-    // NATIVE-language pool. Keyed on labels.language — the language the voice
-    // actually IS — not verified_languages, which merely means "can pronounce".
-    // Every premade English voice is verified for Arabic; that is exactly how an
-    // Arabic character ended up sounding like Sarah or George. A voice belongs to
-    // Arabic here only if Arabic is what it is.
-    const native = (v.labels?.language || "").toLowerCase()
+    // NATIVE-language pool. Keyed on the language the voice actually IS, not
+    // verified_languages, which merely means "can pronounce". Every premade
+    // English voice is verified for Arabic; that is exactly how an Arabic
+    // character ended up sounding like Sarah or George.
+    const native = (v.labels?.language || v.language || "").toLowerCase()
     if (native) {
       for (const gg of g ? [g] : ["MALE", "FEMALE"]) {
-        (nextLang[`${native}|${gg}`] ||= []).push(v.voice_id)
+        (langs[`${native}|${gg}`] ||= []).push(v.voice_id)
       }
     }
 
@@ -168,16 +214,132 @@ async function refresh(key: string): Promise<void> {
     // Filed under both genders when the voice doesn't declare one, so an
     // undeclared voice is still reachable rather than silently dropped.
     for (const gg of g ? [g] : ["MALE", "FEMALE"]) {
-      (next[`${accent}|${gg}`] ||= []).push(v.voice_id)
+      (accents[`${accent}|${gg}`] ||= []).push(v.voice_id)
     }
   }
-  pools = next
-  langPools = nextLang
+}
+
+async function elFetch(url: string, key: string, ms = 10000): Promise<Record<string, unknown>> {
+  const res = await fetch(url, { headers: { "xi-api-key": key }, signal: AbortSignal.timeout(ms) })
+  if (!res.ok) throw new Error(`${res.status}`)
+  return res.json()
+}
+
+/**
+ * Page the shared library for the languages this product actually speaks.
+ *
+ * ONE page per language+gender, not everything. The library has thousands of
+ * voices and we need depth in the pools we cast from, not a mirror of somebody
+ * else's catalogue — a hundred voices per language and gender is already an order
+ * of magnitude more than the account holds. The endpoint filters server-side, so
+ * this is 30 small requests rather than a crawl.
+ *
+ * Failures are per-request and swallowed: one language 500ing should cost that
+ * language's voices, not the whole library and not the account pools that are
+ * already live.
+ */
+async function fetchLibrary(key: string): Promise<ElevenVoice[]> {
+  const out: ElevenVoice[] = []
+  const jobs: Array<() => Promise<void>> = []
+  for (const lang of LIB_LANGS) {
+    for (const gender of ["female", "male"]) {
+      jobs.push(async () => {
+        try {
+          const d = await elFetch(
+            `https://api.elevenlabs.io/v1/shared-voices?page_size=${LIB_PAGE}&language=${encodeURIComponent(lang)}&gender=${gender}`,
+            key,
+          )
+          const vs = (d.voices as ElevenVoice[]) || []
+          // The filter is a hint, not a guarantee — the response carries each
+          // voice's own labels and accentOf() re-derives everything from those,
+          // so a mis-tagged row lands where it belongs or nowhere.
+          out.push(...vs)
+        } catch { /* one language short is not a reason to lose the rest */ }
+      })
+    }
+  }
+  // Bounded concurrency: enough to finish quickly, not enough to look like abuse.
+  const CONC = 6
+  for (let i = 0; i < jobs.length; i += CONC) {
+    await Promise.all(jobs.slice(i, i + CONC).map((j) => j()))
+  }
+  return out
+}
+
+/** Publish the account-only view. Also what the breaker rebuilds. */
+function publishAccountOnly() {
+  pools = accountPools
+  langPools = accountLangPools
+  fromLibrary = new Set()
+}
+
+/**
+ * TWO PHASES, and the order is the whole point.
+ *
+ * The account list is one request; the library is thirty. This runs on serverless,
+ * where instances are short-lived and the first call after a cold start is a large
+ * share of ALL calls — so the account voices are sorted and PUBLISHED first, and
+ * everLoaded flips there. Casting is never slower than it is today, and the
+ * library only ever deepens pools that already work. An instance that dies before
+ * phase two simply casts from the account, exactly as it did before this existed.
+ */
+async function refresh(key: string): Promise<void> {
+  const data = await elFetch("https://api.elevenlabs.io/v1/voices", key) as { voices?: ElevenVoice[] }
+
+  const acc: Record<string, string[]> = {}
+  const accLang: Record<string, string[]> = {}
+  const seen = new Set<string>()
+  sortInto(data.voices || [], acc, accLang, seen)
+
+  accountPools = acc
+  accountLangPools = accLang
+  publishAccountOnly()
   fetchedAt = Date.now()
   everLoaded = true
-  const found = Object.entries(next).map(([k, v]) => `${k}=${v.length}`).join(" ")
-  const langs = Object.entries(nextLang).map(([k, v]) => `${k}=${v.length}`).join(" ")
-  console.log(`[voices] accents: ${found || "(none)"} | native: ${langs || "(none)"}`)
+  console.log(`[voices] account: ${summarise(acc)} | native: ${summarise(accLang)}`)
+
+  if (!LIBRARY_ON || libraryOff) return
+
+  // Phase two. Build on COPIES so a failure mid-way can never leave the live
+  // pools half-merged, and so the breaker can drop back to the account instantly.
+  const libVoices = await fetchLibrary(key)
+  if (!libVoices.length) return
+  const merged: Record<string, string[]> = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, [...v]]))
+  const mergedLang: Record<string, string[]> = Object.fromEntries(Object.entries(accLang).map(([k, v]) => [k, [...v]]))
+  const libIds = new Set<string>()
+  const before = new Set(seen)
+  sortInto(libVoices, merged, mergedLang, seen)
+  for (const id of seen) if (!before.has(id)) libIds.add(id)
+
+  pools = merged
+  langPools = mergedLang
+  fromLibrary = libIds
+  console.log(`[voices] +library ${libIds.size} voices → ${summarise(merged)} | native: ${summarise(mergedLang)}`)
+}
+
+const summarise = (m: Record<string, string[]>) =>
+  Object.entries(m).map(([k, v]) => `${k}=${v.length}`).join(" ") || "(none)"
+
+/** Did this voice come from the library rather than the account? */
+export function isLibraryVoice(id: string): boolean {
+  return fromLibrary.has(id)
+}
+
+/**
+ * A library voice was refused by the TTS endpoint. Stop using the library.
+ *
+ * Called from the TTS route on a 4xx naming the voice. The direct-use of library
+ * ids is documented but not guaranteed, and being wrong about it means silence
+ * rather than a wrong accent — so one refusal is enough to fall back to the
+ * account for the life of this instance. It is deliberately NOT a TTL: a voice id
+ * the API rejects will not start working in ten minutes, and retrying costs a real
+ * person their audio each time.
+ */
+export function noteLibraryVoiceRejected(id: string): void {
+  if (libraryOff || !fromLibrary.has(id)) return
+  libraryOff = true
+  publishAccountOnly()
+  console.error(`[voices] library voice ${id} was refused — falling back to account voices only`)
 }
 
 /** Kick off a refresh if the cache is cold/stale. Never throws, never blocks. */

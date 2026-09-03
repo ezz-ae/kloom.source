@@ -123,5 +123,77 @@ check(!/execFile|execSync|spawn|child_process/.test(envcheck), "the env inspecto
 check(/readFileSync\("app\/api\/tts\/route\.ts"/.test(envcheck),
   "it reads the English pool from the shipped route, so it can't drift")
 
+// ── THE SHARED LIBRARY ──────────────────────────────────────────────────────
+// The account holds ~125 voices; the library holds thousands. This module read
+// only the account because it was written believing the library could only be
+// used by COPYING voices onto it — capped, and tedious to undo. Reading is
+// neither, and a library voice_id can be synthesised directly.
+check(/shared-voices/.test(disc), "the library is a second source of voices")
+check(/page_size=/.test(disc), "and it is paged rather than crawled")
+
+// ONE classifier, both shapes. /v1/voices nests accent/gender/language under
+// `labels`; /v1/shared-voices puts them at the top level. Two classifiers would
+// drift, and drift in this file is what put British voices in the Gulf pool.
+check(/v\.labels\?\.accent \|\| "", v\.accent/.test(disc), "the haystack reads an accent from either shape")
+check(/v\.labels\?\.gender \|\| v\.gender/.test(disc), "gender likewise")
+check(/v\.labels\?\.language \|\| v\.language/.test(disc), "and the native-language gate likewise")
+check((disc.match(/function accentOf/g) || []).length === 1, "there is exactly one accent classifier")
+
+// The native-language gate must still apply to library voices — the library is
+// FULL of English voices verified for Arabic, so dropping the gate here would
+// reintroduce the original complaint at ten times the scale.
+const accentFn = disc.slice(disc.indexOf("function accentOf"), disc.indexOf("function sortInto"))
+check(/native && native !== spec\.lang/.test(accentFn), "a library voice can't be cast as an accent it isn't native to")
+
+// ── account first, library second ───────────────────────────────────────────
+// Serverless instances are short-lived and the first call after a cold start is
+// a large share of ALL calls. One request for the account publishes immediately;
+// thirty for the library must never delay that.
+const refreshFn = disc.slice(disc.indexOf("async function refresh("), disc.indexOf("const summarise"))
+check(refreshFn.indexOf("everLoaded = true") < refreshFn.indexOf("fetchLibrary"),
+  "the account pools publish BEFORE the library is fetched")
+check(refreshFn.indexOf("publishAccountOnly()") < refreshFn.indexOf("fetchLibrary"),
+  "so an instance that dies mid-refresh still casts from the account")
+check(/const merged/.test(refreshFn) && /\[\.\.\.v\]/.test(refreshFn),
+  "the merge builds on copies, so a mid-way failure can't leave pools half-merged")
+check(/seen\.has\(v\.voice_id\)/.test(disc),
+  "a voice present in both sources is counted once, not weighted twice")
+
+// ── the breaker ─────────────────────────────────────────────────────────────
+// Direct use of library ids is documented, not guaranteed. Being wrong means a
+// rejected id returns NO AUDIO — the character is silent, not mis-cast — so one
+// refusal has to be enough.
+check(/export function noteLibraryVoiceRejected/.test(disc), "a refused library voice disables the library")
+check(/export function isLibraryVoice/.test(disc), "and the route can tell which voices those are")
+// Bounded to the function itself — slicing to end-of-file swept in the backoff
+// arithmetic and setTimeout from warmAccentPools/ensureAccentPools below.
+const breakerStart = disc.indexOf("export function noteLibraryVoiceRejected")
+const breaker = disc.slice(breakerStart, disc.indexOf("\n}", breakerStart))
+check(/!fromLibrary\.has\(id\)\) return/.test(breaker),
+  "an ACCOUNT voice failing can never disable the library")
+check(/publishAccountOnly\(\)/.test(breaker), "tripping it rebuilds the pools from the account immediately")
+check(!/setTimeout|TTL|Date\.now\(\) \+/.test(breaker),
+  "and it does not expire — an id the API rejects won't start working later")
+check(/ELEVENLABS_LIBRARY !== "0"/.test(disc), "the library can be switched off entirely without a deploy")
+
+// The person waiting must still hear something.
+check(/noteLibraryVoiceRejected\(voice\)/.test(tts), "the TTS route trips the breaker")
+check(/isLibraryVoice\(voice\)/.test(tts), "only for a library voice")
+check(/!retried &&/.test(tts), "the retry cannot loop")
+check(/fallback !== voice/.test(tts), "and it only retries with a DIFFERENT voice")
+check(/res\.status === 400 \|\| res\.status === 404/.test(tts),
+  "a rate limit or a 5xx is not treated as 'this voice is unusable'")
+
+// ── the language list cannot drift from the app's ───────────────────────────
+// The comment in voice-discovery.ts promises this test exists, so it has to.
+const libLangs = (disc.match(/const LIB_LANGS = \[([^\]]*)\]/) || [, ""])[1]
+  .split(",").map((x) => x.trim().replace(/"/g, "")).filter(Boolean)
+const appLangs = [...readFileSync("lib/languages.ts", "utf8").matchAll(/iso:\s*"([a-z-]+)"/g)].map((m) => m[1])
+const missing = appLangs.filter((l) => !libLangs.includes(l))
+check(missing.length === 0,
+  `every language the product speaks is paged for (${libLangs.length} langs${missing.length ? `, missing ${missing.join(",")}` : ""})`)
+check(libLangs.every((l) => appLangs.includes(l)),
+  "and no language is paged for that the product doesn't speak")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

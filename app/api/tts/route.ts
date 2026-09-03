@@ -3,7 +3,7 @@ import { isoForLanguage } from "@/lib/languages"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
-import { warmAccentPools, ensureAccentPools, discoveredAccentPool, discoveredLangPool } from "@/lib/airraw/voice-discovery"
+import { warmAccentPools, ensureAccentPools, discoveredAccentPool, discoveredLangPool, isLibraryVoice, noteLibraryVoiceRejected } from "@/lib/airraw/voice-discovery"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
@@ -409,7 +409,7 @@ function elVoiceFor(name?: string, gender?: string, language?: string, seedKey?:
   if (gender !== "male" && name && isSouthAsianSeed(name)) return SA_FEMALE_VOICE
   return hashPick(genderPool(gender), seed)
 }
-async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string, language?: string, seedKey?: string): Promise<ArrayBuffer | null> {
+async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string, language?: string, seedKey?: string, retried = false): Promise<ArrayBuffer | null> {
   try {
     const voice = elevenId?.trim() || elVoiceFor(name, gender, language, seedKey)
     const iso = isoForLanguage(language)
@@ -461,7 +461,24 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
       signal: AbortSignal.timeout(30000),
     })
     elCast = `${model}/${voice}${nonLatin ? "/nonlatin" : ""}`
-    if (!res.ok) { elDiag = `${res.status} ${(await res.text()).slice(0, 180)}`; console.error("elevenlabs", elDiag); return null }
+    if (!res.ok) {
+      elDiag = `${res.status} ${(await res.text()).slice(0, 180)}`
+      console.error("elevenlabs", elDiag)
+      // A LIBRARY voice the API won't speak. Using library ids directly is
+      // documented but not guaranteed, and being wrong costs a real person their
+      // audio — the caller treats null as silence, not as a wrong accent. So:
+      // disable the library, recast from the account, and retry ONCE for the
+      // person currently waiting. `retried` makes a second failure fall through
+      // to null instead of looping.
+      if (!retried && (res.status === 400 || res.status === 404) && isLibraryVoice(voice)) {
+        noteLibraryVoiceRejected(voice)
+        const fallback = elevenId?.trim() || elVoiceFor(name, gender, language, seedKey)
+        if (fallback && fallback !== voice) {
+          return elevenTTS(text, key, name, gender, fallback, mode, prevText, language, seedKey, true)
+        }
+      }
+      return null
+    }
     const buf = await res.arrayBuffer()
     if (buf.byteLength > 0) return buf
     elDiag = "empty audio"; return null

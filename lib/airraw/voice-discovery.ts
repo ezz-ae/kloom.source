@@ -110,6 +110,33 @@ const LIB_PAGE = Math.max(1, Math.min(100, Number(process.env.ELEVENLABS_LIBRARY
  * voices-test asserts the two lists agree, so they cannot drift apart silently.
  */
 const LIB_LANGS = ["en", "ar", "es", "fr", "de", "it", "pt", "ja", "ko", "zh", "hi", "ru", "nl", "tr", "pl"]
+
+/**
+ * How many pages to pull per language+gender. One is plenty for a language whose
+ * only job is to fill a native pool; Arabic gets more because it is the only
+ * language here carrying FIVE regional accent pools as well, and the first live
+ * run showed why: ar came back with 105 male and 69 female voices, but Tunisian
+ * had 1 male / 2 female and Moroccan 3 female. A dialect pool that small casts
+ * the same voice for nearly every character in it.
+ */
+const LIB_PAGES: Record<string, number> = { ar: 3 }
+const pagesFor = (lang: string) =>
+  Math.max(1, Math.min(10, Number(process.env[`ELEVENLABS_LIBRARY_PAGES_${lang.toUpperCase()}`] || LIB_PAGES[lang] || 1)))
+
+/**
+ * Languages whose ACCENTS are queried directly, not just hoped for.
+ *
+ * Paging a language and sorting what comes back finds dialects only in the
+ * proportion the library happens to return them — which is how Tunisian ended up
+ * with one male voice while Khaleeji got 55. Asking for the dialect BY NAME is
+ * the difference between "whatever turned up" and "go and find these".
+ *
+ * The names come from accent-specs.json, the same terms the classifier matches
+ * on, so a dialect can never be searched for under one name and filed under
+ * another. Arabic only, deliberately: English has 17 accent specs and querying
+ * them all would quadruple the request count for pools that are already deep.
+ */
+const ACCENT_TARGETED = new Set(["ar"])
 let fetchedAt = 0
 // Whether a refresh has ever SUCCEEDED. Distinct from fetchedAt, which is also
 // nudged forward on failure to back off a broken key.
@@ -238,40 +265,72 @@ async function elFetch(url: string, key: string, ms = 10000): Promise<Record<str
  * language's voices, not the whole library and not the account pools that are
  * already live.
  */
-async function fetchLibrary(key: string): Promise<{ voices: ElevenVoice[]; failed: string[] }> {
+async function fetchLibrary(key: string): Promise<{ voices: ElevenVoice[]; failed: string[]; yields: string[] }> {
   const out: ElevenVoice[] = []
   // WHICH pages failed, not just how many. Swallowing a failure keeps the other
-  // 29 pages, which is right — but it makes a failed page look identical to a
+  // pages, which is right — but it makes a failed page look identical to a
   // genuinely thin one, and the first live run showed exactly that ambiguity:
   // it|FEMALE=1 next to it|MALE=100 could be a broken request or an empty shelf,
   // and there was no way to tell. Now the log says.
   const failed: string[] = []
+  // What each ACCENT query actually returned. The accent filter takes a specific
+  // vocabulary, and our dialect names may or may not be in it — a query that
+  // matches nothing looks exactly like a dialect the library doesn't carry. The
+  // yield is logged so the next change is driven by numbers rather than a guess.
+  const yields: string[] = []
   const jobs: Array<() => Promise<void>> = []
+
+  const page = (label: string, url: string, count?: (n: number) => void) => jobs.push(async () => {
+    try {
+      const d = await elFetch(url, key)
+      const vs = (d.voices as ElevenVoice[]) || []
+      // The filter is a hint, not a guarantee — the response carries each voice's
+      // own labels and accentOf() re-derives everything from those, so a
+      // mis-tagged row lands where it belongs or nowhere.
+      out.push(...vs)
+      count?.(vs.length)
+    } catch (e) {
+      failed.push(`${label}:${e instanceof Error ? e.message : "?"}`)
+    }
+  })
+
   for (const lang of LIB_LANGS) {
     for (const gender of ["female", "male"]) {
-      jobs.push(async () => {
-        try {
-          const d = await elFetch(
-            `https://api.elevenlabs.io/v1/shared-voices?page_size=${LIB_PAGE}&language=${encodeURIComponent(lang)}&gender=${gender}`,
-            key,
-          )
-          const vs = (d.voices as ElevenVoice[]) || []
-          // The filter is a hint, not a guarantee — the response carries each
-          // voice's own labels and accentOf() re-derives everything from those,
-          // so a mis-tagged row lands where it belongs or nowhere.
-          out.push(...vs)
-        } catch (e) {
-          failed.push(`${lang}/${gender}:${e instanceof Error ? e.message : "?"}`)
-        }
-      })
+      // ZERO-INDEXED. scripts/find-accent-voices.mjs pages from 0 against the real
+      // API; starting at 1 here would silently skip the first hundred voices of
+      // every language — making the Arabic pools SMALLER while appearing to
+      // deepen them, which is the worst way for an off-by-one to fail.
+      for (let p = 0; p < pagesFor(lang); p++) {
+        page(
+          `${lang}/${gender}/p${p}`,
+          `https://api.elevenlabs.io/v1/shared-voices?page_size=${LIB_PAGE}&page=${p}&language=${encodeURIComponent(lang)}&gender=${gender}`,
+        )
+      }
+    }
+    if (!ACCENT_TARGETED.has(lang)) continue
+    // Go and FIND each dialect rather than hoping it turns up in a general page.
+    for (const [key2, spec] of ACCENT_SPECS) {
+      if (spec.lang !== lang) continue
+      for (const gender of ["female", "male"]) {
+        // The first term is the canonical dialect name ("egyptian", "khaleeji");
+        // the rest are spellings and country names the classifier also accepts.
+        const accent = spec.terms[0]
+        if (!accent) continue
+        page(
+          `${key2}/${gender}`,
+          `https://api.elevenlabs.io/v1/shared-voices?page_size=${LIB_PAGE}&language=${encodeURIComponent(lang)}&accent=${encodeURIComponent(accent)}&gender=${gender}`,
+          (n) => yields.push(`${key2}|${gender}=${n}`),
+        )
+      }
     }
   }
+
   // Bounded concurrency: enough to finish quickly, not enough to look like abuse.
   const CONC = 6
   for (let i = 0; i < jobs.length; i += CONC) {
     await Promise.all(jobs.slice(i, i + CONC).map((j) => j()))
   }
-  return { voices: out, failed }
+  return { voices: out, failed, yields }
 }
 
 /** Publish the account-only view. Also what the breaker rebuilds. */
@@ -315,8 +374,9 @@ async function refresh(key: string): Promise<void> {
   try {
     // Build on COPIES so a failure mid-way can never leave the live pools
     // half-merged, and so the breaker can drop back to the account instantly.
-    const { voices: libVoices, failed } = await fetchLibrary(key)
-    if (failed.length) console.error(`[voices] library pages failed (${failed.length}/${LIB_LANGS.length * 2}): ${failed.join(" ")}`)
+    const { voices: libVoices, failed, yields } = await fetchLibrary(key)
+    if (failed.length) console.error(`[voices] library pages failed (${failed.length}): ${failed.join(" ")}`)
+    if (yields.length) console.log(`[voices] accent queries: ${yields.join(" ")}`)
     if (!libVoices.length) return
     const merged: Record<string, string[]> = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, [...v]]))
     const mergedLang: Record<string, string[]> = Object.fromEntries(Object.entries(accLang).map(([k, v]) => [k, [...v]]))

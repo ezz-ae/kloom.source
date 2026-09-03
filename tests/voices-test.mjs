@@ -189,6 +189,27 @@ check(/ELEVENLABS_LIBRARY !== "0"/.test(disc), "the library can be switched off 
 check(/failed\.push\(/.test(disc), "a failed library page is recorded, not just skipped")
 check(/library pages failed/.test(disc), "and reported with which language and gender")
 
+// ── Arabic depth ────────────────────────────────────────────────────────────
+// The first live run gave ar 105 male / 69 female, but Tunisian 1 male / 2
+// female and Moroccan 3 female — a dialect pool that small casts the same voice
+// for nearly every character in it.
+check(/const LIB_PAGES/.test(disc) && /ar: 3/.test(disc), "Arabic is paged deeper than a language that only fills a native pool")
+check(/ACCENT_TARGETED/.test(disc), "and its dialects are searched for BY NAME, not just hoped for in a general page")
+check(/accent=\$\{encodeURIComponent\(accent\)\}/.test(disc), "using the accent filter the endpoint supports")
+check(/spec\.terms\[0\]/.test(disc),
+  "with the name taken from accent-specs, so a dialect can't be searched under one name and filed under another")
+
+// PAGING IS ZERO-INDEXED. find-accent-voices.mjs pages from 0 against the real
+// API; starting at 1 would skip the first hundred voices of every language and
+// make the pools SMALLER while looking like it deepened them.
+const pageLoop = (disc.match(/for \(let p = (\d+); p ([<=]+) pagesFor/) || [])
+check(pageLoop[1] === "0" && pageLoop[2] === "<", `library paging starts at page 0 (found "p = ${pageLoop[1]}; p ${pageLoop[2]}")`)
+check(/for \(let page = 0;/.test(script), "which is what the script that was run against the real API does")
+
+// An accent query that matches nothing looks exactly like a dialect the library
+// doesn't carry. The yield is logged so the next change is driven by numbers.
+check(/accent queries:/.test(disc), "what each accent query returned is logged")
+
 // The person waiting must still hear something.
 check(/noteLibraryVoiceRejected\(voice\)/.test(tts), "the TTS route trips the breaker")
 check(/isLibraryVoice\(voice\)/.test(tts), "only for a library voice")

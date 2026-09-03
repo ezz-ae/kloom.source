@@ -238,8 +238,14 @@ async function elFetch(url: string, key: string, ms = 10000): Promise<Record<str
  * language's voices, not the whole library and not the account pools that are
  * already live.
  */
-async function fetchLibrary(key: string): Promise<ElevenVoice[]> {
+async function fetchLibrary(key: string): Promise<{ voices: ElevenVoice[]; failed: string[] }> {
   const out: ElevenVoice[] = []
+  // WHICH pages failed, not just how many. Swallowing a failure keeps the other
+  // 29 pages, which is right — but it makes a failed page look identical to a
+  // genuinely thin one, and the first live run showed exactly that ambiguity:
+  // it|FEMALE=1 next to it|MALE=100 could be a broken request or an empty shelf,
+  // and there was no way to tell. Now the log says.
+  const failed: string[] = []
   const jobs: Array<() => Promise<void>> = []
   for (const lang of LIB_LANGS) {
     for (const gender of ["female", "male"]) {
@@ -254,7 +260,9 @@ async function fetchLibrary(key: string): Promise<ElevenVoice[]> {
           // voice's own labels and accentOf() re-derives everything from those,
           // so a mis-tagged row lands where it belongs or nowhere.
           out.push(...vs)
-        } catch { /* one language short is not a reason to lose the rest */ }
+        } catch (e) {
+          failed.push(`${lang}/${gender}:${e instanceof Error ? e.message : "?"}`)
+        }
       })
     }
   }
@@ -263,7 +271,7 @@ async function fetchLibrary(key: string): Promise<ElevenVoice[]> {
   for (let i = 0; i < jobs.length; i += CONC) {
     await Promise.all(jobs.slice(i, i + CONC).map((j) => j()))
   }
-  return out
+  return { voices: out, failed }
 }
 
 /** Publish the account-only view. Also what the breaker rebuilds. */
@@ -307,7 +315,8 @@ async function refresh(key: string): Promise<void> {
   try {
     // Build on COPIES so a failure mid-way can never leave the live pools
     // half-merged, and so the breaker can drop back to the account instantly.
-    const libVoices = await fetchLibrary(key)
+    const { voices: libVoices, failed } = await fetchLibrary(key)
+    if (failed.length) console.error(`[voices] library pages failed (${failed.length}/${LIB_LANGS.length * 2}): ${failed.join(" ")}`)
     if (!libVoices.length) return
     const merged: Record<string, string[]> = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, [...v]]))
     const mergedLang: Record<string, string[]> = Object.fromEntries(Object.entries(accLang).map(([k, v]) => [k, [...v]]))

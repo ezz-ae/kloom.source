@@ -182,6 +182,13 @@ check(!/setTimeout|TTL|Date\.now\(\) \+/.test(breaker),
   "and it does not expire — an id the API rejects won't start working later")
 check(/ELEVENLABS_LIBRARY !== "0"/.test(disc), "the library can be switched off entirely without a deploy")
 
+// A swallowed failure must still be VISIBLE. The first live run produced
+// it|FEMALE=1 beside it|MALE=100, and there was no way to tell a broken request
+// from an empty shelf — swallowing kept the other 29 pages, which is right, but
+// silence made the result unreadable.
+check(/failed\.push\(/.test(disc), "a failed library page is recorded, not just skipped")
+check(/library pages failed/.test(disc), "and reported with which language and gender")
+
 // The person waiting must still hear something.
 check(/noteLibraryVoiceRejected\(voice\)/.test(tts), "the TTS route trips the breaker")
 check(/isLibraryVoice\(voice\)/.test(tts), "only for a library voice")

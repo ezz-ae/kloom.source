@@ -62,33 +62,33 @@ const AGE = [
 // teeth do more for "she's real" than any amount of "stunning".
 const LOOK_F = [
   "an attractive young woman with a warm crooked smile and slightly uneven eyebrows",
-  "a good-looking young woman with freckles across her nose and bright direct eyes",
-  "a pretty young woman with a small gap in her front teeth and a lopsided grin",
-  "an attractive young woman with a soft round face and a mole on her cheek",
-  "a good-looking young woman with strong brows, bare skin and a direct look",
-  "an attractive young woman with slightly frizzy hair and no makeup",
+  "a beautiful young woman with freckles across her nose and bright direct eyes",
+  "a pretty young woman with a soft round face and an easy grin",
+  "an attractive young woman with high cheekbones and a quiet half-smile",
+  "a beautiful young woman with strong brows, bare skin and a direct look",
+  "an attractive young woman with slightly messy hair and no makeup",
   "a pretty young woman with a sharp nose, thin lips and an amused expression",
-  "an attractive young woman with faint acne scars and a genuine open smile",
-  "a good-looking young woman with a slightly crooked nose and a half-smile",
-  "an attractive young woman with a wide jaw, ears that stick out and warm eyes",
+  "an attractive young woman with a wide smile and laughing eyes",
+  "a beautiful young woman with a slightly crooked nose and a knowing look",
+  "an attractive young woman with a strong jaw and warm eyes",
 ]
 const LOOK_M = [
   "an attractive young man with stubble and a slightly crooked nose",
-  "a good-looking young man with messy hair and an easy grin",
-  "an attractive young man with a heavy brow and a small scar through one eyebrow",
-  "a good-looking young man with uneven stubble and slightly gapped teeth",
+  "a handsome young man with messy hair and an easy grin",
+  "an attractive young man with a heavy brow and a steady look",
+  "a handsome young man with light stubble and a wide smile",
   "an attractive young man with a soft jaw, freckles and a quiet expression",
-  "a good-looking young man with a broken-looking nose and a crooked smile",
-  "an attractive young man with thick messy eyebrows and a lopsided smile",
-  "a good-looking young man with a shaved head and a faint chin scar",
+  "a handsome young man with a strong nose and a crooked smile",
+  "an attractive young man with thick eyebrows and a lopsided smile",
+  "a handsome young man with a shaved head and a sharp jawline",
   "an attractive young man with a round face, warm eyes and no styling",
-  "a good-looking young man with acne scars and an unpolished look",
+  "a handsome young man with dark eyes and an unpolished look",
 ]
 const LOOK_X = [
   "an attractive young androgynous person with bare skin and an unreadable expression",
   "a good-looking young androgynous person with a crooked smile and messy hair",
   "an attractive young non-binary person with freckles and a direct gaze",
-  "a good-looking young androgynous person with strong brows and a faint scar",
+  "a good-looking young androgynous person with strong brows and fine features",
 ]
 
 // HOW IT WAS SHOT.
@@ -113,7 +113,7 @@ const STYLE = [
 ]
 
 const HAIR = [
-  "short hair", "long hair", "curly hair", "buzzed hair", "tied-back hair", "messy hair",
+  "short hair", "long hair", "curly hair", "wavy hair", "tied-back hair", "messy hair",
   "shoulder-length hair", "a fresh haircut", "bleached hair", "dyed hair", "a headscarf", "a cap",
 ]
 
@@ -121,13 +121,21 @@ const BASE =
   // "cinematic color grade" and "sharp focus" were asking for the exact glossy
   // render the floor is trying not to look like. A real photo has one plane in
   // focus, imperfect skin, and whatever colour the room happened to be.
-  "amateur photograph, shot on a phone, unretouched, natural uneven skin with pores, blemishes and stray hairs, " +
+  // "blemishes and stray hairs" is what put acne and moles across every face, and
+  // it was in the BASE — applied to EVERY portrait, on top of whatever flaw the
+  // look already named. Two imperfections stacked read as character; five read as
+  // a dermatology reference. Skin texture is the thing worth asking for; damage
+  // is not. "Ordinary everyday adult" did the rest of it: asked for plain, got
+  // plain. The people here are meant to be attractive AND real, and dropping
+  // "attractive" was not the way to stop them looking generated — the superlatives
+  // were ("strikingly beautiful", "flawless"), and those are still gone.
+  "amateur photograph, shot on a phone, unretouched, natural skin texture with visible pores, " +
   "one single real human face with two clear symmetric correctly-placed eyes and natural undistorted features, " +
-  "head and shoulders, imperfect framing, available light, slight sensor noise, " +
+  "head and shoulders with space around the head, available light, slight sensor noise, " +
   // An ordinary, completely fictional stranger — NOT a celebrity/model likeness. Diffusion
   // models reproduce recognizable famous faces when prompted "gorgeous/stunning/model"; this
   // steers to a unique everyday person nobody would recognize (likeness-rights safety).
-  "an ordinary everyday adult, a completely fictional unique stranger with a normal realistic asymmetric face"
+  "an attractive real person photographed casually, a completely fictional unique stranger with a natural face"
 
 export const PORTRAIT_NEG =
   // THE SAFETY TERMS STAY, EXACTLY AS THEY ARE. child/minor/underage/teenager are
@@ -147,7 +155,15 @@ export const PORTRAIT_NEG =
   // that contradicts the positive is the exact bug being fixed two lines up.
   // Only terms no persona is ever described as belong here.
   "elderly, old person, wrinkled, deep wrinkles, aged skin, " +
-  "grey hair, balding, sagging skin, liver spots, "
+  "grey hair, balding, sagging skin, liver spots, " +
+  // The over-correction: asking for "unretouched" and "blemishes" produced skin
+  // damage rather than skin texture. These name the damage explicitly. Nothing
+  // here contradicts a look — the flaw words the looks DO use (crooked, freckles,
+  // uneven, stubble) are deliberately absent, because a negative that fights the
+  // positive is the bug that aged everyone up two commits ago.
+  "acne, pimples, spots, skin blemishes, moles, warts, skin lesions, rash, scabs, " +
+  "bad teeth, damaged teeth, missing teeth, discoloured teeth, " +
+  "extreme close-up, face filling the frame, cropped forehead, unattractive, "
   // Anti-likeness: keep generated faces from resembling any real, recognizable person.
   "celebrity, famous person, public figure, well-known model, recognizable actor, actress, " +
   "influencer, deepfake, likeness of a real person, lookalike, supermodel, fashion-model face, " +

@@ -64,11 +64,72 @@ check(found.length === 0, `no look or hair option describes age${found.length ? 
 const glamour = ["strikingly beautiful", "drop-dead", "perfect bone structure", "flawless", "supermodel"]
 check(!looks.some((l) => glamour.some((g) => l.toLowerCase().includes(g))),
   "and no superlative crept back in")
-const imperfections = ["crooked", "gap", "freckles", "scar", "uneven", "stubble", "mole", "frizzy", "no makeup", "stick out"]
-const withFlaw = looks.filter((l) => imperfections.some((i) => l.toLowerCase().includes(i))).length
-check(withFlaw >= 15, `${withFlaw} looks still carry a specific imperfection`)
+// The property that matters is SPECIFICITY, not flaw count. "An attractive young
+// woman" alone renders the average of every attractive young woman — which is the
+// plastic look. A concrete detail is what makes her a person. The count was
+// asserted as >= 15 when the pools were flaw-heavy; that number was measuring the
+// over-correction, so it measured well right up until the over-correction was
+// fixed.
+const DETAILS = [
+  "crooked", "freckles", "uneven", "stubble", "messy", "sharp nose", "thin lips",
+  "strong brows", "thick eyebrows", "soft jaw", "strong jaw", "round face",
+  "high cheekbones", "heavy brow", "no makeup", "wide smile", "laughing eyes",
+  "shaved head", "dark eyes", "bare skin", "direct", "half-smile", "grin", "quiet expression",
+]
+const generic = [...pool("LOOK_F"), ...pool("LOOK_M"), ...pool("LOOK_X")]
+  .filter((l) => !DETAILS.some((d) => l.toLowerCase().includes(d)))
+check(generic.length === 0,
+  `every look names something concrete${generic.length ? ` — vague: ${generic.join(" | ")}` : ""}`)
+
+// And none of them stack. Two details read as a person; five read as a list.
+const stacked = [...pool("LOOK_F"), ...pool("LOOK_M")]
+  .filter((l) => DETAILS.filter((d) => l.toLowerCase().includes(d)).length > 3)
+check(stacked.length === 0, `no look piles on details${stacked.length ? ` — ${stacked.join(" | ")}` : ""}`)
 check(/pores|blemishes|unretouched/.test(code), "the base prompt still asks for real skin")
 check(/beauty filter/.test(neg) && /poreless/.test(neg), "and still refuses the filtered look")
+
+// ── THE GENERAL RULE, which both bugs here were instances of ────────────────
+//
+// A negative prompt that contradicts the positive does not cancel out. The model
+// resolves it, and it resolves it unpredictably:
+//
+//   "young-looking" in the negative while every persona is "in their early 20s"
+//   → everyone came out fifty.
+//
+//   "blemishes" in the BASE, applied to every face on top of whatever flaw the
+//   look already named → skin damage rather than skin texture.
+//
+// So: any feature word the positive pools can produce is forbidden in the
+// negative, and vice versa. Curated rather than tokenised, because shared nouns
+// ("person") are not contradictions and a naive word diff only cries wolf.
+const FEATURES = [
+  "crooked", "freckles", "uneven", "stubble", "messy", "wavy", "curly",
+  "gap", "mole", "scar", "acne", "wrinkle", "shaved", "buzzed", "blemish",
+]
+const positives = [...pool("LOOK_F"), ...pool("LOOK_M"), ...pool("LOOK_X"), ...pool("HAIR"), ...pool("AGE")]
+  .join(" ").toLowerCase()
+const base = code.slice(code.indexOf("const BASE ="), code.indexOf("export const PORTRAIT_NEG")).toLowerCase()
+const negLower = neg.toLowerCase()
+const clashes = FEATURES.filter((w) => (positives.includes(w) || base.includes(w)) && negLower.includes(w))
+check(clashes.length === 0,
+  `no feature the prompt asks for is also refused${clashes.length ? ` — ${clashes.join(", ")}` : ""}`)
+
+// ── attractive AND real, which is the whole difficulty ──────────────────────
+// Stripping "attractive" was not what stopped the faces looking generated — the
+// SUPERLATIVES were. Those stay gone; the baseline appeal comes back.
+const lookText = [...pool("LOOK_F"), ...pool("LOOK_M")].join(" ").toLowerCase()
+const appealing = [...pool("LOOK_F"), ...pool("LOOK_M")]
+  .filter((l) => /attractive|beautiful|handsome|pretty|good-looking/.test(l)).length
+check(appealing === pool("LOOK_F").length + pool("LOOK_M").length,
+  "every look describes someone worth looking at")
+check(!/ordinary everyday adult/.test(base), "and the base no longer asks for 'ordinary'")
+check(/attractive real person/.test(base), "it asks for an attractive real person")
+
+// Damage is refused; texture is still asked for. These are different things and
+// conflating them is what produced a face covered in lesions.
+check(/acne|lesions|scabs/.test(negLower), "skin damage is refused")
+check(/visible pores|skin texture/.test(base), "while real skin texture is still asked for")
+check(!/blemishes/.test(base), "and the base no longer asks for blemishes on every single face")
 
 // ── the faces already generated have to be replaced ─────────────────────────
 // Every cached portrait was made under the old prompt, so without a new cache

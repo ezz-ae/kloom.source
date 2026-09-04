@@ -171,6 +171,30 @@ function genderLooks(gender?: string, seed = ""): { pool: string[]; word: string
   return { pool: LOOK_X, word: "person" }
 }
 
+/**
+ * A fingerprint of the PROMPT ITSELF, and the reason it exists is a bug that cost
+ * two rounds of "the faces are still wrong".
+ *
+ * Portraits are cached by path, and the path carried a hand-bumped REALISM_VERSION.
+ * That meant every prompt change depended on somebody remembering to bump a string
+ * — and worse, on that string not being pinned somewhere else. It was: Vercel had
+ * REALISM_VERSION=r3 set, which silently won over the code default, so the
+ * de-glamming pass AND the age fix both wrote to a cache key that never moved.
+ * Production kept serving the same faces and nothing anywhere said why.
+ *
+ * So the key now derives from the prompt. Change a look, a style, an age band or
+ * the negative, and the fingerprint changes with it — automatically, with nothing
+ * to remember and no environment variable able to pin it. A prompt that has not
+ * changed still hits cache, so this costs nothing when nothing has changed.
+ */
+export const PROMPT_FINGERPRINT = (() => {
+  const all = [
+    ...AGE, ...LOOK_F, ...LOOK_M, ...LOOK_X, ...STYLE, ...HAIR, ...ETHNICITY,
+    BASE, PORTRAIT_NEG,
+  ].join("|")
+  return hash(all).toString(36).slice(0, 6)
+})()
+
 export interface PortraitPrompt { prompt: string; negative: string; seed: number; ethnicity: string; age: string }
 
 /** Build a unique, diverse portrait prompt for a persona. */

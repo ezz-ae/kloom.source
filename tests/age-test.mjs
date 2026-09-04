@@ -74,8 +74,20 @@ check(/beauty filter/.test(neg) && /poreless/.test(neg), "and still refuses the 
 // Every cached portrait was made under the old prompt, so without a new cache
 // key the fifty-year-olds simply stay.
 const route = readFileSync("app/api/character-photo/route.ts", "utf8")
-const ver = (route.match(/REALISM_VERSION \|\| "(r\d+)"/) || [])[1]
-check(ver && Number(ver.slice(1)) >= 5, `the realism version was bumped so old faces regenerate (${ver})`)
+
+// A HAND-BUMPED VERSION WAS NOT ENOUGH, and this is the lesson the file exists
+// to keep. The path carried REALISM_VERSION, Vercel had it pinned to r3, and the
+// env beat the code default — so the de-glamming pass AND the age fix both wrote
+// to a cache key that never moved. Production served faces from a prompt that no
+// longer existed, twice, and nothing said why.
+check(/PROMPT_FINGERPRINT/.test(route), "the cache path carries a fingerprint of the prompt")
+check(/\$\{PROMPT_FINGERPRINT\}/.test(route), "and it is actually interpolated into the path")
+const fp = src.slice(src.indexOf("export const PROMPT_FINGERPRINT"))
+for (const pool of ["AGE", "LOOK_F", "LOOK_M", "LOOK_X", "STYLE", "HAIR", "PORTRAIT_NEG", "BASE"]) {
+  check(new RegExp(`\\b${pool}\\b`).test(fp.slice(0, 600)), `the fingerprint covers ${pool}`)
+}
+check(!/process\.env/.test(fp.slice(0, 600)),
+  "and nothing in the environment can pin it — that is what went wrong before")
 
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

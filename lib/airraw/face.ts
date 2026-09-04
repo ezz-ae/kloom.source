@@ -28,6 +28,23 @@ const RETRY_MS = 5 * 60_000
 const failed = new Map<string, number>()
 let offUntil = 0
 
+// How many portrait requests may be in flight at once, page-wide.
+//
+// The front door puts a dozen-plus faces on screen at once, and on a cache miss
+// every one of them was a simultaneous generation. The image provider limits on
+// traffic SHAPE, not volume — the live logs showed a single visitor opening one
+// screen and collecting twenty 429s, then the function being killed at 120s.
+// A cache HIT is a ~200ms HEAD check, so queueing costs a hit almost nothing;
+// a miss now arrives one at a time instead of as a burst.
+const FACE_LANES = 4
+let faceLanesBusy = 0
+const faceLaneWaiters: Array<() => void> = []
+const acquireFaceLane = () => new Promise<void>((r) => {
+  if (faceLanesBusy < FACE_LANES) { faceLanesBusy++; r() }
+  else faceLaneWaiters.push(() => { faceLanesBusy++; r() })
+})
+const releaseFaceLane = () => { faceLanesBusy = Math.max(0, faceLanesBusy - 1); const next = faceLaneWaiters.shift(); if (next) next() }
+
 // `seed` wins, and every AIRRAW caller now passes one (faceSeedFor in roster.ts).
 // The name-only fallback is what the whole product used to run on, and it capped
 // the cast at 298 people — one face per name, shared across every archetype
@@ -77,6 +94,9 @@ export function faceUrl(p: FacePersona): Promise<string | null> {
   const pending = inflight.get(k)
   if (pending) return pending
   const req = (async (): Promise<string | null> => {
+    await acquireFaceLane()
+    // The provider may have been latched off while this one queued.
+    if (Date.now() < offUntil) { releaseFaceLane(); return null }
     try {
       const r = await fetch("/api/character-photo", {
         method: "POST",
@@ -97,7 +117,7 @@ export function faceUrl(p: FacePersona): Promise<string | null> {
       if (url) { mem.set(k, url); try { localStorage.setItem(lsKey(k), url) } catch { /* */ } return url }
       failed.set(k, Date.now())
       return null
-    } catch { failed.set(k, Date.now()); return null } finally { inflight.delete(k) }
+    } catch { failed.set(k, Date.now()); return null } finally { inflight.delete(k); releaseFaceLane() }
   })()
   inflight.set(k, req)
   return req

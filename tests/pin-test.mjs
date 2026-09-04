@@ -53,5 +53,9 @@ check(/b === RATE_LIMITED/.test(photo) && /limited = true; break/.test(photo), "
 check(/if \(asked >= WALK_MAX\) break/.test(photo), "one request's model walk is bounded")
 check(/Date\.now\(\) < falOffUntil\) return null/.test(photo), "a dead FAL key is not retried on every face")
 
+const face = read("lib/airraw/face.ts")
+check(/const FACE_LANES = 4/.test(face) && /await acquireFaceLane\(\)/.test(face) && /inflight\.delete\(k\); releaseFaceLane\(\)/.test(face),
+  "portraits are requested a few at a time, never as a burst — and a lane is always given back")
+
 console.log(fails ? `\n${fails} FAILED` : "\nall pin checks pass")
 process.exit(fails ? 1 : 0)

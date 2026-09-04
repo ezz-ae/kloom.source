@@ -13,7 +13,7 @@
  * real, and — that's the whole point — you can't always tell.
  */
 import { useEffect, useRef, useState } from "react"
-import { groupCast, type Cluster } from "@/lib/airroom/roster"
+import { groupCast, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
 import { Face } from "@/components/airroom/Face"
@@ -319,7 +319,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
           <div style={{ position: "relative", width: "min(30vw, 118px)", aspectRatio: "1" }}>
             {speaking && !muted && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `2px solid ${dot(members[active]?.f ?? f)}`, animation: "gpulse 1.5s ease-out infinite" }} />}
             <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${dot(members[active]?.f ?? f)}${speaking && !muted ? "" : "66"}`, boxShadow: `0 18px 56px -18px ${dot(members[active]?.f ?? f)}88`, transition: "border-color .3s", background: avatarBg(seed * 7 + active + 1, members[active]?.f ?? f) }}>
-              <Face persona={{ name: members[active]?.host || "", gender: members[active]?.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <Face persona={{ name: members[active]?.host || "", gender: members[active]?.gender, seed: faceSeedFor(members[active]) }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </div>
           </div>
           <div style={{ fontSize: 16, fontWeight: 600, color: "#eef4f8", lineHeight: 1 }}>{members[active]?.host}</div>
@@ -328,7 +328,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
           {members.slice(0, 12).map((m, i) => (
             <button key={i} onClick={() => passTo(i)} disabled={busy} aria-label={`pass the mic to ${m.host}`}
               style={{ flexShrink: 0, width: 38, height: 38, borderRadius: "50%", overflow: "hidden", padding: 0, background: avatarBg(seed * 7 + i + 1, m.f), border: i === active ? `2px solid ${dot(m.f)}` : "1px solid rgba(255,255,255,.18)", boxShadow: i === active ? `0 0 10px ${dot(m.f)}88` : "none", opacity: busy ? 0.55 : i === active ? 1 : 0.85, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "border-color .2s, box-shadow .2s" }}>
-              <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <Face persona={{ name: m.host, gender: m.gender, seed: faceSeedFor(m) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </button>
           ))}
           {members.length > 12 && (
@@ -401,7 +401,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
               <button key={i} onClick={() => { setPeopleOpen(false); onCall?.(m) }} aria-label={`call ${m.host}`}
                 style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "none", border: "none", padding: 4, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
                 <span style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed * 7 + i + 1, m.f), border: i === active ? `2px solid ${dot(m.f)}` : "1px solid rgba(255,255,255,.16)", boxShadow: i === active ? `0 0 12px ${dot(m.f)}77` : "none", display: "block" }}>
-                  <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  <Face persona={{ name: m.host, gender: m.gender, seed: faceSeedFor(m) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                 </span>
                 <span style={{ fontSize: 12.5, fontWeight: 500, color: "#eef4f8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 84 }}>{m.host}</span>
               </button>

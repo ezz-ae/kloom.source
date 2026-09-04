@@ -21,7 +21,7 @@
  * a toast that leaves, exactly as a notification should.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
-import { makeCharacter, pickForLanguages, type Cluster } from "@/lib/airroom/roster"
+import { makeCharacter, pickForLanguages, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { matchesPrefs } from "@/lib/airraw/lang-prefs"
 import { walkFor, matchesTaste, getTaste } from "@/lib/airraw/taste"
 import { cardLinesFor } from "@/lib/airraw/dossier"
@@ -182,7 +182,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
 
       {/* the NEXT person, underneath — so a swipe reveals a face, not a black hole */}
       <div style={{ position: "absolute", inset: 0, opacity: 0.5 }} aria-hidden>
-        <Face persona={{ name: next.host, gender: next.gender }} lazy={false}
+        <Face persona={{ name: next.host, gender: next.gender, seed: faceSeedFor(next) }} lazy={false}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "brightness(.5)" }} />
       </div>
 
@@ -208,7 +208,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
         </div>
       ) : (
       <div key={i} ref={cardRef} style={{ position: "absolute", inset: 0, willChange: "transform, opacity", animation: "fdIn .4s ease both" }}>
-        <Face persona={{ name: person.host, gender: person.gender }} lazy={false} onLive={setLive}
+        <Face persona={{ name: person.host, gender: person.gender, seed: faceSeedFor(person) }} lazy={false} onLive={setLive}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
                    filter: live ? "none" : "blur(26px) saturate(1.3)",
                    // Lift the face out of the copy. The portraits are 3:4 and a

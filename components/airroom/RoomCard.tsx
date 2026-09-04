@@ -8,7 +8,7 @@
  * crowd you'll meet inside. "Drift in" / "say hi" opens the real room.
  */
 import { useMemo, useState, useEffect, useRef } from "react"
-import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
+import { makeCharacter, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { Face } from "@/components/airroom/Face"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
@@ -102,14 +102,14 @@ export function RoomCard({ p, onEnter, onClose, lang }: { p: RoomPreview; onEnte
               const s = BG_SPOTS[i]
               return (
                 <div key={i} aria-hidden style={{ position: "absolute", left: `${s.left}%`, top: `${s.top}%`, width: `${38 * s.scale}%`, aspectRatio: "1", borderRadius: "50%", overflow: "hidden", zIndex: s.z, filter: `blur(${s.blur}px)`, opacity: 0.72, border: ".5px solid rgba(255,255,255,.08)" }}>
-                  <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", animation: `rcburns ${10 + (i % 4)}s ease-in-out infinite`, animationDelay: `${-i * 1.4}s` }} />
+                  <Face persona={{ name: m.host, gender: m.gender, seed: faceSeedFor(m) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", animation: `rcburns ${10 + (i % 4)}s ease-in-out infinite`, animationDelay: `${-i * 1.4}s` }} />
                 </div>
               )
             })}
 
             {/* lead — large, sharp, foreground */}
             <div style={{ position: "absolute", left: isVoice ? 0 : "50%", right: isVoice ? 0 : "auto", top: isVoice ? 0 : "auto", bottom: 0, transform: isVoice ? "none" : "translateX(-50%)", width: isVoice ? "100%" : "62%", height: isVoice ? "100%" : "88%", zIndex: 5, overflow: "hidden", borderRadius: isVoice ? 0 : "20px 20px 0 0" }}>
-              <Face persona={{ name: lead.host, gender: lead.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", animation: "rcburns 11s ease-in-out infinite" }} />
+              <Face persona={{ name: lead.host, gender: lead.gender, seed: faceSeedFor(lead) }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", animation: "rcburns 11s ease-in-out infinite" }} />
             </div>
 
             {/* ambient life — drifting tinted light + a breathing vignette */}

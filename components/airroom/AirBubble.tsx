@@ -8,6 +8,7 @@
  *                             no pressing. Ignores its own voice while it speaks.
  */
 import { type CSSProperties, useEffect, useRef, useState } from "react"
+import { faceSeedFor } from "@/lib/airroom/roster"
 import type { Cluster, Heat } from "@/lib/airroom/roster"
 import { SpeechSegmenter, phoneMicAudio } from "@/lib/speech-segmenter"
 import { canListen } from "@/lib/voice-once"
@@ -782,7 +783,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           {speaking && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `2px solid ${accent}`, animation: "airpulse 1.5s ease-out infinite" }} />}
           <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${speaking ? accent : accent + "50"}`, boxShadow: `0 22px 70px -22px ${glow}`, transition: "border-color .3s" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <Face persona={{ name: cluster.host, gender: cluster.gender }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <Face persona={{ name: cluster.host, gender: cluster.gender, seed: faceSeedFor(cluster) }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
         </div>
 

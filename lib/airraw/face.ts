@@ -28,12 +28,16 @@ const RETRY_MS = 5 * 60_000
 const failed = new Map<string, number>()
 let offUntil = 0
 
+// `seed` wins, and every AIRRAW caller now passes one (faceSeedFor in roster.ts).
+// The name-only fallback is what the whole product used to run on, and it capped
+// the cast at 298 people — one face per name, shared across every archetype
+// forever. It stays only for callers that genuinely have nothing else.
 function keyOf(p: FacePersona): string { return String(p.seed || p.name || "").trim() }
 
 // Bump when the SERVER image pipeline changes (model / realism pass) so every client
 // drops its cached URLs and re-fetches the new faces — otherwise a returning visitor
 // keeps seeing the old face URL saved in localStorage even though the server moved on.
-const FACE_CACHE_VERSION = "v5"
+const FACE_CACHE_VERSION = "v6"   // v6: faces key on archetype+name, not name alone
 const lsKey = (k: string) => `airraw_face:${FACE_CACHE_VERSION}:` + k
 
 // One-time sweep: drop face URLs cached under an older pipeline version so stale

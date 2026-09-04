@@ -20,7 +20,7 @@ import { getFai, DAILY_EARN_CAP, PRO_EARN_CAP, earnedToday } from "@/lib/airraw/
 import { listTalks, forgetAll, forgetTalk, memoryEnabled, memoryOff, setMemoryOff, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { getLangPrefs, saveLangPrefs, langPrefsPersist, type LangPrefs } from "@/lib/airraw/lang-prefs"
 import { LANGUAGES } from "@/lib/languages"
-import { VIBES } from "@/lib/airroom/roster"
+import { VIBES, faceSeedFor } from "@/lib/airroom/roster"
 import { getTaste, saveTaste, tasteIsSet, type Taste, type TasteGender } from "@/lib/airraw/taste"
 import { Face } from "@/components/airroom/Face"
 
@@ -265,7 +265,7 @@ export function YouPage({ onPass, onResume }: {
                   {talks.slice(0, 8).map((t) => (
                     <li key={t.key} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2">
                       <span className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#160f24]">
-                        <Face persona={{ name: t.cluster.host, gender: t.cluster.gender }} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                        <Face persona={{ name: t.cluster.host, gender: t.cluster.gender, seed: faceSeedFor(t.cluster) }} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                       </span>
                       <button onClick={() => onResume?.(t)} className="min-w-0 flex-1 text-left">
                         <span className="block truncate text-sm font-medium text-white/85">{t.cluster.host}</span>

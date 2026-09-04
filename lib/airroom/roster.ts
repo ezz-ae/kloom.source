@@ -428,6 +428,31 @@ const M_VOICES = VOICE_CATALOG.filter((v) => v.gender === "male").map((v) => v.i
  * built). Deterministic per seed, so the same dot always opens the same person
  * — same name, same voice, same lines — every time you tap it.
  */
+/**
+ * The key a character's FACE is generated from.
+ *
+ * This exists because the face was keyed on the NAME alone, which quietly capped
+ * the entire product at 298 possible people — one per name in the two pools —
+ * and contradicted the comment three lines into makeCharacter's return: two
+ * characters called Mara are supposed to be two different women. They weren't.
+ * They shared a face, across every archetype, forever.
+ *
+ * Keyed on ARCHETYPE + NAME rather than the full identity key, and that is a
+ * deliberate ceiling rather than an oversight. The full key carries a per-swipe
+ * seed, so using it would mean a brand-new generated image for every card anyone
+ * ever swipes past — unbounded spend for faces most people see once. Archetype +
+ * name is 10x the people (about 2,980) for a cost that stays finite and can be
+ * reasoned about, and it buys the distinction that actually reads on screen: the
+ * Mara in "erotic stories" is not the Mara in "no limits".
+ *
+ * Returns undefined for a character with no name, so the caller falls back to
+ * the old behaviour instead of generating a face for "".
+ */
+export function faceSeedFor(c?: { archetype?: string; host?: string } | null): string | undefined {
+  if (!c?.host) return undefined
+  return `${c.archetype || "x"}:${c.host}`
+}
+
 export function makeCharacter(seed: number, f: number): Cluster {
   const r = rng((seed * 2654435761) >>> 0)
   const A =

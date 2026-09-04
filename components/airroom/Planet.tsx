@@ -15,7 +15,7 @@
  * confirm your age by opening one.
  */
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
-import { makeCharacter, pickForLanguages, type Cluster } from "@/lib/airroom/roster"
+import { makeCharacter, pickForLanguages, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { AirBubble } from "@/components/airroom/AirBubble"
@@ -1122,7 +1122,7 @@ function RoomDeck({ onJoin, onExplore, fai, onProfile, pos, setPos, onResume, on
               style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 12px 0 4px", borderRadius: 999, background: "rgba(4,5,11,.62)", border: ".5px solid rgba(255,255,255,.14)", cursor: "pointer", WebkitTapHighlightColor: "transparent", color: "#eef4f8", fontFamily: "inherit" }}
             >
               <span style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", flex: "0 0 auto", background: "rgba(255,255,255,.08)" }}>
-                <Face persona={{ name: t.cluster.host, gender: t.cluster.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <Face persona={{ name: t.cluster.host, gender: t.cluster.gender, seed: faceSeedFor(t.cluster) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               </span>
               <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
                 <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t.cluster.host}</span>
@@ -1139,7 +1139,7 @@ function RoomDeck({ onJoin, onExplore, fai, onProfile, pos, setPos, onResume, on
         <div style={{ display: "flex", alignItems: "center" }}>
           {room.cast.map((m, k) => (
             <span key={k} style={{ width: 56, height: 56, borderRadius: "50%", overflow: "hidden", border: `2px solid hsla(${co.h},70%,62%,.85)`, marginLeft: k ? -14 : 0, boxShadow: "0 8px 22px -8px rgba(0,0,0,.75)", background: `hsl(${co.h},45%,30%)` }}>
-              <Face persona={{ name: m.host, gender: m.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              <Face persona={{ name: m.host, gender: m.gender, seed: faceSeedFor(m) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </span>
           ))}
           <span style={{ marginLeft: 12, fontSize: 13, color: "rgba(238,244,248,.62)" }}>{room.n} in here</span>

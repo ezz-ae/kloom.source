@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { liveTalks, seatsLeft, ageLabel, talkRoom, heatF, BOARD_FACES, type Talk, type TalkRoom } from "@/lib/airraw/talks"
 import { getFai, spendFai, canAfford } from "@/lib/airraw/fai"
-import { groupCast } from "@/lib/airroom/roster"
+import { groupCast, faceSeedFor } from "@/lib/airroom/roster"
 import { Face } from "@/components/airroom/Face"
 
 const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#fb7185")
@@ -44,7 +44,7 @@ function Who({ t }: { t: Talk }) {
       <div style={{ display: "flex" }}>
         {shown.map((m, i) => (
           <span key={m.key} style={{ width: 26, height: 26, borderRadius: "50%", overflow: "hidden", display: "block", marginLeft: i ? -8 : 0, border: ".5px solid rgba(255,255,255,.22)", boxShadow: "0 2px 8px -2px rgba(0,0,0,.7)", background: "#160f24", zIndex: SHOWN - i }}>
-            <Face persona={{ name: m.host, gender: m.gender }} alt=""
+            <Face persona={{ name: m.host, gender: m.gender, seed: faceSeedFor(m) }} alt=""
               style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </span>
         ))}

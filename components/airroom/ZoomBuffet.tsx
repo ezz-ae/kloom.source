@@ -8,7 +8,7 @@
  * (lib/airroom/roster.makeCharacter). Cool→hot temperature runs through every level.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
+import { makeCharacter, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { usePresence } from "@/lib/airroom/presence"
@@ -106,7 +106,7 @@ export function ZoomBuffet() {
     const char = makeCharacter(seed, f)
     return (
       <button key={v} onClick={() => openVoice(char)} aria-label="a voice" style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed, f), border: "1px solid rgba(255,255,255,.14)", cursor: "pointer", boxShadow: `0 0 6px ${avatarGlow(f)}55`, padding: 0 }}>
-        <Face persona={{ name: char.host, gender: char.gender }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <Face persona={{ name: char.host, gender: char.gender, seed: faceSeedFor(char) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       </button>
     )
   }), [world, room, voicesCount, openVoice])

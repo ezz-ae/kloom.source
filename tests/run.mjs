@@ -42,6 +42,7 @@ const WHAT = {
   "video-test":       "a clip outlives its request, is paid for once, and persists",
   "cast-test":        "the floor has 2,980 people in it, not 298",
   "age-test":         "the floor is in its 20s and 30s, and the safety floor holds",
+  "pin-test":         "one person, one voice — greeting, call, and every chunk",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

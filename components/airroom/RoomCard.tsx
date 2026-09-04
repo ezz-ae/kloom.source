@@ -10,6 +10,7 @@
 import { useMemo, useState, useEffect, useRef } from "react"
 import { makeCharacter, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { Face } from "@/components/airroom/Face"
+import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 
@@ -65,12 +66,20 @@ export function RoomCard({ p, onEnter, onClose, lang }: { p: RoomPreview; onEnte
     setPreviewState("loading")
     const tok = ++previewTokRef.current
     try {
-      const res = await fetch("/api/tts", {
+      // Same seed and mode as the room will use, and pinned — the preview must be
+      // the voice you get inside, not a different one.
+      const who = faceSeedFor(lead) || lead.host
+      const lang2 = lang || "English"
+      await awaitPin(who, lang2)
+      const req = fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: lead.lines[0], personaName: lead.host, gender: lead.gender, language: lang || "English", voiceId: (lead as any).voiceId }),
+        body: JSON.stringify({ text: lead.lines[0], personaName: lead.host, seedKey: who, gender: lead.gender, language: lang2, voiceId: (lead as any).voiceId, elevenId: pinnedVoice(who, lang2), mode: "voice" }),
       })
+      claimFirst(who, lang2, req)
+      const res = await req
       if (!res.ok || tok !== previewTokRef.current) { setPreviewState("idle"); return }
+      pinFromResponse(who, lang2, res)
       const url = URL.createObjectURL(await res.blob())
       if (tok !== previewTokRef.current) { URL.revokeObjectURL(url); setPreviewState("idle"); return }
       const audio = new Audio(url)

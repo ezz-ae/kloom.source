@@ -14,6 +14,7 @@
  */
 import { useEffect, useRef, useState } from "react"
 import { groupCast, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
+import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
 import { Face } from "@/components/airroom/Face"
@@ -99,9 +100,16 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   const speak = async (text: string, m: Cluster) => {
     if (mutedRef.current) return   // muted: skip the voices (the words still arrive)
     try {
-      // Same seed as the face (the name), so voice and face never disagree.
-      const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, seedKey: m.host, gender: m.gender, language: langRef.current, voiceId: m.voiceId }) })
+      // Same seed as the face (archetype + name), so voice and face never disagree;
+      // and the voice they were first heard in, pinned, so they never change it.
+      const who = faceSeedFor(m) || m.host
+      const lang = langRef.current
+      await awaitPin(who, lang)
+      const req = fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, seedKey: who, gender: m.gender, language: lang, voiceId: m.voiceId, elevenId: pinnedVoice(who, lang), mode: "voice" }) })
+      claimFirst(who, lang, req)
+      const res = await req
       if (!res.ok) return
+      pinFromResponse(who, lang, res)
       const url = URL.createObjectURL(await res.blob())
       const a = audioRef.current
       if (a) {
@@ -169,9 +177,10 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       // different people to each other.
       personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. ${dossierLine(mem.key || mem.host)} React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.${topic ? ` Tonight the room keeps circling one thing: "${topic}" — drift back to it when the thread goes quiet.` : ""}`,
       speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am", backstory: "", language: langRef.current,
-      // Name, not the unique key: accent is derived from this and the face is
-      // generated from the name, so they must agree.
-      seedKey: mem.host,
+      // The face's seed (archetype + name), not the unique key and not the bare
+      // name: accent is derived from this and the face is generated from it, so
+      // they must agree.
+      seedKey: faceSeedFor(mem) || mem.host,
     }
     const msgs = linesRef.current.map((l) => l.kind === "ai" && l.handle === mem.host
       ? { role: "assistant" as const, content: l.content }

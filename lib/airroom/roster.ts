@@ -548,10 +548,15 @@ export function pickForLanguages(
   scan = 24,
 ): Cluster {
   const first = makeCharacter(seed, f)
-  if (matches(first.key)) return first
+  // Judged on the FACE seed, not the unique key: nativeLanguageFor() derives a
+  // language from the seed's ethnicity, and the face and voice derive theirs
+  // from faceSeedFor(). Three seeds gave one person three ethnicities — the
+  // front door promised an Arabic speaker, the face was someone else, the voice
+  // a third. One seed, one person.
+  if (matches(faceSeedFor(first) || first.key)) return first
   for (let i = 1; i < scan; i++) {
     const c = makeCharacter((seed + i * 7919) >>> 0, f)   // 7919 prime: spreads the walk
-    if (matches(c.key)) return c
+    if (matches(faceSeedFor(c) || c.key)) return c
   }
   return first
 }

@@ -125,8 +125,13 @@ export async function POST(req: NextRequest) {
       // anonymous pass has no account, so the webhook is the only GUARANTEED capture point —
       // without this row the webhook sees "unknown_intent" and the paid conversion is lost.
       try {
+        // wallet is NOT NULL on the table; a null here made the insert fail silently
+        // (it's in a try/catch by design), so the webhook answered "unknown_intent"
+        // for every pass and its guaranteed-capture Purchase never fired. The pass
+        // has no account, so the wallet is a constant that can never collide with
+        // an email — ziina-verify keys its reconcile on the buyer's email.
         if (hasAdmin()) await getAdminClient().from("ziina_payments").insert({
-          id: intent.id, wallet: null, credits: 0, kind: "airraw_pass",
+          id: intent.id, wallet: "anon", credits: 0, kind: "airraw_pass",
           amount: intent.amount ?? null, currency: intent.currency_code ?? null, status: "pending",
         })
       } catch { /* never block checkout on the bookkeeping row */ }

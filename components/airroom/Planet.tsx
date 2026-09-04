@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { makeCharacter, pickForLanguages, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
+import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
@@ -326,11 +327,21 @@ export function Planet() {
   const speak = useCallback(async (char: Cluster) => {
     const tok = ++speakTok.current
     try {
-      const res = await fetch("/api/tts", {
+      // Cast EXACTLY as the call will cast them — same seed, same engine mode —
+      // and pin the result, so the voice that murmurs from the sky is the voice
+      // that answers when you tap. This used to send the bare name and no mode,
+      // which was a different voice on a different model from the one in the call.
+      const who = faceSeedFor(char) || char.host
+      const lang = langRef.current
+      await awaitPin(who, lang)
+      const req = fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: char.lines[0], personaName: char.host, gender: char.gender, language: langRef.current, voiceId: char.voiceId }),
+        body: JSON.stringify({ text: char.lines[0], personaName: char.host, seedKey: who, gender: char.gender, language: lang, voiceId: char.voiceId, elevenId: pinnedVoice(who, lang), mode: "voice" }),
       })
+      claimFirst(who, lang, req)
+      const res = await req
       if (!res.ok || speakTok.current !== tok) return
+      pinFromResponse(who, lang, res)
       const url = URL.createObjectURL(await res.blob())
       if (speakTok.current !== tok) { URL.revokeObjectURL(url); return }
       const a = audioRef.current

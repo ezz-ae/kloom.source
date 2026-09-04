@@ -54,6 +54,16 @@ const TOGETHER_LADDER: { model: string; steps: number }[] = (() => {
   return [{ model: "black-forest-labs/FLUX.1-dev", steps: 28 }]
 })()
 const togetherOff = new Set<string>()   // models this key can't use (cached 4xx)
+// "The account is throttled" — distinct from "this model failed", because the
+// right response is to WAIT, not to ask the next model the same question.
+const RATE_LIMITED = Symbol("together-rate-limited")
+// How many reachable models one request may try before giving up. Unreachable
+// ones are remembered and skipped for free; this bounds the walk on a bad night
+// so a single card can't spend its whole 120s and be killed mid-generation.
+const WALK_MAX = Math.max(1, Number(process.env.TOGETHER_WALK_MAX || 4))
+// FAL with a dead key: 401 on every fallback, forever, one wasted round trip per
+// face. Latched off with the same TTL as the Together breaker.
+let falOffUntil = 0
 
 /**
  * When the image provider REJECTS THE KEY, stop asking.
@@ -190,7 +200,7 @@ async function genQwen(prompt: string, negative: string, seed: number): Promise<
 }
 
 async function genFal(prompt: string, seed: number): Promise<Buffer | null> {
-  if (!FAL_KEY) return null
+  if (!FAL_KEY || Date.now() < falOffUntil) return null
   // Default to FLUX.1-dev (photoreal, top quality). Set FAL_IMAGE_MODEL to
   // "fal-ai/flux-pro/v1.1" for the very strongest tier.
   const model = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"
@@ -201,7 +211,13 @@ async function genFal(prompt: string, seed: number): Promise<Buffer | null> {
       body: JSON.stringify({ prompt, seed, image_size: "portrait_4_3", num_inference_steps: 30, enable_safety_checker: false }),
       signal: AbortSignal.timeout(45000),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403 || res.status === 402) {
+        falOffUntil = Date.now() + AUTH_OFF_MS
+        console.error(`[character-photo] fal rejected the key (${res.status}) — skipping fal for ${AUTH_OFF_MS / 60000}m`)
+      }
+      return null
+    }
     const d = await res.json()
     const imgUrl: string = d?.images?.[0]?.url || ""
     if (!imgUrl) return null
@@ -273,7 +289,7 @@ async function togetherImageModels(): Promise<string[]> {
 }
 
 // Together AI → FLUX.1. Returns image bytes (or null).
-async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL, steps = TOGETHER_STEPS): Promise<Buffer | null> {
+async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL, steps = TOGETHER_STEPS): Promise<Buffer | null | typeof RATE_LIMITED> {
   if (!TOGETHER_KEY) return null
   try {
     // Together returns a hosted URL by default; that's the most compatible path.
@@ -298,7 +314,8 @@ async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL,
       else if (res.status >= 400 && res.status < 500 && (model !== TOGETHER_MODEL || /non-serverless|unable to access|not available/i.test(body))) {
         togetherOff.add(model)
       }
-      console.error("together image error", model, res.status, body); return null
+      console.error("together image error", model, res.status, body)
+      return res.status === 429 ? RATE_LIMITED : null
     }
     const d = await res.json()
     const url: string = d?.data?.[0]?.url || ""
@@ -494,6 +511,7 @@ export async function POST(request: Request) {
         for (const rung of TOGETHER_LADDER) {
           if (togetherOff.has(rung.model)) continue
           const b = await genTogether(prompt, dseed, rung.model, rung.steps)
+          if (b === RATE_LIMITED) break   // account throttled — the floor walk below backs off, once
           if (b) { usedModel = rung.model; return b }
         }
       }
@@ -509,16 +527,32 @@ export async function POST(request: Request) {
       const found = await togetherImageModels()
       const floor = found.length ? [...found, ...TOGETHER_FLOOR.filter((m) => !found.includes(m))] : TOGETHER_FLOOR
       const tried: string[] = []
+      let limited = false
+      let asked = 0
       for (const m of floor) {
         if (togetherOff.has(m)) { tried.push(`${m}(known-unreachable)`); continue }
-        tried.push(m)
-        const b = await genTogether(prompt, dseed, m)
+        if (asked >= WALK_MAX) break
+        tried.push(m); asked++
+        let b = await genTogether(prompt, dseed, m)
+        // A 429 is the ACCOUNT being throttled, not this model. The live logs
+        // showed single requests walking twenty models, collecting twenty 429s,
+        // and then being killed at 120s — walking on just spends the budget on
+        // the same closed door. Back off once (Together's own guidance: ~2s),
+        // ask the SAME model again, and if it's still closed stop here; the
+        // outer retry loop spaces the next attempt.
+        if (b === RATE_LIMITED) {
+          await new Promise((r) => setTimeout(r, 2200))
+          b = await genTogether(prompt, dseed, m)
+          if (b === RATE_LIMITED) { limited = true; break }
+        }
         if (b) { usedModel = m; return b }
       }
       // Exhausting the floor used to return null in silence, which is the worst
       // possible failure to debug: a 502 with no log line and no clue which
       // models were even attempted. Say it, in the log AND in the response body.
-      genErr = `together floor exhausted (account lists ${found.length} image model(s)${found.length ? ": " + found.slice(0, 8).join(", ") : ""}); tried: ${tried.join(", ") || "(all known-unreachable)"}`
+      genErr = limited
+        ? `together rate-limited (429) even after backoff; tried: ${tried.join(", ")}`
+        : `together floor exhausted (account lists ${found.length} image model(s)${found.length ? ": " + found.slice(0, 8).join(", ") : ""}); tried: ${tried.join(", ") || "(all known-unreachable)"}`
       console.error(`[character-photo] ${genErr}`)
       return null
     }
@@ -545,7 +579,13 @@ export async function POST(request: Request) {
 
   let bytes: Buffer | null = null
   const MAX_TRIES = dp ? 3 : 1
+  // Leave the function time to ANSWER. A retry that starts with a minute already
+  // spent ends as a runtime kill, which the client reads as a network error and
+  // latches for five minutes — a clean 502 now is the better failure.
+  const startedAt = Date.now()
+  const BUDGET_MS = 80_000
   for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
+    if (attempt > 0 && Date.now() - startedAt > BUDGET_MS) break
     // Space the retries. Three generations fired back-to-back is a burst, and
     // Together rate-limits on traffic SHAPE, not just volume — the live logs
     // showed 429 "too many requests in a short window" from a single visitor

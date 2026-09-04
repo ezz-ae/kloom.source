@@ -60,7 +60,10 @@ export async function POST(request: Request) {
     if (seedKey) await ensureAccentPools(elKey)
     else warmAccentPools(elKey)
     const el = await elevenTTS(ttsText, elKey, seedKey || personaName, gender, elevenId, mode, prevText, language, seedKey)
-    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast } })
+    // X-EL-Voice is the voice id this chunk was spoken in. The client pins it and
+    // sends it back as elevenId on every later request for the same person, so the
+    // pools this instance happened to discover can never recast them mid-call.
+    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast, "X-EL-Voice": elVoice } })
     // fall through to Sesame / CosyVoice / Fish
   }
 
@@ -430,10 +433,7 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
     // are env-overridable so it can be re-tuned without a deploy via ELEVENLABS_STABILITY
     // / _SIMILARITY / _STYLE. 192kbps for crisper audio.
     const fmt = process.env.ELEVENLABS_FORMAT || "mp3_44100_192"
-    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=${fmt}`, {
-      method: "POST",
-      headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
-      body: JSON.stringify({
+    const reqBody = JSON.stringify({
         text,
         model_id: model,
         // Prosody continuity: when a reply is spoken in chunks, tell the engine what
@@ -457,10 +457,28 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
               style: Number(process.env.ELEVENLABS_STYLE ?? 0.6),
               use_speaker_boost: true,
             },
-      }),
-      signal: AbortSignal.timeout(30000),
-    })
+      })
+    // RETRY BEFORE FALLING THROUGH. The plan's concurrency cap answers 429 the
+    // moment a few chunks overlap, and the old code took any non-2xx as "this
+    // engine is down" and handed the chunk to the fallback engine — which speaks
+    // in a completely different voice. One sentence of a reply in another
+    // person's voice is the most reported bug on the floor, and most of it was a
+    // limit that clears in under a second. So: 429 and 5xx are retried with a
+    // short backoff; 4xx (quota, auth, bad voice) are not — those don't clear.
+    let res!: Response
+    for (let attempt = 0; attempt < EL_TRIES; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 350 * attempt + Math.random() * 250))
+      res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=${fmt}`, {
+        method: "POST",
+        headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
+        body: reqBody,
+        signal: AbortSignal.timeout(30000),
+      })
+      if (res.status !== 429 && res.status < 500) break
+      if (attempt + 1 < EL_TRIES) console.warn(`elevenlabs ${res.status} — retrying (${attempt + 1}/${EL_TRIES - 1})`)
+    }
     elCast = `${model}/${voice}${nonLatin ? "/nonlatin" : ""}`
+    elVoice = voice
     if (!res.ok) {
       elDiag = `${res.status} ${(await res.text()).slice(0, 180)}`
       console.error("elevenlabs", elDiag)
@@ -487,6 +505,10 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
 
 // Last ElevenLabs model+voice actually used — surfaced as X-EL-Cast for verification.
 let elCast = ""
+// The voice id alone — surfaced as X-EL-Voice so the client can pin it.
+let elVoice = ""
+// Attempts against the engine before giving the chunk to the fallback (429/5xx only).
+const EL_TRIES = Math.max(1, Math.min(6, Number(process.env.ELEVENLABS_TRIES || 4)))
 // Last ElevenLabs failure reason — surfaced on the fallback response as X-EL-Diag so
 // we can see WHY it fell back to Fish (e.g. a 401 missing-permissions) without ever
 // handling the key directly.

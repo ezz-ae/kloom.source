@@ -53,6 +53,47 @@ before turning ads on. Each item maps to a failure mode that paid traffic punish
       ad traffic. Do not re-enable them for the public campaign without real age
       verification.
 
+## Money readiness — audit of 2026-09-04 (what actually blocks revenue)
+
+Checked live against airraw.com, the Vercel project, Supabase and every provider key
+in production. Card checkout is LIVE (Ziina `test:false`), the pass mints a signed
+token, chat and speech recognition answer. These are the open items, in order:
+
+1. **ElevenLabs is the single point of failure for the product, and it is sick.**
+   The account has an OPEN, UNPAID $20 invoice, the monthly character reset date is
+   in the past (24 Aug), and ~100k of 502k characters remain. Production already hit
+   `quota_exceeded` on 3 Sep. At ~800 TTS calls/day that is one to two days of voice.
+   When it hits zero every face falls back to Fish in a DIFFERENT voice, and Arabic
+   speech recognition (Scribe) stops. Pay the invoice, fix the card, and either move
+   to a plan with usage-based overage or upgrade the tier before spending on ads.
+2. **`AIRRAW_PRO_SECRET` is not set in Vercel.** Passes are signed with the Supabase
+   service-role key instead. Set a dedicated secret BEFORE the first sale (there are
+   none yet, so nothing is voided):
+   `openssl rand -hex 32 | vercel env add AIRRAW_PRO_SECRET production` then redeploy.
+3. **Dead keys in production env:** `FAL_KEY` (401 — an 11-char placeholder) and
+   `XAI_API_KEY` (400). Remove or replace; the code now latches a dead FAL key off
+   per instance, but a real key would give portraits a second engine.
+4. **The pass is priced under its own cost for a heavy user.** 6,000 voice minutes for
+   $9 (capped 240 min/day). One minute of spoken reply ≈ 750 characters; on the
+   Creator tier that is ≈ $0.16/min, so a single user who talks an hour a day for the
+   90 days costs ≈ $430 in TTS against $9 of revenue — before LLM, STT and images.
+   Either cut `AIRRAW_PASS_MINUTES` (300–600 is defensible at $9), raise the price,
+   or serve pass voice from the cheaper engine. Decide before ads, not after.
+5. **Every prompt change re-renders the entire cast.** Faces are cached by a prompt
+   fingerprint; the last two commits changed it twice in a day, so every returning
+   visitor got a NEW face for the same person and the floor re-generated ~1,000
+   portraits through Together's rate limits (429 storms, 120s timeouts). Freeze the
+   portrait prompt now — a face that changes is worse than a face that is imperfect.
+6. **Branding is split.** The tab title and OG say AIRRAW, the shell says FAITALK, the
+   pass sheet says "airraw pro", the Ziina statement says "The Pass". Pick one before
+   people see a card charge they don't recognise.
+
+Fixed in code on 2026-09-04: voice pinning (one voice per person across greeting,
+call and every chunk — `lib/airraw/voice-pin.ts`), 429 retry on the voice engine
+before any fallback, face/voice/dialect/language-filter all keyed on the SAME seed,
+the pending-pass row that never inserted (NOT NULL wallet), Together 429 backoff
+instead of a 20-model walk, and a dead FAL key no longer retried per face.
+
 ## Known follow-ups (safe to launch without, fix soon)
 - KV-backed global cap + instant kill (current cap is per-instance in-memory).
 - Real age verification before any adult tier goes public.

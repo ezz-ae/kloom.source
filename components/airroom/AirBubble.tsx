@@ -9,6 +9,7 @@
  */
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import { faceSeedFor } from "@/lib/airroom/roster"
+import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import type { Cluster, Heat } from "@/lib/airroom/roster"
 import { SpeechSegmenter, phoneMicAudio } from "@/lib/speech-segmenter"
 import { canListen } from "@/lib/voice-once"
@@ -71,13 +72,28 @@ function personaFor(c: Cluster, lang?: string, pro = false) {
       `You want things and you say so out loud.`,
     speakingStyle: "raw, intimate voice at 2am — short fragments, direct, natural. get to it fast. stretch letters for feeling when it's real: 'yesss', 'noooo'. never formal, never robotic.",
     backstory: `A familiar voice on the ${c.vibe} part of the adult floor.`,
-    // Accent/dialect is derived from this, and the FACE is generated from the name —
-    // so this must be the NAME, or a character would look one ethnicity and sound
-    // another. The unique key stays where it's free: the dossier and saved threads.
-    seedKey: c.host,
+    // Accent/dialect is derived from this, and it MUST be the seed the FACE is
+    // generated from (faceSeedFor: archetype + name), or a character looks one
+    // ethnicity and sounds another. It was the bare name — which the face stopped
+    // using when the cast grew to 2,980 — so the Bea in "stories" was drawn with
+    // one face and cast with another woman's accent. The unique key stays where
+    // it's free: the dossier and saved threads.
+    seedKey: faceSeedFor(c) || c.host,
     barTalk: 100,
   }
 }
+
+// How many chunk requests may be in flight at once, across every call on the
+// page. Two keeps the next sentence downloading while this one plays; more than
+// that mostly bought 429s from the voice engine's concurrency cap.
+const TTS_LANES = 2
+let ttsLanesBusy = 0
+const ttsLaneWaiters: Array<() => void> = []
+const acquireTtsLane = () => new Promise<void>((r) => {
+  if (ttsLanesBusy < TTS_LANES) { ttsLanesBusy++; r() }
+  else ttsLaneWaiters.push(() => { ttsLanesBusy++; r() })
+})
+const releaseTtsLane = () => { ttsLanesBusy = Math.max(0, ttsLanesBusy - 1); const next = ttsLaneWaiters.shift(); if (next) next() }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const PARTING = [
@@ -288,19 +304,42 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     if (mutedRef.current || tok !== speakTokenRef.current) return
     const seq = seqRef.current++
     inflightRef.current++
+    // Settled when this chunk is done, whatever happened to it — it's what a
+    // sibling chunk waits on when this one is the person's first (see voice-pin).
+    let settleFirst: (() => void) | undefined
     try {
-      const res = await fetch("/api/tts", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        // prevText = what this voice already said this reply → the engine continues
-        // the same breath across chunks instead of restarting (no mid-reply shift).
-        // seedKey drives accent/voice casting and the FACE is generated from the
-        // name, so both use the name — otherwise a character looks one ethnicity and
-        // sounds another.
-        body: JSON.stringify({ text, personaName: cluster.host, seedKey: cluster.host, gender: cluster.gender, language: langRef.current, voiceId: cluster.voiceId, mode: "voice", prevText }),
-        signal: AbortSignal.timeout(30000),
-      })
+      // The SAME seed the face was generated from, so the voice and the dialect
+      // belong to the person on screen.
+      const who = faceSeedFor(cluster) || cluster.host
+      const lang = langRef.current
+      // Two things keep one reply in one voice. The first request for this person
+      // goes alone, so its pin exists before any sibling asks (see voice-pin); and
+      // at most TTS_LANES requests are ever in flight — enough to keep chunk N+1
+      // downloading while N plays, few enough not to trip the engine's concurrency
+      // limit, whose 429 used to hand a chunk to the fallback engine in a
+      // different voice.
+      await awaitPin(who, lang)
+      // Claim "first" BEFORE queueing for a lane, so a sibling that arrives while
+      // this one waits can't slip past and cast on its own.
+      if (!pinnedVoice(who, lang)) claimFirst(who, lang, new Promise<void>((r) => { settleFirst = r }))
+      await acquireTtsLane()
+      let res: Response
+      try {
+        if (tok !== speakTokenRef.current) return
+        res = await fetch("/api/tts", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          // prevText = what this voice already said this reply → the engine continues
+          // the same breath across chunks instead of restarting (no mid-reply shift).
+          // elevenId = the voice this person has already been heard in; the server
+          // honours it over its own casting, so nothing that changes server-side
+          // (discovered pools, a different instance) can recast them mid-call.
+          body: JSON.stringify({ text, personaName: cluster.host, seedKey: who, gender: cluster.gender, language: lang, voiceId: cluster.voiceId, elevenId: pinnedVoice(who, lang), mode: "voice", prevText }),
+          signal: AbortSignal.timeout(30000),
+        })
+      } finally { releaseTtsLane() }
       if (tok !== speakTokenRef.current) return
       if (!res.ok) { audioQueueRef.current.push({ url: null, seq }); return }
+      pinFromResponse(who, lang, res)
       const blob = await res.blob()
       if (tok !== speakTokenRef.current) return
       audioQueueRef.current.push({ url: URL.createObjectURL(blob), seq })
@@ -320,6 +359,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       // count reads as "still generating", so `speaking` would never clear and the
       // mic would never be handed back.
       if (tok === speakTokenRef.current) { inflightRef.current--; pump() }
+      settleFirst?.()
     }
   }
 

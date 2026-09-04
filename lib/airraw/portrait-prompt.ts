@@ -61,34 +61,34 @@ const AGE = [
 // So: attractive, specific, and IMPERFECT. A crooked smile and a gap in the
 // teeth do more for "she's real" than any amount of "stunning".
 const LOOK_F = [
-  "an attractive woman with a warm crooked smile and slightly uneven eyebrows",
-  "a good-looking woman with freckles across her nose and tired kind eyes",
-  "a pretty woman with a small gap in her front teeth and a lopsided grin",
-  "an attractive woman with a soft round face and a mole on her cheek",
-  "a good-looking woman with strong brows, bare skin and a direct look",
-  "an attractive woman with slightly frizzy hair and no makeup",
-  "a pretty woman with a sharp nose, thin lips and an amused expression",
-  "an attractive woman with faint acne scars and a genuine open smile",
-  "a good-looking woman with heavy eyelids and a knowing half-smile",
-  "an attractive woman with a wide jaw, faint laugh lines and warm eyes",
+  "an attractive young woman with a warm crooked smile and slightly uneven eyebrows",
+  "a good-looking young woman with freckles across her nose and bright direct eyes",
+  "a pretty young woman with a small gap in her front teeth and a lopsided grin",
+  "an attractive young woman with a soft round face and a mole on her cheek",
+  "a good-looking young woman with strong brows, bare skin and a direct look",
+  "an attractive young woman with slightly frizzy hair and no makeup",
+  "a pretty young woman with a sharp nose, thin lips and an amused expression",
+  "an attractive young woman with faint acne scars and a genuine open smile",
+  "a good-looking young woman with a slightly crooked nose and a half-smile",
+  "an attractive young woman with a wide jaw, ears that stick out and warm eyes",
 ]
 const LOOK_M = [
-  "an attractive man with stubble, a crooked nose and tired eyes",
-  "a good-looking man with a receding hairline and an easy grin",
-  "an attractive man with a heavy brow and a small scar through one eyebrow",
-  "a good-looking man with uneven stubble and slightly gapped teeth",
-  "an attractive man with a soft jaw, freckles and a quiet expression",
-  "a good-looking man with laugh lines and a broken-looking nose",
-  "an attractive man with thick messy eyebrows and a lopsided smile",
-  "a good-looking man with a shaved head and a faint chin scar",
-  "an attractive man with a round face, warm eyes and no styling",
-  "a good-looking man with sun-damaged skin and an unpolished look",
+  "an attractive young man with stubble and a slightly crooked nose",
+  "a good-looking young man with messy hair and an easy grin",
+  "an attractive young man with a heavy brow and a small scar through one eyebrow",
+  "a good-looking young man with uneven stubble and slightly gapped teeth",
+  "an attractive young man with a soft jaw, freckles and a quiet expression",
+  "a good-looking young man with a broken-looking nose and a crooked smile",
+  "an attractive young man with thick messy eyebrows and a lopsided smile",
+  "a good-looking young man with a shaved head and a faint chin scar",
+  "an attractive young man with a round face, warm eyes and no styling",
+  "a good-looking young man with acne scars and an unpolished look",
 ]
 const LOOK_X = [
-  "an attractive androgynous person with bare skin and an unreadable expression",
-  "a good-looking androgynous person with a crooked smile and messy hair",
-  "an attractive non-binary person with freckles and heavy eyelids",
-  "a good-looking androgynous person with strong brows and a faint scar",
+  "an attractive young androgynous person with bare skin and an unreadable expression",
+  "a good-looking young androgynous person with a crooked smile and messy hair",
+  "an attractive young non-binary person with freckles and a direct gaze",
+  "a good-looking young androgynous person with strong brows and a faint scar",
 ]
 
 // HOW IT WAS SHOT.
@@ -114,7 +114,7 @@ const STYLE = [
 
 const HAIR = [
   "short hair", "long hair", "curly hair", "buzzed hair", "tied-back hair", "messy hair",
-  "shoulder-length hair", "a fresh haircut", "greying hair", "dyed hair", "a headscarf", "a cap",
+  "shoulder-length hair", "a fresh haircut", "bleached hair", "dyed hair", "a headscarf", "a cap",
 ]
 
 const BASE =
@@ -130,7 +130,24 @@ const BASE =
   "an ordinary everyday adult, a completely fictional unique stranger with a normal realistic asymmetric face"
 
 export const PORTRAIT_NEG =
-  "child, minor, underage, teenager, young-looking, " +
+  // THE SAFETY TERMS STAY, EXACTLY AS THEY ARE. child/minor/underage/teenager are
+  // a hard floor and nothing below is allowed to weaken them.
+  //
+  // "young-looking" used to sit in this list and it did not belong: it is not a
+  // safety term, it is an aesthetic one, and it negates precisely the people the
+  // AGE pool asks for. Every persona is described as "in their early 20s" or
+  // "mid-20s" and the negative was simultaneously pushing away from anyone who
+  // looks young — so the model resolved the contradiction the only way it could,
+  // by ageing everyone up. A 22-year-old is young-looking; that is what 22 is.
+  "child, minor, underage, teenager, " +
+  // The counterweight, now that nothing is fighting youth by accident. These are
+  // what the de-glamming pass drifted toward when its imperfections were read as
+  // age rather than as texture.
+  // NOT "middle-aged": the AGE pool legitimately says "early 40s", and a negative
+  // that contradicts the positive is the exact bug being fixed two lines up.
+  // Only terms no persona is ever described as belong here.
+  "elderly, old person, wrinkled, deep wrinkles, aged skin, " +
+  "grey hair, balding, sagging skin, liver spots, "
   // Anti-likeness: keep generated faces from resembling any real, recognizable person.
   "celebrity, famous person, public figure, well-known model, recognizable actor, actress, " +
   "influencer, deepfake, likeness of a real person, lookalike, supermodel, fashion-model face, " +

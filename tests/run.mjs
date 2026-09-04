@@ -41,6 +41,7 @@ const WHAT = {
   "pay-test":         "a crypto pass needs a signed callback, never a claim",
   "video-test":       "a clip outlives its request, is paid for once, and persists",
   "cast-test":        "the floor has 2,980 people in it, not 298",
+  "age-test":         "the floor is in its 20s and 30s, and the safety floor holds",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

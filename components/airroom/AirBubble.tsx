@@ -333,7 +333,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           // elevenId = the voice this person has already been heard in; the server
           // honours it over its own casting, so nothing that changes server-side
           // (discovered pools, a different instance) can recast them mid-call.
-          body: JSON.stringify({ text, personaName: cluster.host, seedKey: who, gender: cluster.gender, language: lang, voiceId: cluster.voiceId, elevenId: pinnedVoice(who, lang), mode: "voice", prevText }),
+          body: JSON.stringify({ text, personaName: cluster.host, seedKey: who, gender: cluster.gender, language: lang, voiceId: cluster.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), mode: "voice", prevText }),
           signal: AbortSignal.timeout(30000),
         })
       } finally { releaseTtsLane() }

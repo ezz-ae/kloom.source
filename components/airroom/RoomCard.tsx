@@ -10,6 +10,7 @@
 import { useMemo, useState, useEffect, useRef } from "react"
 import { makeCharacter, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { Face } from "@/components/airroom/Face"
+import { getProToken } from "@/lib/airroom/pro"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
@@ -74,7 +75,7 @@ export function RoomCard({ p, onEnter, onClose, lang }: { p: RoomPreview; onEnte
       const req = fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: lead.lines[0], personaName: lead.host, seedKey: who, gender: lead.gender, language: lang2, voiceId: (lead as any).voiceId, elevenId: pinnedVoice(who, lang2), mode: "voice" }),
+        body: JSON.stringify({ text: lead.lines[0], personaName: lead.host, seedKey: who, gender: lead.gender, language: lang2, voiceId: (lead as any).voiceId, elevenId: pinnedVoice(who, lang2), proToken: getProToken(), mode: "voice" }),
       })
       claimFirst(who, lang2, req)
       const res = await req

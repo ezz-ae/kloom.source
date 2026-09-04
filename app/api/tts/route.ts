@@ -4,6 +4,9 @@ import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
 import { warmAccentPools, ensureAccentPools, discoveredAccentPool, discoveredLangPool, isLibraryVoice, noteLibraryVoiceRejected } from "@/lib/airraw/voice-discovery"
+import { proTokenClaims } from "@/lib/airraw-pro-token"
+import { adultEnabled } from "@/lib/variant"
+import { spendPassChars } from "@/lib/airraw/pass-meter"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
@@ -16,7 +19,7 @@ export async function POST(request: Request) {
   const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  const { text, voice, voiceId, elevenId, personaName, seedKey, gender, language, mode, prevText } = (await request.json()) as {
+  const { text, voice, voiceId, elevenId, personaName, seedKey, gender, language, mode, prevText, proToken } = (await request.json()) as {
     text: string
     voice?: string
     voiceId?: string
@@ -33,6 +36,9 @@ export async function POST(request: Request) {
     /** What this speaker already said just before this chunk — lets the engine keep
      *  one continuous prosody across chunked replies instead of restarting cold. */
     prevText?: string
+    /** The signed pass, if the caller holds one. On AIRRAW it is what buys the
+     *  premium engine; verified here, never trusted. */
+    proToken?: string
   }
 
   if (!text || typeof text !== "string") {
@@ -44,6 +50,45 @@ export async function POST(request: Request) {
   // so we never send an empty request.
   const ttsText = shapeForSpeech(text) || text.replace(/\s+/g, " ").trim().slice(0, 1000)
 
+  // ── Who pays for this voice ──────────────────────────────────────────────
+  // On AIRRAW the premium engine is what the pass BUYS. A free caller gets Fish —
+  // a real, consistent voice at about a tenth of the cost — and a pass, proved by
+  // its signed token and metered server-side, gets ElevenLabs. Before this every
+  // free visitor rode the premium engine, the "5 free minutes" were a localStorage
+  // counter anyone could clear, and the account burned roughly ten dollars a day
+  // against zero sales. An exhausted pass drops to the free engine, never to
+  // silence. Kloom is untouched: `airraw` is false there, so the engine order is
+  // exactly what it was.
+  const airraw = adultEnabled()
+  const claims = airraw ? proTokenClaims(proToken) : null
+  let tier: "kloom" | "pass" | "free" = airraw ? (claims ? "pass" : "free") : "kloom"
+  let passNote = ""
+  if (claims) {
+    const v = await spendPassChars(proToken!, claims.minutes, ttsText.length)
+    if (!v.ok) { tier = "free"; passNote = v.reason || "exhausted" }
+  }
+  const premium = tier !== "free"
+  const tierHeaders: Record<string, string> = { "X-TTS-Tier": tier, ...(passNote ? { "X-Pass": passNote } : {}) }
+
+  // ── Free tier: the cheap engine speaks first ───────────────────────────────
+  // And if it can't, the free caller is NOT left silent for it: the premium
+  // engine takes the chunk, the headers and the log say so, and the bleed is
+  // visible rather than hidden. This is exactly how production stood on the day
+  // this shipped — Fish's key had expired, quietly — so the gate had to be safe
+  // to deploy before the key was rotated, and to start saving the moment it was.
+  let useEleven = premium
+  let fishTried = false
+  let fishFirst: FishResult = { buf: null, status: 0, error: "" }
+  if (!premium) {
+    fishFirst = await fishSpeak(ttsText, voiceId, voice, personaName, gender, language)
+    fishTried = true
+    if (fishFirst.buf) {
+      return new Response(fishFirst.buf, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "fish", ...tierHeaders } })
+    }
+    tierHeaders["X-Tier-Note"] = `cheap-engine-down${fishFirst.status ? ":" + fishFirst.status : ""}`
+    useEleven = true
+  }
+
   // ── ElevenLabs — premium natural TTS (tier 0) ─────────────────────────────
   // PRIMARY. One consistent, expressive voice identity per persona (deterministic
   // pool pick), and prosody continuity across chunked replies via previous_text.
@@ -51,7 +96,7 @@ export async function POST(request: Request) {
   // out a slightly different voice (the "voice keeps shifting mid-reply" bug) and
   // its male speaker reads flat/robotic. Eleven first; CSM is now the fallback.
   const elKey = process.env.ELEVENLABS_API_KEY
-  if (elKey) {
+  if (elKey && useEleven) {
     // Refresh the accent pools if stale. Background for Kloom, which never reads
     // them (accent casting is gated on seedKey, which only AIRRAW's floor sends)
     // — its path stays exactly as it was. AIRRAW waits once per cold instance,
@@ -63,7 +108,7 @@ export async function POST(request: Request) {
     // X-EL-Voice is the voice id this chunk was spoken in. The client pins it and
     // sends it back as elevenId on every later request for the same person, so the
     // pools this instance happened to discover can never recast them mid-call.
-    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast, "X-EL-Voice": elVoice } })
+    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast, "X-EL-Voice": elVoice, ...tierHeaders } })
     // fall through to Sesame / CosyVoice / Fish
   }
 
@@ -101,24 +146,51 @@ export async function POST(request: Request) {
     // fall through to fish.audio
   }
 
-  // ── Fish Audio (cloud) — fallback TTS ────────────────────────────────────
-  const apiKey = process.env.FISH_API_KEY
-  if (!apiKey) {
+  // ── Fish Audio (cloud) — the fallback for a premium caller ───────────────
+  if (!process.env.FISH_API_KEY) {
     return Response.json({ error: "No TTS configured (COSYVOICE_ENDPOINT_ID or FISH_API_KEY required)" }, { status: 500 })
   }
+  // A free caller already asked Fish once, above. Asking again buys nothing.
+  const f = fishTried ? fishFirst : await fishSpeak(ttsText, voiceId, voice, personaName, gender, language)
+  if (f.buf) {
+    return new Response(f.buf, {
+      status: 200,
+      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "fish", "X-EL-Diag": (elDiag || "").replace(/[^\x20-\x7e]/g, " ").slice(0, 200), ...tierHeaders },
+    })
+  }
+  return Response.json(
+    { error: `Fish Audio error after retries: ${f.error}` },
+    { status: f.status || 502 }
+  )
+}
 
-  // Priority: explicit voiceId on the persona → FISH_VOICE_ID env → pool lookup.
-  // Priority: explicit pinned voiceId → gender+name POOL (varied per persona) →
-  // env default as a last resort. The pool MUST come before resolveReferenceId,
-  // or every persona collapses to the single FISH_VOICE_ID and all voices sound
-  // the same.
-  // Priority: explicit pinned voice → a curated language-native voice (non-EN)
-  // → the gender/name pool → env default. The language-native step only fires
-  // when FISH_VOICE_<ISO> is configured for that language (see voiceForLanguage).
+function resolveReferenceId(voice?: string): string | undefined {
+  if (voice) {
+    const perVoiceEnv = process.env[`FISH_VOICE_${voice.toUpperCase()}`]
+    if (perVoiceEnv) return perVoiceEnv
+  }
+  return process.env.FISH_VOICE_ID || undefined
+}
+
+// ── Fish Audio (cloud) ────────────────────────────────────────────────────────
+// Fish's key can expire (it did, in production, silently) and its wallet can run
+// dry. Neither fixes itself by the next request, so the first 401/402/403 latches
+// the engine off for a while — every free chunk would otherwise pay a failed
+// round trip before reaching a voice that works.
+let fishDeadUntil = 0
+const FISH_OFF_MS = 10 * 60_000
+interface FishResult { buf: ArrayBuffer | null; status: number; error: string }
+
+async function fishSpeak(ttsText: string, voiceId?: string, voice?: string, personaName?: string, gender?: string, language?: string): Promise<FishResult> {
+  const apiKey = process.env.FISH_API_KEY
+  if (!apiKey) return { buf: null, status: 0, error: "FISH_API_KEY not configured" }
+  if (Date.now() < fishDeadUntil) return { buf: null, status: 401, error: "fish latched off after an auth/credit failure" }
+
   let referenceId = voiceId?.trim() || voiceForLanguage(language, gender) || resolveVoiceId(personaName, gender) || resolveReferenceId(voice)
 
   let fishResponse: Response | null = null
   let lastErrorText = ""
+  let lastStatus = 0
 
   for (let attempt = 1; attempt <= 4; attempt++) {
     if (attempt === 3 && referenceId) {
@@ -153,14 +225,10 @@ export async function POST(request: Request) {
       continue
     }
 
+    lastStatus = fishResponse.status
     if (fishResponse.ok) {
       const buf = await fishResponse.arrayBuffer()
-      if (buf.byteLength > 0) {
-        return new Response(buf, {
-          status: 200,
-          headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "fish", "X-EL-Diag": (elDiag || "").replace(/[^\x20-\x7e]/g, " ").slice(0, 200) },
-        })
-      }
+      if (buf.byteLength > 0) return { buf, status: 200, error: "" }
       lastErrorText = "Fish returned 200 with empty audio"
       await sleep(150 * attempt)
       continue
@@ -171,18 +239,12 @@ export async function POST(request: Request) {
     await sleep(150 * attempt)
   }
 
-  return Response.json(
-    { error: `Fish Audio error after retries: ${lastErrorText}` },
-    { status: fishResponse?.status || 502 }
-  )
-}
 
-function resolveReferenceId(voice?: string): string | undefined {
-  if (voice) {
-    const perVoiceEnv = process.env[`FISH_VOICE_${voice.toUpperCase()}`]
-    if (perVoiceEnv) return perVoiceEnv
+  if (lastStatus === 401 || lastStatus === 402 || lastStatus === 403) {
+    fishDeadUntil = Date.now() + FISH_OFF_MS
+    console.error(`[tts] fish rejected the key (${lastStatus}) — cheap engine off for ${FISH_OFF_MS / 60000}m: ${lastErrorText.slice(0, 120)}`)
   }
-  return process.env.FISH_VOICE_ID || undefined
+  return { buf: null, status: lastStatus, error: lastErrorText }
 }
 
 function sleep(ms: number) {

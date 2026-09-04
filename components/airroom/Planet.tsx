@@ -27,7 +27,7 @@ import { FrontDoor } from "@/components/airroom/FrontDoor"
 import { Talks } from "@/components/airroom/Talks"
 import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
-import { isPro, getPending, setProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
+import { isPro, getPending, setProToken, getProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { AirShell, type AirTab } from "@/components/airroom/AirShell"
 import { YouPage } from "@/components/airroom/YouPage"
@@ -336,7 +336,7 @@ export function Planet() {
       await awaitPin(who, lang)
       const req = fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: char.lines[0], personaName: char.host, seedKey: who, gender: char.gender, language: lang, voiceId: char.voiceId, elevenId: pinnedVoice(who, lang), mode: "voice" }),
+        body: JSON.stringify({ text: char.lines[0], personaName: char.host, seedKey: who, gender: char.gender, language: lang, voiceId: char.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), mode: "voice" }),
       })
       claimFirst(who, lang, req)
       const res = await req

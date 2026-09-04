@@ -43,6 +43,10 @@ before turning ads on. Each item maps to a failure mode that paid traffic punish
 - [ ] Run `db/airraw_leads.sql` once against that project (table + writer fn +
       policy). Verify: submit a test email on the live site, confirm a row appears,
       confirm anon **cannot** read `airraw_leads`.
+- [ ] Run `db/pass_usage.sql` once (Dashboard → SQL editor). This is the
+      server-side meter for pass minutes. Until it exists, pass holders' premium
+      voice is unmetered (logged as `[pass-meter] unavailable`); free visitors are
+      on the cheap engine regardless.
 
 ## 6. Content / ad-policy
 - [ ] Ads point at the **SFW lobby**. The universe (`/universe`) is SFW-capped
@@ -66,13 +70,21 @@ token, chat and speech recognition answer. These are the open items, in order:
    When it hits zero every face falls back to Fish in a DIFFERENT voice, and Arabic
    speech recognition (Scribe) stops. Pay the invoice, fix the card, and either move
    to a plan with usage-based overage or upgrade the tier before spending on ads.
-2. **`AIRRAW_PRO_SECRET` is not set in Vercel.** Passes are signed with the Supabase
-   service-role key instead. Set a dedicated secret BEFORE the first sale (there are
-   none yet, so nothing is voided):
-   `openssl rand -hex 32 | vercel env add AIRRAW_PRO_SECRET production` then redeploy.
-3. **Dead keys in production env:** `FAL_KEY` (401 — an 11-char placeholder) and
-   `XAI_API_KEY` (400). Remove or replace; the code now latches a dead FAL key off
-   per instance, but a real key would give portraits a second engine.
+2. **`AIRRAW_PRO_SECRET`** — set on 2026-09-04 (sensitive, so its value can't be
+   read back). Make sure it is a long random value (`openssl rand -hex 32`), not a
+   word: every pass is an HMAC over it, and a guessable secret is a free pass for
+   anyone who reads the code. Changing it later voids every pass sold until then.
+3. **The Fish key has EXPIRED** (`FISH_API_KEY` → "Token expired"). Fish is the
+   cheap engine every free visitor now speaks with AND the fallback when ElevenLabs
+   fails — with it dead, a free caller rides the premium engine (logged as
+   `[tts] fish rejected the key`, header `X-Tier-Note: cheap-engine-down`) and an
+   ElevenLabs outage means silence. Log in at fish.audio → API keys → new key →
+   `vercel env add FISH_API_KEY production` → redeploy. The savings start the
+   moment it lands; nothing else needs to change.
+   Also: `XAI_API_KEY` is dead per the chat logs ("Incorrect API key"). `FAL_KEY`,
+   `GROQ_API_KEY` and the LLM vars are *sensitive* in Vercel, so `vercel env pull`
+   returns a placeholder for them — they can't be verified from a laptop, only from
+   the logs (Groq answers speech recognition in production, so it is fine).
 4. **The pass is priced under its own cost for a heavy user.** 6,000 voice minutes for
    $9 (capped 240 min/day). One minute of spoken reply ≈ 750 characters; on the
    Creator tier that is ≈ $0.16/min, so a single user who talks an hour a day for the
@@ -87,6 +99,16 @@ token, chat and speech recognition answer. These are the open items, in order:
 6. **Branding is split.** The tab title and OG say AIRRAW, the shell says FAITALK, the
    pass sheet says "airraw pro", the Ziina statement says "The Pass". Pick one before
    people see a card charge they don't recognise.
+
+Voice tiers (2026-09-04): on AIRRAW the premium engine (ElevenLabs) is now what
+the pass buys. Free visitors speak with Fish — a consistent voice at roughly a
+tenth of the cost — and every voice response carries `X-TTS-Tier: free|pass`.
+A pass is verified by its signed token on every chunk and metered in
+`pass_usage` by characters spoken (700 per pass minute, env `PASS_CHARS_PER_MINUTE`),
+with the 240 min/day fair-use cap enforced server-side. An exhausted pass drops
+to the free engine with `X-Pass: exhausted`. The moment someone buys, their
+character's voice changes ONCE (cheap engine → premium) — that is the upgrade
+moment, not the old mid-call drift. Kloom's engine order is untouched.
 
 Fixed in code on 2026-09-04: voice pinning (one voice per person across greeting,
 call and every chunk — `lib/airraw/voice-pin.ts`), 429 retry on the voice engine

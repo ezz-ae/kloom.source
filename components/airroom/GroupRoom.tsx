@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from "react"
 import { groupCast, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
+import { visitorId } from "@/lib/airraw/visitor"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
 import { Face } from "@/components/airroom/Face"
@@ -105,7 +106,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       const who = faceSeedFor(m) || m.host
       const lang = langRef.current
       await awaitPin(who, lang)
-      const req = fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, seedKey: who, gender: m.gender, language: lang, voiceId: m.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), mode: "voice" }) })
+      const req = fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, seedKey: who, gender: m.gender, language: lang, voiceId: m.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), visitorId: visitorId(), mode: "voice" }) })
       claimFirst(who, lang, req)
       const res = await req
       if (!res.ok) return

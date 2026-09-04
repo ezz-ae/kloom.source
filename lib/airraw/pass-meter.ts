@@ -42,20 +42,16 @@ export function passKey(token: string): string {
   return createHash("sha256").update(token).digest("hex").slice(0, 32)
 }
 
-/**
- * Spend `chars` of premium speech from the pass behind `token`. The token has
- * already been verified by the caller; `minutes` is its allowance.
- */
-export async function spendPassChars(token: string, minutes: number | undefined, chars: number): Promise<SpendVerdict> {
-  const cap = Math.round(Math.max(0, minutes ?? 0) * CHARS_PER_MINUTE)
-  if (!cap || chars <= 0) return { ok: true, unmetered: true }
+/** One atomic spend against one bucket: lifetime cap and per-UTC-day cap. */
+async function spendChars(key: string, chars: number, cap: number, dayCap: number): Promise<SpendVerdict> {
+  if (chars <= 0) return { ok: true, unmetered: true }
   if (!hasAdmin() || Date.now() < offUntil) return { ok: true, unmetered: true }
   try {
     const { data, error } = await getAdminClient().rpc("pass_spend", {
-      p_key: passKey(token),
+      p_key: key,
       p_chars: chars,
       p_cap: cap,
-      p_day_cap: PASS_DAILY_CAP_MIN * CHARS_PER_MINUTE,
+      p_day_cap: dayCap,
     })
     if (error) throw new Error(error.message)
     const v = (data || {}) as { ok?: boolean; reason?: string; used?: number }
@@ -63,7 +59,45 @@ export async function spendPassChars(token: string, minutes: number | undefined,
     return { ok: true, used: v.used }
   } catch (e) {
     offUntil = Date.now() + OFF_MS
-    console.error(`[pass-meter] unavailable — pass voice unmetered for ${OFF_MS / 60000}m (has db/pass_usage.sql been run?):`, e instanceof Error ? e.message : String(e))
+    console.error(`[pass-meter] unavailable — voice unmetered for ${OFF_MS / 60000}m (has db/pass_usage.sql been run?):`, e instanceof Error ? e.message : String(e))
     return { ok: true, unmetered: true }
   }
+}
+
+/**
+ * Spend `chars` of premium speech from the pass behind `token`. The token has
+ * already been verified by the caller; `minutes` is its allowance.
+ */
+export async function spendPassChars(token: string, minutes: number | undefined, chars: number): Promise<SpendVerdict> {
+  const cap = Math.round(Math.max(0, minutes ?? 0) * CHARS_PER_MINUTE)
+  if (!cap) return { ok: true, unmetered: true }
+  return spendChars(passKey(token), chars, cap, PASS_DAILY_CAP_MIN * CHARS_PER_MINUTE)
+}
+
+// ── the free minute ──────────────────────────────────────────────────────────
+// A free caller hears the SAME premium voice a pass holder does — nobody is sold
+// a downgrade — but only for about a minute of a call. Counted in characters the
+// engine bills for, against two buckets:
+//   • the browser id, for life — the minute is once, not once per visit;
+//   • the IP, per day — bounds a visitor who clears storage for a new id, while
+//     still letting a household or a carrier-NAT'd phone network have a bounded
+//     number of first minutes a day rather than one between all of them.
+// 0 for FREE_VOICE_CHARS switches the free meter off (launch mode).
+
+/** ≈ one minute of a call: the character speaks roughly half of it. */
+export const FREE_VOICE_CHARS = Math.max(0, Number(process.env.FREE_VOICE_CHARS ?? 400))
+/** ≈ ten free minutes a day behind one IP, however many browser ids it mints. */
+export const FREE_IP_DAILY_CHARS = Math.max(0, Number(process.env.FREE_IP_DAILY_CHARS ?? 4000))
+
+const bucket = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32)
+
+export async function spendFreeChars(visitorId: string | undefined, ip: string, chars: number): Promise<SpendVerdict> {
+  if (!FREE_VOICE_CHARS) return { ok: true, unmetered: true }
+  const vid = (visitorId || "").trim().slice(0, 80)
+  if (vid) {
+    const v = await spendChars(`free:v:${bucket(vid)}`, chars, FREE_VOICE_CHARS, FREE_VOICE_CHARS)
+    if (!v.ok) return v
+  }
+  const ipv = await spendChars(`free:ip:${bucket(ip || "anon")}`, chars, Number.MAX_SAFE_INTEGER, FREE_IP_DAILY_CHARS)
+  return ipv.ok ? ipv : { ...ipv, reason: "daily-cap" }
 }

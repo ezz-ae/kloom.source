@@ -19,6 +19,7 @@ import { makeCharacter, pickForLanguages, type Cluster, faceSeedFor } from "@/li
 import { imageFor } from "@/lib/persona-utils"
 import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
+import { visitorId } from "@/lib/airraw/visitor"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
@@ -336,7 +337,7 @@ export function Planet() {
       await awaitPin(who, lang)
       const req = fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: char.lines[0], personaName: char.host, seedKey: who, gender: char.gender, language: lang, voiceId: char.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), mode: "voice" }),
+        body: JSON.stringify({ text: char.lines[0], personaName: char.host, seedKey: who, gender: char.gender, language: lang, voiceId: char.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), visitorId: visitorId(), mode: "voice" }),
       })
       claimFirst(who, lang, req)
       const res = await req

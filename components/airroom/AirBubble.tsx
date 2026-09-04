@@ -10,6 +10,7 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import { faceSeedFor } from "@/lib/airroom/roster"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
+import { visitorId } from "@/lib/airraw/visitor"
 import type { Cluster, Heat } from "@/lib/airroom/roster"
 import { SpeechSegmenter, phoneMicAudio } from "@/lib/speech-segmenter"
 import { canListen } from "@/lib/voice-once"
@@ -333,12 +334,24 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           // elevenId = the voice this person has already been heard in; the server
           // honours it over its own casting, so nothing that changes server-side
           // (discovered pools, a different instance) can recast them mid-call.
-          body: JSON.stringify({ text, personaName: cluster.host, seedKey: who, gender: cluster.gender, language: lang, voiceId: cluster.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), mode: "voice", prevText }),
+          body: JSON.stringify({ text, personaName: cluster.host, seedKey: who, gender: cluster.gender, language: lang, voiceId: cluster.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), visitorId: visitorId(), mode: "voice", prevText }),
           signal: AbortSignal.timeout(30000),
         })
       } finally { releaseTtsLane() }
       if (tok !== speakTokenRef.current) return
-      if (!res.ok) { audioQueueRef.current.push({ url: null, seq }); return }
+      if (!res.ok) {
+        audioQueueRef.current.push({ url: null, seq })
+        // 402 = the free minute (or the pass allowance) is used up. Say why and
+        // open the sheet — a call that just goes quiet reads as broken, and the
+        // moment someone wants more is the moment to sell it.
+        if (res.status === 402) {
+          const why = res.headers.get("X-Pass")
+          if (why === "daily-cap") setMicHint("you've used today's voice — your pass resets at midnight")
+          else { setMicHint("your free minute is up — unlock the pass to keep talking"); setShowPro(true) }
+          setHandsFree(false)
+        }
+        return
+      }
       pinFromResponse(who, lang, res)
       const blob = await res.blob()
       if (tok !== speakTokenRef.current) return

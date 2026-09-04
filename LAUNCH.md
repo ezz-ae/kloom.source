@@ -75,10 +75,8 @@ token, chat and speech recognition answer. These are the open items, in order:
    word: every pass is an HMAC over it, and a guessable secret is a free pass for
    anyone who reads the code. Changing it later voids every pass sold until then.
 3. **The Fish key has EXPIRED** (`FISH_API_KEY` → "Token expired"). Fish is the
-   cheap engine every free visitor now speaks with AND the fallback when ElevenLabs
-   fails — with it dead, a free caller rides the premium engine (logged as
-   `[tts] fish rejected the key`, header `X-Tier-Note: cheap-engine-down`) and an
-   ElevenLabs outage means silence. Log in at fish.audio → API keys → new key →
+   fallback when ElevenLabs can't answer — with it dead, an ElevenLabs outage
+   means silence (logged as `[tts] fish rejected the key`). Log in at fish.audio → API keys → new key →
    `vercel env add FISH_API_KEY production` → redeploy. The savings start the
    moment it lands; nothing else needs to change.
    Also: `XAI_API_KEY` is dead per the chat logs ("Incorrect API key"). `FAL_KEY`,
@@ -100,15 +98,16 @@ token, chat and speech recognition answer. These are the open items, in order:
    pass sheet says "airraw pro", the Ziina statement says "The Pass". Pick one before
    people see a card charge they don't recognise.
 
-Voice tiers (2026-09-04): on AIRRAW the premium engine (ElevenLabs) is now what
-the pass buys. Free visitors speak with Fish — a consistent voice at roughly a
-tenth of the cost — and every voice response carries `X-TTS-Tier: free|pass`.
-A pass is verified by its signed token on every chunk and metered in
-`pass_usage` by characters spoken (700 per pass minute, env `PASS_CHARS_PER_MINUTE`),
-with the 240 min/day fair-use cap enforced server-side. An exhausted pass drops
-to the free engine with `X-Pass: exhausted`. The moment someone buys, their
-character's voice changes ONCE (cheap engine → premium) — that is the upgrade
-moment, not the old mid-call drift. Kloom's engine order is untouched.
+Voice tiers (2026-09-04): EVERYONE hears the same premium engine (ElevenLabs);
+free is not a downgrade. What differs is the meter. A free caller gets ONE minute
+of a call (`FREE_VOICE_CHARS`, default 400 characters of speech), counted on the
+server by browser id (for life) and by IP (`FREE_IP_DAILY_CHARS`, ~10 minutes a
+day) — so clearing the browser doesn't refill it. A pass is verified by its
+signed token on every chunk and metered in `pass_usage` (700 characters per pass
+minute, `PASS_CHARS_PER_MINUTE`), with the 240 min/day cap enforced server-side.
+Past the allowance the route answers 402 and the call screen opens the pass sheet
+with the reason (`X-Free` / `X-Pass`). Every voice response carries `X-TTS-Tier`.
+Fish is the fallback only, for when ElevenLabs can't answer. Kloom is untouched.
 
 Fixed in code on 2026-09-04: voice pinning (one voice per person across greeting,
 call and every chunk — `lib/airraw/voice-pin.ts`), 429 retry on the voice engine

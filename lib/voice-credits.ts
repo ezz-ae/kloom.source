@@ -11,7 +11,11 @@
  *      (PASS_DAILY_CAP_MIN), so one heavy day can't burn unbounded COGS.
  */
 
-export const FREE_SECONDS = 300             // 5 free minutes of voice (one-time)
+import { adultEnabled } from "@/lib/variant"
+// AIRRAW: ONE free minute, the same premium voice a pass holder gets — and the
+// server meters it too (lib/airraw/pass-meter.ts), so this is the on-screen
+// number, not the enforcement. Kloom keeps its five.
+export const FREE_SECONDS = adultEnabled() ? 60 : 300
 
 // Passes are "unlimited" voice, but only within a generous daily fair-use cap so
 // a single outlier can't burn unbounded LLM+TTS cost against a flat pass price.

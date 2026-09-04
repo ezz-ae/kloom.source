@@ -6,7 +6,7 @@ import { accentForSeed } from "@/lib/airraw/accent"
 import { warmAccentPools, ensureAccentPools, discoveredAccentPool, discoveredLangPool, isLibraryVoice, noteLibraryVoiceRejected } from "@/lib/airraw/voice-discovery"
 import { proTokenClaims } from "@/lib/airraw-pro-token"
 import { adultEnabled } from "@/lib/variant"
-import { spendPassChars } from "@/lib/airraw/pass-meter"
+import { spendPassChars, spendFreeChars } from "@/lib/airraw/pass-meter"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  const { text, voice, voiceId, elevenId, personaName, seedKey, gender, language, mode, prevText, proToken } = (await request.json()) as {
+  const { text, voice, voiceId, elevenId, personaName, seedKey, gender, language, mode, prevText, proToken, visitorId } = (await request.json()) as {
     text: string
     voice?: string
     voiceId?: string
@@ -39,6 +39,9 @@ export async function POST(request: Request) {
     /** The signed pass, if the caller holds one. On AIRRAW it is what buys the
      *  premium engine; verified here, never trusted. */
     proToken?: string
+    /** The browser's own id (lib/airraw/visitor.ts) — the free minute is keyed
+     *  on it, and on the IP. */
+    visitorId?: string
   }
 
   if (!text || typeof text !== "string") {
@@ -51,43 +54,34 @@ export async function POST(request: Request) {
   const ttsText = shapeForSpeech(text) || text.replace(/\s+/g, " ").trim().slice(0, 1000)
 
   // ── Who pays for this voice ──────────────────────────────────────────────
-  // On AIRRAW the premium engine is what the pass BUYS. A free caller gets Fish —
-  // a real, consistent voice at about a tenth of the cost — and a pass, proved by
-  // its signed token and metered server-side, gets ElevenLabs. Before this every
-  // free visitor rode the premium engine, the "5 free minutes" were a localStorage
-  // counter anyone could clear, and the account burned roughly ten dollars a day
-  // against zero sales. An exhausted pass drops to the free engine, never to
-  // silence. Kloom is untouched: `airraw` is false there, so the engine order is
-  // exactly what it was.
+  // Everyone hears the SAME premium engine — a free minute is the voice a pass
+  // holder gets, so nobody is sold a downgrade. What differs is the METER. On
+  // AIRRAW a free caller has one minute of a call, counted here in the characters
+  // the engine bills for, keyed on their browser id and their IP — so clearing
+  // the browser doesn't refill it, and a shared IP still gets a bounded number of
+  // first minutes a day. A pass, proved by its signed token on every chunk,
+  // draws on its own allowance. Past the minute the answer is a 402 and the call
+  // screen opens the pass sheet — never a call that just goes quiet. Kloom is
+  // untouched: `airraw` is false there, so the engine order is what it was.
   const airraw = adultEnabled()
   const claims = airraw ? proTokenClaims(proToken) : null
   let tier: "kloom" | "pass" | "free" = airraw ? (claims ? "pass" : "free") : "kloom"
-  let passNote = ""
+  const tierHeaders: Record<string, string> = {}
   if (claims) {
     const v = await spendPassChars(proToken!, claims.minutes, ttsText.length)
-    if (!v.ok) { tier = "free"; passNote = v.reason || "exhausted" }
+    // An exhausted pass, or one past today's fair-use cap, falls back to the free
+    // allowance — usually gone too — so it lands on the sheet with the reason in
+    // X-Pass rather than as a mystery.
+    if (!v.ok) { tier = "free"; tierHeaders["X-Pass"] = v.reason || "exhausted" }
   }
-  const premium = tier !== "free"
-  const tierHeaders: Record<string, string> = { "X-TTS-Tier": tier, ...(passNote ? { "X-Pass": passNote } : {}) }
-
-  // ── Free tier: the cheap engine speaks first ───────────────────────────────
-  // And if it can't, the free caller is NOT left silent for it: the premium
-  // engine takes the chunk, the headers and the log say so, and the bleed is
-  // visible rather than hidden. This is exactly how production stood on the day
-  // this shipped — Fish's key had expired, quietly — so the gate had to be safe
-  // to deploy before the key was rotated, and to start saving the moment it was.
-  let useEleven = premium
-  let fishTried = false
-  let fishFirst: FishResult = { buf: null, status: 0, error: "" }
-  if (!premium) {
-    fishFirst = await fishSpeak(ttsText, voiceId, voice, personaName, gender, language)
-    fishTried = true
-    if (fishFirst.buf) {
-      return new Response(fishFirst.buf, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "fish", ...tierHeaders } })
+  if (tier === "free") {
+    const v = await spendFreeChars(visitorId, clientIp(request), ttsText.length)
+    if (!v.ok) {
+      tierHeaders["X-Free"] = v.reason || "exhausted"
+      return Response.json({ error: "free minute used", paywall: true }, { status: 402, headers: { "Cache-Control": "no-store", "X-TTS-Tier": "free", ...tierHeaders } })
     }
-    tierHeaders["X-Tier-Note"] = `cheap-engine-down${fishFirst.status ? ":" + fishFirst.status : ""}`
-    useEleven = true
   }
+  tierHeaders["X-TTS-Tier"] = tier
 
   // ── ElevenLabs — premium natural TTS (tier 0) ─────────────────────────────
   // PRIMARY. One consistent, expressive voice identity per persona (deterministic
@@ -96,7 +90,7 @@ export async function POST(request: Request) {
   // out a slightly different voice (the "voice keeps shifting mid-reply" bug) and
   // its male speaker reads flat/robotic. Eleven first; CSM is now the fallback.
   const elKey = process.env.ELEVENLABS_API_KEY
-  if (elKey && useEleven) {
+  if (elKey) {
     // Refresh the accent pools if stale. Background for Kloom, which never reads
     // them (accent casting is gated on seedKey, which only AIRRAW's floor sends)
     // — its path stays exactly as it was. AIRRAW waits once per cold instance,
@@ -146,12 +140,11 @@ export async function POST(request: Request) {
     // fall through to fish.audio
   }
 
-  // ── Fish Audio (cloud) — the fallback for a premium caller ───────────────
+  // ── Fish Audio (cloud) — the fallback when the premium engine can't ──────
   if (!process.env.FISH_API_KEY) {
     return Response.json({ error: "No TTS configured (COSYVOICE_ENDPOINT_ID or FISH_API_KEY required)" }, { status: 500 })
   }
-  // A free caller already asked Fish once, above. Asking again buys nothing.
-  const f = fishTried ? fishFirst : await fishSpeak(ttsText, voiceId, voice, personaName, gender, language)
+  const f = await fishSpeak(ttsText, voiceId, voice, personaName, gender, language)
   if (f.buf) {
     return new Response(f.buf, {
       status: 200,

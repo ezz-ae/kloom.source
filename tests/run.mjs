@@ -43,7 +43,7 @@ const WHAT = {
   "cast-test":        "the floor has 2,980 people in it, not 298",
   "age-test":         "the floor is in its 20s and 30s, and the safety floor holds",
   "pin-test":         "one person, one voice — greeting, call, and every chunk",
-  "tier-test":        "the premium voice is what the pass buys, metered server-side",
+  "tier-test":        "one free minute, same voice as the pass, metered on the server",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

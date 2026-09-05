@@ -21,7 +21,18 @@ check(/YouPage/.test(shellBlock) && /<Talks/.test(shellBlock) && /<FrontDoor/.te
 // The front door is IMMERSIVE inside it: the card is absolutely positioned, so
 // it ignores the scroll container's padding and has to clear the fixed dock
 // itself. Reserving space in the shell instead would leave a dead strip.
-check(/immersive=\{!showProfile && !roomsOpen\}/.test(planet), "the front door runs the shell in immersive mode")
+// Asserted as a PROPERTY, not as a literal string. The guarantee is "immersive
+// exactly on the front door" — every OTHER surface must be negated in that
+// expression. Pinning the exact text meant adding a fourth tab broke this test
+// while the guarantee it protects was still perfectly intact.
+const immersive = (planet.match(/immersive=\{([^}]*)\}/) || [, ""])[1]
+const tabExpr = (planet.match(/tab=\{([^}]*)\}/) || [, ""])[1]
+// Every state flag the tab expression branches on is a surface that is NOT the
+// front door, so each one has to appear negated in `immersive`.
+const surfaces = [...new Set([...tabExpr.matchAll(/\b([a-z][A-Za-z]*(?:Open|Profile))\b/g)].map((m) => m[1]))]
+const unguarded = surfaces.filter((v) => !new RegExp(`!${v}\\b`).test(immersive))
+check(surfaces.length > 0 && unguarded.length === 0,
+  `the front door alone runs immersive (${surfaces.length} surfaces guarded${unguarded.length ? `, MISSING ${unguarded.join(", ")}` : ""})`)
 const front = strip("components/airroom/FrontDoor.tsx")
 check(/env\(safe-area-inset-bottom\)\+5\.75rem/.test(front.replace(/\s/g, "")),
   "the card lifts itself above the dock on phones")

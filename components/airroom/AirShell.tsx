@@ -23,11 +23,15 @@
  *    and you should not be one mis-tap from leaving a conversation.
  */
 import type { ReactNode } from "react"
-import { Flame, Users, User } from "lucide-react"
+import { Flame, MessagesSquare, Users, User } from "lucide-react"
 
-export type AirTab = "people" | "talks" | "you"
+export type AirTab = "room" | "people" | "talks" | "you"
 
 const TABS: Array<{ id: AirTab; label: string; icon: typeof Flame }> = [
+  // The room comes FIRST because it is the only surface that shows the product
+  // working before you decide anything. The deck asks a visitor to judge one
+  // stranger; the room just lets them read.
+  { id: "room",   label: "Room",   icon: MessagesSquare },
   { id: "people", label: "People", icon: Flame },
   { id: "talks",  label: "Talks",  icon: Users },
   { id: "you",    label: "You",    icon: User },

@@ -26,6 +26,7 @@ import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
 import { matchesPrefs, getLangPrefs, saveLangPrefs, langPrefsPersist } from "@/lib/airraw/lang-prefs"
 import { FrontDoor } from "@/components/airroom/FrontDoor"
 import { Talks } from "@/components/airroom/Talks"
+import { TheRoom } from "@/components/airroom/TheRoom"
 import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPending, setProToken, getProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
@@ -133,6 +134,10 @@ export function Planet() {
   // Something waiting in Talks — a DOT on the tab, never a banner over the
   // person. Re-derived on a timer because the board is a function of the clock.
   const [talksDot, setTalksDot] = useState(false)
+  // The big room. Its own surface rather than a mode of the deck, because it is
+  // the one screen that shows the product working before a visitor decides
+  // anything — see components/airroom/TheRoom.tsx.
+  const [roomOpen, setRoomOpen] = useState(false)
   // The old continent room-deck, still reachable from the sky but no longer the door.
   const [legacyRooms, setLegacyRooms] = useState(false)
   // The one-time welcome — resolved client-only (localStorage) so it never SSR-
@@ -916,14 +921,15 @@ export function Planet() {
         legacyRooms && !showProfile && !roomsOpen
           ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setLegacyRooms(false)} />
           : <AirShell
-              tab={showProfile ? "you" : roomsOpen ? "talks" : "people"}
+              tab={showProfile ? "you" : roomsOpen ? "talks" : roomOpen ? "room" : "people"}
               // The front door positions itself and clears the dock on its own —
               // an absolutely-positioned card ignores the scroll container's
               // padding, so the shell must not try to reserve space for it.
-              immersive={!showProfile && !roomsOpen}
+              immersive={!showProfile && !roomsOpen && !roomOpen}
               onTab={(t: AirTab) => {
                 setShowProfile(t === "you")
                 setRoomsOpen(t === "talks")
+                setRoomOpen(t === "room")
                 if (t === "you") { setProfile(getProfile()); setCredits(getCredits()) }
                 if (t === "people") setFai(getFai())
               }}
@@ -934,6 +940,18 @@ export function Planet() {
             >
               {showProfile
                 ? <YouPage onPass={() => setShowPro(true)} onResume={(t) => { setShowProfile(false); setSelected(t.cluster) }} />
+                : roomOpen
+                ? <TheRoom
+                    onPrivate={(c) => {
+                      // Leaving the room for a private thread is the same gate as
+                      // any other conversation on this floor — 18+ was confirmed
+                      // to be in here at all, and a free visitor spends a minute.
+                      if (!gateAir()) return
+                      if (!isPro()) { spendCredits(1); setCredits(getCredits()) }
+                      setRoomOpen(false)
+                      setSelected(c)
+                    }}
+                  />
                 : roomsOpen
                 ? <Talks
                     onSpent={() => setFai(getFai())}

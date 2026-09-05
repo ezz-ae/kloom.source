@@ -126,6 +126,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [listening, setListening] = useState(false)
   const [handsFree, setHandsFree] = useState(false)
   const [trouble, setTrouble] = useState(false)
+  // The free ceiling was just hit — see X-Ceiling-Hit in app/api/chat/route.ts.
+  // Shown ONCE per conversation: this is a nudge at the one moment it is relevant,
+  // not a nag. Twice and it stops being information and starts being pressure.
+  const [ceiling, setCeiling] = useState(false)
+  const ceilingShown = useRef(false)
   const [speaking, setSpeaking] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
@@ -448,6 +453,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         body: JSON.stringify({ persona: personaFor(cluster, langRef.current, pro), proVibe: vibeRef.current, proToken: getProToken(), userStyle: stylePromptLine(getStyle()), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
       if (!res.ok) { setTrouble(true); return }
+      // She deflected because of the free floor, not because she wasn't interested.
+      // That distinction is the entire product difference, and until now the user
+      // had no way to know which one just happened.
+      if (res.headers.get("X-Ceiling-Hit") === "1" && !ceilingShown.current && !pro) {
+        ceilingShown.current = true
+        setCeiling(true)
+      }
       let accumulated = ""
       let spokenUpTo = 0        // how much of `accumulated` has been sent to TTS
       let spokenSoFar = ""      // for prosody continuity across chunks
@@ -991,6 +1003,36 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         </div>
       )}
 
+      {/* THE MOMENT SOMEONE MIGHT ACTUALLY PAY.
+          They asked for something, she deflected, and until now that read as "she
+          isn't into it" — indistinguishable from the product simply being tame.
+          This says which of the two just happened, once, at the only point where
+          the upgrade means something concrete. It names the limit plainly rather
+          than teasing: someone who has just been deflected has earned a straight
+          answer, and "unlock" language on top of a brush-off reads as a trick. */}
+      {ceiling && !pro && (
+        <div
+          onClick={() => { setCeiling(false); setShowPro(true) }}
+          role="button"
+          style={{
+            position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 88px)",
+            zIndex: 30, cursor: "pointer", padding: "11px 14px", borderRadius: 14,
+            background: "rgba(12,8,22,.92)", backdropFilter: "blur(10px)",
+            border: `.5px solid ${accent}55`, color: "#f0e8ff",
+            fontSize: 13, lineHeight: 1.35, textAlign: "center",
+            boxShadow: "0 14px 40px -14px rgba(0,0,0,.8)",
+          }}
+        >
+          she stopped there because you&rsquo;re on the free floor.{" "}
+          <span style={{ fontWeight: 700, color: accent }}>$9 opens her all the way →</span>
+          <span
+            onClick={(e) => { e.stopPropagation(); setCeiling(false) }}
+            style={{ display: "block", marginTop: 5, fontSize: 11, color: "rgba(240,232,255,.4)" }}
+          >
+            not now
+          </span>
+        </div>
+      )}
       {showPro && <ProSheet onClose={() => setShowPro(false)} />}
       {/* playsInline keeps iOS from hijacking playback into a fullscreen player,
           which would tear down the call UI mid-conversation. */}

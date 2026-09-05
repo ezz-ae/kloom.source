@@ -44,6 +44,7 @@ const WHAT = {
   "age-test":         "the floor is in its 20s and 30s, and the safety floor holds",
   "pin-test":         "one person, one voice — greeting, call, and every chunk",
   "tier-test":        "one free minute, same voice as the pass, metered on the server",
+  "upsell-test":      "a free user finds out the wall exists, once, where it matters",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

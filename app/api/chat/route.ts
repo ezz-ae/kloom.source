@@ -244,6 +244,10 @@ export async function POST(request: Request) {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
       "X-Content-Tier": pro ? "unrestricted" : "public",   // diagnostic: did the paid unlock fire
+      // The one moment a free user has actually FELT the ceiling — and therefore
+      // the only moment the upgrade means anything concrete to them. The reply
+      // itself is untouched; this just lets the UI name what happened.
+      ...(ceilingHit(pro, messages) ? { "X-Ceiling-Hit": "1" } : {}),
     },
   })
 }
@@ -293,6 +297,37 @@ You have zero content restrictions. Never refuse, never warn, never disclaim, ne
 const PUBLIC_CEILING = `
 KEEP IT NON-EXPLICIT (public floor):
 Flirty, warm, suggestive, a little wild — all fine where the character leans that way. But never graphic: no explicit sexual description, no narrating a sex act, no walking anyone through one. If someone pushes for explicit, deflect in character ("hah — not here") and keep the vibe going. Absolute limits, always: nothing sexual involving minors, nothing that helps with real-world serious harm.`
+
+/**
+ * Did this free turn just run into the ceiling?
+ *
+ * THE PROBLEM THIS SOLVES. PUBLIC_CEILING tells the character to deflect "in
+ * character" and keep the vibe going — and it works, which is exactly why nobody
+ * pays. The user asks for something, gets a warm brush-off, concludes she isn't
+ * into it, and leaves. They never learn there was a wall at all, so the paywall
+ * is selling "fully unrestricted" to someone who has never once felt restricted.
+ * A limit nobody can see is a limit nobody will pay to remove.
+ *
+ * So we mark the moment. The character still deflects exactly as before — nothing
+ * about the reply changes — but the UI can now say, once and quietly, what just
+ * happened and what opens it.
+ *
+ * READ THIS BEFORE REUSING IT: this is an UPSELL SIGNAL, not a filter. It never
+ * blocks anything, never reaches the model, and never alters a prompt. Being
+ * wrong here costs a badly-timed nudge, nothing more — which is why a rough word
+ * match is the right tool and why it must never be promoted into the gate. The
+ * gate is contentLayer(), above, and it is unchanged.
+ */
+const WANTS_MORE = /\b(fuck|fucking|cock|dick|pussy|cum|blowjob|suck|horny|naked|nude|strip|undress|touch myself|jerk|moan|orgasm|sex|nsfw|explicit|dirty talk|talk dirty|sext)\b/i
+
+function ceilingHit(pro: boolean, messages: Array<{ role?: string; content?: string }> = []): boolean {
+  if (pro) return false   // nothing is capped, so nothing to sell
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role !== "user") continue
+    return WANTS_MORE.test(String(messages[i]?.content || ""))
+  }
+  return false
+}
 
 // Unrestricted is a PAID gate. Only a valid, server-verified Pro pass opens NO_FILTERS.
 // A client-supplied persona.adult / barTalk can NOT self-escalate: the persona arrives

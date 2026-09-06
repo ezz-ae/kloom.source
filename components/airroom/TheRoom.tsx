@@ -133,6 +133,26 @@ const KIND = [
   "say the hot take you actually believe (from your facts), no warm-up",
 ]
 
+/** A line with its @mentions lit up in that person's colour and tappable. */
+function Mentions({ text, cast, you, onTap }: { text: string; cast: Cluster[]; you: string; onTap: (c: Cluster) => void }) {
+  const parts = text.split(/(@[\p{L}\p{N}_'-]+)/u)
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!part.startsWith("@")) return <span key={i}>{part}</span>
+        const name = part.slice(1).toLowerCase()
+        const c = cast.find((x) => x.host.toLowerCase() === name)
+        if (c) return (
+          <button key={i} onClick={(e) => { e.stopPropagation(); onTap(c) }}
+            style={{ display: "inline", background: `${dot(c.f)}22`, color: dot(c.f), border: "none", borderRadius: 6, padding: "0 4px", fontWeight: 700, fontSize: "inherit", fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>{part}</button>
+        )
+        if (name === you.toLowerCase()) return <span key={i} style={{ background: "rgba(240,232,255,.16)", color: "#fff", borderRadius: 6, padding: "0 4px", fontWeight: 700 }}>{part}</span>
+        return <span key={i}>{part}</span>
+      })}
+    </>
+  )
+}
+
 export function TheRoom({ onPrivate, topic = "tonight" }: {
   onPrivate: (c: Cluster) => void
   topic?: string
@@ -175,7 +195,28 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
   const aiLines = useRef(0)                          // how much the room has said — paces the whispers
   const whispered = useRef<Set<string>>(new Set())   // who has already whispered to the visitor
   const whisperBack = useRef<Cluster | null>(null)   // the visitor whispered to this person; they answer in kind
+  const replyTo = useRef<Cluster | null>(null)       // the visitor @mentioned this person; they answer, in public
   const you = useMemo(() => (typeof window !== "undefined" ? getProfile().name : "you"), [])
+
+  /**
+   * @NAME. Typing @ and a name aims a line at one person, and that person is the
+   * one who answers — in public, so the room sees it. Mentions are also how the
+   * characters address each other and you, and they are highlighted in every
+   * line so "someone just said something to me" is visible at a glance.
+   */
+  const mentionOf = (text: string): Cluster | null => {
+    const m = text.match(/@([\p{L}\p{N}_'-]+)/u)
+    if (!m) return null
+    const name = m[1].toLowerCase()
+    return cast.find((c) => c.host.toLowerCase() === name) || null
+  }
+  // The unfinished @token at the end of the draft — what the picker filters by.
+  const typing = draft.match(/(?:^|\s)@([\p{L}\p{N}_'-]*)$/u)
+  const suggestions = typing
+    ? cast.filter((c) => c.host.toLowerCase().startsWith(typing[1].toLowerCase())).slice(0, 8)
+    : []
+  const insertMention = (c: Cluster) =>
+    setDraft((d) => d.replace(/(?:^|\s)@[\p{L}\p{N}_'-]*$/u, (m) => (m.startsWith(" ") ? " " : "") + `@${c.host} `))
 
   useEffect(() => { linesRef.current = lines }, [lines])
   useEffect(() => { openRef.current = !!open }, [open])
@@ -208,11 +249,23 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
       if (!a) return false
       a.src = url
       setSpeaking(m.key)
-      await a.play().catch(() => { /* autoplay blocked: the text is still there */ })
-      await new Promise<void>((r) => { a.onended = () => r(); a.onerror = () => r() })
+      // NEVER WEDGE THE ROOM ON AUDIO. This awaited `ended`/`error` after a
+      // play() that might have been refused — and a refused play() fires
+      // neither, so `busy` stayed true forever and the room went silent for
+      // good. On a phone with autoplay blocked that is every visitor. Now: if
+      // play() is refused, give up on the sound at once (the text is already on
+      // screen); if it plays, wait for the end but never longer than a clip
+      // could be. Found by a probe whose stubbed audio could not play.
+      const played = await a.play().then(() => true).catch(() => false)
+      if (played) {
+        await Promise.race([
+          new Promise<void>((r) => { a.onended = () => r(); a.onerror = () => r() }),
+          new Promise<void>((r) => setTimeout(r, 30_000)),
+        ])
+      }
       setSpeaking(null)
       URL.revokeObjectURL(url)
-      return true
+      return played
     } catch { setSpeaking(null); return false }
   }
 
@@ -243,11 +296,14 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
         // turn that is already answering the visitor out loud — one thing at a time.
         const back = whisperBack.current
         whisperBack.current = null
+        const called = replyTo.current
+        replyTo.current = null
         const leanIn = !answering && !back && aiLines.current >= 3 && aiLines.current % WHISPER_EVERY === 0
         const unwhispered = (eligible.length ? eligible : cast).filter((c) => !whispered.current.has(c.key))
         const whisper = !!back || (leanIn && unwhispered.length > 0)
         const who = back
           ? back
+          : called ? called
           : whisper ? rand(unwhispered)
           : rand(answering && talkersFree.length ? talkersFree : (eligible.length ? eligible : cast))
         const id = faceSeedFor(who) || who.host
@@ -258,7 +314,7 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
             `Something you would not say out loud in front of them: an invitation, a tease, a small secret, a "come here". ` +
             `Make them want to answer you alone.${back ? ` They just whispered to you first; answer that.` : ""}`
           : answering
-          ? `${you} just said something to the room. Answer THEM, by name, and mean it — this is the one line that decides whether they stay.`
+          ? `${you} just said something to the room${called ? ` — to YOU, by name` : ""}. Answer THEM as @${you}, and mean it — this is the one line that decides whether they stay.`
           : rand(KIND)
 
         const prefs = getLangPrefs()
@@ -270,6 +326,7 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
             `${dossierLine(id)} ` +
             `Right now you are ${mood}. ` +
             `This line: ${kind}. ` +
+            `When you address someone, write their name as @Name (the visitor is @${you}). ` +
             `Never narrate the room, never ask "how is everyone", never introduce yourself. You've been here an hour.`,
           speakingStyle: `${texture}. one line only, under 22 words, no emoji, no stage directions, no quotation marks.`,
           backstory: "",
@@ -343,6 +400,8 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
     push({ who: null, text, at: Date.now() })
     setDraft("")
     replyDue.current = true
+    // Aimed at someone? Then they are the one who answers, in public.
+    replyTo.current = mentionOf(text)
   }
 
   /** Whisper to one person. They alone can read it, and they answer in kind. */
@@ -445,12 +504,12 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
                 {l.spoken && <span style={{ fontSize: 10, color: `${dot(l.who.f)}cc`, letterSpacing: .8, textTransform: "uppercase" }}>🎙 said out loud</span>}
                 {l.toYou && <span style={{ fontSize: 10, color: "rgba(240,232,255,.5)", letterSpacing: .8, textTransform: "uppercase" }}>to you</span>}
               </div>
-              <div style={{ fontSize: 14.5, lineHeight: 1.4, color: "#ece4f8" }}>{l.text}</div>
+              <div style={{ fontSize: 14.5, lineHeight: 1.4, color: "#ece4f8" }}><Mentions text={l.text} cast={cast} you={you} onTap={setOpen} /></div>
             </div>
           </div>
         ) : (
           <div key={`${l.at}-${i}`} style={{ display: "flex", justifyContent: "flex-end", marginBottom: 11 }}>
-            <div style={{ maxWidth: "78%", background: "rgba(240,232,255,.1)", border: ".5px solid rgba(240,232,255,.14)", borderRadius: "14px 14px 3px 14px", padding: "8px 12px", fontSize: 14.5, lineHeight: 1.4, color: "#f6f1ff" }}>{l.text}</div>
+            <div style={{ maxWidth: "78%", background: "rgba(240,232,255,.1)", border: ".5px solid rgba(240,232,255,.14)", borderRadius: "14px 14px 3px 14px", padding: "8px 12px", fontSize: 14.5, lineHeight: 1.4, color: "#f6f1ff" }}><Mentions text={l.text} cast={cast} you={you} onTap={setOpen} /></div>
           </div>
         ))}
       </div>
@@ -459,6 +518,19 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
           turns watching into being there: you say one line and someone answers
           you by name. That reply is voiced when it can be, because being spoken
           to is the moment people decide to stay. */}
+      {suggestions.length > 0 && (
+        <div role="listbox" aria-label="mention someone" style={{ flexShrink: 0, display: "flex", gap: 6, overflowX: "auto", padding: "0 12px 6px", WebkitOverflowScrolling: "touch" }}>
+          {suggestions.map((c) => (
+            <button key={c.key} role="option" onClick={() => insertMention(c)} aria-label={`mention ${c.host}`}
+              style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 5px", borderRadius: 999, background: `${dot(c.f)}1a`, border: `.5px solid ${dot(c.f)}55`, color: "#f0e8ff", fontSize: 13, fontWeight: 600, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", overflow: "hidden", background: "#160f24", flexShrink: 0 }}>
+                <Face persona={{ name: c.host, gender: c.gender, seed: faceSeedFor(c) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              </span>
+              @{c.host}
+            </button>
+          ))}
+        </div>
+      )}
       <div style={{ flexShrink: 0, display: "flex", gap: 8, alignItems: "center", padding: "8px 12px calc(env(safe-area-inset-bottom) + 5.5rem)" }}>
         <input
           value={draft}

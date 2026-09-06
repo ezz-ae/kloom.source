@@ -33,7 +33,10 @@ check(/rand\(MOOD\)/.test(room) && /rand\(KIND\)/.test(room), "mood and kind cha
 check(!/one line, lowercase, casual/.test(room), "the single flat house style is gone")
 // A room where everyone answers the visitor at once is a chorus. Answering is a
 // distinct, deliberate act.
-check(/replyDue\.current/.test(room) && /Answer THEM, by name/.test(room), "when the visitor speaks, exactly one person answers, by name")
+// The reply now addresses the visitor as @name; the guarantee is still that
+// exactly one person is told to answer. Pinning the old phrase "by name" broke
+// this the moment the phrase became a mention.
+check(/replyDue\.current/.test(room) && /Answer THEM as @\$\{you\}/.test(room), "when the visitor speaks, exactly one person answers, addressing them as @name")
 
 // ── some talk, most write ───────────────────────────────────────────────────
 const TALKERS = Number((raw.match(/const TALKERS = (\d+)/) || [])[1])
@@ -61,6 +64,12 @@ check(/busy\.current\) return/.test(room), "never two requests in flight")
 const gap = Number((raw.match(/const GAP_MS = (\d+)/) || [])[1])
 check(gap >= 5000, `lines are ${gap / 1000}s apart — slow enough to read, cheap enough to leave open`)
 check(/ctrl\.abort\(\)/.test(room) && /micHandle\.current\?\.cancel\(\)/.test(room), "leaving the room stops the request and the mic")
+// A spoken line must never be able to freeze the room. Awaiting `ended` after a
+// refused play() waits for an event that never comes; `busy` stays true and the
+// room goes silent for good — which on a phone with autoplay blocked is every
+// visitor. Found by a probe whose stubbed audio could not play.
+check(/a\.play\(\)\.then\(\(\) => true\)\.catch\(\(\) => false\)/.test(room), "a refused play() is noticed, not awaited")
+check(/if \(played\) \{[\s\S]{0,240}Promise\.race/.test(room), "and even a playing clip is waited on with a ceiling")
 
 // ── whispers: a private line in a public place ──────────────────────────────
 // From a character to the visitor it is the hook — an invitation to go
@@ -81,6 +90,23 @@ check(/onPrivate\(\{ \.\.\.c, lines: \[said, \.\.\.c\.lines\] \}\)/.test(room),
   "answering a whisper alone opens the private thread with the whisper already said — her lines[0], which the call greets with")
 check(/aria-label=\{`whisper to \$\{c\.host\}`\}/.test(room), "the profile card has a whisper box")
 check(/whispered to you · only you can see this/.test(room), "a whisper to you says so, plainly")
+
+// ── @name ───────────────────────────────────────────────────────────────────
+// Typing @ and a name aims a line at one person, and THAT person answers, in
+// public. Mentions are how the characters address each other and the visitor,
+// and they are lit up in every line so "someone just spoke to me" is visible.
+check(/const mentionOf = \(text: string\): Cluster \| null/.test(room), "a message's @mention is resolved to a person in the room")
+check(/replyTo\.current = mentionOf\(text\)/.test(room), "an @mentioned person is the one who answers")
+check(/: called \? called/.test(room), "and they are chosen before any random pick")
+check(/to YOU, by name/.test(room), "they are told they were addressed directly")
+check(/write their name as @Name \(the visitor is @\$\{you\}\)/.test(room), "characters are told to address people as @Name")
+check(/function Mentions\(/.test(room) && /<Mentions text=\{l\.text\}/.test(room), "mentions are highlighted in every line")
+check((room.match(/<Mentions text=\{l\.text\}/g) || []).length >= 2, "in the characters' lines AND the visitor's")
+check(/onTap=\{setOpen\}/.test(room), "and tapping a mention opens that person's card")
+check(/role="listbox"/.test(room) && /insertMention\(c\)/.test(room), "typing @ offers a picker of the people in the room")
+check(/startsWith\(typing\[1\]\.toLowerCase\(\)\)/.test(room), "filtered by what has been typed so far")
+// Unicode-aware, or an Arabic name can't be mentioned at all.
+check(/\\p\{L\}/.test(room) && /\/u\)/.test(room), "the @ pattern matches names in any script, not just ASCII")
 
 // ── the card clears the dock ────────────────────────────────────────────────
 check(/calc\(env\(safe-area-inset-bottom\) \+ 5\.75rem\)/.test(room), "the profile sheet reserves the dock's height")

@@ -553,7 +553,16 @@ async function realismPass(input: Buffer, plain = false): Promise<Buffer> {
     const d = imageData.data
 
     // Gentle symmetric S-curve LUT (lifts mid contrast, soft toes).
+    //
+    // IDENTITY WHEN THERE IS NO CONTRAST TO APPLY. With R_CONTRAST at 0 the curve
+    // below divides by zero — s0 and s1 both collapse to 0.5, norm becomes NaN,
+    // and a NaN written into a Uint8Array lands as 0. Every entry reads 0, so the
+    // LUT maps the whole image to black. That is not theoretical: adding a plain
+    // mode set the contrast to 0 and shipped solid black portraits to production.
     const lut = new Uint8Array(256)
+    if (!(R_CONTRAST > 0)) {
+      for (let v = 0; v < 256; v++) lut[v] = v
+    } else {
     const k = R_CONTRAST * 4
     const s0 = 1 / (1 + Math.exp(k * 0.5)), s1 = 1 / (1 + Math.exp(-k * 0.5))
     for (let v = 0; v < 256; v++) {
@@ -562,6 +571,7 @@ async function realismPass(input: Buffer, plain = false): Promise<Buffer> {
       const norm = (s - s0) / (s1 - s0)
       const out = x * (1 - R_CONTRAST) + norm * R_CONTRAST
       lut[v] = Math.max(0, Math.min(255, Math.round(out * 255)))
+    }
     }
 
     const cx = (w - 1) / 2, cy = (h - 1) / 2

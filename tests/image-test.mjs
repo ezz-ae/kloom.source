@@ -98,6 +98,20 @@ check(/async function realismPass\(input: Buffer, plain = false\)/.test(src),
 check(/const R_JPEG_Q = plain \? 95 : R_JPEG_Q_ENV/.test(src),
   "plain mode still re-encodes to JPEG, so the cache path and content type stay consistent")
 
+// A ZERO amount must not poison the tone curve. With contrast 0 the S-curve
+// divides by zero, norm becomes NaN, and NaN into a Uint8Array lands as 0 — every
+// LUT entry reads 0 and the whole image maps to black. Plain mode sets contrast to
+// 0, so this shipped solid black portraits to production.
+check(/if \(!\(R_CONTRAST > 0\)\)/.test(src), "a zero contrast takes an identity curve instead of dividing by zero")
+const lut = (C) => { const t = new Uint8Array(256)
+  if (!(C > 0)) { for (let v = 0; v < 256; v++) t[v] = v; return t }
+  const k = C * 4, s0 = 1 / (1 + Math.exp(k * 0.5)), s1 = 1 / (1 + Math.exp(-k * 0.5))
+  for (let v = 0; v < 256; v++) { const x = v / 255, sg = 1 / (1 + Math.exp(-k * (x - 0.5)))
+    t[v] = Math.max(0, Math.min(255, Math.round((x * (1 - C) + ((sg - s0) / (s1 - s0)) * C) * 255))) }
+  return t }
+check(lut(0)[128] === 128 && lut(0)[255] === 255, `contrast 0 is an identity curve, not black (${lut(0)[128]}, ${lut(0)[255]})`)
+check(lut(0.05)[255] === 255 && lut(0.05)[0] === 0, "and a real contrast still maps the endpoints")
+
 // ── the style pool asks for real, not for ugly ────────────────────────────
 const style = prompt.slice(prompt.indexOf("const STYLE = ["), prompt.indexOf("]", prompt.indexOf("const STYLE = [")))
 for (const w of ["unflattering", "underexposed", "blurry", "grainy", "out of focus", "dirty", "smudged", "harsh"]) {

@@ -43,13 +43,14 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { groupCast, faceSeedFor, type Cluster } from "@/lib/airroom/roster"
 import { dossierLine, cardLinesFor, dossierForSeed } from "@/lib/airraw/dossier"
 import { getLangPrefs } from "@/lib/airraw/lang-prefs"
-import { getProToken } from "@/lib/airroom/pro"
+import { getProToken, isPro } from "@/lib/airroom/pro"
 import { getProfile } from "@/lib/airroom/profile"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { visitorId } from "@/lib/airraw/visitor"
 import { listenOnce, canListen, type VoiceOnceHandle } from "@/lib/voice-once"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { Face } from "@/components/airroom/Face"
+import { track } from "@/lib/airraw/track"
 
 /** Heat → the colour a person is drawn in, same gradient as the rest of the floor. */
 const dot = (f: number) => `hsl(${Math.round(320 - f * 300)},85%,${58 + f * 6}%)`
@@ -94,6 +95,16 @@ const VOICE_EVERY = 4
  * invitation every minute is spam. Each person whispers at most once.
  */
 const WHISPER_EVERY = 5
+/**
+ * THE FREE ROOM HAS AN END. A visitor without a pass gets this many lines from
+ * the room — a few minutes of it, long enough to be whispered to several times
+ * and to catch someone — and then the room goes quiet behind a soft wall that
+ * says exactly what keeps it going. Two reasons, and they are the same reason:
+ * a free visitor generating lines for an hour is a bill with no sale in it, and
+ * the moment the room stops is the moment the pass is worth something concrete.
+ * A pass holder never sees the wall.
+ */
+const FREE_ROOM_LINES = 30
 
 /**
  * HOW EACH PERSON WRITES — fixed per person, like a face. This is what makes
@@ -153,8 +164,10 @@ function Mentions({ text, cast, you, onTap }: { text: string; cast: Cluster[]; y
   )
 }
 
-export function TheRoom({ onPrivate, topic = "tonight" }: {
+export function TheRoom({ onPrivate, onPass, topic = "tonight" }: {
   onPrivate: (c: Cluster) => void
+  /** Open the pass sheet — the free room has reached its end. */
+  onPass: () => void
   topic?: string
 }) {
   // NO ONE REPEATS. groupCast seeds member i as seed*7+i+1, so two rooms whose
@@ -182,6 +195,9 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
   const [draft, setDraft] = useState("")
   const [mic, setMic] = useState<"idle" | "listening" | "thinking">("idle")
   const [speaking, setSpeaking] = useState<string | null>(null)   // key of who is talking aloud
+  const [walled, setWalled] = useState(false)                     // the free room has ended
+  const walledRef = useRef(false)                                 // so the wall event fires once, not every tick
+  const pro = useMemo(() => (typeof window !== "undefined" ? isPro() : false), [])
   const [recent, setRecent] = useState<Set<string>>(new Set())    // who has said something lately — their face glows
 
   const scroller = useRef<HTMLDivElement | null>(null)
@@ -278,6 +294,12 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
       if (stopped || busy.current) return
       if (typeof document !== "undefined" && document.hidden) return
       if (openRef.current) return
+      // The free room's end. Checked BEFORE a request is spent, so the wall
+      // costs nothing to stand behind. Pass holders are never counted.
+      if (!pro && aiLines.current >= FREE_ROOM_LINES) {
+        if (!walledRef.current) { walledRef.current = true; setWalled(true); try { track("room_wall") } catch { /* */ } }
+        return
+      }
       busy.current = true
       try {
         const history = linesRef.current
@@ -370,6 +392,7 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
           // which would rather defeat it.
           whispered.current.add(who.key)
           push({ who, text, at: Date.now(), toYou: true, whisper: true })
+          try { track("room_whisper_received") } catch { /* */ }
           return
         }
         const n = (spokenCount.current[who.key] = (spokenCount.current[who.key] || 0) + 1)
@@ -400,6 +423,11 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
     push({ who: null, text, at: Date.now() })
     setDraft("")
     replyDue.current = true
+    // THE FUNNEL, named. Every step from "read the room" to "paid" fires an
+    // event, so where people leave is a number and not a guess. Say → whisper →
+    // answer alone → wall → pass. Without these the room is a black box that
+    // either converts or doesn't, with nothing to change.
+    try { track("room_say", { mention: !!mentionOf(text) }) } catch { /* never block the room on analytics */ }
     // Aimed at someone? Then they are the one who answers, in public.
     replyTo.current = mentionOf(text)
   }
@@ -410,6 +438,7 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
     if (!text) return
     push({ who: null, text, at: Date.now(), whisper: true, to: c.key })
     whisperBack.current = c
+    try { track("room_whisper_sent") } catch { /* */ }
   }
 
   /**
@@ -418,7 +447,10 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
    * she has already said it when you arrive — the conversation continues instead
    * of restarting from a canned hello.
    */
-  const answerAlone = (c: Cluster, said: string) => onPrivate({ ...c, lines: [said, ...c.lines] })
+  const answerAlone = (c: Cluster, said: string) => {
+    try { track("room_whisper_answered") } catch { /* */ }
+    onPrivate({ ...c, lines: [said, ...c.lines] })
+  }
 
   const holdMic = () => {
     if (mic !== "idle" || !canListen()) return
@@ -513,6 +545,17 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
           </div>
         ))}
       </div>
+
+      {/* ── the wall ── the free room has ended. It says so plainly and names
+          what keeps it going; a visitor who just got whispered to three times
+          has been shown the product, not told about it. */}
+      {walled && !pro && (
+        <button onClick={() => { try { track("room_wall_tap") } catch { /* */ } ; onPass() }}
+          style={{ flexShrink: 0, margin: "0 12px 8px", padding: "13px 14px", borderRadius: 14, textAlign: "center", cursor: "pointer", background: "rgba(232,121,249,.1)", border: ".5px solid rgba(232,121,249,.4)", color: "#f0e8ff", fontSize: 13.5, lineHeight: 1.4, WebkitTapHighlightColor: "transparent" }}>
+          the room went quiet — that was the free part.{" "}
+          <span style={{ fontWeight: 700, color: "#e879f9" }}>$9 keeps it going for 90 days →</span>
+        </button>
+      )}
 
       {/* ── say something ── typed, or held. Cheap for us, and the thing that
           turns watching into being there: you say one line and someone answers

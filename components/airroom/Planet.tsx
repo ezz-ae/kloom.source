@@ -944,12 +944,14 @@ export function Planet() {
                 ? <YouPage onPass={() => setShowPro(true)} onResume={(t) => { setShowProfile(false); setSelected(t.cluster) }} />
                 : roomOpen
                 ? <TheRoom
+                    onPass={() => setShowPro(true)}
                     onPrivate={(c) => {
                       // Leaving the room for a private thread is the same gate as
                       // any other conversation on this floor — 18+ was confirmed
                       // to be in here at all, and a free visitor spends a minute.
                       if (!gateAir()) return
                       if (!isPro()) { spendCredits(1); setCredits(getCredits()) }
+                      try { track("room_private", { surface: "room" }) } catch { /* */ }
                       setRoomOpen(false)
                       setSelected(c)
                     }}

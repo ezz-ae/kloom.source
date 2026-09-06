@@ -108,6 +108,31 @@ check(/startsWith\(typing\[1\]\.toLowerCase\(\)\)/.test(room), "filtered by what
 // Unicode-aware, or an Arabic name can't be mentioned at all.
 check(/\\p\{L\}/.test(room) && /\/u\)/.test(room), "the @ pattern matches names in any script, not just ASCII")
 
+// ── the free room has an end ────────────────────────────────────────────────
+// A free visitor generating lines for an hour is a bill with no sale in it, and
+// the moment the room stops is the moment the pass is worth something concrete.
+const FREE = Number((raw.match(/const FREE_ROOM_LINES = (\d+)/) || [])[1])
+const WE = Number((raw.match(/const WHISPER_EVERY = (\d+)/) || [])[1])
+check(FREE >= 20 && FREE <= 60, `a free visitor gets ${FREE} lines — minutes of it, not an hour`)
+check(Math.floor(FREE / WE) >= 3, `long enough to be whispered to ${Math.floor(FREE / WE)} times before it ends — shown the product, not told`)
+// Asserted as properties, not literal text: the guard grew a once-only event
+// and the tap grew a tracker, and pinning the exact source failed both while
+// the guarantees — checked before spending, opens the pass — were intact.
+const wallGuard = room.slice(room.indexOf("if (!pro && aiLines.current >= FREE_ROOM_LINES)"))
+check(wallGuard.length > 0 && /setWalled\(true\)/.test(wallGuard.slice(0, 260)) && /return\s*\}/.test(wallGuard.slice(0, 300)),
+  "the wall is checked BEFORE a request is spent")
+check(/walledRef\.current = true/.test(room), "and the wall event fires once, not every tick")
+const guardAt = room.indexOf("aiLines.current >= FREE_ROOM_LINES"), spendAt = room.indexOf("busy.current = true")
+check(guardAt > 0 && guardAt < spendAt, "and it sits ahead of the busy flag, so standing behind it costs nothing")
+check(/\{walled && !pro && \(/.test(room), "the wall is never shown to a pass holder")
+const wallBtn = room.slice(room.indexOf("that was the free part") - 700, room.indexOf("that was the free part"))
+check(/onPass\(\)/.test(wallBtn) && /onClick=/.test(wallBtn), "tapping it opens the pass sheet")
+check(/that was the free part/.test(room) && /keeps it going for 90 days/.test(room), "it says plainly what ended and what continues it")
+const planetSrc = strip("components/airroom/Planet.tsx")
+check(/<TheRoom\s+onPass=\{\(\) => setShowPro\(true\)\}/.test(planetSrc), "Planet wires the wall to the real pass sheet")
+const sheet = readFileSync("components/airroom/ProSheet.tsx", "utf8")
+check(/the room never stops/.test(sheet), "and the pass says it keeps the room going")
+
 // ── the card clears the dock ────────────────────────────────────────────────
 check(/calc\(env\(safe-area-inset-bottom\) \+ 5\.75rem\)/.test(room), "the profile sheet reserves the dock's height")
 check(/calc\(env\(safe-area-inset-bottom\) \+ 5\.5rem\)/.test(room), "and so does the input row")

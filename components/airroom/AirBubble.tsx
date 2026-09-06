@@ -19,6 +19,7 @@ import { VoiceWave } from "@/components/airroom/VoiceWave"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { getCredits } from "@/lib/airroom/credits"
 import { ProSheet } from "@/components/airroom/ProSheet"
+import { track } from "@/lib/airraw/track"
 import { LANGUAGE_TO_BCP47, isoForLanguage } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
 import { dossierLine } from "@/lib/airraw/dossier"
@@ -468,6 +469,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       if (res.headers.get("X-Ceiling-Hit") === "1" && !ceilingShown.current && !pro) {
         ceilingShown.current = true
         setCeiling(true)
+        // The single most important funnel number: how often a free user is
+        // SHOWN the wall they are being asked to pay to remove.
+        try { track("ceiling_hit") } catch { /* */ }
       }
       let accumulated = ""
       let spokenUpTo = 0        // how much of `accumulated` has been sent to TTS
@@ -1046,7 +1050,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           answer, and "unlock" language on top of a brush-off reads as a trick. */}
       {ceiling && !pro && (
         <div
-          onClick={() => { setCeiling(false); setShowPro(true) }}
+          onClick={() => { try { track("ceiling_tap") } catch { /* */ } ; setCeiling(false); setShowPro(true) }}
           role="button"
           style={{
             position: "absolute", left: 16, right: 16, bottom: "calc(env(safe-area-inset-bottom) + 88px)",

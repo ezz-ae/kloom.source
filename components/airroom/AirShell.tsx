@@ -23,9 +23,9 @@
  *    and you should not be one mis-tap from leaving a conversation.
  */
 import type { ReactNode } from "react"
-import { Flame, MessagesSquare, Users, User } from "lucide-react"
+import { Flame, MessagesSquare, Users, User, Drama } from "lucide-react"
 
-export type AirTab = "room" | "people" | "talks" | "you"
+export type AirTab = "room" | "people" | "scenes" | "talks" | "you"
 
 const TABS: Array<{ id: AirTab; label: string; icon: typeof Flame }> = [
   // The room comes FIRST because it is the only surface that shows the product
@@ -33,6 +33,9 @@ const TABS: Array<{ id: AirTab; label: string; icon: typeof Flame }> = [
   // stranger; the room just lets them read.
   { id: "room",   label: "Room",   icon: MessagesSquare },
   { id: "people", label: "People", icon: Flame },
+  // Scenes sit in the middle, where a thumb lands. It is the paid tab: a free
+  // visitor should walk past it often enough to wonder what is behind it.
+  { id: "scenes", label: "Scenes", icon: Drama },
   { id: "talks",  label: "Talks",  icon: Users },
   { id: "you",    label: "You",    icon: User },
 ]

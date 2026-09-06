@@ -49,6 +49,7 @@ const WHAT = {
   "norepeat-test":    "profile = character; nobody repeats in a room or across hours",
   "photo-test":       "a photo of her is pass-only, counted first, and the meter fails closed",
   "who-test":         "every person has a page, in their own words, that can never spend money",
+  "fantasy-test":     "the scene menu is closed, clean, and cannot smuggle a prompt",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

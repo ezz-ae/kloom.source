@@ -22,6 +22,9 @@ import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw
 import { visitorId } from "@/lib/airraw/visitor"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { publicCharacter, PUBLIC_CAST_SIZE } from "@/lib/airraw/public-cast"
+import { FantasyBuilder } from "@/components/airroom/FantasyBuilder"
+import { SceneRoom } from "@/components/airroom/SceneRoom"
+import { FANTASIES, ROLES, MAX_CAST, type SceneConfig } from "@/lib/airraw/fantasy"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
 import { matchesPrefs, getLangPrefs, saveLangPrefs, langPrefsPersist } from "@/lib/airraw/lang-prefs"
@@ -114,6 +117,10 @@ export function Planet() {
 
   const [selected, setSelected] = useState<Cluster | null>(null)
   const [group, setGroup] = useState<{ seed: number; f: number; count: number; c?: number; title?: string } | null>(null)
+  // The paid tab. `sceneCfg` being set is what distinguishes "casting a scene"
+  // from "in one" — there is no separate open flag to fall out of sync with it.
+  const [scenesOpen, setScenesOpen] = useState(false)
+  const [sceneCfg, setSceneCfg] = useState<SceneConfig | null>(null)
   const [pending, setPending] = useState<Cluster | null>(null)   // deep voice awaiting 18+ confirm
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null) // deep group awaiting 18+ confirm
   const [nearDeep, setNearDeep] = useState(false)   // you're descending toward the deep → age screen
@@ -951,15 +958,20 @@ export function Planet() {
         legacyRooms && !showProfile && !roomsOpen
           ? <RoomDeck onJoin={(j) => joinGroup(j)} onExplore={() => { setRoomsOpen(false); setDeckOpen(false) }} fai={String(fai)} onProfile={() => setShowProfile(true)} pos={deckPos} setPos={setDeckPos} onResume={(c) => setSelected(c)} onBack={() => setLegacyRooms(false)} />
           : <AirShell
-              tab={showProfile ? "you" : roomsOpen ? "talks" : roomOpen ? "room" : "people"}
+              tab={showProfile ? "you" : roomsOpen ? "talks" : scenesOpen ? "scenes" : roomOpen ? "room" : "people"}
               // The front door positions itself and clears the dock on its own —
               // an absolutely-positioned card ignores the scroll container's
               // padding, so the shell must not try to reserve space for it.
-              immersive={!showProfile && !roomsOpen && !roomOpen}
+              immersive={!showProfile && !roomsOpen && !roomOpen && !scenesOpen}
               onTab={(t: AirTab) => {
                 setShowProfile(t === "you")
                 setRoomsOpen(t === "talks")
                 setRoomOpen(t === "room")
+                setScenesOpen(t === "scenes")
+                // Leaving the tab drops the cast, so coming back opens the
+                // builder rather than dumping you into a scene you had forgotten.
+                if (t !== "scenes") setSceneCfg(null)
+                if (t === "scenes") track("scenes_open", { pro: isPro() })
                 if (t === "you") { setProfile(getProfile()); setCredits(getCredits()) }
                 if (t === "people") setFai(getFai())
               }}
@@ -984,6 +996,12 @@ export function Planet() {
                       setSelected(c)
                     }}
                   />
+                : scenesOpen
+                ? (pro
+                    ? (sceneCfg
+                        ? <SceneRoom cfg={sceneCfg} onClose={() => setSceneCfg(null)} onPass={() => setShowPro(true)} />
+                        : <FantasyBuilder onStart={(cfg) => { track("scene_start", { cast: cfg.cast.length, mode: cfg.turnMode }); setSceneCfg(cfg) }} />)
+                    : <ScenesLocked onPass={() => { track("scenes_wall_tap"); setShowPro(true) }} />)
                 : roomsOpen
                 ? <Talks
                     onSpent={() => setFai(getFai())}
@@ -1294,6 +1312,55 @@ function OnboardGate({ onDone }: { onDone: (c: number) => void }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * THE SCENES WALL — what a free visitor finds behind the paid tab.
+ *
+ * It SHOWS the thing rather than describing it. A wall that says "upgrade for
+ * more features" is asking for money on trust; a wall that lists the scenes and
+ * the controls, and names the number of them, is asking for money for something
+ * the visitor can already see the shape of. The tab is deliberately in the dock
+ * where a thumb lands, so this gets walked past often.
+ */
+function ScenesLocked({ onPass }: { onPass: () => void }) {
+  const peek = FANTASIES.filter((f) => ["hotel-last-night", "the-ex", "told-what", "three", "office-late", "watched"].includes(f.id))
+  return (
+    <div style={{ color: "#f0e8ff", padding: "10px 0 40px" }}>
+      <h2 style={{ fontSize: 25, fontWeight: 700, letterSpacing: -.4, margin: "0 0 8px" }}>Cast your own scene</h2>
+      <p style={{ fontSize: 15, color: "rgba(240,232,255,.6)", lineHeight: 1.55, margin: "0 0 22px" }}>
+        Everywhere else you meet whoever is here. In Scenes you choose the situation, who is in the room,
+        what each of them is, and who is allowed to speak.
+      </p>
+
+      <ul style={{ listStyle: "none", padding: 0, margin: "0 0 22px", display: "grid", gap: 8 }}>
+        {peek.map((f) => (
+          <li key={f.id} style={{ background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.11)", borderRadius: 14, padding: "12px 15px" }}>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>{f.label}</div>
+            <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.45)", marginTop: 3, lineHeight: 1.45 }}>{f.scene}</div>
+          </li>
+        ))}
+      </ul>
+
+      <ul style={{ listStyle: "none", padding: 0, margin: "0 0 26px", display: "grid", gap: 9, fontSize: 14.5, color: "rgba(240,232,255,.72)" }}>
+        {[
+          `${FANTASIES.length} scenes to start from`,
+          `${ROLES.length} roles — cast up to ${MAX_CAST} people`,
+          "choose M, F or T for every one of them",
+          "they speak in turns, at random, or only when you say",
+          "keep the transcript, or keep nothing",
+        ].map((t) => (
+          <li key={t} style={{ display: "flex", gap: 10 }}><span aria-hidden style={{ color: "#f472b6" }}>✦</span>{t}</li>
+        ))}
+      </ul>
+
+      <button onClick={onPass}
+        style={{ width: "100%", padding: "17px 0", borderRadius: 15, background: "#f472b6", color: "#0d0418", fontSize: 16.5, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+        unlock scenes →
+      </button>
+      <p style={{ fontSize: 12, color: "rgba(240,232,255,.4)", textAlign: "center", marginTop: 12 }}>part of the pass · 18+</p>
     </div>
   )
 }

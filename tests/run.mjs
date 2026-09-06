@@ -48,6 +48,7 @@ const WHAT = {
   "room-test":        "the site lands in a room of distinct people, and it never spends unwatched",
   "norepeat-test":    "profile = character; nobody repeats in a room or across hours",
   "photo-test":       "a photo of her is pass-only, counted first, and the meter fails closed",
+  "who-test":         "every person has a page, in their own words, that can never spend money",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

@@ -21,6 +21,7 @@ import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { visitorId } from "@/lib/airraw/visitor"
 import { AirBubble } from "@/components/airroom/AirBubble"
+import { publicCharacter, PUBLIC_CAST_SIZE } from "@/lib/airraw/public-cast"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
 import { matchesPrefs, getLangPrefs, saveLangPrefs, langPrefsPersist } from "@/lib/airraw/lang-prefs"
@@ -397,6 +398,33 @@ export function Planet() {
     if ((p || pj) && !isPro()) { spendCredits(1); setCredits(getCredits()) }
     if (p) { takeOpening(); setSelected(p) } else if (pj) { takeOpening(); setGroup({ seed: pj.seed, f: pj.f, count: pj.n, c: pj.c }) }
   }
+  // DEEP LINK FROM A SHARED CHARACTER PAGE — /?who=<index> opens that person.
+  //
+  // The public pages under /who are the shareable surface of the product, and a
+  // link to a specific person that dropped the visitor on the front door would
+  // throw away the click the page existed to earn. The index is the one the page
+  // was built from, so the person who opens here is the person they read about.
+  //
+  // The 18+ confirm is NOT skippable by arriving from outside: an unverified
+  // visitor is parked in `pending`, which confirm18 opens once they attest.
+  useEffect(() => {
+    let raw: string | null = null
+    try { raw = new URLSearchParams(window.location.search).get("who") } catch { return }
+    if (raw === null) return
+    const i = Number(raw)
+    if (!Number.isInteger(i) || i < 0 || i >= PUBLIC_CAST_SIZE) return
+    const c = publicCharacter(i)
+    // Drop the param so a refresh doesn't reopen her over whatever they moved to.
+    try { window.history.replaceState({}, "", "/") } catch { /* */ }
+    let ok = false
+    try { ok = localStorage.getItem("airroom_18") === "1" } catch { /* */ }
+    if (!ok) { setPending(c); return }
+    if (!gateAir()) return
+    if (!isPro()) { spendCredits(1); setCredits(getCredits()) }
+    setSelected(c)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── the engine ──
   useEffect(() => {
     const cv = cvRef.current; if (!cv) return

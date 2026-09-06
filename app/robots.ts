@@ -11,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         // On the AIRRAW host, index the landing + universe + legal; keep API and
         // the (legacy Kloom) app surface out. Otherwise the Kloom rules.
-        allow: AIRRAW ? ["/", "/universe", "/airraw"] : ["/", "/app/rooms/c/"],
+        allow: AIRRAW ? ["/", "/who", "/universe", "/airraw"] : ["/", "/app/rooms/c/"],
         // /floor is the live 18+ chat surface — keep it (and the API/app) out of the index.
         disallow: AIRRAW ? ["/api/", "/app/", "/floor"] : ["/api/", "/app/rooms/"],
       },

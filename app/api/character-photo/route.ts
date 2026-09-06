@@ -360,7 +360,12 @@ async function genGoogle(prompt: string, seed: number): Promise<Buffer | null | 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(imagen
         ? { instances: [{ prompt }], parameters: { sampleCount: 1, seed, aspectRatio: "3:4", personGeneration: "allow_adult" } }
-        : { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ["IMAGE"] } }),
+                // ASPECT RATIO has to be asked for. Without imageConfig this endpoint
+        // returns whatever shape it likes — a live sample came back 1408x768
+        // landscape, which is useless for a face card the whole UI lays out as
+        // 3:4 portrait. The diffusion engines were always told the size; this one
+        // has to be told too.
+        : { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "3:4" } } }),
       signal: AbortSignal.timeout(45_000),
     })
     if (!res.ok) {

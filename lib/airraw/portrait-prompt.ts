@@ -225,8 +225,19 @@ export function buildPortraitPrompt(seedKey: string, gender?: string, _world?: s
   const d = (desc || "").replace(/["\n]/g, " ").slice(0, 80).trim()
   // Name is deliberately NOT in the prompt — diffusion models render names as text
   // on the image. Identity/variety comes from the trait mix + the per-persona seed.
+  // "adult" is stated OUTRIGHT, not left to be inferred from the age phrase.
+  //
+  // The AGE pool starts at "in their early 20s", which every diffusion engine
+  // read as an adult. The Google engine does not always: on a sample of new
+  // faces one came back young enough to read as a teenager from the identical
+  // prompt. The negative list already refuses child/minor/underage/teenager, and
+  // this is the positive half of that same floor — the two work together, and
+  // neither is enough on its own with a model that interprets differently.
+  //
+  // It costs one word and it is not a style choice, so it stays regardless of
+  // which engine is in play.
   const prompt =
-    `${BASE}. ${style}. portrait of ${look}, ${ethnicity}, ${word} ${age}, ${hair}` +
+    `${BASE}. ${style}. portrait of an adult ${look}, ${ethnicity}, ${word} ${age}, clearly of adult age, ${hair}` +
     (d ? `, ${d}` : "")
   return { prompt, negative: PORTRAIT_NEG, seed: hash(k + "|px") % 2147483647, ethnicity, age }
 }

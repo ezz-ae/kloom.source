@@ -80,8 +80,20 @@ check(/if \(!GEMINI_KEY \|\| Date\.now\(\) < googleOffUntil\) return null/.test(
 check(/PROMPT_FINGERPRINT/.test(src), "the cache key still carries the prompt fingerprint")
 check(/cached: true/.test(src), "make-once / cache-forever is intact, which is where a face's stability comes from")
 
+// ── the shape the UI actually lays out ────────────────────────────────────
+// Without imageConfig this endpoint returns whatever it likes: a live sample came
+// back 1408x768 landscape for a card the whole UI renders as a 3:4 portrait.
+check(/imageConfig: \{ aspectRatio: "3:4" \}/.test(src), "the generateContent path asks for a 3:4 portrait")
+check(/aspectRatio: "3:4"/.test(g.slice(g.indexOf("imagen"))), "and so does the imagen path")
+
 // ── the safety floor on portraits is untouched ────────────────────────────
+// The negative list is half of the age floor; the positive half has to be stated
+// too, because the Google engine read the identical prompt younger than every
+// diffusion engine did — one sampled face came back reading as a teenager.
 const prompt = readFileSync("lib/airraw/portrait-prompt.ts", "utf8")
+check(/portrait of an adult/.test(prompt) && /clearly of adult age/.test(prompt),
+  "the prompt states ADULT outright rather than leaving it to be inferred from the age phrase")
+
 for (const w of ["child", "minor", "underage", "teenager"]) {
   check(new RegExp(`\\b${w}\\b`).test(prompt), `the portrait negative still refuses "${w}"`)
 }

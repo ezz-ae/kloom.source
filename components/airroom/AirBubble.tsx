@@ -20,6 +20,7 @@ import { isPro, getProToken } from "@/lib/airroom/pro"
 import { getCredits } from "@/lib/airroom/credits"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { track } from "@/lib/airraw/track"
+import { lookFor, saveCharacter, addMedia } from "@/lib/airraw/character"
 import { LANGUAGE_TO_BCP47, isoForLanguage } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
 import { dossierLine } from "@/lib/airraw/dossier"
@@ -27,7 +28,19 @@ import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySi
 import { loadTalk, saveTalk, forgetTalk, memoryEnabled } from "@/lib/airraw/memory"
 import { getLangPrefs, spokenLanguages } from "@/lib/airraw/lang-prefs"
 
-interface Msg { who: "host" | "you"; text: string }
+interface Msg { who: "host" | "you"; text: string; image?: string }
+
+/**
+ * "send me a photo of you in the kitchen" — typed or spoken — is a photo request,
+ * not a chat turn. The scene is whatever is left once the asking is stripped.
+ * Rough on purpose: being wrong costs one odd reply, and a photo has to be
+ * askable the way a person would ask for one.
+ */
+const PHOTO_ASK = /\b(?:send|show|give|take)\s+me\s+(?:a\s+|another\s+|one\s+)?(?:photo|pic|picture|selfie|snap|pics|photos)\b(?:\s+of\s+(?:you|yourself|u))?/i
+function photoScene(text: string): string | null {
+  if (!PHOTO_ASK.test(text)) return null
+  return text.replace(PHOTO_ASK, "").replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "").replace(/^(?:in|on|at|with)\s+/i, (m) => m).trim()
+}
 
 // Adult heat palette — purple → pink → red (matches the floor)
 const HEAT_COLOR: Record<Heat, string> = { w: "#c084fc", m: "#f472b6", f: "#fb7185" }
@@ -132,6 +145,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   // not a nag. Twice and it stops being information and starts being pressure.
   const [ceiling, setCeiling] = useState(false)
   const ceilingShown = useRef(false)
+  // What the nudge says. The content ceiling and a refused photo are the same
+  // moment — "here is the wall, here is what removes it" — with a different
+  // first sentence.
+  const [nudge, setNudge] = useState("she stopped there because you\u2019re on the free floor.")
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const [photoNote, setPhotoNote] = useState("")
   // The call timer. A phone shows one, and its absence is half of why this
   // screen never read as a call: nothing on it said "this is happening now".
   const [callSecs, setCallSecs] = useState(0)
@@ -552,9 +571,51 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     }
   }
 
+  /**
+   * A PHOTO OF HER. Pass-only, and the client enforces it too: a free user gets
+   * the nudge and NO request is made — a photo is two cents of cash, and a
+   * teaser is two cents spent on someone who has not paid. A pass holder gets
+   * the same person every time (lib/airraw/character.ts freezes her appearance
+   * and the route leads with it), three a day, and she keeps them on her card.
+   */
+  const askPhoto = async (scene = "") => {
+    if (photoBusy) return
+    if (!pro) {
+      setNudge("she\u2019d send you a photo \u2014 but you\u2019re on the free floor.")
+      setCeiling(true)
+      try { track("photo_nudge") } catch { /* */ }
+      return
+    }
+    setPhotoBusy(true); setPhotoNote(scene ? `taking one\u2026 ${scene}` : "taking one\u2026")
+    try { track("photo_ask", { scene: !!scene }) } catch { /* */ }
+    try {
+      const r = await fetch("/api/media", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ look: lookFor(cluster), name: cluster.host, gender: cluster.gender, key: cluster.key, scene, kind: "image", proToken: getProToken() }),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok || !d?.url) {
+        setPhotoNote(d?.error || "she couldn\u2019t right now")
+        try { track(r.status === 429 ? "photo_capped" : "photo_failed") } catch { /* */ }
+        return
+      }
+      const next: Msg[] = [...msgsRef.current, { who: "host", text: scene ? `\ud83d\udcf7 ${scene}` : "\ud83d\udcf7", image: d.url }]
+      msgsRef.current = next; setMsgs(next)
+      // Keep it on her card, so a photo is something she has rather than a
+      // one-off. Stored with the same privacy as the thread itself.
+      try { addMedia(saveCharacter(cluster).key, { url: d.url, kind: "image", scene, at: Date.now() }) } catch { /* */ }
+      setPhotoNote(typeof d.left === "number" ? `${d.left} left on this pass` : "")
+      try { track("photo_sent") } catch { /* */ }
+    } catch { setPhotoNote("she couldn\u2019t right now") }
+    finally { setPhotoBusy(false); setTimeout(() => setPhotoNote(""), 6000) }
+  }
+
   const send = async (override?: string) => {
     const text = (override ?? input).trim()
     if (!text || busyRef.current) return
+    // Asking for a photo is a photo, not a chat turn — typed or spoken.
+    const scene = photoScene(text)
+    if (scene !== null) { setInput(""); await askPhoto(scene); return }
     // Typing counts as starting too — the canned hello must never arrive on top
     // of a conversation the user has already begun in their own words.
     greetedRef.current = true
@@ -890,6 +951,16 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         {/* status */}
         <div style={{ fontSize: 13, color: handsFree ? accent : "rgba(240,232,255,.45)", minHeight: 18 }}>{status}</div>
 
+        {/* the newest photo, on the call screen itself — a photo that only lives
+            behind the keypad is a photo nobody finds */}
+        {(() => { const ph = [...msgs].reverse().find((m) => m.image); return ph && !styleQ ? (
+          <button onClick={() => setChatOpen(true)} aria-label="see her photos" style={{ width: "min(46vw, 180px)", aspectRatio: "3 / 4", borderRadius: 14, overflow: "hidden", border: `.5px solid ${accent}66`, boxShadow: `0 16px 40px -16px ${glow}`, padding: 0, background: "none", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={ph.image} alt={cluster.host} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+          </button>
+        ) : null })()}
+        {photoNote && <div style={{ fontSize: 12, color: accent + "cc" }}>{photoNote}</div>}
+
         {/* live caption — no speaker label, the color tells you who's talking */}
         <div style={{ width: "min(92vw, 430px)", minHeight: 60, textAlign: "center", overflow: "hidden" }}>
           {last && !styleQ && (
@@ -929,6 +1000,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               { label: micMuted ? "unmute" : "mute", icon: micMuted ? "🔇" : "🎙", on: micMuted, act: toggleMicMute, aria: micMuted ? "unmute your microphone" : "mute your microphone" },
               { label: "speaker", icon: "🔊", on: audioPanel, act: () => setAudioPanel((v) => !v), aria: "sound" },
               { label: "keypad", icon: "⌨", on: false, act: () => setChatOpen(true), aria: "type" },
+              { label: photoBusy ? "taking\u2026" : "photo", icon: "\ud83d\udcf7", on: photoBusy, act: () => askPhoto(), aria: "ask her for a photo" },
             ] as Array<{ label: string; icon: string; on: boolean; act: () => void; aria: string }>).map((b) => (
               <button key={b.label} onClick={b.act} aria-label={b.aria} aria-pressed={b.on}
                 style={{ width: 64, background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", color: "rgba(240,232,255,.8)", fontFamily: "inherit" }}>
@@ -980,7 +1052,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "8px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }} />
-            {msgs.map((m, i) => (
+            {msgs.map((m, i) => m.image ? (
+              <div key={i} style={{ alignSelf: "flex-start", maxWidth: "82%", borderRadius: 16, overflow: "hidden", border: `.5px solid ${accent}55`, background: "rgba(255,255,255,.06)" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={m.image} alt={`${cluster.host}${m.text.replace(/^\ud83d\udcf7\s*/, "") ? ` \u2014 ${m.text.replace(/^\ud83d\udcf7\s*/, "")}` : ""}`} style={{ display: "block", width: "100%", aspectRatio: "3 / 4", objectFit: "cover" }} />
+                {m.text.replace(/^\ud83d\udcf7\s*/, "") && <div style={{ padding: "7px 11px", fontSize: 12.5, color: "rgba(240,232,255,.7)" }}>{m.text.replace(/^\ud83d\udcf7\s*/, "")}</div>}
+              </div>
+            ) : (
               <div key={i} style={{ alignSelf: m.who === "you" ? "flex-end" : "flex-start", maxWidth: "82%", fontSize: 15, lineHeight: 1.45, color: m.who === "you" ? "#0d0418" : "#f0e8ff", background: m.who === "you" ? accent : "rgba(255,255,255,.09)", padding: "9px 13px", borderRadius: 16, fontWeight: m.who === "you" ? 500 : 400 }}>{m.text}</div>
             ))}
             {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: accent + "99", fontStyle: "italic" }}>{cluster.host} is thinking…</div>}
@@ -1061,7 +1139,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             boxShadow: "0 14px 40px -14px rgba(0,0,0,.8)",
           }}
         >
-          she stopped there because you&rsquo;re on the free floor.{" "}
+          {nudge}{" "}
           <span style={{ fontWeight: 700, color: accent }}>$9 opens her all the way →</span>
           <span
             onClick={(e) => { e.stopPropagation(); setCeiling(false) }}

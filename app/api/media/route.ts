@@ -35,6 +35,8 @@
 
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { adultEnabled } from "@/lib/variant"
+import { proTokenClaims } from "@/lib/airraw-pro-token"
+import { spendPassPhoto, PHOTOS_PER_DAY, PHOTOS_PER_PASS } from "@/lib/airraw/pass-meter"
 import { videoConfigured, startVideo, waitVideo, pollVideo } from "@/lib/airraw/video"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 
@@ -127,7 +129,7 @@ export async function POST(request: Request) {
   if (!adultEnabled()) return Response.json({ error: "not available" }, { status: 404 })
 
   const ct = request.headers.get("content-type") || ""
-  let look = "", name = "", gender = "", key = "", scene = "", kind = "image"
+  let look = "", name = "", gender = "", key = "", scene = "", kind = "image", proToken = ""
 
   if (ct.includes("multipart/form-data")) {
     // VOICE. The audio is handed to /api/stt rather than transcribed here —
@@ -139,6 +141,7 @@ export async function POST(request: Request) {
     gender = String(form.get("gender") || "")
     key = String(form.get("key") || "")
     kind = String(form.get("kind") || "image")
+    proToken = String(form.get("proToken") || "")
     if (!(file instanceof Blob)) return Response.json({ error: "no audio" }, { status: 400 })
     const sttForm = new FormData()
     sttForm.append("file", file, "ask.webm")
@@ -156,10 +159,31 @@ export async function POST(request: Request) {
     gender = String(b?.gender || "")
     key = String(b?.key || "")
     kind = String(b?.kind || "image")
+    proToken = String(b?.proToken || "")
     scene = cleanScene(b?.scene)
   }
 
   if (!look) return Response.json({ error: "no character" }, { status: 400 })
+
+  // PASS ONLY, AND COUNTED FIRST. A photo is the one thing here that costs cash
+  // per unit, so there is no free path and no free teaser — a teaser is two
+  // cents spent on someone who has not paid. The pass is verified server-side
+  // (a forged token fails here exactly as it does on the chat ceiling), and the
+  // photo is charged against the pass BEFORE anything is generated: a request
+  // that is refused must cost nothing. Repeats of an identical scene are cache
+  // hits downstream but still count — asking twice is asking twice.
+  const claims = proTokenClaims(proToken)
+  if (!claims) {
+    return Response.json({ error: "photos are part of the pass", need: "pass" }, { status: 402 })
+  }
+  const spend = await spendPassPhoto(proToken)
+  if (!spend.ok) {
+    const daily = spend.reason === "daily-cap"
+    return Response.json(
+      { error: daily ? `that's today's ${PHOTOS_PER_DAY} — more tomorrow` : `this pass's ${PHOTOS_PER_PASS} photos are used up`, reason: spend.reason, perDay: PHOTOS_PER_DAY, perPass: PHOTOS_PER_PASS },
+      { status: 429 },
+    )
+  }
 
   // Identity FIRST and verbatim, scene after — diffusion weights early tokens
   // more heavily, so leading with the person is what keeps them the person.
@@ -241,7 +265,10 @@ export async function POST(request: Request) {
   if (!res.ok || !data?.url) {
     return Response.json({ error: data?.error || "generation failed", detail: data?.detail, scene }, { status: res.status || 502 })
   }
-  return Response.json({ url: data.url, kind: "image", scene, prompt }, { headers: { "Cache-Control": "no-store" } })
+  return Response.json(
+    { url: data.url, kind: "image", scene, prompt, left: Math.max(0, PHOTOS_PER_PASS - (spend.used ?? 0)), perDay: PHOTOS_PER_DAY },
+    { headers: { "Cache-Control": "no-store" } },
+  )
 }
 
 /**

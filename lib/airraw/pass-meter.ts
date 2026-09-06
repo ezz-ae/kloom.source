@@ -74,6 +74,35 @@ export async function spendPassChars(token: string, minutes: number | undefined,
   return spendChars(passKey(token), chars, cap, PASS_DAILY_CAP_MIN * CHARS_PER_MINUTE)
 }
 
+// ── photos ───────────────────────────────────────────────────────────────────
+// A photo of her is the one thing in the product that costs CASH per unit (the
+// image provider bills per generation), and the one thing people pay per unit
+// for. So it is pass-only, counted against the pass, and — unlike voice —
+// FAILS CLOSED: if the meter is unreachable, no photo. Losing a minute of
+// speech to a missing table is an annoyance; generating unmetered images on a
+// budget of zero is a bill. Same RPC as voice, its own key namespace, one unit
+// per photo. Thirty on a pass keeps the worst case at well under a dollar
+// against a nine-dollar sale.
+export const PHOTOS_PER_DAY = Math.max(1, Number(process.env.PASS_PHOTOS_PER_DAY || 3))
+export const PHOTOS_PER_PASS = Math.max(1, Number(process.env.PASS_PHOTOS_PER_PASS || 30))
+
+export async function spendPassPhoto(token: string): Promise<SpendVerdict> {
+  if (!hasAdmin()) return { ok: false, reason: "exhausted", unmetered: true }
+  try {
+    const { data, error } = await getAdminClient().rpc("pass_spend", {
+      p_key: `photo:${passKey(token)}`, p_chars: 1, p_cap: PHOTOS_PER_PASS, p_day_cap: PHOTOS_PER_DAY,
+    })
+    if (error) throw new Error(error.message)
+    const v = (data || {}) as { ok?: boolean; reason?: string; used?: number }
+    if (v.ok === false) return { ok: false, reason: v.reason === "daily-cap" ? "daily-cap" : "exhausted", used: v.used }
+    return { ok: true, used: v.used }
+  } catch (e) {
+    // Closed, not open. See above.
+    console.error("[pass-meter] photo meter unavailable — refusing rather than generating unmetered:", e instanceof Error ? e.message : String(e))
+    return { ok: false, reason: "exhausted", unmetered: true }
+  }
+}
+
 // ── the free minute ──────────────────────────────────────────────────────────
 // A free caller hears the SAME premium voice a pass holder does — nobody is sold
 // a downgrade — but only for about a minute of a call. Counted in characters the

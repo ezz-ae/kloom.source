@@ -47,6 +47,7 @@ const WHAT = {
   "upsell-test":      "a free user finds out the wall exists, once, where it matters",
   "room-test":        "the site lands in a room of distinct people, and it never spends unwatched",
   "norepeat-test":    "profile = character; nobody repeats in a room or across hours",
+  "photo-test":       "a photo of her is pass-only, counted first, and the meter fails closed",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

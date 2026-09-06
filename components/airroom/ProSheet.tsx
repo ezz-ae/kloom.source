@@ -15,6 +15,9 @@ function perks(minutes: number, days: number): [string, string][] {
   const months = Math.max(1, Math.round(days / 30))
   return [
     ["✦  the room never stops", "the free room goes quiet after a few minutes — with a pass it runs all night, whispers and all"],
+    // First, because it is the one perk a person can picture. Everything else on
+    // this list is a promise about how a conversation will go; this is a thing.
+    ["✦  photos of her, three a day", "ask for one — kitchen, balcony, whatever — and it's the same her every time. up to thirty on a pass"],
     ["✦  fully unrestricted", "the whole floor wide open — no limits, no gates, nothing held back"],
     [`✦  ${minutes.toLocaleString()} voice minutes`, `${months === 1 ? "a month" : months === 3 ? "three months" : `${months} months`} of talking out loud — across every room`],
     ["✦  best matches, lit up", "tap once and the people most worth your night light up across the whole floor"],

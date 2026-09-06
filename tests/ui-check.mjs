@@ -43,7 +43,11 @@ await p.goto(`http://localhost:${P}/`, { waitUntil: "networkidle", timeout: 6000
 await p.waitForTimeout(400)
 await click(/18 or older/i); await waitFor(/call you|tonight/i, "onboard")
 await click(/skip, just take me in/i); await waitFor(/tonight/i, "vibe")
-await click(/electric/i); await waitFor(/swipe for someone else/i, "front door")
+await click(/electric/i); await waitFor(/waking up|say something to the room/i, "the room lands")
+// The site now lands in the Room. The deck checks below are about the front
+// door, so go there explicitly — it is one tab away, exactly as a visitor would.
+await p.locator("nav button:visible").filter({ hasText: "People" }).first().click()
+await waitFor(/swipe for someone else/i, "front door")
 await p.waitForTimeout(1200)
 
 let fail = 0

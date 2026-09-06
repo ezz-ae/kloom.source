@@ -137,7 +137,9 @@ export function Planet() {
   // The big room. Its own surface rather than a mode of the deck, because it is
   // the one screen that shows the product working before a visitor decides
   // anything — see components/airroom/TheRoom.tsx.
-  const [roomOpen, setRoomOpen] = useState(false)
+  // TRUE ON LANDING. The site opens inside the room: a conversation already
+  // happening beats a single stranger to judge. The deck is still one tap away.
+  const [roomOpen, setRoomOpen] = useState(true)
   // The old continent room-deck, still reachable from the sky but no longer the door.
   const [legacyRooms, setLegacyRooms] = useState(false)
   // The one-time welcome — resolved client-only (localStorage) so it never SSR-

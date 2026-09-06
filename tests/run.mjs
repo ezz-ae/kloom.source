@@ -45,6 +45,7 @@ const WHAT = {
   "pin-test":         "one person, one voice — greeting, call, and every chunk",
   "tier-test":        "one free minute, same voice as the pass, metered on the server",
   "upsell-test":      "a free user finds out the wall exists, once, where it matters",
+  "room-test":        "the site lands in a room of distinct people, and it never spends unwatched",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

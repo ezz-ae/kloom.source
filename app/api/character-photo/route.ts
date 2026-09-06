@@ -18,7 +18,22 @@ import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 export const runtime = "nodejs"
 export const maxDuration = 120
 
-const PROVIDER = (process.env.IMAGE_PROVIDER || "runpod").toLowerCase()
+// IMAGE_PROVIDER wins when it is set. Otherwise the AIRRAW deployment prefers
+// Google whenever a Gemini key is present, because the faces ARE the product
+// there and the diffusion floor was what people were actually seeing: the
+// Together account spends most of the day throttled off its photoreal ladder
+// (hundreds of 429s in the live logs), so portraits were landing on a 4-step
+// distillation model and looking cheap. Google refuses the harder prompts and
+// falls through to exactly the chain that ran before, so the worst case here is
+// one wasted request and the behaviour we already had.
+//
+// Kloom is deliberately excluded: it is a different product with different
+// images, and it should not have its engine changed by a fix aimed at the adult
+// floor's faces.
+const PROVIDER = (
+  process.env.IMAGE_PROVIDER
+  || (process.env.AIRRAW_HOME === "1" && process.env.GEMINI_API_KEY ? "google" : "runpod")
+).toLowerCase()
 const RP_KEY   = process.env.RUNPOD_API_KEY || ""
 const RP_IMG   = process.env.RUNPOD_IMAGE_ENDPOINT_ID || "6cpprak5lw3tjt" // SDXL we deployed
 const RP_QWEN  = process.env.RUNPOD_QWEN_ENDPOINT_ID || "xjxxy35917x09e"  // Qwen-Image lora
@@ -224,6 +239,121 @@ async function genFal(prompt: string, seed: number): Promise<Buffer | null> {
     const img = await fetch(imgUrl, { signal: AbortSignal.timeout(20000) })
     if (!img.ok) return null
     return Buffer.from(await img.arrayBuffer())
+  } catch { return null }
+}
+
+/**
+ * GOOGLE (Gemini / Imagen) — the quality tier.
+ *
+ * Added because the diffusion output the other engines were producing looked
+ * cheap: Together's schnell floor is a fast model, and when the account is
+ * throttled off the photoreal ladder (which the live logs show constantly —
+ * hundreds of 429s a day) every face falls to it. Google's image models are a
+ * long way better at a human face than a 4-step distillation is.
+ *
+ * ── THE THING TO KNOW BEFORE RELYING ON THIS ─────────────────────────────────
+ *
+ * Google WILL refuse this product's harder prompts. Their policy prohibits
+ * sexual content, and no key or setting opts out of it, so a scene prompt comes
+ * back blocked rather than rendered. That is not a bug to work around and it is
+ * not something to try to talk past — it is why `REFUSED` is a distinct result
+ * from a failure, and why the caller falls straight through to the existing
+ * engines when it happens.
+ *
+ * In practice this splits cleanly: a PORTRAIT is a face, and faces are exactly
+ * what Google is best at and happy to draw, so the floor's 2,980 faces get the
+ * good engine. Explicit scene media keeps the engines that will actually render
+ * it. Nothing is lost by trying Google first, because a refusal costs one
+ * request and the fallback is what would have run anyway.
+ *
+ * ── DETERMINISM ──────────────────────────────────────────────────────────────
+ *
+ * generateContent takes no seed, so this cannot reproduce a face from a seed the
+ * way the diffusion engines can. It does not need to: the route is make-once /
+ * cache-forever, keyed on slug+seed+prompt-fingerprint, so a person's face is
+ * generated a single time and served from storage ever after. The cache IS the
+ * determinism. (Imagen's predict endpoint does take a seed, and it is passed
+ * when that is the model in play.)
+ */
+const REFUSED = Symbol("google-refused")
+const GEMINI_KEY = process.env.GEMINI_API_KEY || ""
+const G_BASE = "https://generativelanguage.googleapis.com/v1beta"
+let googleOffUntil = 0
+let googleModelCache: { at: number; model: string } | null = null
+
+/**
+ * Which Google image model this key can actually run.
+ *
+ * Read from the API rather than pinned, for the same reason the Together lookup
+ * exists: model names move, availability is per-account, and a hardcoded guess
+ * fails as "no images" with nothing in the log explaining why. GOOGLE_IMAGE_MODEL
+ * overrides it outright when you know what you want.
+ */
+async function googleImageModel(): Promise<string> {
+  const forced = process.env.GOOGLE_IMAGE_MODEL || ""
+  if (forced) return forced
+  if (googleModelCache && Date.now() - googleModelCache.at < 30 * 60_000) return googleModelCache.model
+  let model = "gemini-2.5-flash-image"
+  try {
+    const res = await fetch(`${G_BASE}/models?key=${encodeURIComponent(GEMINI_KEY)}&pageSize=200`, {
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (res.ok) {
+      const d = await res.json()
+      const names: string[] = (d?.models || [])
+        .filter((m: Record<string, unknown>) => {
+          const methods = (m?.supportedGenerationMethods as string[]) || []
+          return methods.includes("generateContent") || methods.includes("predict")
+        })
+        .map((m: Record<string, unknown>) => String(m?.name || "").replace(/^models\//, ""))
+      // Prefer a dedicated image model; among those prefer the newest-looking.
+      const imaging = names.filter((n) => /image|imagen/i.test(n) && !/vision|embed/i.test(n))
+      if (imaging.length) {
+        imaging.sort((a, b) => b.localeCompare(a, "en", { numeric: true }))
+        model = imaging[0]
+      }
+      console.log(`[character-photo] google image models: ${imaging.slice(0, 6).join(", ") || "(none listed)"} → using ${model}`)
+    }
+  } catch { /* keep the default; a failed lookup must not stop generation */ }
+  googleModelCache = { at: Date.now(), model }
+  return model
+}
+
+async function genGoogle(prompt: string, seed: number): Promise<Buffer | null | typeof REFUSED> {
+  if (!GEMINI_KEY || Date.now() < googleOffUntil) return null
+  const model = await googleImageModel()
+  const imagen = /imagen/i.test(model)
+  try {
+    const res = await fetch(`${G_BASE}/models/${encodeURIComponent(model)}:${imagen ? "predict" : "generateContent"}?key=${encodeURIComponent(GEMINI_KEY)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(imagen
+        ? { instances: [{ prompt }], parameters: { sampleCount: 1, seed, aspectRatio: "3:4", personGeneration: "allow_adult" } }
+        : { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ["IMAGE"] } }),
+      signal: AbortSignal.timeout(45_000),
+    })
+    if (!res.ok) {
+      const txt = (await res.text().catch(() => "")).slice(0, 300)
+      if (res.status === 401 || res.status === 403) {
+        googleOffUntil = Date.now() + AUTH_OFF_MS
+        console.error(`[character-photo] google rejected the key (${res.status}) — skipping google for ${AUTH_OFF_MS / 60000}m`)
+        return null
+      }
+      // A 400 on this API is usually the safety layer, not a malformed request.
+      if (res.status === 400 && /safety|blocked|prohibit/i.test(txt)) return REFUSED
+      console.error(`[character-photo] google ${res.status}: ${txt}`)
+      return null
+    }
+    const d = await res.json()
+    // Refusal comes back as a 200 with no image and a reason, which is why this
+    // is checked before the parts are read rather than after they come up empty.
+    const reason = String(d?.promptFeedback?.blockReason || d?.candidates?.[0]?.finishReason || "")
+    if (/SAFETY|PROHIBITED|BLOCK|RECITATION/i.test(reason)) return REFUSED
+    const b64 = imagen
+      ? d?.predictions?.[0]?.bytesBase64Encoded
+      : (d?.candidates?.[0]?.content?.parts || []).find((x: Record<string, unknown>) => (x as { inlineData?: { data?: string } })?.inlineData?.data)?.inlineData?.data
+    if (!b64) return REFUSED   // 200, no image, no stated reason — treat as a refusal and fall through
+    return Buffer.from(String(b64), "base64")
   } catch { return null }
 }
 
@@ -453,6 +583,7 @@ export async function POST(request: Request) {
       || ((provider === "runpod" || provider === "qwen") && !RP_KEY)
       || (provider === "fal" && !FAL_KEY)
       || (provider === "together" && !TOGETHER_KEY)
+      || (provider === "google" && !GEMINI_KEY && !TOGETHER_KEY && !FAL_KEY && !RP_KEY)
       || providerRejected()) {
     // Same shape as "no key configured", because it is the same situation from
     // the client's side: no photo is coming, show the monogram and stop asking.
@@ -504,8 +635,22 @@ export async function POST(request: Request) {
   let genErr = ""
   let usedModel = ""   // which engine/model actually produced the bytes (diagnostic)
   const genWithSeed = async (dseed: number): Promise<Buffer | null> => {
-    if (provider === "qwen") { const r = await genQwen(prompt, negative, dseed); genErr = r.error || ""; if (r.bytes) usedModel = "qwen"; return r.bytes }
-    if (provider === "together") {
+    // GOOGLE FIRST, when it is the chosen engine — then straight on to the rest.
+    //
+    // A refusal is expected on the harder prompts (see genGoogle) and is not an
+    // error state: it costs one request and lands us exactly where we would have
+    // started anyway. So there is no latch, no backoff and no retry on it — just
+    // a note in the log saying which prompt Google would not draw, and the
+    // existing ladder picking it up.
+    if (provider === "google") {
+      const g = await genGoogle(prompt, dseed)
+      if (g && g !== REFUSED) { usedModel = await googleImageModel(); return g }
+      if (g === REFUSED) console.warn("[character-photo] google refused this prompt — falling back to the diffusion engines")
+    }
+    // Everything below is the fallback chain when google is the provider.
+    const engine = provider === "google" ? "together" : provider
+    if (engine === "qwen") { const r = await genQwen(prompt, negative, dseed); genErr = r.error || ""; if (r.bytes) usedModel = "qwen"; return r.bytes }
+    if (engine === "together") {
       // Diverse → climb the photoreal ladder (best the key can reach), then schnell floor.
       if (dp) {
         for (const rung of TOGETHER_LADDER) {
@@ -556,7 +701,7 @@ export async function POST(request: Request) {
       console.error(`[character-photo] ${genErr}`)
       return null
     }
-    if (provider === "fal") { const b = await genFal(prompt, dseed); if (b) usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return b }
+    if (engine === "fal") { const b = await genFal(prompt, dseed); if (b) usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return b }
     const b = await genRunpod(prompt, negative, dseed); if (b) usedModel = "runpod-sdxl"; return b
   }
 

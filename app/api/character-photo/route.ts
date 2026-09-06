@@ -18,22 +18,30 @@ import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 export const runtime = "nodejs"
 export const maxDuration = 120
 
-// IMAGE_PROVIDER wins when it is set. Otherwise the AIRRAW deployment prefers
-// Google whenever a Gemini key is present, because the faces ARE the product
-// there and the diffusion floor was what people were actually seeing: the
-// Together account spends most of the day throttled off its photoreal ladder
-// (hundreds of 429s in the live logs), so portraits were landing on a 4-step
-// distillation model and looking cheap. Google refuses the harder prompts and
-// falls through to exactly the chain that ran before, so the worst case here is
-// one wasted request and the behaviour we already had.
+// TWO SEPARATE QUESTIONS, and conflating them is what broke this.
 //
-// Kloom is deliberately excluded: it is a different product with different
-// images, and it should not have its engine changed by a fix aimed at the adult
-// floor's faces.
-const PROVIDER = (
-  process.env.IMAGE_PROVIDER
-  || (process.env.AIRRAW_HOME === "1" && process.env.GEMINI_API_KEY ? "google" : "runpod")
-).toLowerCase()
+// IMAGE_PROVIDER names the DIFFUSION ENGINE — the fallback chain. It was set to
+// "fal" on the AIRRAW deployment, and fal's key is being rejected (403 in the
+// live logs), so every new face was failing outright: "generation failed,
+// provider: fal". Not ugly — absent.
+//
+// GOOGLE_FIRST is the separate question of whether to try the good engine before
+// that chain. It deliberately does NOT read IMAGE_PROVIDER, because requiring an
+// env change to get working faces is how you end up with a dead provider pinned
+// in production and nobody noticing. Google runs first on AIRRAW whenever a
+// Gemini key exists; whatever IMAGE_PROVIDER names stays exactly where it was,
+// as the thing that catches a refusal.
+//
+// GOOGLE_IMAGE_OFF=1 turns it back off, so this is still an operator decision —
+// it just is not one you have to make to get a face at all.
+//
+// Kloom is excluded: different product, different images, and it should not have
+// its engine changed by a fix aimed at the adult floor's faces.
+const PROVIDER = (process.env.IMAGE_PROVIDER || "runpod").toLowerCase()
+const GOOGLE_FIRST =
+  process.env.AIRRAW_HOME === "1"
+  && !!process.env.GEMINI_API_KEY
+  && process.env.GOOGLE_IMAGE_OFF !== "1"
 const RP_KEY   = process.env.RUNPOD_API_KEY || ""
 const RP_IMG   = process.env.RUNPOD_IMAGE_ENDPOINT_ID || "6cpprak5lw3tjt" // SDXL we deployed
 const RP_QWEN  = process.env.RUNPOD_QWEN_ENDPOINT_ID || "xjxxy35917x09e"  // Qwen-Image lora
@@ -642,13 +650,13 @@ export async function POST(request: Request) {
     // started anyway. So there is no latch, no backoff and no retry on it — just
     // a note in the log saying which prompt Google would not draw, and the
     // existing ladder picking it up.
-    if (provider === "google") {
+    if (provider === "google" || (GOOGLE_FIRST && !providerOverride)) {
       const g = await genGoogle(prompt, dseed)
       if (g && g !== REFUSED) { usedModel = await googleImageModel(); return g }
       if (g === REFUSED) console.warn("[character-photo] google refused this prompt — falling back to the diffusion engines")
     }
     // Everything below is the fallback chain when google is the provider.
-    const engine = provider === "google" ? "together" : provider
+    const engine = provider === "google" ? (TOGETHER_KEY ? "together" : "runpod") : provider
     if (engine === "qwen") { const r = await genQwen(prompt, negative, dseed); genErr = r.error || ""; if (r.bytes) usedModel = "qwen"; return r.bytes }
     if (engine === "together") {
       // Diverse → climb the photoreal ladder (best the key can reach), then schnell floor.
@@ -701,7 +709,19 @@ export async function POST(request: Request) {
       console.error(`[character-photo] ${genErr}`)
       return null
     }
-    if (engine === "fal") { const b = await genFal(prompt, dseed); if (b) usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return b }
+    if (engine === "fal") {
+      const b = await genFal(prompt, dseed)
+      if (b) { usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return b }
+      // fal's key has been answering 403 in production for days, and this branch
+      // used to return that null straight to the caller — so a deployment pinned
+      // to IMAGE_PROVIDER=fal produced "generation failed" for every new face
+      // with three other working engines sitting right here. A named engine that
+      // is not answering is a reason to try the next one, not to end the request.
+      if (TOGETHER_KEY) {
+        const t = await genTogether(prompt, dseed)
+        if (t && t !== RATE_LIMITED) { usedModel = TOGETHER_MODEL; return t }
+      }
+    }
     const b = await genRunpod(prompt, negative, dseed); if (b) usedModel = "runpod-sdxl"; return b
   }
 

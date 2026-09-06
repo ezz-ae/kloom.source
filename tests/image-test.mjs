@@ -22,8 +22,8 @@ check(/const REFUSED = Symbol/.test(src), "a refusal has its own sentinel, disti
 check(/Promise<Buffer \| null \| typeof REFUSED>/.test(src), "genGoogle's type says a refusal is a third outcome")
 check(/if \(g === REFUSED\)/.test(src), "the caller handles a refusal explicitly")
 const chain = src.slice(src.indexOf("const genWithSeed"), src.indexOf("const gate = globalGate"))
-check(/const engine = provider === "google" \? "together" : provider/.test(chain),
-  "when google is the engine, the diffusion ladder is still the fallback")
+check(/const engine = provider === "google" \? \(TOGETHER_KEY \? "together" : "runpod"\) : provider/.test(chain),
+  "when google is the engine, a real diffusion engine is still the fallback")
 check(!/googleOffUntil = Date\.now\(\)[\s\S]{0,200}REFUSED/.test(src), "a refusal never latches the provider off")
 
 // ── only a rejected key latches ───────────────────────────────────────────
@@ -40,12 +40,20 @@ check(/G_BASE\}\/models\?key=/.test(src) && /v1beta/.test(src), "the lookup read
 check(/googleModelCache/.test(src), "the lookup is cached, so it isn't a round-trip per face")
 
 // ── google is opt-in and cannot break the existing engines ────────────────
-check(/process\.env\.IMAGE_PROVIDER\s*$/m.test(src) || /process\.env\.IMAGE_PROVIDER\b/.test(src),
-  "IMAGE_PROVIDER still wins when it is set")
-check(/AIRRAW_HOME === "1" && process\.env\.GEMINI_API_KEY \? "google" : "runpod"/.test(src),
-  "AIRRAW prefers google automatically when a key exists — no env change needed to get the good faces")
-check(/AIRRAW_HOME === "1"/.test(src.slice(src.indexOf("const PROVIDER"), src.indexOf("const PROVIDER") + 700)),
-  "and Kloom is excluded from that switch, keeping its own engine")
+// GOOGLE_FIRST and IMAGE_PROVIDER answer two different questions. Production had
+// IMAGE_PROVIDER=fal with a dead fal key, so tying "try the good engine" to that
+// setting meant every new face failed with three working engines available.
+const gf = src.slice(src.indexOf("const GOOGLE_FIRST ="), src.indexOf("const RP_KEY"))
+check(!/IMAGE_PROVIDER/.test(gf), "whether google runs first does NOT depend on IMAGE_PROVIDER")
+check(/AIRRAW_HOME === "1"/.test(gf), "google-first is AIRRAW only — Kloom keeps its own engine")
+check(/GEMINI_API_KEY/.test(gf), "and needs a key")
+check(/GOOGLE_IMAGE_OFF !== "1"/.test(gf), "an operator can still turn it off")
+check(/GOOGLE_FIRST && !providerOverride/.test(src), "an explicit per-request provider still wins")
+
+// A named engine that is not answering must not end the request.
+const falBranch = src.slice(src.indexOf('if (engine === "fal")'), src.indexOf('if (engine === "fal")') + 900)
+check(/TOGETHER_KEY/.test(falBranch) && /genTogether/.test(falBranch),
+  "a dead fal falls through to another engine instead of failing the whole request")
 check(/if \(!GEMINI_KEY \|\| Date\.now\(\) < googleOffUntil\) return null/.test(g),
   "with no key, google is skipped rather than erroring")
 

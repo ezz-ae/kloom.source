@@ -39,6 +39,25 @@ check(/process\.env\.GOOGLE_IMAGE_MODEL/.test(src), "and can be overridden outri
 check(/G_BASE\}\/models\?key=/.test(src) && /v1beta/.test(src), "the lookup reads the real model list")
 check(/googleModelCache/.test(src), "the lookup is cached, so it isn't a round-trip per face")
 
+// Choosing a model is not sorting strings. A plain descending sort picked
+// "gemini-3.1-flash-lite-image" out of the six the account lists — the cheapest,
+// weakest one — which is exactly the quality problem this change was made for.
+const pick = src.slice(src.indexOf("const score = (n: string)"), src.indexOf("googleModelCache = {"))
+check(/lite/i.test(pick) && /-= 400/.test(pick), "the cheap 'lite' tier is ranked DOWN, not alphabetically up")
+check(/preview\|exp/.test(pick), "stable is preferred over preview")
+const score = (n) => { let v = 0
+  if (/lite/i.test(n)) v -= 400; else if (/flash/i.test(n)) v += 300
+  if (/imagen/i.test(n)) v += 200
+  if (/preview|exp/i.test(n)) v -= 150
+  const m = n.match(/(\d+(?:\.\d+)?)/); if (m) v += Math.min(99, Number(m[1]) * 10)
+  return v }
+// The six this account actually lists, from the production log.
+const REAL = ["gemini-3.1-flash-lite-image", "gemini-3.1-flash-image-preview", "gemini-3.1-flash-image",
+              "gemini-3-pro-image-preview", "gemini-3-pro-image", "gemini-2.5-flash-image"]
+const best = [...REAL].sort((a, b) => score(b) - score(a) || b.localeCompare(a, "en", { numeric: true }))[0]
+check(best === "gemini-3.1-flash-image", `the live model list resolves to a real image model (${best})`)
+check(best !== "gemini-3.1-flash-lite-image", "and never back to the lite tier")
+
 // ── google is opt-in and cannot break the existing engines ────────────────
 // GOOGLE_FIRST and IMAGE_PROVIDER answer two different questions. Production had
 // IMAGE_PROVIDER=fal with a dead fal key, so tying "try the good engine" to that

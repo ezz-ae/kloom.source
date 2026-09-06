@@ -314,10 +314,33 @@ async function googleImageModel(): Promise<string> {
           return methods.includes("generateContent") || methods.includes("predict")
         })
         .map((m: Record<string, unknown>) => String(m?.name || "").replace(/^models\//, ""))
-      // Prefer a dedicated image model; among those prefer the newest-looking.
+      // RANK them. A plain descending sort picked "gemini-3.1-flash-lite-image"
+      // out of six candidates — alphabetically it wins, and it is the cheapest,
+      // weakest model on the list. Sorting strings is not choosing a model.
+      //
+      // The ranking is deliberately NOT "best model wins". It is:
+      //   flash (stable) > flash (preview) > pro > lite
+      // Flash sits above pro on purpose. A face is generated once and cached
+      // forever, but the cast is thousands of people, and pro costs several times
+      // as much per image — on an account with no budget that is the difference
+      // between a nice face and a bill nobody can pay. Lite is bottom because it
+      // is what produced the faces this change exists to replace.
+      //
+      // GOOGLE_IMAGE_MODEL=gemini-3-pro-image takes the top tier deliberately,
+      // which is the right call once there is money coming in.
       const imaging = names.filter((n) => /image|imagen/i.test(n) && !/vision|embed/i.test(n))
+      const score = (n: string) => {
+        let v = 0
+        if (/lite/i.test(n)) v -= 400              // the cheap tier, and it looks it
+        else if (/flash/i.test(n)) v += 300
+        if (/imagen/i.test(n)) v += 200            // dedicated image model
+        if (/preview|exp/i.test(n)) v -= 150       // stable beats preview
+        const m = n.match(/(\d+(?:\.\d+)?)/)      // version, as a tiebreak only
+        if (m) v += Math.min(99, Number(m[1]) * 10)
+        return v
+      }
       if (imaging.length) {
-        imaging.sort((a, b) => b.localeCompare(a, "en", { numeric: true }))
+        imaging.sort((a, b) => score(b) - score(a) || b.localeCompare(a, "en", { numeric: true }))
         model = imaging[0]
       }
       console.log(`[character-photo] google image models: ${imaging.slice(0, 6).join(", ") || "(none listed)"} → using ${model}`)

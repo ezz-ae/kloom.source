@@ -131,6 +131,15 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   // not a nag. Twice and it stops being information and starts being pressure.
   const [ceiling, setCeiling] = useState(false)
   const ceilingShown = useRef(false)
+  // The call timer. A phone shows one, and its absence is half of why this
+  // screen never read as a call: nothing on it said "this is happening now".
+  const [callSecs, setCallSecs] = useState(0)
+  useEffect(() => {
+    if (!handsFree) { setCallSecs(0); return }
+    const id = setInterval(() => setCallSecs((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [handsFree])
+  const mmss = `${String(Math.floor(callSecs / 60)).padStart(2, "0")}:${String(callSecs % 60).padStart(2, "0")}`
   const [speaking, setSpeaking] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
@@ -864,6 +873,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           {vibe && (
             <div style={{ fontSize: 12, color: accent + "cc", marginTop: 3, letterSpacing: 0.3 }}>{vibe}</div>
           )}
+          {handsFree && (
+            <div style={{ fontSize: 15, color: "rgba(240,232,255,.7)", marginTop: 6, fontVariantNumeric: "tabular-nums", letterSpacing: 1 }}>{mmss}</div>
+          )}
         </div>
 
         {/* live mic visualizer */}
@@ -895,26 +907,48 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         </div>
       </div>
 
-      {/* bottom controls — ONE button, like a phone: call to start, end to hang up.
-          Text lives behind a swipe → (and the same button, when voice can't run here). */}
-      <div style={{ flexShrink: 0, padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 26px) max(18px, env(safe-area-inset-right))" }}>
-        <div style={{ fontSize: 11, color: micHint ? "#fb7185" : "rgba(240,232,255,.3)", marginBottom: 14, textAlign: "center", minHeight: 14, letterSpacing: 0.4 }}>
-          {micHint || "swipe → for the words"}
+      {/* bottom controls — A PHONE'S.
+          Before the call: one big green button, like a dialler. During it: the
+          row every phone has had for fifteen years — mute · speaker · keypad —
+          over a big red end button. People know this layout without reading it,
+          which is the point; a call screen that has to be learned is not a call
+          screen. Each button is wired to something that already existed here:
+          the mic mute, the sound panel, the text transcript, hanging up. */}
+      <div style={{ flexShrink: 0, padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 22px) max(18px, env(safe-area-inset-right))" }}>
+        <div style={{ fontSize: 11, color: micHint ? "#fb7185" : "rgba(240,232,255,.3)", marginBottom: 12, textAlign: "center", minHeight: 14, letterSpacing: 0.4 }}>
+          {micHint || (handsFree ? "" : "swipe → for the words")}
         </div>
+
+        {handsFree && !leaving && (
+          <div style={{ display: "flex", justifyContent: "center", gap: 26, marginBottom: 18 }}>
+            {([
+              { label: micMuted ? "unmute" : "mute", icon: micMuted ? "🔇" : "🎙", on: micMuted, act: toggleMicMute, aria: micMuted ? "unmute your microphone" : "mute your microphone" },
+              { label: "speaker", icon: "🔊", on: audioPanel, act: () => setAudioPanel((v) => !v), aria: "sound" },
+              { label: "keypad", icon: "⌨", on: false, act: () => setChatOpen(true), aria: "type" },
+            ] as Array<{ label: string; icon: string; on: boolean; act: () => void; aria: string }>).map((b) => (
+              <button key={b.label} onClick={b.act} aria-label={b.aria} aria-pressed={b.on}
+                style={{ width: 64, background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", color: "rgba(240,232,255,.8)", fontFamily: "inherit" }}>
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 64, height: 64, borderRadius: "50%", fontSize: 24, background: b.on ? "rgba(240,232,255,.92)" : "rgba(255,255,255,.12)", color: b.on ? "#0d0418" : "inherit", border: ".5px solid rgba(255,255,255,.12)", transition: "background .2s" }}>{b.icon}</span>
+                <span style={{ display: "block", marginTop: 7, fontSize: 12, letterSpacing: .3 }}>{b.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
           <button
             onClick={leaving ? onClose : handsFree ? leaveCall : sttOk ? onTalk : () => setChatOpen(true)}
             aria-label={leaving ? "close" : handsFree ? "end the call" : sttOk ? "call" : "type"}
             style={{
-              width: 92, height: 92, borderRadius: "50%", cursor: "pointer",
-              fontWeight: 700, fontSize: 17, color: "#fff", letterSpacing: 0.5,
-              background: (handsFree || leaving) ? "linear-gradient(135deg,#e11d48,#fb7185)" : grad,
-              boxShadow: (handsFree || leaving) ? "0 14px 40px -12px rgba(251,113,133,.6)" : `0 14px 40px -12px ${glow}`,
+              width: (handsFree || leaving) ? 72 : 92, height: (handsFree || leaving) ? 72 : 92, borderRadius: "50%", cursor: "pointer",
+              fontWeight: 700, fontSize: (handsFree || leaving) ? 26 : 17, color: "#fff", letterSpacing: 0.5,
+              background: (handsFree || leaving) ? "linear-gradient(135deg,#e11d48,#fb7185)" : "linear-gradient(135deg,#16a34a,#4ade80)",
+              boxShadow: (handsFree || leaving) ? "0 14px 40px -12px rgba(251,113,133,.6)" : "0 14px 40px -12px rgba(74,222,128,.55)",
               border: "none",
-              WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .2s, box-shadow .2s",
+              WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .2s, box-shadow .2s, width .2s, height .2s",
             } as CSSProperties}
           >
-            {leaving ? "close" : handsFree ? "end" : sttOk ? "call" : "text"}
+            {leaving ? "close" : handsFree ? "📞" : sttOk ? "call" : "text"}
           </button>
         </div>
 

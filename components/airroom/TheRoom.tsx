@@ -68,6 +68,17 @@ interface Line {
   at: number
   spoken?: boolean         // came out loud
   toYou?: boolean          // addressed to the visitor
+  /**
+   * A WHISPER: sent to one person, in the public room, and only that person can
+   * read it. From a character to the visitor it is the hook — a private line in
+   * a public place, an invitation to go somewhere alone. From the visitor to a
+   * character it is how you get a little of that conversation before committing
+   * to the whole one. Nobody else in the room ever sees a whisper, and the room
+   * transcript sent to the model enforces that.
+   */
+  whisper?: boolean
+  /** For a visitor's whisper: the key of the one person who can read it. */
+  to?: string
 }
 
 const CAST = 14
@@ -77,6 +88,12 @@ const GAP_MS = 6500
 const TALKERS = 5
 /** Of a talker's lines, one in this many is spoken. */
 const VOICE_EVERY = 4
+/**
+ * After this many lines from the room, and every this-many after, one person
+ * whispers to the visitor. Rare on purpose: a whisper is an invitation, and an
+ * invitation every minute is spam. Each person whispers at most once.
+ */
+const WHISPER_EVERY = 5
 
 /**
  * HOW EACH PERSON WRITES — fixed per person, like a face. This is what makes
@@ -120,8 +137,22 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
   onPrivate: (c: Cluster) => void
   topic?: string
 }) {
-  const seed = useMemo(() => Math.floor(Date.now() / 3_600_000), [])
-  const cast = useMemo(() => groupCast(seed, 0.5, CAST), [seed])
+  // NO ONE REPEATS. groupCast seeds member i as seed*7+i+1, so two rooms whose
+  // seeds are one apart share seven of fourteen people — the same faces back the
+  // next hour. Spacing the room seed by 3 puts consecutive rooms 21 seeds apart,
+  // past the 14 a room draws, so this hour's crowd and the next hour's share
+  // nobody. And a room can never hold the same person twice: names walk a
+  // permutation, but this is the guarantee the visitor was promised, so it is
+  // enforced rather than assumed — dedupe by face key AND by name.
+  const seed = useMemo(() => Math.floor(Date.now() / 3_600_000) * 3, [])
+  const cast = useMemo(() => {
+    const seenFace = new Set<string>(), seenName = new Set<string>()
+    return groupCast(seed, 0.5, CAST + 6).filter((c) => {
+      const fk = faceSeedFor(c) || c.host
+      if (seenFace.has(fk) || seenName.has(c.host)) return false
+      seenFace.add(fk); seenName.add(c.host); return true
+    }).slice(0, CAST)
+  }, [seed])
   // The talkers: a stable subset, so the same person is "the one who speaks"
   // for the whole visit. Being one of the few who speaks IS part of who they are.
   const talkers = useMemo(() => new Set(cast.filter((_, i) => hash(`${seed}|talk|${i}`) % CAST < TALKERS).slice(0, TALKERS).map((c) => c.key)), [cast, seed])
@@ -141,6 +172,9 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
   const replyDue = useRef(false)          // the visitor just spoke — the next line answers them
   const spokenCount = useRef<Record<string, number>>({})
   const micHandle = useRef<VoiceOnceHandle | null>(null)
+  const aiLines = useRef(0)                          // how much the room has said — paces the whispers
+  const whispered = useRef<Set<string>>(new Set())   // who has already whispered to the visitor
+  const whisperBack = useRef<Cluster | null>(null)   // the visitor whispered to this person; they answer in kind
   const you = useMemo(() => (typeof window !== "undefined" ? getProfile().name : "you"), [])
 
   useEffect(() => { linesRef.current = lines }, [lines])
@@ -204,11 +238,26 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
         // person, and it is spent only at the moment they engaged — the one time
         // a TTS request is plainly worth it. Anyone else's lines stay cheap.
         const talkersFree = (eligible.length ? eligible : cast).filter((c) => talkers.has(c.key))
-        const who = rand(answering && talkersFree.length ? talkersFree : (eligible.length ? eligible : cast))
+        // A whisper turn: the visitor whispered to someone and they answer in
+        // kind; or the room has said enough that somebody leans in. Never on a
+        // turn that is already answering the visitor out loud — one thing at a time.
+        const back = whisperBack.current
+        whisperBack.current = null
+        const leanIn = !answering && !back && aiLines.current >= 3 && aiLines.current % WHISPER_EVERY === 0
+        const unwhispered = (eligible.length ? eligible : cast).filter((c) => !whispered.current.has(c.key))
+        const whisper = !!back || (leanIn && unwhispered.length > 0)
+        const who = back
+          ? back
+          : whisper ? rand(unwhispered)
+          : rand(answering && talkersFree.length ? talkersFree : (eligible.length ? eligible : cast))
         const id = faceSeedFor(who) || who.host
         const texture = pickBy(TEXTURE, id, "texture")
         const mood = rand(MOOD)
-        const kind = answering
+        const kind = whisper
+          ? `WHISPER one line to ${you}, privately — nobody else in the room can read it. ` +
+            `Something you would not say out loud in front of them: an invitation, a tease, a small secret, a "come here". ` +
+            `Make them want to answer you alone.${back ? ` They just whispered to you first; answer that.` : ""}`
+          : answering
           ? `${you} just said something to the room. Answer THEM, by name, and mean it — this is the one line that decides whether they stay.`
           : rand(KIND)
 
@@ -227,10 +276,14 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
           seedKey: id,
         }
 
-        const msgs = history.slice(-12).map((l) =>
+        // A whisper is readable only by its two ends. Everyone else's transcript
+        // simply does not contain it — the model cannot react to what its
+        // character could not have read.
+        const canRead = (l: Line) => !l.whisper || l.who?.key === who.key || (l.who === null && l.to === who.key)
+        const msgs = history.slice(-14).filter(canRead).slice(-12).map((l) =>
           l.who?.key === who.key
             ? { role: "assistant" as const, content: l.text }
-            : { role: "user" as const, content: `${l.who ? l.who.host : you}: ${l.text}` },
+            : { role: "user" as const, content: `${l.who ? l.who.host : you}${l.whisper ? " (whispering to you)" : ""}: ${l.text}` },
         )
         if (!msgs.length) msgs.push({ role: "user" as const, content: `(the room just went quiet — ${topic})` })
 
@@ -254,6 +307,14 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
 
         // Spoken, or written? Talkers speak one line in VOICE_EVERY; everyone
         // else only ever writes. Answering the visitor is always worth a voice.
+        aiLines.current++
+        if (whisper) {
+          // A whisper is text by nature — and it is never spoken into the room,
+          // which would rather defeat it.
+          whispered.current.add(who.key)
+          push({ who, text, at: Date.now(), toYou: true, whisper: true })
+          return
+        }
         const n = (spokenCount.current[who.key] = (spokenCount.current[who.key] || 0) + 1)
         const aloud = talkers.has(who.key) && (answering || n % VOICE_EVERY === 0)
         push({ who, text, at: Date.now(), toYou: answering, spoken: aloud })
@@ -283,6 +344,22 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
     setDraft("")
     replyDue.current = true
   }
+
+  /** Whisper to one person. They alone can read it, and they answer in kind. */
+  const whisperTo = (c: Cluster, t: string) => {
+    const text = t.replace(/\s+/g, " ").trim().slice(0, 240)
+    if (!text) return
+    push({ who: null, text, at: Date.now(), whisper: true, to: c.key })
+    whisperBack.current = c
+  }
+
+  /**
+   * Go private WITH the whisper already said. The private thread opens on the
+   * character's first line (cluster.lines[0]), so prepending the whisper means
+   * she has already said it when you arrive — the conversation continues instead
+   * of restarting from a canned hello.
+   */
+  const answerAlone = (c: Cluster, said: string) => onPrivate({ ...c, lines: [said, ...c.lines] })
 
   const holdMic = () => {
     if (mic !== "idle" || !canListen()) return
@@ -336,7 +413,27 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
         {!lines.length && (
           <div style={{ color: "rgba(240,232,255,.3)", fontSize: 13, textAlign: "center", padding: "28px 0" }}>the room is waking up…</div>
         )}
-        {lines.map((l, i) => l.who ? (
+        {lines.map((l, i) => l.who && l.whisper ? (
+          // A whisper to you. Only you can read it, and tapping it is how you
+          // answer — alone, with what they said already on the table.
+          <button key={`${l.at}-${i}`} onClick={() => answerAlone(l.who as Cluster, l.text)}
+            aria-label={`${l.who.host} whispered to you — answer alone`}
+            style={{ display: "flex", gap: 9, alignItems: "flex-start", width: "calc(100% + 20px)", margin: "0 -10px 11px", padding: "9px 10px", borderRadius: 12, textAlign: "left", cursor: "pointer", background: `${dot(l.who.f)}10`, border: `.5px dashed ${dot(l.who.f)}77`, WebkitTapHighlightColor: "transparent" }}>
+            <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", overflow: "hidden", border: `1px solid ${dot(l.who.f)}88`, background: "#160f24" }}>
+              <Face persona={{ name: l.who.host, gender: l.who.gender, seed: faceSeedFor(l.who) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            </span>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: "block", fontSize: 10, color: `${dot(l.who.f)}dd`, letterSpacing: .8, textTransform: "uppercase" }}>🤫 {l.who.host} whispered to you · only you can see this</span>
+              <span style={{ display: "block", fontSize: 14.5, lineHeight: 1.4, color: "#f3ecff", fontStyle: "italic", marginTop: 2 }}>{l.text}</span>
+              <span style={{ display: "block", fontSize: 11, color: `${dot(l.who.f)}`, marginTop: 5, fontWeight: 700 }}>answer {l.who.host} alone →</span>
+            </span>
+          </button>
+        ) : !l.who && l.whisper ? (
+          <div key={`${l.at}-${i}`} style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginBottom: 11 }}>
+            <span style={{ fontSize: 10, color: "rgba(240,232,255,.4)", letterSpacing: .8, textTransform: "uppercase", marginBottom: 3 }}>🤫 whispered to {cast.find((c) => c.key === l.to)?.host || "them"}</span>
+            <div style={{ maxWidth: "78%", background: "rgba(240,232,255,.06)", border: ".5px dashed rgba(240,232,255,.3)", borderRadius: "14px 14px 3px 14px", padding: "8px 12px", fontSize: 14.5, lineHeight: 1.4, color: "#f6f1ff", fontStyle: "italic" }}>{l.text}</div>
+          </div>
+        ) : l.who ? (
           <div key={`${l.at}-${i}`} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 11, padding: l.toYou ? "8px 10px" : 0, marginLeft: l.toYou ? -10 : 0, marginRight: l.toYou ? -10 : 0, borderRadius: 12, background: l.toYou ? `${dot(l.who.f)}14` : "transparent", border: l.toYou ? `.5px solid ${dot(l.who.f)}44` : ".5px solid transparent" }}>
             <button onClick={() => setOpen(l.who)} aria-label={`open ${l.who.host}'s profile`}
               style={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", overflow: "hidden", border: `1px solid ${dot(l.who.f)}55`, background: "#160f24", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
@@ -381,7 +478,7 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
 
       <style>{`@keyframes roompulse { 0% { transform: scale(1); opacity: .9 } 100% { transform: scale(1.35); opacity: 0 } }`}</style>
 
-      {open && <ProfileCard c={open} talker={talkers.has(open.key)} onClose={() => setOpen(null)} onPrivate={onPrivate} />}
+      {open && <ProfileCard c={open} talker={talkers.has(open.key)} onClose={() => setOpen(null)} onPrivate={onPrivate} onWhisper={(t) => { whisperTo(open, t); setOpen(null) }} />}
     </div>
   )
 }
@@ -392,7 +489,8 @@ export function TheRoom({ onPrivate, topic = "tonight" }: {
  * character is actually told about themselves, drawn from the same seed as the
  * face and the accent, so the card cannot promise one person and open another.
  */
-function ProfileCard({ c, talker, onClose, onPrivate }: { c: Cluster; talker: boolean; onClose: () => void; onPrivate: (c: Cluster) => void }) {
+function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster; talker: boolean; onClose: () => void; onPrivate: (c: Cluster) => void; onWhisper: (text: string) => void }) {
+  const [w, setW] = useState("")
   const id = faceSeedFor(c) || c.host
   const card = cardLinesFor(id)
   const d = dossierForSeed(id)
@@ -417,8 +515,19 @@ function ProfileCard({ c, talker, onClose, onPrivate }: { c: Cluster; talker: bo
           <Fact label="tonight" text={d.onMind} accent={accent} />
           <Fact label="she'll argue" text={d.opinion} accent={accent} />
         </div>
+        {/* A little of the conversation before the whole one. Whisper something
+            only she can read; she whispers back, in the room, and nobody else
+            sees either line. Cheaper to try than a private thread, and the thing
+            that makes people want the private thread. */}
+        <div style={{ marginTop: 15, display: "flex", gap: 8 }}>
+          <input value={w} onChange={(e) => setW(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && w.trim()) onWhisper(w) }}
+            placeholder={`whisper to ${c.host} — only she reads it`} aria-label={`whisper to ${c.host}`}
+            style={{ flex: 1, minHeight: 44, fontSize: 14, fontStyle: "italic", color: "#f0e8ff", background: "rgba(255,255,255,.06)", border: `.5px dashed ${accent}66`, borderRadius: 13, padding: "0 13px", outline: "none" }} />
+          <button onClick={() => { if (w.trim()) onWhisper(w) }} disabled={!w.trim()} aria-label="send whisper"
+            style={{ width: 44, height: 44, borderRadius: 13, fontSize: 18, background: w.trim() ? `${accent}33` : "rgba(255,255,255,.06)", border: `.5px solid ${accent}55`, cursor: w.trim() ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}>🤫</button>
+        </div>
         <button onClick={() => { onClose(); onPrivate(c) }}
-          style={{ marginTop: 17, width: "100%", minHeight: 52, fontSize: 16, fontWeight: 700, color: "#180a20", background: accent, border: "none", borderRadius: 15, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+          style={{ marginTop: 10, width: "100%", minHeight: 52, fontSize: 16, fontWeight: 700, color: "#180a20", background: accent, border: "none", borderRadius: 15, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           message {c.host} privately
         </button>
         <button onClick={onClose}

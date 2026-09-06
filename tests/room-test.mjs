@@ -62,6 +62,26 @@ const gap = Number((raw.match(/const GAP_MS = (\d+)/) || [])[1])
 check(gap >= 5000, `lines are ${gap / 1000}s apart — slow enough to read, cheap enough to leave open`)
 check(/ctrl\.abort\(\)/.test(room) && /micHandle\.current\?\.cancel\(\)/.test(room), "leaving the room stops the request and the mic")
 
+// ── whispers: a private line in a public place ──────────────────────────────
+// From a character to the visitor it is the hook — an invitation to go
+// somewhere alone. From the visitor to a character it is a little of the
+// conversation before committing to the whole one. Nobody else ever reads one.
+const WHISPER_EVERY = Number((raw.match(/const WHISPER_EVERY = (\d+)/) || [])[1])
+check(WHISPER_EVERY >= 4, `a whisper arrives every ${WHISPER_EVERY} room lines at most — an invitation, not spam`)
+check(/whispered\.current\.add\(who\.key\)/.test(room) && /!whispered\.current\.has\(c\.key\)/.test(room),
+  "each person whispers to the visitor at most once")
+check(/const canRead = \(l: Line\) => !l\.whisper \|\| l\.who\?\.key === who\.key \|\| \(l\.who === null && l\.to === who\.key\)/.test(room),
+  "a whisper is in the transcript ONLY for its two ends — nobody else's character can react to it")
+check(/history\.slice\(-14\)\.filter\(canRead\)/.test(room), "and that filter is applied to what the model is shown")
+check(/if \(whisper\) \{[\s\S]{0,260}return\s*\}/.test(room) && !/whisper[\s\S]{0,200}speakAloud/.test(room.slice(room.indexOf("if (whisper) {"), room.indexOf("if (whisper) {") + 400)),
+  "a whisper is never spoken into the room — that would rather defeat it")
+check(/whisperBack\.current = c/.test(room) && /const back = whisperBack\.current/.test(room),
+  "when the visitor whispers to someone, that person answers in kind")
+check(/onPrivate\(\{ \.\.\.c, lines: \[said, \.\.\.c\.lines\] \}\)/.test(room),
+  "answering a whisper alone opens the private thread with the whisper already said — her lines[0], which the call greets with")
+check(/aria-label=\{`whisper to \$\{c\.host\}`\}/.test(room), "the profile card has a whisper box")
+check(/whispered to you · only you can see this/.test(room), "a whisper to you says so, plainly")
+
 // ── the card clears the dock ────────────────────────────────────────────────
 check(/calc\(env\(safe-area-inset-bottom\) \+ 5\.75rem\)/.test(room), "the profile sheet reserves the dock's height")
 check(/calc\(env\(safe-area-inset-bottom\) \+ 5\.5rem\)/.test(room), "and so does the input row")

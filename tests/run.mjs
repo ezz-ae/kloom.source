@@ -46,6 +46,7 @@ const WHAT = {
   "tier-test":        "one free minute, same voice as the pass, metered on the server",
   "upsell-test":      "a free user finds out the wall exists, once, where it matters",
   "room-test":        "the site lands in a room of distinct people, and it never spends unwatched",
+  "norepeat-test":    "profile = character; nobody repeats in a room or across hours",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

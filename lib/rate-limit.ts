@@ -52,7 +52,12 @@ export function globalGate(): { ok: boolean; reason?: string } {
   // env once you've sized your budget (see LAUNCH.md). Note: this counter is
   // per-instance, so the true ceiling is ~(instances × cap) — keep a hard
   // provider-side spend limit (Fish/RunPod/Vercel) as the real backstop.
-  const cap = Number(process.env.AIRRAW_DAILY_CALL_CAP || "5000")
+  // 5000/instance was sized when a generation was a few tenths of a cent on a
+  // rented GPU. Faces come from a paid API now, so the same number is a bill
+  // rather than a ceiling. 800 is roughly a day of real browsing and still an
+  // amount a project with no money can absorb if something runs away.
+  // Raise it deliberately once revenue covers it.
+  const cap = Number(process.env.AIRRAW_DAILY_CALL_CAP || "800")
   if (cap > 0) {
     const today = new Date().toISOString().slice(0, 10) // UTC day
     if (today !== _dayKey) { _dayKey = today; _dayCount = 0 }

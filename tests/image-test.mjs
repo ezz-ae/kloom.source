@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs"
 let fail = 0
 const check = (c, l) => { console.log(`${c ? "ok  " : "FAIL"} ${l}`); if (!c) fail++ }
 const src = readFileSync("app/api/character-photo/route.ts", "utf8")
+const prompt = readFileSync("lib/airraw/portrait-prompt.ts", "utf8")
 
 // ── a refusal is its own result ───────────────────────────────────────────
 check(/const REFUSED = Symbol/.test(src), "a refusal has its own sentinel, distinct from null")
@@ -86,11 +87,48 @@ check(/cached: true/.test(src), "make-once / cache-forever is intact, which is w
 check(/imageConfig: \{ aspectRatio: "3:4" \}/.test(src), "the generateContent path asks for a 3:4 portrait")
 check(/aspectRatio: "3:4"/.test(g.slice(g.indexOf("imagen"))), "and so does the imagen path")
 
+// ── the grit pass does not run over a photograph ──────────────────────────
+// The pass exists to un-plastic FLUX output. Over Google's images it is pure
+// degradation, and stacked on the old "harsh light, underexposed" style prompt it
+// is what made faces look ill and grimy.
+check(/realismPass\(bytes, \/gemini\|imagen\/i\.test\(usedModel\)\)/.test(src),
+  "a google image skips the grain, vignette and aberration")
+check(/async function realismPass\(input: Buffer, plain = false\)/.test(src),
+  "the pass takes a plain mode rather than being bypassed entirely")
+check(/const R_JPEG_Q = plain \? 95 : R_JPEG_Q_ENV/.test(src),
+  "plain mode still re-encodes to JPEG, so the cache path and content type stay consistent")
+
+// ── the style pool asks for real, not for ugly ────────────────────────────
+const style = prompt.slice(prompt.indexOf("const STYLE = ["), prompt.indexOf("]", prompt.indexOf("const STYLE = [")))
+for (const w of ["unflattering", "underexposed", "blurry", "grainy", "out of focus", "dirty", "smudged", "harsh"]) {
+  check(!new RegExp(w, "i").test(style), `the style pool no longer asks for "${w}"`)
+}
+check(/soft|warm|golden|natural/i.test(style), "it asks for available light that is actually kind to a face")
+
+// ── the floor is young adults ─────────────────────────────────────────────
+const ages = prompt.slice(prompt.indexOf("const AGE = ["), prompt.indexOf("]", prompt.indexOf("const AGE = [")))
+check(!/40s|50s/.test(ages), "no rung reaches the 40s — that is where 'everyone looks fifty' came from")
+check(/20s/.test(ages) && /30s/.test(ages), "the cast is twenties and thirties")
+
+// ── a face is not paid for three times ────────────────────────────────────
+// isCleanPortrait rejecting an image means generating that person AGAIN. It
+// catches diffusion artifacts, which Google does not produce — so on Google a
+// rejection is almost always the detector being wrong, at the price of another
+// paid image.
+check(/if \(\/gemini\|imagen\/i\.test\(usedModel\)\) break/.test(src),
+  "google output is accepted on the first pass instead of being re-generated")
+const loop = src.slice(src.indexOf("for (let attempt = 0"), src.indexOf("if (!bytes || bytes.length < 8000)"))
+check(/isCleanPortrait/.test(loop), "the detector still guards the diffusion engines, where it earns its cost")
+
+// ── the daily ceiling is sized for a paid API ─────────────────────────────
+const rl = readFileSync("lib/rate-limit.ts", "utf8")
+const cap = Number((rl.match(/AIRRAW_DAILY_CALL_CAP \|\| "(\d+)"/) || [])[1])
+check(cap > 0 && cap <= 1000, `the default daily cap is sized for paid generations (${cap})`)
+
 // ── the safety floor on portraits is untouched ────────────────────────────
 // The negative list is half of the age floor; the positive half has to be stated
 // too, because the Google engine read the identical prompt younger than every
 // diffusion engine did — one sampled face came back reading as a teenager.
-const prompt = readFileSync("lib/airraw/portrait-prompt.ts", "utf8")
 check(/portrait of an adult/.test(prompt) && /clearly of adult age/.test(prompt),
   "the prompt states ADULT outright rather than leaving it to be inferred from the age phrase")
 

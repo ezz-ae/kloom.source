@@ -42,10 +42,14 @@ export function isSouthAsianSeed(seedKey: string): boolean {
 }
 
 // Young-skewed for a consumer product — 20s–30s mostly, a little into the early 40s.
+// Adults, and young ones. The "early 40s" rung came back as people who read a
+// great deal older than that once a style like "harsh overhead light" was applied
+// on top, which is where "everyone looks fifty" came from. The floor is meant to
+// be in its twenties and thirties, so that is what the pool says now.
 const AGE = [
   "in their early 20s", "in their early 20s", "in their mid-20s", "in their mid-20s",
   "in their late 20s", "in their late 20s", "in their early 30s", "in their early 30s",
-  "in their mid-30s", "in their mid-30s", "in their late 30s", "in their early 40s",
+  "in their mid-30s", "in their mid-30s", "in their late 20s", "in their early 30s",
 ]
 
 // Sexy and attractive — adult platform, adults looking appealing and sensual.
@@ -97,19 +101,34 @@ const LOOK_X = [
 // direction, and a diffusion model given studio direction returns a studio
 // photograph. Available light, wrong white balance and a slightly bad camera are
 // what make an image read as something a person actually took.
+// HOW IT WAS PHOTOGRAPHED.
+//
+// This pool was the single biggest reason people said the faces made them want
+// to leave. It was asking, in as many words, for bad photographs:
+// "unflattering", "harsh overhead", "slightly underexposed", "smudged mirror,
+// mildly blurry", "dirty window", "grainy, slightly out of focus", "cold white
+// bulb, plain and unretouched". Every one of those was added to stop the images
+// looking like glossy AI renders, and together they overshot into people who
+// look ill, exhausted and badly lit — which reads as "run away", not as "real".
+//
+// REAL AND UNPOSED IS THE GOAL; UGLY WAS NEVER THE GOAL. What makes a photo look
+// unstaged is available light, an ordinary room, an off-guard moment and a phone
+// camera — not underexposure, dirt and motion blur. So these keep the candid
+// framing and drop the damage: the light is soft or warm or golden rather than
+// harsh, the surfaces are clean, and nothing asks for blur or grain.
 const STYLE = [
-  "snapshot on an old phone, available light, slightly underexposed",
-  "candid photo, harsh overhead kitchen light, unflattering and real",
-  "bedroom photo at night, one lamp, heavy shadow on one side",
-  "mirror selfie, smudged mirror, mixed indoor light, mildly blurry",
-  "photo taken by a friend, off-centre, motion blur on the edges",
-  "early morning light through a dirty window, no makeup",
-  "photo in a car, overcast daylight through the windscreen",
-  "hallway light at 2am, grainy, slightly out of focus",
-  "sofa photo, television glow, casual and unposed",
-  "photo on a balcony, flat grey daylight, wind in the hair",
-  "back of a taxi at night, passing streetlights, uneven exposure",
-  "bathroom light, cold white bulb, plain and unretouched",
+  "snapshot on a phone, soft window light, warm and natural",
+  "candid photo at home, warm lamp light, relaxed and unposed",
+  "bedroom photo in the evening, soft lamp light, calm and flattering",
+  "mirror selfie, clean mirror, soft even indoor light",
+  "photo taken by a friend mid-laugh, natural light, off-guard",
+  "late afternoon sun through a window, golden and soft",
+  "photo in a car, soft daylight, relaxed",
+  "warm hallway light in the evening, gentle shadows",
+  "sofa photo, warm lamp glow, easy and casual",
+  "photo on a balcony, soft overcast daylight, wind in the hair",
+  "café by a window, soft daylight, caught mid-thought",
+  "kitchen in the morning, bright soft daylight, unposed",
 ]
 
 const HAIR = [

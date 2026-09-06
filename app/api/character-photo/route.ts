@@ -500,13 +500,13 @@ async function genTogether(prompt: string, seed: number, model = TOGETHER_MODEL,
 // JPEG re-encode so the file carries the real 8x8 compression artifacts FLUX lacks.
 // @napi-rs/canvas ONLY (sharp unavailable; this lib already runs server-side in
 // lib/face-validate.ts). FAIL-OPEN: any error returns the original bytes untouched.
-const R_GRAIN      = floor0(process.env.REALISM_GRAIN, 10)     // luma grain amplitude (ISO-800-ish)
-const R_CHROMA     = floor0(process.env.REALISM_CHROMA, 3)    // per-channel chroma noise
-const R_CONTRAST   = numEnv(process.env.REALISM_CONTRAST, 0.05)   // was .10 — the grade read as "edited"
-const R_DESAT      = numEnv(process.env.REALISM_DESAT, 0.06)
-const R_VIGNETTE   = numEnv(process.env.REALISM_VIGNETTE, 0.07)  // was .16 — the most obvious "filtered" tell
-const R_ABERRATION = numEnv(process.env.REALISM_ABERRATION, 1) // px R/B split at edges (0 disables)
-const R_JPEG_Q     = Math.max(60, Math.min(95, Number(process.env.REALISM_JPEG_QUALITY || 88)))
+const R_GRAIN_ENV      = floor0(process.env.REALISM_GRAIN, 10)     // luma grain amplitude (ISO-800-ish)
+const R_CHROMA_ENV     = floor0(process.env.REALISM_CHROMA, 3)    // per-channel chroma noise
+const R_CONTRAST_ENV   = numEnv(process.env.REALISM_CONTRAST, 0.05)   // was .10 — the grade read as "edited"
+const R_DESAT_ENV      = numEnv(process.env.REALISM_DESAT, 0.06)
+const R_VIGNETTE_ENV   = numEnv(process.env.REALISM_VIGNETTE, 0.07)  // was .16 — the most obvious "filtered" tell
+const R_ABERRATION_ENV = numEnv(process.env.REALISM_ABERRATION, 1) // px R/B split at edges (0 disables)
+const R_JPEG_Q_ENV     = Math.max(60, Math.min(95, Number(process.env.REALISM_JPEG_QUALITY || 88)))
 
 function numEnv(v: string | undefined, d: number): number { const n = Number(v); return Number.isFinite(n) ? n : d }
 function floor0(v: string | undefined, d: number): number { const n = Number(v); return Number.isFinite(n) ? Math.max(0, n) : d }
@@ -517,8 +517,29 @@ function hashNoise(x: number): number {
   return ((x >>> 0) / 4294967295) * 2 - 1   // -1..1
 }
 
-async function realismPass(input: Buffer): Promise<Buffer> {
+/**
+ * @param plain  Skip every degradation and just re-encode.
+ *
+ * The whole pass exists to un-plastic DIFFUSION output — FLUX renders skin like
+ * wax, so grain, a soft vignette and a JPEG re-encode are what let it pass for a
+ * phone photo. Google's images are already photographs. Running the same
+ * treatment over them does not make them more real, it visibly degrades them,
+ * and stacked on top of a "harsh light, slightly underexposed" prompt it is what
+ * people were reacting to when they said the faces looked ill and grimy.
+ *
+ * So a Google image still comes through here — the pipeline stays JPEG, the
+ * cache path and content type stay consistent — but at high quality with every
+ * amount set to zero.
+ */
+async function realismPass(input: Buffer, plain = false): Promise<Buffer> {
   if (!input || input.length < 1000) return input
+  const R_GRAIN = plain ? 0 : R_GRAIN_ENV
+  const R_CHROMA = plain ? 0 : R_CHROMA_ENV
+  const R_CONTRAST = plain ? 0 : R_CONTRAST_ENV
+  const R_DESAT = plain ? 0 : R_DESAT_ENV
+  const R_VIGNETTE = plain ? 0 : R_VIGNETTE_ENV
+  const R_ABERRATION = plain ? 0 : R_ABERRATION_ENV
+  const R_JPEG_Q = plain ? 95 : R_JPEG_Q_ENV
   try {
     const rcanvas = await import("@napi-rs/canvas")
     const img = await rcanvas.loadImage(input)
@@ -787,6 +808,19 @@ export async function POST(request: Request) {
     const b = await genWithSeed((seed + attempt * 7919) % 2147483647)
     if (!b || b.length < 8000) continue
     bytes = b                                       // keep the latest good bytes (best-effort)
+    // THE QUALITY GATE IS A DIFFUSION GATE, AND IT COSTS A WHOLE GENERATION.
+    //
+    // isCleanPortrait exists to catch what diffusion gets wrong — no face, two
+    // faces, melted features — and a rejection means generating the same person
+    // again, so a face can cost up to three times what it looks like it costs.
+    // That was worth paying when the alternative was shipping a two-headed
+    // portrait. It is not worth paying on Google output: it does not produce
+    // those artifacts, so nearly every rejection there is the detector being
+    // wrong, and the price of it being wrong is another paid image.
+    //
+    // So Google is accepted on the first pass. The detector still guards every
+    // diffusion engine, where it earns its cost.
+    if (/gemini|imagen/i.test(usedModel)) break
     if (!dp || (await isCleanPortrait(b))) break    // single clean face (or non-diverse) → done
   }
   if (!bytes || bytes.length < 8000) {
@@ -794,7 +828,8 @@ export async function POST(request: Request) {
   }
 
   // Realism pass: make FLUX output read as a candid amateur phone photo. Fail-open.
-  if (realismOn) bytes = await realismPass(bytes)
+  // Google output is already a photograph — pass it through without the grit.
+  if (realismOn) bytes = await realismPass(bytes, /gemini|imagen/i.test(usedModel))
 
   // Persist to the public bucket at the seed-keyed path (computed above).
   const { error } = await admin.storage.from("character-photos").upload(path, bytes, {

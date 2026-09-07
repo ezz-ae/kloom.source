@@ -38,6 +38,8 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
   const [attribution, setAttribution] = useState<Attribution>("name")
   const [save, setSave] = useState(true)
   const [record, setRecord] = useState(false)
+  /** Which cast slots have their fine detail open. Collapsed by default — see below. */
+  const [detail, setDetail] = useState<Record<string, boolean>>({})
 
   const shown = useMemo(() => {
     const t = q.trim().toLowerCase()
@@ -50,6 +52,42 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
 
   const go = () => onStart({ fantasyId, cast, turnMode, attribution, save, record })
 
+  /**
+   * PICK A SCENE AND YOU ARE IN.
+   *
+   * The three steps are the whole tool and they were also the whole problem: to
+   * hear one line of a scene you had to choose from fifty-seven premises, then
+   * cast up to five people from seventy roles, then answer four questions about
+   * how turns work. That is a setup screen in front of a product, and most
+   * people do not get to the end of one.
+   *
+   * So the default IS the product now. One person, someone the scene suits,
+   * speaking in turns and named after their line, transcript kept. Every one of
+   * those is one tap to change afterwards, and "cast it yourself" is still right
+   * there for anyone who wants the console. Nothing was removed — it stopped
+   * being compulsory.
+   */
+  const quickStart = (id: string) => {
+    const f = FANTASIES.find((x) => x.id === id)
+    // A role that fits, chosen from the scene rather than at random: the same
+    // premise always opens with the same person, so a scene has an identity even
+    // when nobody configured it.
+    let h = 2166136261 >>> 0
+    for (let i = 0; i < id.length; i++) { h ^= id.charCodeAt(i); h = Math.imul(h, 16777619) }
+    const role = ROLES[(h >>> 0) % ROLES.length]
+    const member: SceneMember = {
+      id: "s0",
+      // Scenes about someone in charge open with a man slightly more often than
+      // not; everything else opens with a woman, which is where this floor sits.
+      // One tap changes it, and the scene text never assumes either.
+      gender: f?.kind === "power" && (h & 1) === 0 ? "m" : "f",
+      roleId: role.id,
+      vibe: "",
+      quiet: false,
+    }
+    onStart({ fantasyId: id, cast: [member], turnMode: "turns", attribution: "name", save: true, record: false })
+  }
+
   return (
     <div style={{ minHeight: "100%", color: "#f0e8ff", padding: "6px 16px 96px", maxWidth: 640, margin: "0 auto", boxSizing: "border-box" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
@@ -58,9 +96,9 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
         )}
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -.3 }}>
-            {step === 1 ? "what is this" : step === 2 ? "who's in it" : "how it runs"}
+            {step === 1 ? "pick a scene" : step === 2 ? "who's in it" : "how it runs"}
           </div>
-          <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.45)" }}>step {step} of 3</div>
+          <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.45)" }}>{step === 1 ? `${FANTASIES.length} to choose from` : `step ${step} of 3`}</div>
         </div>
       </header>
 
@@ -82,10 +120,16 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
               ))}
             </div>
           )}
+          <p style={{ fontSize: 13, color: "rgba(240,232,255,.45)", margin: "2px 0 12px", lineHeight: 1.5 }}>
+            Tap one and it starts. <button onClick={() => { setFantasyId(fantasyId || shown[0]?.id || FANTASIES[0].id); setStep(2) }}
+              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: ACCENT, cursor: "pointer", textDecoration: "underline" }}>
+              or cast it yourself
+            </button>
+          </p>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr)" }}>
             {shown.map((f) => (
               <li key={f.id}>
-                <button onClick={() => { setFantasyId(f.id); setStep(2) }}
+                <button onClick={() => quickStart(f.id)}
                   style={{ ...CARD, width: "100%", textAlign: "left", padding: "13px 15px", cursor: "pointer", color: "#f0e8ff", fontFamily: "inherit",
                     borderColor: fantasyId === f.id ? ACCENT : "rgba(255,255,255,.11)" }}>
                   <div style={{ fontSize: 15.5, fontWeight: 600 }}>{f.label}</div>
@@ -138,15 +182,28 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                         border: `.5px solid ${m.vibe === v ? ACCENT + "88" : "rgba(255,255,255,.09)"}` }}>{v}</button>
                   ))}
                 </div>
-                <input value={m.vibe} onChange={(e) => patch(m.id, { vibe: cleanVibe(e.target.value) })} maxLength={VIBE_MAX}
-                  placeholder="or describe them in your own words…" aria-label={`vibe for person ${i + 1}`}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.05)", color: "#f0e8ff",
-                    border: ".5px solid rgba(255,255,255,.09)", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
-
-                <label style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 11, fontSize: 13.5, color: "rgba(240,232,255,.6)", cursor: "pointer" }}>
-                  <input type="checkbox" checked={m.quiet} onChange={(e) => patch(m.id, { quiet: e.target.checked })} style={{ accentColor: ACCENT, width: 17, height: 17 }} />
-                  here, but doesn&rsquo;t speak
-                </label>
+                {/* The two controls almost nobody needs on the way in, folded away.
+                    Five slots times five controls is a console; gender, role and a
+                    vibe chip are the three that actually change the scene. Folded,
+                    not removed — anyone who wants them is one tap away. */}
+                {detail[m.id] ? (
+                  <>
+                    <input value={m.vibe} onChange={(e) => patch(m.id, { vibe: cleanVibe(e.target.value) })} maxLength={VIBE_MAX}
+                      placeholder="or describe them in your own words…" aria-label={`vibe for person ${i + 1}`}
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.05)", color: "#f0e8ff",
+                        border: ".5px solid rgba(255,255,255,.09)", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
+                    <label style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 11, fontSize: 13.5, color: "rgba(240,232,255,.6)", cursor: "pointer" }}>
+                      <input type="checkbox" checked={m.quiet} onChange={(e) => patch(m.id, { quiet: e.target.checked })} style={{ accentColor: ACCENT, width: 17, height: 17 }} />
+                      here, but doesn&rsquo;t speak
+                    </label>
+                  </>
+                ) : (
+                  <button onClick={() => setDetail((d) => ({ ...d, [m.id]: true }))}
+                    aria-label={`more options for person ${i + 1}`}
+                    style={{ background: "none", border: "none", padding: "4px 0 0", font: "inherit", fontSize: 13, color: "rgba(240,232,255,.45)", cursor: "pointer" }}>
+                    more…
+                  </button>
+                )}
               </div>
             ))}
           </div>

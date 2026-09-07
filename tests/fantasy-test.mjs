@@ -120,5 +120,18 @@ check(leanAt(0.05) === "f", `0.05 is in a female-lean band (${leanAt(0.05)})`)
 check(!/useState\(\(\) => \(Date\.now\(\)/.test(room), "the scene seed is not the clock")
 check(/cfg\.fantasyId \+ "\|" \+ cfg\.cast\.map/.test(room), "it is derived from the casting, so reopening a scene brings back the same people")
 
+// ── one tap is enough ─────────────────────────────────────────────────────
+// Three steps, fifty-seven premises, seventy roles and four questions about turn
+// order is a setup screen in front of a product, and most people do not reach the
+// end of one. Tapping a scene now starts it; the console is still there for
+// anyone who wants it.
+check(/onClick=\{\(\) => quickStart\(f\.id\)\}/.test(builder), "tapping a scene starts it rather than opening step 2")
+const qs = builder.slice(builder.indexOf("const quickStart"), builder.indexOf("return (", builder.indexOf("const quickStart")))
+check(/turnMode: "turns", attribution: "name", save: true, record: false/.test(qs), "the defaults are complete, so nothing is left unset")
+check(/cast: \[member\]/.test(qs), "it opens with one person, not an empty room")
+check(/h \^= id\.charCodeAt/.test(qs), "the default role is derived from the scene, so the same premise always opens with the same person")
+check(/cast it yourself/.test(builder), "the full builder is still reachable")
+check(/detail\[m\.id\] \?/.test(builder), "and the fine detail on a cast slot is folded away until asked for")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail === 0 ? 0 : 1)

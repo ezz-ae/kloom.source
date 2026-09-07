@@ -268,8 +268,26 @@ export function buildPortraitPrompt(seedKey: string, gender?: string, _world?: s
   //
   // It costs one word and it is not a style choice, so it stays regardless of
   // which engine is in play.
+  // SUBJECT FIRST. This used to open with BASE — sixty words about amateur
+  // photography, skin texture and "one single real human face" — and only then
+  // said who the person was, with their ethnicity a bare adjective buried in a
+  // comma list near the end.
+  //
+  // A diffusion model weights the whole string fairly evenly, so it worked. An
+  // instruction-following model does not: Gemini read the opening as the brief
+  // and treated the rest as trailing detail, so the ethnicity term was largely
+  // ignored — a pool that is 19% East Asian was returning a floor that looked
+  // overwhelmingly East Asian, whatever it asked for.
+  //
+  // So it is ordered the way you would actually brief a photographer: who the
+  // person is, then what the picture is like, then the technical notes. Nothing
+  // was removed; it was put in the order that makes it land.
   const prompt =
-    `${BASE}. ${style}. portrait of an adult ${look}, ${ethnicity}, ${word} ${age}, clearly of adult age, ${hair}` +
-    (d ? `, ${d}` : "")
+    `A candid amateur photograph of a ${ethnicity} ${word} ${age}, ` +
+    `${look}, with ${hair}. ` +
+    `${d ? `${d}. ` : ""}` +
+    `${style}. ` +
+    `They are clearly an adult. ${BASE}`
+
   return { prompt, negative: PORTRAIT_NEG, seed: hash(k + "|px") % 2147483647, ethnicity, age }
 }

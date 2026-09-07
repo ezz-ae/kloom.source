@@ -174,8 +174,13 @@ check(/scale\(1\.06\) translateY\(-2%\)/.test(fd), "the portrait is not lifted s
 // The negative list is half of the age floor; the positive half has to be stated
 // too, because the Google engine read the identical prompt younger than every
 // diffusion engine did — one sampled face came back reading as a teenager.
-check(/portrait of an adult/.test(prompt) && /clearly of adult age/.test(prompt),
+check(/They are clearly an adult/.test(prompt),
   "the prompt states ADULT outright rather than leaving it to be inferred from the age phrase")
+// Ordering is load-bearing on an instruction-following model: Gemini read a long
+// technical opener as the brief and largely ignored the ethnicity buried after
+// it, so a pool that is 19% East Asian returned a floor that looked far more so.
+check(/A candid amateur photograph of a \$\{ethnicity\}/.test(prompt),
+  "the subject — and their ethnicity — opens the prompt rather than trailing it")
 
 for (const w of ["child", "minor", "underage", "teenager"]) {
   check(new RegExp(`\\b${w}\\b`).test(prompt), `the portrait negative still refuses "${w}"`)

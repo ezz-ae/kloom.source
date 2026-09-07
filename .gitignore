@@ -42,3 +42,6 @@ node_modules/
 # Variant dev build dirs (.fun / .io parallel servers)
 .next-*/
 gemini-probe.txt
+
+# Generated ad cards — build them with scripts/ad-cards.mjs, don't commit the output.
+/ad-cards/

@@ -143,9 +143,14 @@ const route = readFileSync("app/api/character-photo/route.ts", "utf8")
 // longer existed, twice, and nothing said why.
 check(/PROMPT_FINGERPRINT/.test(route), "the cache path carries a fingerprint of the prompt")
 check(/\$\{PROMPT_FINGERPRINT\}/.test(route), "and it is actually interpolated into the path")
+// Hashing the pools alone was not enough: the fix that moved the subject to the
+// front of the prompt changed no pool, so the fingerprint held still and every
+// face it was meant to correct kept serving from cache.
+check(/buildPortraitPrompt\("fingerprint-f", "female"\)\.prompt/.test(src),
+  "the fingerprint hashes an assembled prompt, so a change to ORDER moves it too")
 const fp = src.slice(src.indexOf("export const PROMPT_FINGERPRINT"))
 for (const pool of ["AGE", "LOOK_F", "LOOK_M", "LOOK_X", "STYLE", "HAIR", "PORTRAIT_NEG", "BASE"]) {
-  check(new RegExp(`\\b${pool}\\b`).test(fp.slice(0, 600)), `the fingerprint covers ${pool}`)
+  check(new RegExp(`\\b${pool}\\b`).test(fp.slice(0, 1800)), `the fingerprint covers ${pool}`)
 }
 check(!/process\.env/.test(fp.slice(0, 600)),
   "and nothing in the environment can pin it — that is what went wrong before")

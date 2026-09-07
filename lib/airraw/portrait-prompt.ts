@@ -236,9 +236,24 @@ function genderLooks(gender?: string, seed = ""): { pool: string[]; word: string
  * changed still hits cache, so this costs nothing when nothing has changed.
  */
 export const PROMPT_FINGERPRINT = (() => {
+  // THE WORDING IS NOT ENOUGH — THE ASSEMBLY COUNTS TOO.
+  //
+  // This hashed only the pools, so a change to how they are ORDERED left the
+  // fingerprint identical and every stale face kept serving from cache. That is
+  // not hypothetical: the fix that moved the subject to the front of the prompt
+  // — the one that made ethnicity and gender actually land — changed no pool at
+  // all, so none of the faces it was meant to correct were ever regenerated.
+  //
+  // Hashing a SAMPLE ASSEMBLED PROMPT closes that for good. Any edit to the
+  // template, the ordering or the pools moves it, and nothing has to be
+  // remembered or bumped by hand the next time.
+  const sample = [
+    buildPortraitPrompt("fingerprint-f", "female").prompt,
+    buildPortraitPrompt("fingerprint-m", "male").prompt,
+  ].join("~")
   const all = [
     ...AGE, ...LOOK_F, ...LOOK_M, ...LOOK_X, ...STYLE, ...HAIR, ...ETHNICITY,
-    BASE, PORTRAIT_NEG,
+    BASE, PORTRAIT_NEG, sample,
   ].join("|")
   return hash(all).toString(36).slice(0, 6)
 })()

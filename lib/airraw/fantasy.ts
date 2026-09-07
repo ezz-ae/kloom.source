@@ -349,14 +349,26 @@ import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 export function castMember(gender: Gender, seed: number, slot: number): Cluster {
   const want = gender === "m" ? "male" : "female"
   const base = ((seed >>> 0) * 2654435761 + slot * 40503) >>> 0
-  for (let k = 0; k < 40; k++) {
+  for (let k = 0; k < 240; k++) {
     // Spread the temperature across the walk so a cast isn't five people from
     // one narrow band of the floor.
     const f = ((base + k * 29) % 100) / 100
     const c = makeCharacter((base + k * 7919) >>> 0, f)
     if (c.gender === want) return c
   }
-  return makeCharacter(base, 0.5)
+  // THE FALLBACK HAS TO HONOUR THE GENDER TOO.
+  //
+  // It used to be makeCharacter(base, 0.5), which returns whatever that seed
+  // happens to produce — so the one path that was supposed to guarantee an answer
+  // was the one path that could hand back a woman when a man was cast. That is
+  // "I picked M and Ali came back a girl", and because it only fired when the
+  // walk failed it looked random rather than reproducible.
+  //
+  // These two temperatures sit inside archetype bands whose lean is fixed rather
+  // than a coin flip (see ARCH in lib/airroom/roster): 0.58 is in the male-lean
+  // band, 0.05 in a female-lean one. So this cannot come back wrong, whatever the
+  // seed does.
+  return makeCharacter(base, want === "male" ? 0.58 : 0.05)
 }
 
 /** The whole cast, in slot order. Deterministic for a given scene seed. */

@@ -41,9 +41,20 @@ interface Line {
 }
 
 export function SceneRoom({ cfg, onClose, onPass }: { cfg: SceneConfig; onClose: () => void; onPass: () => void }) {
-  // One seed per scene, fixed for its lifetime: the cast must not change under
-  // the user between turns.
-  const [seed] = useState(() => (Date.now() / 1000) | 0)
+  // THE SEED IS THE CASTING, NOT THE CLOCK.
+  //
+  // This was Date.now(), so the same scene cast the same way produced different
+  // people every time it opened — reload and the woman you were talking to is
+  // someone else with another name. Deriving it from the configuration instead
+  // means a casting IS an identity: the same fantasy, the same roles, the same
+  // genders and vibes always assemble the same room, and changing any of them
+  // deliberately assembles a different one.
+  const seed = useMemo(() => {
+    const key = cfg.fantasyId + "|" + cfg.cast.map((m) => `${m.gender}:${m.roleId}:${m.vibe}:${m.quiet ? 1 : 0}`).join("|")
+    let h = 2166136261 >>> 0
+    for (let i = 0; i < key.length; i++) { h ^= key.charCodeAt(i); h = Math.imul(h, 16777619) }
+    return h >>> 0
+  }, [cfg])
   const cast = useMemo(() => castFor(cfg, seed), [cfg, seed])
   const names = useMemo(() => {
     const out: Record<string, string> = {}

@@ -98,5 +98,27 @@ const builder = readFileSync("components/airroom/FantasyBuilder.tsx", "utf8")
 check(/position: "sticky"/.test(builder), "the step navigation is pinned, so the dock cannot cover the way forward")
 check(/gridTemplateColumns: "minmax\(0, 1fr\)"/.test(builder), "cast cards can shrink below their content, so a scrolling chip row can't widen the page")
 
+// ── a cast slot's gender is a promise, not a probability ──────────────────
+// The fallback used to be makeCharacter(base, 0.5) — whatever that seed gave —
+// so the one path meant to guarantee an answer was the one that could return a
+// woman when a man was cast.
+const cm = src.slice(src.indexOf("export function castMember"), src.indexOf("/** The whole cast"))
+check(/want === "male" \? 0\.58 : 0\.05/.test(cm), "the fallback picks a temperature whose archetype lean is fixed, so it cannot come back the wrong gender")
+// Strip comments first: the fix explains what it replaced, and matching that
+// prose would fail the check for documenting itself.
+const cmCode = cm.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+check(!/makeCharacter\(base, 0\.5\)/.test(cmCode), "and never the old coin-flip temperature")
+// Those two numbers only work if they really sit in fixed-lean bands.
+const roster = readFileSync("lib/airroom/roster.ts", "utf8")
+const arch = [...roster.matchAll(/band: \[([0-9.]+), ([0-9.]+)\], clusters: \d+, lean: "([fmx])"/g)]
+  .map(([, a, b, lean]) => ({ lo: +a, hi: +b, lean }))
+const leanAt = (f) => (arch.find((x) => f >= x.lo && f <= x.hi) || {}).lean
+check(leanAt(0.58) === "m", `0.58 is in a male-lean band (${leanAt(0.58)})`)
+check(leanAt(0.05) === "f", `0.05 is in a female-lean band (${leanAt(0.05)})`)
+
+// ── the same casting is the same room ─────────────────────────────────────
+check(!/useState\(\(\) => \(Date\.now\(\)/.test(room), "the scene seed is not the clock")
+check(/cfg\.fantasyId \+ "\|" \+ cfg\.cast\.map/.test(room), "it is derived from the casting, so reopening a scene brings back the same people")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail === 0 ? 0 : 1)

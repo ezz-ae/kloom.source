@@ -920,9 +920,18 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       )}
 
       {/* main call area — portrait, name, status, caption */}
-      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-evenly", gap: 8, padding: "14px 24px 6px" }}>
+      {/* minHeight:0 lets this shrink; without an overflow it then SPILLS.
+          On a phone with browser chrome the call screen is about 660px tall, the
+          phone row and end button take a fixed slice of it, and what is left is
+          shorter than the portrait plus her name plus the caption — measured at
+          60px over. With overflow visible that surplus was drawn straight on top
+          of the controls, which is why "mute" and "keypad" had her Arabic line
+          printed through them. Scroll it instead of hiding it: on a tall screen
+          nothing scrolls and nothing changes, and on a short one the caption is
+          reachable rather than lost behind a button. */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-evenly", gap: 8, padding: "14px 24px 6px" }}>
         {/* portrait with glow ring */}
-        <div style={{ position: "relative", width: "min(54vw, 210px)", aspectRatio: "1" }}>
+        <div style={{ position: "relative", width: "min(54vw, 210px, 30vh)", flexShrink: 0, aspectRatio: "1" }}>
           {speaking && <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `2px solid ${accent}`, animation: "airpulse 1.5s ease-out infinite" }} />}
           <div style={{ position: "absolute", inset: 0, borderRadius: "50%", overflow: "hidden", border: `1.5px solid ${speaking ? accent : accent + "50"}`, boxShadow: `0 22px 70px -22px ${glow}`, transition: "border-color .3s" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}

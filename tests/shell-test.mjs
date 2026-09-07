@@ -123,5 +123,18 @@ check(/aria-hidden=\{typing\}/.test(shell), "while hidden it is hidden from assi
 const dock = shell.slice(shell.indexOf("mobile dock"))
 check(!/style=\{\{[^}]*padding/.test(dock), "the dock's spacing is all in classes, so nothing can silently outrank it")
 
+// ── the call screen cannot print itself over its own controls ─────────────
+// A flex child with minHeight:0 shrinks below its content, and with no overflow
+// the surplus is DRAWN ON TOP of whatever comes next. On a phone with browser
+// chrome the call area came out 60px shorter than its content, so the quick-pick
+// buttons and her caption were rendered through "mute" and "keypad" — which in
+// Arabic looked like two languages printed over each other.
+const bubble = readFileSync("components/airroom/AirBubble.tsx", "utf8")
+const callArea = bubble.slice(bubble.indexOf("main call area"), bubble.indexOf("portrait with glow ring"))
+check(/minHeight: 0/.test(callArea), "the call area can shrink")
+check(/overflowY: "auto"/.test(callArea), "and scrolls its surplus instead of painting it over the controls")
+check(/width: "min\(54vw, 210px, 30vh\)"/.test(bubble),
+  "the portrait is capped by height as well as width, so it cannot eat a short screen on its own")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

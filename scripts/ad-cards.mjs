@@ -36,13 +36,24 @@ const LINES = [
   "tell me something true that makes you look bad. then i will believe you.",
   "argue with me about something stupid. please.",
   "i talk for a living. tonight i would rather not lead.",
+  "tell me something long. i do not mind what it is about.",
+  "i have been in this car since seven. talk to me about anything.",
+  "do not ask me about work. ask me literally anything else.",
+  "nobody has disagreed with me out loud in two years. start now.",
+  "everybody talks at me all night. you can, if you want. or not.",
+  "i am not in a hurry. that is the whole thing i have to offer tonight.",
+  "i will say the thing everyone dances around. i always do.",
+  "ask me what i think. nobody does.",
+  "i am not cold. i am efficient. people confuse the two constantly.",
+  "go on, leave a silence. i will try very hard not to fill it.",
+  "tell me what i am feeling. everybody guesses wrong.",
+  "i have stopped wanting less than i want. it took thirty years.",
+  "i am better at doing things than saying them. be patient.",
 ]
 
 // Feed square, story, and the wide link card.
 const SIZES = [
-  { id: "1080x1080", w: 1080, h: 1080, type: 96, pad: 96 },
-  { id: "1080x1920", w: 1080, h: 1920, type: 104, pad: 104 },
-  { id: "1200x628", w: 1200, h: 628, type: 76, pad: 84 },
+  { id: "1080x1080", w: 1080, h: 1080, type: 92, pad: 96 },
 ]
 
 const THEMES = {
@@ -53,11 +64,10 @@ const THEMES = {
 }
 
 const card = (line, s, t) => `<!doctype html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500&display=swap" rel="stylesheet">
 <style>
   html,body{margin:0;padding:0}
   body{width:${s.w}px;height:${s.h}px;background:${t.bg};color:${t.fg};
-    font-family:'Instrument Sans',system-ui,sans-serif;
+    font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
     display:flex;flex-direction:column;justify-content:space-between;
     padding:${s.pad}px;box-sizing:border-box}
   /* The line sits high and stops early. The space underneath is the ad. */
@@ -76,7 +86,7 @@ for (const [themeName, t] of Object.entries(THEMES)) {
   for (const s of SIZES) {
     for (let i = 0; i < LINES.length; i++) {
       const p = await b.newPage({ viewport: { width: s.w, height: s.h }, deviceScaleFactor: 1 })
-      await p.setContent(card(LINES[i], s, t), { waitUntil: "networkidle" })
+      await p.setContent(card(LINES[i], s, t), { waitUntil: "load" })
       await p.screenshot({ path: `${OUT}/${themeName}-${s.id}-${String(i + 1).padStart(2, "0")}.png` })
       await p.close(); n++
     }

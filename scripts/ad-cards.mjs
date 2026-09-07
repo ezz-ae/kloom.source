@@ -53,7 +53,12 @@ const LINES = [
 
 // Feed square, story, and the wide link card.
 const SIZES = [
+  // The square is the feed post. The story is where the LINK lives — on
+  // Instagram a caption cannot carry a URL, so every click comes from a story's
+  // link sticker. Shipping only the square would be shipping the half nobody
+  // can tap.
   { id: "1080x1080", w: 1080, h: 1080, type: 92, pad: 96 },
+  { id: "1080x1920", w: 1080, h: 1920, type: 100, pad: 104 },
 ]
 
 const THEMES = {
@@ -68,7 +73,7 @@ const card = (line, s, t) => `<!doctype html><html><head><meta charset="utf-8">
   html,body{margin:0;padding:0}
   body{width:${s.w}px;height:${s.h}px;background:${t.bg};color:${t.fg};
     font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-    display:flex;flex-direction:column;justify-content:space-between;
+    display:flex;flex-direction:column;justify-content:flex-start;gap:${s.h > s.w ? 0 : 0}px;
     padding:${s.pad}px;box-sizing:border-box}
   /* The line sits high and stops early. The space underneath is the ad. */
   .line{font-size:${s.type}px;line-height:1.16;letter-spacing:-.035em;font-weight:500;
@@ -77,6 +82,7 @@ const card = (line, s, t) => `<!doctype html><html><head><meta charset="utf-8">
     text-transform:uppercase;font-weight:500}
 </style></head><body>
   <p class="line">${line}</p>
+  <div style="flex:1"></div>
   <div class="mark">airraw.com</div>
 </body></html>`
 

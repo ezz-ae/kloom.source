@@ -100,5 +100,28 @@ for (const f of ["wants", "opinion", "softens", "tell"]) {
 }
 for (const v of VOICE) check(new RegExp(`v\\.${v}`).test(sp), `the prompt carries the "${v}" register`)
 
+// ── they are actually who you meet ────────────────────────────────────────
+const room = readFileSync("components/airroom/TheRoom.tsx", "utf8")
+check(/writtenCast\(seed, Math\.min\(WRITTEN_IN_ROOM/.test(room), "the room is built from the written cast first")
+const inRoom = Number((room.match(/const WRITTEN_IN_ROOM = (\d+)/) || [])[1])
+const roomSize = Number((room.match(/const CAST = (\d+)/) || [])[1])
+check(inRoom > roomSize / 2, `most of the room is hand-written (${inRoom} of ${roomSize})`)
+check(/groupCast/.test(room), "and the generated floor still fills it out, so it is a crowd not a line-up")
+
+// ── their soul is what reaches the model ──────────────────────────────────
+check(/soulOf\(who\) \|\| dossierLine\(id\)/.test(room), "a written character speaks from her own soul in the room, a generated one from the dossier")
+const bubble = readFileSync("components/airroom/AirBubble.tsx", "utf8")
+check(/writtenFor\(c\.key\)/.test(bubble) && /soulPrompt/.test(bubble), "and the same in a private thread")
+
+// ── one person, not one per language ──────────────────────────────────────
+const cf = src.slice(src.indexOf("export function clusterFor"), src.indexOf("export function writtenCast"))
+check(/key: `\$\{WRITTEN_PREFIX\}\$\{member\.id\}`/.test(cf), "her key is her id alone")
+check(!/lang/.test(cf.split("key:")[1] || ""), "the language is NOT in the key — meeting her in Arabic and in French is meeting the same person")
+check(/voiceForGender/.test(cf), "her voice comes from the same catalogue as everyone else's, not a second list")
+
+// ── a room cannot show the same person twice ──────────────────────────────
+const wc = src.slice(src.indexOf("export function writtenCast"))
+check(/!order\.includes\(idx\)/.test(wc), "the written cast never repeats a person inside one room")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail === 0 ? 0 : 1)

@@ -85,6 +85,9 @@ function write(list: SavedCharacter[]) {
  * with it.
  */
 export function lookFor(c: Cluster): string {
+  // A written character describes her own face. Only the generated floor needs a
+  // look composed from the pools.
+  if (c.look) return c.look
   const { prompt } = buildPortraitPrompt(c.key, c.gender)
   // buildPortraitPrompt composes "<base>. <style>. portrait of <person>". The
   // person is the last clause; the two before it are camera direction.

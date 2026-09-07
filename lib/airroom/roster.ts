@@ -22,6 +22,12 @@ export interface Cluster {
   lines: string[]                    // overhearable lines, spoken on approach
   voiceId?: string                   // explicit Fish voice (for always-new picks)
   /**
+   * A written appearance, for the hand-written cast only. Generated characters
+   * leave this unset and have their look composed from the portrait pools as
+   * before — see lookFor in lib/airraw/character.
+   */
+  look?: string
+  /**
    * Stable UNIQUE identity for this character — the seed for their face, their
    * accent and their inner life. Distinct from `host` on purpose: `host` is the
    * name they go by and two different people are allowed to share one, exactly
@@ -419,6 +425,19 @@ export const ROSTER_COUNT = ROSTER.reduce((s, c) => s + c.n, 0)
 
 // Gender-matched Fish voice pools. makeCharacter draws one deterministically, so
 // the orb you tap and the voice you hear agree and adjacent dots sound distinct.
+/**
+ * A seeded voice for a gender, from the same pools the generated floor uses.
+ *
+ * Exported so the written cast (lib/airraw/cast50) draws from the SAME catalogue
+ * rather than keeping a second list that could drift — a hand-written character
+ * whose voice came from somewhere else would sound like a different product the
+ * moment you met a generated one next to her.
+ */
+export function voiceForGender(gender: "female" | "male", seed: number): string | undefined {
+  const pool = gender === "female" ? F_VOICES : M_VOICES
+  return pool.length ? pool[((seed >>> 0) + 7) % pool.length] : undefined
+}
+
 const F_VOICES = VOICE_CATALOG.filter((v) => v.gender === "female").map((v) => v.id)
 const M_VOICES = VOICE_CATALOG.filter((v) => v.gender === "male").map((v) => v.id)
 

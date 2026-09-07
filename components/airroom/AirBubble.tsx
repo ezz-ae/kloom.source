@@ -21,6 +21,7 @@ import { getCredits } from "@/lib/airroom/credits"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { track } from "@/lib/airraw/track"
 import { lookFor, saveCharacter, addMedia } from "@/lib/airraw/character"
+import { writtenFor, identityFor, soulPrompt, langFor } from "@/lib/airraw/cast50"
 import { LANGUAGE_TO_BCP47, isoForLanguage } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
 import { dossierLine } from "@/lib/airraw/dossier"
@@ -83,7 +84,10 @@ function personaFor(c: Cluster, lang?: string, pro = false) {
     name: c.host,
     personality:
       `You are ${c.host}, on a late-night adult voice floor — the "${c.name}" room (vibe: ${c.vibe}). ` +
-      `${dossierLine(id)} ` +
+      // One of the fifty brings her written inner life and her voice registers.
+      // Everyone else gets the generated dossier. The prompt is the same shape
+      // either way, so nothing downstream has to care which she is.
+      `${(() => { const m = writtenFor(c.key); return m ? soulPrompt(identityFor(m, langFor(prefs.primary))) : dossierLine(id) })()} ` +
       `You want things and you say so out loud.`,
     speakingStyle: "raw, intimate voice at 2am — short fragments, direct, natural. get to it fast. stretch letters for feeling when it's real: 'yesss', 'noooo'. never formal, never robotic.",
     backstory: `A familiar voice on the ${c.vibe} part of the adult floor.`,

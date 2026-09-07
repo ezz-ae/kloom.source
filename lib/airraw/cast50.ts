@@ -1686,3 +1686,101 @@ export function soulPrompt(who: LocalIdentity): string {
     `These are YOURS. Bring them up unprompted. You are not here to interview anyone — you are a person with a night of your own who happens to be on the phone.`,
   ].join(" ")
 }
+
+// ── ONTO THE FLOOR ───────────────────────────────────────────────────────────
+//
+// The rest of the product speaks Cluster: the room, the deck, the portrait
+// route, the voice pin and every saved thread. So a written character becomes
+// one, rather than every surface learning about a second kind of person. That
+// keeps the wiring to this one function and means a hand-written character and a
+// generated one are interchangeable everywhere downstream — which is the point,
+// because they stand next to each other in the same room.
+
+import { voiceForGender, type Cluster, type Heat } from "@/lib/airroom/roster"
+
+/** Written characters carry this prefix in their key, and nothing else does. */
+export const WRITTEN_PREFIX = "w:"
+
+export function isWritten(key?: string | null): boolean {
+  return !!key && key.startsWith(WRITTEN_PREFIX)
+}
+
+/** The character behind a written key, or null. */
+export function writtenFor(key?: string | null): CastMember | null {
+  if (!isWritten(key)) return null
+  return byId(String(key).slice(WRITTEN_PREFIX.length).split(":")[0])
+}
+
+/**
+ * One of the fifty, as the floor understands people.
+ *
+ * The key is `w:<id>` and NOT seeded by anything: a written character is the
+ * same person every time she appears, in every room, forever. That is the whole
+ * difference between her and a generated dot, and it is what makes her face, her
+ * voice and her saved thread line up across surfaces.
+ *
+ * The LANGUAGE is deliberately not in the key. Meeting her in Arabic and meeting
+ * her in French must be the same person with the same face and the same history,
+ * not two entries that happen to share a soul.
+ */
+export function clusterFor(member: CastMember, lang: Lang = "en"): Cluster {
+  const who = identityFor(member, lang)
+  const gender: "female" | "male" = member.gender === "m" ? "male" : "female"
+  const h: Heat = member.band < 0.4 ? "w" : member.band < 0.72 ? "m" : "f"
+  // A stable number from the id, so the voice choice is fixed for this person.
+  let seed = 2166136261 >>> 0
+  for (let i = 0; i < member.id.length; i++) { seed ^= member.id.charCodeAt(i); seed = Math.imul(seed, 16777619) }
+  return {
+    f: member.band,
+    n: 1,
+    h,
+    archetype: "written",
+    name: who.soul.core.split(",")[0].slice(0, 40),
+    vibe: who.soul.wants,
+    host: who.name,
+    gender,
+    lines: who.openers,
+    voiceId: voiceForGender(gender, seed),
+    look: who.look,
+    key: `${WRITTEN_PREFIX}${member.id}`,
+  }
+}
+
+/**
+ * The written cast for a room, deterministic and without repeats.
+ *
+ * PREFIX-STABLE, like groupCast and for the same reason: a board that promises
+ * four faces and a room that opens on four different ones is a product lying
+ * about who is in it. Growing a room by one adds a person rather than replacing
+ * everybody.
+ */
+export function writtenCast(seed: number, count: number, lang: Lang = "en"): Cluster[] {
+  const n = Math.max(0, Math.min(CAST.length, Math.round(count)))
+  const order: number[] = []
+  // A coprime stride walks all fifty before repeating anyone.
+  const stride = 17
+  for (let i = 0; order.length < n; i++) {
+    const idx = ((seed >>> 0) + i * stride) % CAST.length
+    if (!order.includes(idx)) order.push(idx)
+    if (i > CAST.length * 3) break
+  }
+  return order.map((i) => clusterFor(CAST[i], lang))
+}
+
+/**
+ * The user's language setting → which name and face this cast wears.
+ *
+ * Matches on the language NAME the app already stores (see lib/airraw/lang-prefs)
+ * rather than introducing a second code system to keep in sync. Anything
+ * unrecognised falls to English, because a cast that comes back empty is far
+ * worse than one wearing the wrong names.
+ */
+export function langFor(primary?: string | null): Lang {
+  const p = String(primary || "").toLowerCase()
+  if (/arab|عرب/.test(p)) return "ar"
+  if (/spanish|espa/.test(p)) return "es"
+  if (/french|fran/.test(p)) return "fr"
+  if (/turk|türk|turc/.test(p)) return "tr"
+  if (/russ|рус/.test(p)) return "ru"
+  return "en"
+}

@@ -41,6 +41,14 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { groupCast, faceSeedFor, type Cluster } from "@/lib/airroom/roster"
+import { writtenCast, langFor, CAST_COUNT, writtenFor, identityFor, soulPrompt } from "@/lib/airraw/cast50"
+
+/** The written soul behind a cluster, as prompt text — or "" if generated. */
+function soulOf(c: Cluster): string {
+  const m = writtenFor(c.key)
+  if (!m) return ""
+  return soulPrompt(identityFor(m, langFor(getLangPrefs().primary)))
+}
 import { dossierLine, cardLinesFor, dossierForSeed } from "@/lib/airraw/dossier"
 import { getLangPrefs } from "@/lib/airraw/lang-prefs"
 import { getProToken, isPro } from "@/lib/airroom/pro"
@@ -83,6 +91,8 @@ interface Line {
 }
 
 const CAST = 14
+// How many of the room are hand-written. The rest is generated depth.
+const WRITTEN_IN_ROOM = 10
 const MAX_LINES = 48
 const GAP_MS = 6500
 /** How many of the fourteen ever speak aloud. */
@@ -178,13 +188,27 @@ export function TheRoom({ onPrivate, onPass, topic = "tonight" }: {
   // permutation, but this is the guarantee the visitor was promised, so it is
   // enforced rather than assumed — dedupe by face key AND by name.
   const seed = useMemo(() => Math.floor(Date.now() / 3_600_000) * 3, [])
+  // WHO IS IN THE ROOM: the written cast first, the generated floor behind them.
+  //
+  // The generator can make thousands of plausible people and that is what makes
+  // this place feel endless — but plausible is the register that reads as filler,
+  // and a room built entirely from it felt like nobody in particular. The fifty
+  // hand-written characters (lib/airraw/cast50) are who you actually meet; the
+  // rest fill the room out so it is still a crowd rather than a line-up.
+  //
+  // They arrive in the language the visitor set, which changes their name and
+  // face and nothing else about them — see the localisation rule in cast50.
   const cast = useMemo(() => {
-    const seenFace = new Set<string>(), seenName = new Set<string>()
-    return groupCast(seed, 0.5, CAST + 6).filter((c) => {
+    const lang = langFor(getLangPrefs().primary)
+    const written = writtenCast(seed, Math.min(WRITTEN_IN_ROOM, CAST_COUNT), lang)
+    const seenFace = new Set<string>(written.map((c) => faceSeedFor(c) || c.host))
+    const seenName = new Set<string>(written.map((c) => c.host))
+    const filled = groupCast(seed, 0.5, CAST + 6).filter((c) => {
       const fk = faceSeedFor(c) || c.host
       if (seenFace.has(fk) || seenName.has(c.host)) return false
       seenFace.add(fk); seenName.add(c.host); return true
-    }).slice(0, CAST)
+    }).slice(0, Math.max(0, CAST - written.length))
+    return [...written, ...filled]
   }, [seed])
   // The talkers: a stable subset, so the same person is "the one who speaks"
   // for the whole visit. Being one of the few who speaks IS part of who they are.
@@ -345,7 +369,10 @@ export function TheRoom({ onPrivate, onPass, topic = "tonight" }: {
           language: prefs.primary || "English",
           personality:
             `You are ${who.host}, in a busy late-night room on an adult floor — fourteen people, everyone can see everything. ` +
-            `${dossierLine(id)} ` +
+            // A written character brings her own inner life and her own voice
+            // registers; a generated one gets the dossier. Same shape either way,
+            // so the room does not need to know which kind of person it has.
+            `${soulOf(who) || dossierLine(id)} ` +
             `Right now you are ${mood}. ` +
             `This line: ${kind}. ` +
             `When you address someone, write their name as @Name (the visitor is @${you}). ` +

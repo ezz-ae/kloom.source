@@ -52,7 +52,20 @@ const AGE = [
   "in their mid-30s", "in their mid-30s", "in their late 20s", "in their early 30s",
 ]
 
-// Sexy and attractive — adult platform, adults looking appealing and sensual.
+// ATTRACTIVE AND PRESENT — never explicit, and never airbrushed either.
+//
+// Two failure modes sit either side of this pool and the product has been in
+// both. Superlatives ("flawless", "perfect features") produce the plastic render
+// of an averaged magazine cover, which reads as generated. Over-correcting into
+// "ordinary everyday adult with no makeup" produced people who looked tired and
+// unwell, and visitors said the faces made them want to leave.
+//
+// What is wanted is a real person who is genuinely good-looking and LOOKING AT
+// YOU: a direct gaze, warm light, a half-smile. Appeal comes from presence and
+// eye contact, not from undress — the prompts stay fully clothed and entirely
+// non-explicit, because these faces sit on public cards and in link previews
+// where anyone can see them. What the paid tier unlocks is enforced server-side,
+// never by writing a more explicit portrait prompt.
 // WHO THEY LOOK LIKE.
 //
 // These used to be superlatives — "strikingly beautiful", "drop-dead gorgeous",
@@ -65,34 +78,34 @@ const AGE = [
 // So: attractive, specific, and IMPERFECT. A crooked smile and a gap in the
 // teeth do more for "she's real" than any amount of "stunning".
 const LOOK_F = [
-  "an attractive young woman with a warm crooked smile and slightly uneven eyebrows",
-  "a beautiful young woman with freckles across her nose and bright direct eyes",
-  "a pretty young woman with a soft round face and an easy grin",
-  "an attractive young woman with high cheekbones and a quiet half-smile",
-  "a beautiful young woman with strong brows, bare skin and a direct look",
-  "an attractive young woman with slightly messy hair and no makeup",
-  "a pretty young woman with a sharp nose, thin lips and an amused expression",
-  "an attractive young woman with a wide smile and laughing eyes",
-  "a beautiful young woman with a slightly crooked nose and a knowing look",
-  "an attractive young woman with a strong jaw and warm eyes",
+  "a beautiful woman with a warm crooked smile and a direct, confident look",
+  "a beautiful woman with freckles across her nose and bright knowing eyes",
+  "a gorgeous woman with a soft round face and an easy, inviting grin",
+  "a beautiful woman with high cheekbones and a slow half-smile",
+  "a striking woman with strong brows, glowing skin and a steady gaze",
+  "a beautiful woman with slightly messy hair falling over one eye",
+  "a striking woman with a sharp nose, full lips and an amused expression",
+  "a beautiful woman with a wide smile and laughing eyes",
+  "a gorgeous woman with a slightly crooked nose and a knowing look",
+  "a beautiful woman with a strong jaw, warm eyes and soft makeup",
 ]
 const LOOK_M = [
-  "an attractive young man with stubble and a slightly crooked nose",
-  "a handsome young man with messy hair and an easy grin",
-  "an attractive young man with a heavy brow and a steady look",
-  "a handsome young man with light stubble and a wide smile",
-  "an attractive young man with a soft jaw, freckles and a quiet expression",
-  "a handsome young man with a strong nose and a crooked smile",
-  "an attractive young man with thick eyebrows and a lopsided smile",
-  "a handsome young man with a shaved head and a sharp jawline",
-  "an attractive young man with a round face, warm eyes and no styling",
-  "a handsome young man with dark eyes and an unpolished look",
+  "a handsome man with stubble, a slightly crooked nose and a steady look",
+  "a handsome man with messy hair and an easy confident grin",
+  "a good-looking man with a heavy brow and a direct gaze",
+  "a handsome man with light stubble and a wide warm smile",
+  "a good-looking man with a soft jaw, freckles and a quiet steady look",
+  "a handsome man with a strong nose and a crooked knowing smile",
+  "a good-looking man with thick eyebrows and a lopsided smile",
+  "a handsome man with a shaved head and a sharp jawline",
+  "a good-looking man with a round face and warm inviting eyes",
+  "a handsome man with dark eyes and an unhurried expression",
 ]
 const LOOK_X = [
-  "an attractive young androgynous person with bare skin and an unreadable expression",
-  "a good-looking young androgynous person with a crooked smile and messy hair",
-  "an attractive young non-binary person with freckles and a direct gaze",
-  "a good-looking young androgynous person with strong brows and fine features",
+  "a striking androgynous person with bare skin, fine features and an unreadable expression",
+  "a good-looking androgynous person with a crooked smile and soft messy hair",
+  "a striking non-binary person with freckles and a direct, holding gaze",
+  "a good-looking androgynous person with strong brows and fine features",
 ]
 
 // HOW IT WAS SHOT.
@@ -118,17 +131,17 @@ const LOOK_X = [
 // harsh, the surfaces are clean, and nothing asks for blur or grain.
 const STYLE = [
   "snapshot on a phone, soft window light, warm and natural",
-  "candid photo at home, warm lamp light, relaxed and unposed",
-  "bedroom photo in the evening, soft lamp light, calm and flattering",
-  "mirror selfie, clean mirror, soft even indoor light",
+  "candid photo at home in the evening, warm lamp light, relaxed",
+  "bedroom photo at night, one soft lamp, low warm light",
+  "mirror selfie, clean mirror, soft even light, looking at the camera",
   "photo taken by a friend mid-laugh, natural light, off-guard",
   "late afternoon sun through a window, golden and soft",
-  "photo in a car, soft daylight, relaxed",
-  "warm hallway light in the evening, gentle shadows",
-  "sofa photo, warm lamp glow, easy and casual",
-  "photo on a balcony, soft overcast daylight, wind in the hair",
-  "café by a window, soft daylight, caught mid-thought",
-  "kitchen in the morning, bright soft daylight, unposed",
+  "getting ready to go out, soft bathroom light, half-done hair",
+  "warm hallway light in the evening, leaning against the wall",
+  "sofa photo at night, warm lamp glow, unhurried",
+  "photo on a balcony at dusk, city light behind, wind in the hair",
+  "café by a window, soft daylight, caught looking up",
+  "close portrait in warm low light, looking straight into the lens",
 ]
 
 const HAIR = [

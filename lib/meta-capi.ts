@@ -7,9 +7,19 @@ import crypto from "crypto"
  * the reliable signal Meta optimizes on. We pass the SAME event_id the browser
  * pixel uses so Meta de-duplicates and never double-counts.
  *
- * No-op unless both NEXT_PUBLIC_FB_PIXEL_ID and META_CAPI_TOKEN are set.
+ * No-op unless a pixel id (META_PIXEL_ID, or NEXT_PUBLIC_FB_PIXEL_ID) and
+ * META_CAPI_TOKEN are both set.
  */
-const PIXEL = process.env.NEXT_PUBLIC_FB_PIXEL_ID || ""
+// META_PIXEL_ID first, so the SERVER side can report purchases even when the
+// browser pixel is switched off.
+//
+// These were one variable, which made them one decision: deleting
+// NEXT_PUBLIC_FB_PIXEL_ID to stop the browser pixel firing on every pageview
+// also silently turned off server-side purchase reporting — and a campaign that
+// never receives a Purchase cannot optimise, so the spend goes nowhere with no
+// error to explain it. Set META_PIXEL_ID to keep conversions reporting from the
+// server regardless of what the browser is doing.
+const PIXEL = process.env.META_PIXEL_ID || process.env.NEXT_PUBLIC_FB_PIXEL_ID || ""
 const TOKEN = process.env.META_CAPI_TOKEN || ""
 
 const sha256 = (s: string) => crypto.createHash("sha256").update(s.trim().toLowerCase()).digest("hex")

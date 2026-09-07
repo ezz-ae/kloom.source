@@ -119,7 +119,7 @@ check(clashes.length === 0,
 // SUPERLATIVES were. Those stay gone; the baseline appeal comes back.
 const lookText = [...pool("LOOK_F"), ...pool("LOOK_M")].join(" ").toLowerCase()
 const appealing = [...pool("LOOK_F"), ...pool("LOOK_M")]
-  .filter((l) => /attractive|beautiful|handsome|pretty|good-looking/.test(l)).length
+  .filter((l) => /attractive|beautiful|handsome|pretty|good-looking|gorgeous|striking/.test(l)).length
 check(appealing === pool("LOOK_F").length + pool("LOOK_M").length,
   "every look describes someone worth looking at")
 check(!/ordinary everyday adult/.test(base), "and the base no longer asks for 'ordinary'")

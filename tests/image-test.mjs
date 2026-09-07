@@ -139,6 +139,18 @@ const rl = readFileSync("lib/rate-limit.ts", "utf8")
 const cap = Number((rl.match(/AIRRAW_DAILY_CALL_CAP \|\| "(\d+)"/) || [])[1])
 check(cap > 0 && cap <= 1000, `the default daily cap is sized for paid generations (${cap})`)
 
+// ── attractive, and still not explicit ────────────────────────────────────
+// These faces sit on public cards and in link previews where anyone can see
+// them. Appeal has to come from presence — a direct gaze, warm light, a
+// half-smile — not from undress. What the paid tier unlocks is enforced
+// server-side and must never be bought by writing a more explicit prompt.
+const positive = prompt.slice(0, prompt.indexOf("PORTRAIT_NEG"))
+const EXPLICIT = /\b(nude|naked|topless|lingerie|underwear|bikini|nsfw|breasts|cleavage|erotic|seductive pose|undressed)\b/i
+const lines = positive.split("\n").filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
+check(!EXPLICIT.test(lines.join(" ")), "no portrait prompt asks for anything explicit")
+check(/looking (straight )?into the lens|direct.*gaze|looking at the camera/i.test(positive),
+  "appeal comes from eye contact, which is the part that actually reads as inviting")
+
 // ── the safety floor on portraits is untouched ────────────────────────────
 // The negative list is half of the age floor; the positive half has to be stated
 // too, because the Google engine read the identical prompt younger than every

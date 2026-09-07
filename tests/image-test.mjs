@@ -151,6 +151,25 @@ check(!EXPLICIT.test(lines.join(" ")), "no portrait prompt asks for anything exp
 check(/looking (straight )?into the lens|direct.*gaze|looking at the camera/i.test(positive),
   "appeal comes from eye contact, which is the part that actually reads as inviting")
 
+// ── THE NEGATIVE HAS TO REACH EVERY ENGINE ────────────────────────────────
+// Gemini's generateContent has no negative-prompt field. When Google became the
+// primary engine the whole of PORTRAIT_NEG was silently dropped on that path:
+// faces came back sixty years old from a prompt asking for late twenties, and —
+// far more seriously — "child, minor, underage, teenager" stopped being sent at
+// all. It is folded into the prompt text instead, because this API reads
+// instructions.
+const gg = src.slice(src.indexOf("async function genGoogle"), src.indexOf("/**\n * Ask Together"))
+check(/genGoogle\(prompt: string, negative: string/.test(gg), "genGoogle takes the negative rather than ignoring it")
+check(/Absolutely do not depict any of the following/.test(gg), "and states the exclusions in words, since there is no field for them")
+check(/text: full/.test(gg) && /prompt: full/.test(gg), "both request shapes send the combined text, not the bare prompt")
+check(/genGoogle\(prompt, negative, dseed\)/.test(src), "the caller passes it through")
+
+// ── the front door shows the face it went and generated ───────────────────
+const fd = readFileSync("components/airroom/FrontDoor.tsx", "utf8")
+const scrimTop = Number((fd.match(/linear-gradient\(180deg, rgba\(7,4,15,\.(\d+)\) 0%/) || [])[1])
+check(scrimTop <= 30, `the top of the scrim does not sit over the eyes (.${scrimTop})`)
+check(/scale\(1\.06\) translateY\(-2%\)/.test(fd), "the portrait is not lifted so far that the top of the head leaves the frame")
+
 // ── the safety floor on portraits is untouched ────────────────────────────
 // The negative list is half of the age floor; the positive half has to be stated
 // too, because the Google engine read the identical prompt younger than every

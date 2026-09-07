@@ -350,8 +350,29 @@ async function googleImageModel(): Promise<string> {
   return model
 }
 
-async function genGoogle(prompt: string, seed: number): Promise<Buffer | null | typeof REFUSED> {
+/**
+ * @param negative  What must NOT appear. Folded into the prompt, not dropped.
+ *
+ * THIS API HAS NO NEGATIVE PROMPT FIELD, and that is not a detail — it silently
+ * threw away half of what every portrait depends on the moment Google became the
+ * primary engine. The diffusion engines take `negative` as a parameter, so
+ * PORTRAIT_NEG was doing its job everywhere until it wasn't doing it anywhere.
+ *
+ * What went missing: "elderly, wrinkled, grey hair, sagging skin, liver spots"
+ * — which is exactly why faces came back looking sixty from a prompt that asks
+ * for late twenties. And, far more seriously, "child, minor, underage,
+ * teenager", which is part of the safety floor and is not optional on any
+ * engine.
+ *
+ * Gemini reads instructions, so the exclusions go in as a sentence. That is the
+ * whole fix, and it belongs here rather than in the prompt builder because it is
+ * this API's limitation, not a change to what a portrait is.
+ */
+async function genGoogle(prompt: string, negative: string, seed: number): Promise<Buffer | null | typeof REFUSED> {
   if (!GEMINI_KEY || Date.now() < googleOffUntil) return null
+  const full = negative
+    ? `${prompt}. Absolutely do not depict any of the following: ${negative}.`
+    : prompt
   const model = await googleImageModel()
   const imagen = /imagen/i.test(model)
   try {
@@ -359,13 +380,13 @@ async function genGoogle(prompt: string, seed: number): Promise<Buffer | null | 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(imagen
-        ? { instances: [{ prompt }], parameters: { sampleCount: 1, seed, aspectRatio: "3:4", personGeneration: "allow_adult" } }
+        ? { instances: [{ prompt: full }], parameters: { sampleCount: 1, seed, aspectRatio: "3:4", personGeneration: "allow_adult" } }
                 // ASPECT RATIO has to be asked for. Without imageConfig this endpoint
         // returns whatever shape it likes — a live sample came back 1408x768
         // landscape, which is useless for a face card the whole UI lays out as
         // 3:4 portrait. The diffusion engines were always told the size; this one
         // has to be told too.
-        : { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "3:4" } } }),
+        : { contents: [{ parts: [{ text: full }] }], generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "3:4" } } }),
       signal: AbortSignal.timeout(45_000),
     })
     if (!res.ok) {
@@ -710,7 +731,7 @@ export async function POST(request: Request) {
     // a note in the log saying which prompt Google would not draw, and the
     // existing ladder picking it up.
     if (provider === "google" || (GOOGLE_FIRST && !providerOverride)) {
-      const g = await genGoogle(prompt, dseed)
+      const g = await genGoogle(prompt, negative, dseed)
       if (g && g !== REFUSED) { usedModel = await googleImageModel(); return g }
       if (g === REFUSED) console.warn("[character-photo] google refused this prompt — falling back to the diffusion engines")
     }

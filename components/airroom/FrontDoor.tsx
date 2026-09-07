@@ -220,7 +220,11 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
                    // up moves the face into the clear third of the screen and
                    // crops the shoulders instead, which are under the heaviest
                    // part of the scrim anyway.
-                   transform: live ? "scale(1.12) translateY(-5%)" : "scale(1.15)",
+                   // Shifted up so the name does not land on their mouth — but 5% at
+                   // 1.12 was lifting the top of the head out of frame entirely
+                   // (a cap, a hairline, gone). Half the shift clears the copy
+                   // and keeps the whole head.
+                   transform: live ? "scale(1.06) translateY(-2%)" : "scale(1.1)",
                    transition: "filter .5s ease" }} />
 
         {/* Scrim, LIT BY WHO THEY ARE. Text on a photograph is unreadable without
@@ -229,8 +233,15 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
             carries the character's own heat colour through the middle, so a card
             from the soft end of the floor is lilac-lit and one from the wild end
             burns red. It is the same gradient the whole product is built on,
-            finally visible on the screen that matters. */}
-        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, rgba(7,4,15,.55) 0%, rgba(7,4,15,.04) 20%, ${accent}1c 38%, rgba(7,4,15,.42) 54%, rgba(7,4,15,.84) 68%, rgba(7,4,15,.97) 80%, #07040f 100%)` }} />
+            finally visible on the screen that matters.
+
+            IT WAS ALSO FAR TOO HEAVY. At .55 the top wash sat over the forehead
+            and eyes, and .42 through the middle buried the rest — on a darker
+            face the whole portrait went to shadow and you could not see who you
+            were being shown. The wash only has to make text legible where the
+            text actually is, which is the bottom third; everything above that
+            was darkening the one thing the card exists to show. */}
+        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(180deg, rgba(7,4,15,.26) 0%, rgba(7,4,15,.02) 22%, ${accent}14 40%, rgba(7,4,15,.28) 56%, rgba(7,4,15,.78) 70%, rgba(7,4,15,.96) 81%, #07040f 100%)` }} />
 
         {/* Grain. Photographs have it and flat gradients don't, which is most of
             why an un-loaded card reads as "broken image" rather than "portrait

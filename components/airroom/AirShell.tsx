@@ -22,7 +22,7 @@
  *    outside the shell entirely: its own controls sit where the dock would be,
  *    and you should not be one mis-tap from leaving a conversation.
  */
-import type { ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Flame, MessagesSquare, Users, User, Drama } from "lucide-react"
 
 export type AirTab = "room" | "people" | "scenes" | "talks" | "you"
@@ -57,6 +57,23 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
   dots?: Partial<Record<AirTab, boolean>>
   children: ReactNode
 }) {
+  // Is the on-screen keyboard up? Tracked by what has focus rather than by
+  // measuring the viewport: a visualViewport resize also fires for the URL bar
+  // collapsing on scroll, which would make the dock flicker away while someone is
+  // just reading. A focused text field is the thing that actually means "typing".
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const isField = (el: EventTarget | null) => {
+      const n = el as HTMLElement | null
+      return !!n && (n.tagName === "INPUT" || n.tagName === "TEXTAREA" || n.isContentEditable)
+    }
+    const on = (e: FocusEvent) => { if (isField(e.target)) setTyping(true) }
+    const off = () => setTyping(false)
+    document.addEventListener("focusin", on)
+    document.addEventListener("focusout", off)
+    return () => { document.removeEventListener("focusin", on); document.removeEventListener("focusout", off) }
+  }, [])
+
   return (
     <div className="airraw-skin fixed inset-0 z-[19] flex h-[100dvh] overflow-hidden bg-[#07040f] text-[#f0e8ff]">
       {/* Ambient backdrop — the same drifting blobs as the Kloom app, re-skinned
@@ -129,9 +146,26 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
         {children}
       </main>
 
-      {/* ── mobile dock ── */}
-      <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 lg:hidden">
-        <div className="glass-strong pointer-events-auto mx-auto flex max-w-[19rem] items-center justify-around rounded-[1.4rem] px-1.5 py-1 shadow-[0_14px_34px_-14px_rgba(0,0,0,0.75)]">
+      {/* ── mobile dock ──
+          ICON ONLY UNTIL IT IS THE ONE YOU ARE ON. Five icons with five labels
+          under them is the default phone tab bar, and it read like one: a row of
+          small grey text competing with itself for attention. Only the active
+          tab says its name now, in a filled pill that grows to fit — so the dock
+          answers "where am I" at a glance instead of listing everywhere you
+          could be.
+
+          IT ALSO GETS OUT OF THE WAY WHILE YOU TYPE. In the room the chat input
+          sits directly above this, so opening the keyboard stacked two bars on
+          top of each other and put "send" a few pixels from "Scenes". The dock
+          drops away on focus and comes back when the keyboard closes; navigation
+          is not what you are reaching for mid-sentence. */}
+      <nav
+        className={`pointer-events-none fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] lg:hidden ${
+          typing ? "pointer-events-none translate-y-[130%] opacity-0" : "translate-y-0 opacity-100"
+        }`}
+        aria-hidden={typing}
+      >
+        <div className="glass-strong pointer-events-auto mx-auto flex w-fit max-w-[calc(100vw-1.5rem)] items-center gap-0.5 rounded-full p-1 shadow-[0_14px_34px_-14px_rgba(0,0,0,0.75)]">
           {TABS.map((t) => {
             const active = tab === t.id
             return (
@@ -139,19 +173,26 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
                 key={t.id}
                 onClick={() => onTab(t.id)}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center gap-0.5 rounded-xl px-2.5 py-1 transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  active ? "text-fuchsia-300" : "text-white/40 hover:text-white/70"
+                aria-label={t.label}
+                className={`relative flex shrink-0 items-center rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  active
+                    ? "bg-fuchsia-500/25 px-3 py-2 text-fuchsia-200 shadow-[0_0_16px_-4px_rgba(232,121,249,0.7)]"
+                    : "px-2.5 py-2 text-white/45 active:text-white/80"
                 }`}
               >
-                <span className={`relative rounded-lg p-1 transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                  active ? "bg-fuchsia-500/20 shadow-[0_0_12px_-2px_rgba(232,121,249,0.55)]" : ""
-                }`}>
-                  <t.icon size={17} className={active ? "text-fuchsia-300" : ""} />
-                  {dots?.[t.id] && !active && (
-                    <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,.9)]" aria-hidden />
-                  )}
+                <t.icon size={19} className="shrink-0" />
+                {/* Collapsed rather than removed: the label stays in the DOM so the
+                    control keeps its name, and animates open when it becomes active. */}
+                <span
+                  className={`overflow-hidden whitespace-nowrap text-[11.5px] font-semibold tracking-tight transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    active ? "ml-1.5 max-w-[6rem] opacity-100" : "ml-0 max-w-0 opacity-0"
+                  }`}
+                >
+                  {t.label}
                 </span>
-                <span className="text-[9px] font-semibold tracking-tight">{t.label}</span>
+                {dots?.[t.id] && !active && (
+                  <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,.9)]" aria-hidden />
+                )}
               </button>
             )
           })}

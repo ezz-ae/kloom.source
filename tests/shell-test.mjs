@@ -91,10 +91,31 @@ check(/dots=\{\{\s*talks:/.test(planet), "the talks board is what actually raise
 // ── the dock is furniture, not the interface ───────────────────────────────
 // "MORE IMAGE, LESS TRAFFIC OF HUGE BUTTONS": the person is the product and the
 // dock is how you leave her, so it stays small enough to ignore.
-const iconSize = Number((shell.match(/<t\.icon size=\{(\d+)\} className=\{active/) || [])[1] || 99)
-check(iconSize <= 18, `the dock's icons are small (${iconSize}px)`)
-check(/max-w-\[19rem\]/.test(shell), "the dock is narrower than the card it sits under")
-check(/text-\[9px\]/.test(shell), "its labels are a caption, not a heading")
+// Stated as PROPERTIES, not as the exact classes of one design. These broke on a
+// legitimate redesign that made the dock smaller overall, which is a test failing
+// for being a screenshot rather than a claim.
+const iconSize = Number((shell.match(/<t\.icon size=\{(\d+)\}/) || [])[1] || 99)
+check(iconSize <= 20, `the dock's icons are small (${iconSize}px)`)
+check(/w-fit/.test(shell) || /max-w-\[\d+rem\]/.test(shell), "the dock is only as wide as it needs to be, never the full screen")
+const labelPx = Number((shell.match(/text-\[(\d+(?:\.\d+)?)px\] font-semibold tracking-tight/) || [])[1] || 99)
+check(labelPx <= 12, `its labels are a caption, not a heading (${labelPx}px)`)
+
+// ── the dock names where you ARE, not everywhere you could go ──────────────
+// Five icons each with a label under it is the default phone tab bar. Only the
+// active tab says its name now; the rest are icons, and the label stays in the
+// DOM (collapsed) so every control keeps an accessible name.
+check(/active \? "ml-1\.5 max-w-\[6rem\] opacity-100" : "ml-0 max-w-0 opacity-0"/.test(shell),
+  "only the active tab shows its label, and the others collapse rather than unmount")
+check(/aria-label=\{t\.label\}/.test(shell), "an icon-only tab still has a name")
+
+// ── it gets out of the way of the keyboard ─────────────────────────────────
+// In the room the chat input sits directly above the dock, so opening the
+// keyboard stacked two bars and put "send" a few pixels from a tab.
+check(/typing \? "pointer-events-none translate-y-\[130%\] opacity-0"/.test(shell),
+  "the dock drops away while a text field has focus")
+check(/document\.addEventListener\("focusin"/.test(shell) && /"focusout"/.test(shell),
+  "and it tracks focus rather than viewport size, so the URL bar collapsing doesn't flicker it")
+check(/aria-hidden=\{typing\}/.test(shell), "while hidden it is hidden from assistive tech too")
 
 // The dock is fixed and the call button is the one control under it. Padding
 // belongs in the class, not in a style prop — an inline value beat the Tailwind

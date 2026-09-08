@@ -169,6 +169,16 @@ check(buyBranch.indexOf("walletFor(") > -1
 check(/if \(!mv\.replay\) \{\s*metaPurchase/.test(route),
   "and the conversion fires once, on the credit that actually happened")
 
+console.log("\n— money is not taken for chips that cannot be delivered —")
+const ledgerSrc = readFileSync(new URL("../lib/airraw/chips.ts", import.meta.url), "utf8")
+check(/export async function ledgerReady/.test(ledgerSrc),
+  "there is an explicit readiness check for the ledger")
+check(buyBranch.indexOf("ledgerReady()") > -1
+   && buyBranch.indexOf("ledgerReady()") < buyBranch.indexOf("createPaymentIntent("),
+  "and the buy path asks it BEFORE opening a checkout, because the SQL is applied by hand")
+check(/nothing was charged|nothing was charged/i.test(readFileSync(new URL("../components/airroom/ChipSheet.tsx", import.meta.url), "utf8")),
+  "the sheet says plainly that nothing was charged when the cage is closed")
+
 console.log("\n— the daily cannot be farmed by minting purses —")
 check(/ipDailyAllowed/.test(route), "the daily is bounded by IP as well as by wallet")
 check(/`daily:\$\{wallet\}:\$\{day\}`/.test(route), "and is idempotent per wallet per UTC day")

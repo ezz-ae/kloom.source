@@ -32,10 +32,15 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState("")
   const [note, setNote] = useState("")
   const [dailyState, setDailyState] = useState<"idle" | "done" | "tomorrow">("idle")
+  // Whether the ledger is actually able to take money. The tables are applied by
+  // hand, so "live code, no ledger" is a real state — and a buy button that can
+  // only fail is worse than no buy button.
+  const [ready, setReady] = useState<boolean | null>(null)
 
   useEffect(() => {
     const off = onChips(setBal)
     openWallet().catch(() => { /* the sheet still renders the offer with a 0 balance */ })
+    fetch("/api/chips").then((r) => r.json()).then((d) => setReady(d?.ready !== false)).catch(() => setReady(null))
     return off
   }, [])
 
@@ -107,7 +112,14 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
           </button>
         )}
 
-        <div style={{ display: "grid", gap: 9 }}>
+        {ready === false && (
+          <p style={{ ...CARD, margin: 0, padding: "13px 15px", fontSize: 13.5, color: "rgba(240,232,255,.6)", lineHeight: 1.55 }}>
+            the cage is closed for a moment — chips can&apos;t be bought right now.
+            nothing was charged, and your balance is safe.
+          </p>
+        )}
+
+        <div style={{ display: ready === false ? "none" : "grid", gap: 9 }}>
           {CHIP_PACKS.map((p, i) => (
             <button key={p.id} onClick={() => buy(p)} disabled={!!busy}
               style={{ ...CARD, width: "100%", padding: "15px 16px", display: "flex", alignItems: "center",

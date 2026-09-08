@@ -92,6 +92,39 @@ export async function spendChips(wallet: string | null, n: number, reason: strin
   return moveChips(wallet, -Math.abs(n), reason, event)
 }
 
+/**
+ * Is the ledger actually there?
+ *
+ * This exists because of the specific way this feature ships: the SQL is applied
+ * by hand, so there is a window where the code is live and the tables are not.
+ * In that window a purchase would take real money and then be unable to credit
+ * anything — the one failure here with no good answer. So the buy path asks this
+ * first and refuses to open a checkout it cannot honour.
+ *
+ * A read against a wallet that does not exist, which is cheap and writes nothing.
+ * Cached briefly: this sits in front of a payment, not on a hot path, but there
+ * is no reason to ask Postgres the same question on every render.
+ */
+let readyUntil = 0
+let readyCache = false
+
+export async function ledgerReady(): Promise<boolean> {
+  if (!hasAdmin()) return false
+  if (Date.now() < readyUntil) return readyCache
+  try {
+    const { error } = await getAdminClient().rpc("chips_state", { p_purse: "__probe__", p_limit: 1 })
+    if (error) throw new Error(error.message)
+    readyCache = true
+  } catch (e) {
+    console.error("[chips] ledger not ready — has db/chips.sql been run?:", e instanceof Error ? e.message : String(e))
+    readyCache = false
+  }
+  // Short when down so it recovers on its own the moment the SQL is applied;
+  // longer when up, because a working ledger does not stop working every minute.
+  readyUntil = Date.now() + (readyCache ? 300_000 : 20_000)
+  return readyCache
+}
+
 export async function chipState(wallet: string | null, limit = 12): Promise<ChipState> {
   const empty: ChipState = { balance: 0, lifetimeIn: 0, lifetimeOut: 0, history: [] }
   if (!wallet || !hasAdmin()) return empty

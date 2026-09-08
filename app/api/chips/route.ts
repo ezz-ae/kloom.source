@@ -25,7 +25,7 @@ import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { mintPurse, purseConfigured, walletFor } from "@/lib/airraw/purse"
 import {
   CHIP_PACKS, CHARS_PER_CHIP, CHIPS_PER_PHOTO, DAILY_CHIPS, REFERRAL_CHIPS,
-  packById, grantChips, chipState, utcDay,
+  packById, grantChips, chipState, utcDay, ledgerReady,
 } from "@/lib/airraw/chips"
 import { createHash } from "crypto"
 
@@ -60,7 +60,11 @@ function cookiePurse(req: NextRequest): string | null {
 }
 
 export async function GET() {
+  const ready = await ledgerReady()
   return Response.json({
+    // `ready` is false while the ledger is unreachable. The sheet hides the packs
+    // rather than offering a button that can only fail.
+    ready,
     packs: CHIP_PACKS,
     minutesPerChip: 1,
     charsPerChip: CHARS_PER_CHIP,
@@ -68,7 +72,7 @@ export async function GET() {
     daily: DAILY_CHIPS,
     referral: REFERRAL_CHIPS,
     methods: ziinaConfigured() ? ["card"] : [],
-  }, { headers: { "Cache-Control": "public, max-age=300" } })
+  }, { headers: { "Cache-Control": "public, max-age=60" } })
 }
 
 export async function POST(req: NextRequest) {
@@ -128,6 +132,12 @@ export async function POST(req: NextRequest) {
     const pack = packById(packId)
     if (!pack) return Response.json({ error: "unknown pack" }, { status: 400 })
     if (!ziinaConfigured()) return Response.json({ error: "payments not configured" }, { status: 503 })
+    // Never take money for chips we cannot deliver. The tables are applied by
+    // hand, so "code is live, ledger is not" is a real state — and charging
+    // someone during it is the one failure in this flow with no good answer.
+    if (!(await ledgerReady())) {
+      return Response.json({ error: "chips aren't available for a moment — nothing was charged" }, { status: 503 })
+    }
     // Require a wallet BEFORE taking money: chips paid for with nowhere to put
     // them is the one failure here with no clean recovery.
     const wallet = walletFor(pass, purse || cookiePurse(req))

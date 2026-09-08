@@ -751,7 +751,9 @@ function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster;
         </div>
         <div style={{ marginTop: 15, display: "flex", flexDirection: "column", gap: 9 }}>
           <Fact label="tonight" text={d.onMind} accent={accent} />
-          <Fact label="she'll argue" text={d.opinion} accent={accent} />
+          {/* Their pronoun, not a default. Half this floor is men, and every one
+              of them was being introduced as "she" on their own profile card. */}
+          <Fact label={`${c.gender === "male" ? "he" : "she"}'ll argue`} text={d.opinion} accent={accent} />
         </div>
         {/* A little of the conversation before the whole one. Whisper something
             only she can read; she whispers back, in the room, and nobody else
@@ -759,7 +761,7 @@ function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster;
             that makes people want the private thread. */}
         <div style={{ marginTop: 15, display: "flex", gap: 8 }}>
           <input value={w} onChange={(e) => setW(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && w.trim()) onWhisper(w) }}
-            placeholder={`whisper to ${c.host} — only she reads it`} aria-label={`whisper to ${c.host}`}
+            placeholder={`whisper to ${c.host} — only ${c.gender === "male" ? "he" : "she"} reads it`} aria-label={`whisper to ${c.host}`}
             style={{ flex: 1, minHeight: 44, fontSize: 14, fontStyle: "italic", color: "#f0e8ff", background: "rgba(255,255,255,.06)", border: `.5px dashed ${accent}66`, borderRadius: 13, padding: "0 13px", outline: "none" }} />
           <button onClick={() => { if (w.trim()) onWhisper(w) }} disabled={!w.trim()} aria-label="send whisper"
             style={{ width: 44, height: 44, borderRadius: 13, fontSize: 18, background: w.trim() ? `${accent}33` : "rgba(255,255,255,.06)", border: `.5px solid ${accent}55`, cursor: w.trim() ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}>🤫</button>

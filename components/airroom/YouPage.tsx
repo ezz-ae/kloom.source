@@ -256,8 +256,9 @@ export function YouPage({ onPass, onResume }: {
                 <input
                   type="checkbox"
                   checked={!off}
+                  aria-label="remember my conversations"
                   onChange={(e) => { const v = !e.target.checked; setMemoryOff(v); setOff(v); setTalks(listTalks()) }}
-                  className="h-4 w-4 accent-fuchsia-400"
+                  className="h-5 w-5 accent-fuchsia-400"
                 />
               </label>
               {talks.length > 0 && (

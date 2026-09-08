@@ -86,7 +86,7 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
           <span style={{ fontSize: 15, color: "rgba(240,232,255,.5)" }}>{bal === 1 ? "chip" : "chips"}</span>
         </div>
         <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "rgba(240,232,255,.5)", lineHeight: 1.55 }}>
-          one chip is a minute of her voice. {CHIPS_PER_PHOTO} chips is a photo.
+          one chip is a minute of their voice. {CHIPS_PER_PHOTO} chips is a photo.
           <br />they don&apos;t expire.
         </p>
 

@@ -136,7 +136,9 @@ export function Talks({ onJoin, onSpent }: {
               <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,.09)", overflow: "hidden" }}>
                 <div style={{ width: `${Math.round((t.taken / t.seats) * 100)}%`, height: "100%", background: c, transition: "width .6s ease" }} />
               </div>
-              <button onClick={() => take(t)}
+              {/* The label names WHICH talk. Four buttons reading "take a seat"
+                  are one button to anyone not looking at the screen. */}
+              <button onClick={() => take(t)} aria-label={`take a seat in "${t.title}" · 1 FAI`}
                 style={{ minHeight: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 14.5, fontWeight: 700, color: "#150a1f", background: c, WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}>
                 take a seat · 1 FAI
               </button>
@@ -145,7 +147,10 @@ export function Talks({ onJoin, onSpent }: {
         })}
       </div>
 
-      <div style={{ padding: "14px 18px calc(env(safe-area-inset-bottom) + 26px)" }}>
+      {/* The dock floats over this, so the last control has to clear its height —
+          26px did not, and "start your own talk" sat permanently underneath it at
+          full scroll, unreachable. 5.5rem is what the room's input row reserves. */}
+      <div style={{ padding: "14px 18px calc(env(safe-area-inset-bottom) + 5.5rem)" }}>
         {!making ? (
           <button onClick={() => setMaking(true)}
             style={{ width: "100%", minHeight: 48, borderRadius: 14, fontSize: 14, color: "rgba(240,232,255,.75)", background: "transparent", border: ".5px dashed rgba(255,255,255,.24)", cursor: "pointer", fontFamily: "inherit" }}>

@@ -127,6 +127,10 @@ const PARTING = [
 
 export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang = "English" }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string; lang?: string }) {
   const accent = HEAT_COLOR[cluster.h]
+  // Their pronouns, once. Half the floor is men and every one of them was being
+  // described as "she" in the copy around the call.
+  const they = cluster.gender === "male" ? "he" : "she"
+  const them = cluster.gender === "male" ? "him" : "her"
   const glow   = HEAT_GLOW[cluster.h]
   const fill   = HEAT_FILL[cluster.h]
   const grad   = HEAT_GRAD[cluster.h]
@@ -981,7 +985,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             style={{ width: "100%", minHeight: 44, borderRadius: 10, padding: "0 12px", cursor: "pointer", textAlign: "left",
               background: muted ? "rgba(255,255,255,.08)" : `${accent}22`, border: `.5px solid ${muted ? "rgba(255,255,255,.10)" : `${accent}55`}`,
               color: "rgba(240,232,255,.8)", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit" }}>
-            {muted ? "she is on mute — tap to hear her" : "you hear her out loud"}
+            {muted ? `${they} is on mute — tap to hear ${them}` : `you hear ${them} out loud`}
           </button>
 
           <MicTest accent={accent} />

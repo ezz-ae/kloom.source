@@ -13,7 +13,16 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} ${msg}`); if (
 const read = (p) => readFileSync(p, "utf8")
 
 const tts = read("app/api/tts/route.ts")
-check(/"X-EL-Voice": elVoice/.test(tts), "the TTS route says which voice it actually used (X-EL-Voice)")
+check(/"X-EL-Voice": el\.voice/.test(tts), "the TTS route says which voice it actually used (X-EL-Voice)")
+// It must be a value carried back BY THIS CALL, not module state. As a global it
+// was set inside the engine call and read by the caller after the await, so two
+// chunks in flight on one serverless instance could hand character A the id cast
+// for character B — and the client pins whatever id it is given. A room of
+// fourteen speakers is precisely where that races.
+check(!/^let elVoice/m.test(tts) && !/^let elCast/m.test(tts),
+  "and it is not module-level state two concurrent chunks could overwrite for each other")
+check(/interface ElAudio/.test(tts) && /return \{ body, cast, voice \}/.test(tts),
+  "the voice travels back with the audio it belongs to")
 check(/for \(let attempt = 0; attempt < EL_TRIES; attempt\+\+\)/.test(tts) && /if \(res\.status !== 429 && res\.status < 500\) break/.test(tts),
   "a 429/5xx from the engine is retried before any OTHER engine (and voice) is tried")
 check(/elevenId\?\.trim\(\) \|\| elVoiceFor\(/.test(tts), "an explicit pin beats the server's own casting")

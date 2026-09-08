@@ -153,7 +153,7 @@ export async function POST(request: Request) {
     // X-EL-Voice is the voice id this chunk was spoken in. The client pins it and
     // sends it back as elevenId on every later request for the same person, so the
     // pools this instance happened to discover can never recast them mid-call.
-    if (el) return new Response(el, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": elCast, "X-EL-Voice": elVoice, ...tierHeaders } })
+    if (el) return new Response(el.body, { status: 200, headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "X-TTS-Provider": "elevenlabs", "X-EL-Cast": el.cast, "X-EL-Voice": el.voice, ...tierHeaders } })
     // fall through to Sesame / CosyVoice / Fish
   }
 
@@ -518,7 +518,24 @@ function elVoiceFor(name?: string, gender?: string, language?: string, seedKey?:
   if (gender !== "male" && name && isSouthAsianSeed(name)) return SA_FEMALE_VOICE
   return hashPick(genderPool(gender), seed)
 }
-async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string, language?: string, seedKey?: string, retried = false): Promise<ArrayBuffer | null> {
+/**
+ * What a successful ElevenLabs call hands back.
+ *
+ * The cast and voice travel WITH the audio rather than in module-level
+ * variables. They used to be globals set inside this function and read by the
+ * caller after the await, which on a serverless instance serving two chunks at
+ * once let request A return the voice id request B had just cast — and the
+ * client PINS the id it is given. A room where fourteen people speak is exactly
+ * where that races, and "her voice changed mid-conversation" is the bug this
+ * codebase fights hardest. Per-call values cannot race.
+ */
+interface ElAudio {
+  body: ReadableStream<Uint8Array>
+  cast: string
+  voice: string
+}
+
+async function elevenTTS(text: string, key: string, name?: string, gender?: string, elevenId?: string, mode?: string, prevText?: string, language?: string, seedKey?: string, retried = false): Promise<ElAudio | null> {
   try {
     const voice = elevenId?.trim() || elVoiceFor(name, gender, language, seedKey)
     const iso = isoForLanguage(language)
@@ -574,7 +591,10 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
     let res!: Response
     for (let attempt = 0; attempt < EL_TRIES; attempt++) {
       if (attempt) await new Promise((r) => setTimeout(r, 350 * attempt + Math.random() * 250))
-      res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=${fmt}`, {
+      // /stream, not the buffered endpoint. The engine starts returning audio as
+      // it synthesises instead of after; on a four-second line that is most of a
+      // second of silence removed from every single thing anyone hears.
+      res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/stream?output_format=${fmt}`, {
         method: "POST",
         headers: { "xi-api-key": key, "Content-Type": "application/json", Accept: "audio/mpeg" },
         body: reqBody,
@@ -583,8 +603,7 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
       if (res.status !== 429 && res.status < 500) break
       if (attempt + 1 < EL_TRIES) console.warn(`elevenlabs ${res.status} — retrying (${attempt + 1}/${EL_TRIES - 1})`)
     }
-    elCast = `${model}/${voice}${nonLatin ? "/nonlatin" : ""}`
-    elVoice = voice
+    const cast = `${model}/${voice}${nonLatin ? "/nonlatin" : ""}`
     if (!res.ok) {
       elDiag = `${res.status} ${(await res.text()).slice(0, 180)}`
       console.error("elevenlabs", elDiag)
@@ -603,16 +622,44 @@ async function elevenTTS(text: string, key: string, name?: string, gender?: stri
       }
       return null
     }
-    const buf = await res.arrayBuffer()
-    if (buf.byteLength > 0) return buf
-    elDiag = "empty audio"; return null
+    // Verify there is audio BEFORE committing to a response, then pipe the rest.
+    // The caller treats null as "this engine is down" and falls through to another
+    // voice, so that decision still has to be made on evidence — but it only needs
+    // the FIRST bytes, not the whole file. Everything after them streams straight
+    // through to the listener.
+    if (!res.body) { elDiag = "no body"; return null }
+    const reader = res.body.getReader()
+    let first: ReadableStreamReadResult<Uint8Array>
+    try {
+      first = await reader.read()
+    } catch (e) {
+      elDiag = `stream open: ${e instanceof Error ? e.message : String(e)}`
+      try { await reader.cancel() } catch { /* */ }
+      return null
+    }
+    if (first.done || !first.value?.byteLength) {
+      elDiag = "empty audio"
+      try { await reader.cancel() } catch { /* */ }
+      return null
+    }
+    const head = first.value
+    const body = new ReadableStream<Uint8Array>({
+      start(c) { c.enqueue(head) },
+      async pull(c) {
+        try {
+          const { done, value } = await reader.read()
+          // A break mid-file closes the stream rather than erroring: the listener
+          // keeps the seconds that arrived instead of losing the whole line.
+          if (done) c.close()
+          else if (value) c.enqueue(value)
+        } catch { c.close() }
+      },
+      cancel(reason) { reader.cancel(reason).catch(() => { /* */ }) },
+    })
+    return { body, cast, voice }
   } catch (e) { elDiag = e instanceof Error ? e.message : String(e); console.error("elevenlabs threw", elDiag); return null }
 }
 
-// Last ElevenLabs model+voice actually used — surfaced as X-EL-Cast for verification.
-let elCast = ""
-// The voice id alone — surfaced as X-EL-Voice so the client can pin it.
-let elVoice = ""
 // Attempts against the engine before giving the chunk to the fallback (429/5xx only).
 const EL_TRIES = Math.max(1, Math.min(6, Number(process.env.ELEVENLABS_TRIES || 4)))
 // Last ElevenLabs failure reason — surfaced on the fallback response as X-EL-Diag so

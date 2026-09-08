@@ -4,10 +4,30 @@
 const VOL_KEY = "airraw_volume"
 const SINK_KEY = "airraw_sink"
 
+/**
+ * The saved volume, or full volume for anyone who has never set one.
+ *
+ * This read used to be `Number(localStorage.getItem(VOL_KEY))`, and getItem
+ * returns null when the key has never been written. Number(null) is 0 — which
+ * is finite, is >= 0 and is <= 1, so it sailed through the range check below and
+ * was returned as a real preference. The `: 1` fallback only ever caught a
+ * garbage string.
+ *
+ * Every first-time visitor therefore started a private call at volume zero. She
+ * spoke, the voice engine billed for it, and they heard silence — on the one
+ * screen the pass exists to sell. An explicit "was anything ever stored" check
+ * is the whole fix, and the missing-key case has to be tested, because a range
+ * check that accepts 0 cannot tell absence from a choice.
+ */
 export function loadVolume(): number {
-  if (typeof localStorage === "undefined") return 1
-  const raw = Number(localStorage.getItem(VOL_KEY))
-  return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 1
+  try {
+    if (typeof localStorage === "undefined") return 1
+    const stored = localStorage.getItem(VOL_KEY)
+    if (stored === null || stored === "") return 1
+    const raw = Number(stored)
+    // A stored 0 is honoured — someone may genuinely have slid it to nothing.
+    return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 1
+  } catch { return 1 }
 }
 
 export function saveVolume(v: number) {

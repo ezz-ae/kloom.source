@@ -68,6 +68,34 @@ check(/if \(v\.unmetered &&/.test(freeFn) && /if \(ipv\.unmetered &&/.test(freeF
 check(/memFree\.size > 5000/.test(meter),
   "and the map is bounded, so a long-lived instance cannot grow it forever")
 
+// ── and they can actually HEAR it ───────────────────────────────────────────
+// The meter is pointless if the audio it counts arrives silent. This read was
+// `Number(localStorage.getItem(VOL_KEY))`, and getItem returns null when the key
+// was never written — Number(null) is 0, which is finite, >= 0 and <= 1, so it
+// passed the range check and came back as a real preference. Every first-time
+// visitor started a private call at volume zero: she spoke, the engine billed
+// for it, and they heard nothing, on the one screen the pass exists to sell.
+// Run against the real module, because the bug lived in a range check that
+// cannot tell absence from a choice.
+{
+  const store = new Map()
+  const prev = globalThis.localStorage
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, v),
+    removeItem: (k) => store.delete(k),
+  }
+  const { loadVolume, saveVolume } = await import("../lib/airraw/audio-output.ts")
+  check(loadVolume() === 1, `a visitor who never set a volume starts audible (got ${loadVolume()})`)
+  saveVolume(0.4)
+  check(loadVolume() === 0.4, "a saved level is honoured")
+  saveVolume(0)
+  check(loadVolume() === 0, "including a deliberate zero — absence and choice are different things")
+  store.set("airraw_volume", "abc")
+  check(loadVolume() === 1, "and an unreadable value falls back to audible, never to silent")
+  globalThis.localStorage = prev
+}
+
 const vis = read("lib/airraw/visitor.ts")
 check(/if \(typeof window === "undefined"\) return ""/.test(vis) && /localStorage\.setItem\(KEY, mem\)/.test(vis),
   "the browser id is minted once per browser and never on the server")

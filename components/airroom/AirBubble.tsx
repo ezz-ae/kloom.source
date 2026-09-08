@@ -28,6 +28,7 @@ import { dossierLine } from "@/lib/airraw/dossier"
 import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySink, bindMediaSession, type OutputDevice } from "@/lib/airraw/audio-output"
 import { loadTalk, saveTalk, forgetTalk, memoryEnabled } from "@/lib/airraw/memory"
 import { shouldPickUp, gapLabel, pickupInstruction, cleanPickup, worthPickingUp } from "@/lib/airraw/pickup"
+import { MicTest } from "@/components/airroom/MicTest"
 import { getLangPrefs, spokenLanguages } from "@/lib/airraw/lang-prefs"
 
 interface Msg { who: "host" | "you"; text: string; image?: string }
@@ -924,16 +925,76 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         </div>
       </div>
 
+      {/* ── THE CALL DRAWER ──────────────────────────────────────────────────
+          Everything you might need mid-call and almost never do, in one place
+          that is closed until you ask for it. It exists because the alternative
+          was leaving: to change language you went out to a sheet, and the call
+          you were in is the thing you were trying not to interrupt.
+
+          A drawer rather than the old inline block: this panel grew to five
+          controls and was pushing the portrait, the caption and the call button
+          around every time it opened. Sliding it over the call leaves the call
+          exactly where it was, which is the whole point of a control you reach
+          for WHILE talking to someone. */}
       {audioPanel && (
-        <div style={{ margin: "0 max(18px, env(safe-area-inset-right)) 6px max(18px, env(safe-area-inset-left))", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.10)", borderRadius: 14, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
-              onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n) stopSpeaking(); return n }) }}
-              aria-label={muted ? "unmute" : "mute"}
-              style={{ flex: "0 0 auto", height: 34, padding: "0 12px", borderRadius: 10, fontSize: 12, fontWeight: 600, color: muted ? "#0d0418" : "rgba(240,232,255,.75)", background: muted ? "#fb7185" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.10)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
-            >
-              {muted ? "muted" : "mute"}
+        <div onClick={() => setAudioPanel(false)}
+          style={{ position: "absolute", inset: 0, zIndex: 40, background: "rgba(6,3,12,.55)", backdropFilter: "blur(3px)" }} />
+      )}
+      {audioPanel && (
+        <div role="dialog" aria-label="call settings" onClick={(e) => e.stopPropagation()}
+          style={{ position: "absolute", top: 0, bottom: 0, right: 0, zIndex: 41, width: "min(320px, 86vw)", overflowY: "auto",
+            background: "linear-gradient(180deg, #17111f 0%, #0e0916 100%)", borderLeft: ".5px solid rgba(255,255,255,.12)",
+            padding: "calc(env(safe-area-inset-top) + 16px) 14px calc(env(safe-area-inset-bottom) + 16px)",
+            display: "flex", flexDirection: "column", gap: 10, boxShadow: "-24px 0 60px -20px rgba(0,0,0,.9)" }}>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+            <span style={{ fontSize: 11.5, letterSpacing: 1.3, textTransform: "uppercase", color: "rgba(240,232,255,.4)" }}>while you talk</span>
+            <button onClick={() => setAudioPanel(false)} aria-label="close settings"
+              style={{ background: "none", border: "none", color: "rgba(240,232,255,.5)", fontSize: 20, lineHeight: 1, cursor: "pointer", padding: "0 2px", fontFamily: "inherit" }}>×</button>
+          </div>
+
+          {/* Language, as one button that names where it goes. Not a picker:
+              a list of forty languages is a settings screen, and this is a
+              thing you do mid-sentence. Hidden entirely when there is only one
+              language to be in. */}
+          {myLangs.length > 1 && (
+            <button onClick={cycleLang} aria-label={`switch to ${myLangs[(myLangs.indexOf(activeLang) + 1) % myLangs.length]}`}
+              style={{ width: "100%", minHeight: 44, borderRadius: 10, padding: "0 12px", cursor: "pointer", textAlign: "left",
+                background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.10)", color: "rgba(240,232,255,.8)",
+                fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <span>{activeLang.toLowerCase()}</span>
+              <span style={{ color: accent }}>→ {myLangs[(myLangs.indexOf(activeLang) + 1) % myLangs.length].toLowerCase()}</span>
             </button>
+          )}
+
+          {/* Read it instead of hearing it, and hear it instead of reading it.
+              Two directions of the same door, and both were previously only
+              reachable from a different screen. */}
+          <button onClick={() => { setChatOpen((v) => !v); setAudioPanel(false) }} aria-pressed={chatOpen}
+            style={{ width: "100%", minHeight: 44, borderRadius: 10, padding: "0 12px", cursor: "pointer", textAlign: "left",
+              background: chatOpen ? `${accent}22` : "rgba(255,255,255,.08)", border: `.5px solid ${chatOpen ? `${accent}55` : "rgba(255,255,255,.10)"}`,
+              color: "rgba(240,232,255,.8)", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit" }}>
+            {chatOpen ? "hide the words" : "show the words while we talk"}
+          </button>
+
+          <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n) stopSpeaking(); return n }) }} aria-pressed={!muted}
+            style={{ width: "100%", minHeight: 44, borderRadius: 10, padding: "0 12px", cursor: "pointer", textAlign: "left",
+              background: muted ? "rgba(255,255,255,.08)" : `${accent}22`, border: `.5px solid ${muted ? "rgba(255,255,255,.10)" : `${accent}55`}`,
+              color: "rgba(240,232,255,.8)", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit" }}>
+            {muted ? "she is on mute — tap to hear her" : "you hear her out loud"}
+          </button>
+
+          <MicTest accent={accent} />
+
+          <span style={{ height: 1, background: "rgba(255,255,255,.08)", margin: "4px 0" }} />
+
+          <div style={{ background: "rgba(255,255,255,.04)", border: ".5px solid rgba(255,255,255,.08)", borderRadius: 12, padding: "10px 11px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Volume only. Muting her moved up into the drawer's own row, where it
+              reads as one of the four things you came in here to do — two mute
+              buttons a centimetre apart was the panel telling you the same thing
+              twice. */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ flex: "0 0 auto", fontSize: 11.5, color: "rgba(240,232,255,.45)" }}>volume</span>
             <input
               type="range" min={0} max={1} step={0.05}
               value={volume}
@@ -987,6 +1048,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               ))}
             </select>
           )}
+          </div>
         </div>
       )}
 

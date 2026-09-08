@@ -239,9 +239,10 @@ export const TURN_MODES: Array<{ id: TurnMode; label: string; hint: string }> = 
 
 /** How a line is labelled with who said it. */
 export type Attribution = "name" | "face"
+/** Faces first, and first by default: a scene read as a wall of text without them. */
 export const ATTRIBUTIONS: Array<{ id: Attribution; label: string; hint: string }> = [
-  { id: "name", label: "name after the line", hint: "— mara" },
-  { id: "face", label: "their picture",       hint: "a face beside each line" },
+  { id: "face", label: "their picture", hint: "a face beside every line" },
+  { id: "name", label: "names only",    hint: "no pictures, just who said it" },
 ]
 
 export interface SceneMember {

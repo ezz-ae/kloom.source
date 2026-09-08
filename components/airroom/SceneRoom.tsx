@@ -28,6 +28,8 @@ import { getLangPrefs } from "@/lib/airraw/lang-prefs"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { visitorId } from "@/lib/airraw/visitor"
 import { track } from "@/lib/track"
+import { Face } from "@/components/airroom/Face"
+import { saveScene, newSceneId, type SavedLine } from "@/lib/airraw/scenes"
 
 const ACCENT = "#f472b6"
 const HEAT: Record<string, string> = { w: "#c084fc", m: "#f472b6", f: "#fb7185" }
@@ -40,7 +42,16 @@ interface Line {
   audio?: string
 }
 
-export function SceneRoom({ cfg, onClose, onPass }: { cfg: SceneConfig; onClose: () => void; onPass: () => void }) {
+export function SceneRoom({ cfg, onClose, onPass, sceneId, initialLines }: {
+  cfg: SceneConfig
+  onClose: () => void
+  onPass: () => void
+  /** Stable across leaving and coming back. A new scene gets a fresh one. */
+  sceneId?: string
+  /** What was already said, when this scene is being reopened. */
+  initialLines?: SavedLine[]
+}) {
+  const [id] = useState(() => sceneId || newSceneId())
   // THE SEED IS THE CASTING, NOT THE CLOCK.
   //
   // This was Date.now(), so the same scene cast the same way produced different
@@ -64,7 +75,7 @@ export function SceneRoom({ cfg, onClose, onPass }: { cfg: SceneConfig; onClose:
   const scene = useMemo(() => composeScene(cfg, names), [cfg, names])
   const fantasy = fantasyById(cfg.fantasyId)
 
-  const [lines, setLines] = useState<Line[]>([])
+  const [lines, setLines] = useState<Line[]>(() => (initialLines || []) as Line[])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState("")
@@ -86,14 +97,20 @@ export function SceneRoom({ cfg, onClose, onPass }: { cfg: SceneConfig; onClose:
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }) }, [lines])
 
   // Keep the transcript only if they asked for it. Off means nothing is written.
+  //
+  // This used to write a single "last scene" blob that nothing ever read back,
+  // so leaving a scene lost it whether or not you had asked to keep it. It saves
+  // the whole scene under its own id now, which is what makes the tab a library
+  // rather than a thing you can do once.
   useEffect(() => {
     if (!cfg.save || lines.length === 0) return
-    try {
-      localStorage.setItem("airraw_scene_last", JSON.stringify({
-        at: Date.now(), fantasy: cfg.fantasyId, cast: cfg.cast, lines: lines.slice(-120),
-      }))
-    } catch { /* a full quota is not worth an error in a scene */ }
-  }, [lines, cfg])
+    saveScene({
+      id, cfg, seed,
+      names: cast.map((c) => c.host),
+      lines: lines.map((l) => ({ who: l.who, text: l.text, at: l.at })),
+      createdAt: Date.now(), updatedAt: Date.now(),
+    })
+  }, [lines, cfg, id, seed, cast])
 
   const personaFor = (c: Cluster, slot: number) => {
     const m = cfg.cast[slot]
@@ -226,12 +243,17 @@ export function SceneRoom({ cfg, onClose, onPass }: { cfg: SceneConfig; onClose:
           return (
             <div key={`${l.at}-${k}`} style={{ display: "flex", gap: 9, justifyContent: l.who === null ? "flex-end" : "flex-start" }}>
               {c && cfg.attribution === "face" && (
-                <span aria-hidden style={{ width: 30, height: 30, flex: "0 0 auto", borderRadius: "50%", marginTop: 2, background: `radial-gradient(circle at 32% 28%, ${col}, ${col}22 70%, transparent)` }} />
+                // Their actual portrait. A coloured disc told you nothing about
+                // who was speaking, which is most of why a scene read as text.
+                <Face persona={{ name: c.host, gender: c.gender, seed: faceSeedFor(c) }} alt={c.host}
+                  style={{ width: 32, height: 32, flex: "0 0 auto", borderRadius: "50%", marginTop: 2, objectFit: "cover", border: `.5px solid ${col}55` }} />
               )}
               <div style={{ maxWidth: "82%", padding: "10px 14px", borderRadius: 15, fontSize: 15.5, lineHeight: 1.45,
                 background: l.who === null ? `${ACCENT}22` : "rgba(255,255,255,.06)", border: `.5px solid ${l.who === null ? ACCENT + "44" : "rgba(255,255,255,.1)"}` }}>
                 {l.text}
-                {c && cfg.attribution === "name" && (
+                {/* The name rides along even when the picture is there: at 32px
+                    two people of the same look are one person. */}
+                {c && (
                   <span style={{ display: "block", fontSize: 11.5, color: col, marginTop: 5, letterSpacing: .3 }}>— {c.host.toLowerCase()}</span>
                 )}
                 {l.audio && (

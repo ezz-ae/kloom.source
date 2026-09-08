@@ -24,6 +24,8 @@ import { AirBubble } from "@/components/airroom/AirBubble"
 import { publicCharacter, PUBLIC_CAST_SIZE } from "@/lib/airraw/public-cast"
 import { FantasyBuilder } from "@/components/airroom/FantasyBuilder"
 import { SceneRoom } from "@/components/airroom/SceneRoom"
+import { SceneList } from "@/components/airroom/SceneList"
+import { listScenes, type SavedScene } from "@/lib/airraw/scenes"
 import { FANTASIES, ROLES, MAX_CAST, type SceneConfig } from "@/lib/airraw/fantasy"
 import { listTalks, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { liveTalks, seatsLeft } from "@/lib/airraw/talks"
@@ -121,6 +123,11 @@ export function Planet() {
   // from "in one" — there is no separate open flag to fall out of sync with it.
   const [scenesOpen, setScenesOpen] = useState(false)
   const [sceneCfg, setSceneCfg] = useState<SceneConfig | null>(null)
+  // The scene being reopened, if any — carries its id and what was already said.
+  const [sceneOpen, setSceneOpen] = useState<SavedScene | null>(null)
+  // Whether the tab is showing the builder rather than the library. Forced on
+  // when there is nothing saved yet, because a list of nothing is not a screen.
+  const [casting, setCasting] = useState(false)
   const [pending, setPending] = useState<Cluster | null>(null)   // deep voice awaiting 18+ confirm
   const [pendingJoin, setPendingJoin] = useState<Join | null>(null) // deep group awaiting 18+ confirm
   const [nearDeep, setNearDeep] = useState(false)   // you're descending toward the deep → age screen
@@ -970,7 +977,7 @@ export function Planet() {
                 setScenesOpen(t === "scenes")
                 // Leaving the tab drops the cast, so coming back opens the
                 // builder rather than dumping you into a scene you had forgotten.
-                if (t !== "scenes") setSceneCfg(null)
+                if (t !== "scenes") { setSceneCfg(null); setSceneOpen(null); setCasting(false) }
                 if (t === "scenes") track("scenes_open", { pro: isPro() })
                 if (t === "you") { setProfile(getProfile()); setCredits(getCredits()) }
                 if (t === "people") setFai(getFai())
@@ -999,8 +1006,25 @@ export function Planet() {
                 : scenesOpen
                 ? (pro
                     ? (sceneCfg
-                        ? <SceneRoom cfg={sceneCfg} onClose={() => setSceneCfg(null)} onPass={() => setShowPro(true)} />
-                        : <FantasyBuilder onStart={(cfg) => { track("scene_start", { cast: cfg.cast.length, mode: cfg.turnMode }); setSceneCfg(cfg) }} />)
+                        // IN a scene. Leaving returns to the library, not to a
+                        // blank builder — the scene is still there, which is the
+                        // whole point of saving it.
+                        ? <SceneRoom
+                            cfg={sceneCfg}
+                            sceneId={sceneOpen?.id}
+                            initialLines={sceneOpen?.lines}
+                            onClose={() => { setSceneCfg(null); setSceneOpen(null); setCasting(false) }}
+                            onPass={() => setShowPro(true)}
+                          />
+                        : (casting || listScenes().length === 0)
+                          ? <FantasyBuilder
+                              onStart={(cfg) => { track("scene_start", { cast: cfg.cast.length, mode: cfg.turnMode }); setSceneOpen(null); setSceneCfg(cfg) }}
+                              onClose={listScenes().length ? () => setCasting(false) : undefined}
+                            />
+                          : <SceneList
+                              onOpen={(sc) => { track("scene_resume"); setSceneOpen(sc); setSceneCfg(sc.cfg) }}
+                              onNew={() => { setSceneOpen(null); setCasting(true) }}
+                            />)
                     : <ScenesLocked onPass={() => { track("scenes_wall_tap"); setShowPro(true) }} />)
                 : roomsOpen
                 ? <Talks

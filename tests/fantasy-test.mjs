@@ -127,7 +127,12 @@ check(/cfg\.fantasyId \+ "\|" \+ cfg\.cast\.map/.test(room), "it is derived from
 // anyone who wants it.
 check(/onClick=\{\(\) => quickStart\(f\.id\)\}/.test(builder), "tapping a scene starts it rather than opening step 2")
 const qs = builder.slice(builder.indexOf("const quickStart"), builder.indexOf("return (", builder.indexOf("const quickStart")))
-check(/turnMode: "turns", attribution: "name", save: true, record: false/.test(qs), "the defaults are complete, so nothing is left unset")
+// Every field of a SceneConfig, not the values it happens to default to —
+// the defaults are a product call and move; leaving one unset is a bug.
+for (const k of ["fantasyId", "cast", "turnMode", "attribution", "save", "record"])
+  check(new RegExp(`\\b${k}:`).test(qs), `one tap sets ${k}, so nothing is left unset`)
+// And it opens showing faces, because a scene of pure text was the complaint.
+check(/attribution: "face"/.test(qs), "one tap opens a scene with pictures in it")
 check(/cast: \[member\]/.test(qs), "it opens with one person, not an empty room")
 check(/h \^= id\.charCodeAt/.test(qs), "the default role is derived from the scene, so the same premise always opens with the same person")
 check(/cast it yourself/.test(builder), "the full builder is still reachable")

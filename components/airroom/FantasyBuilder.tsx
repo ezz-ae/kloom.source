@@ -35,7 +35,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
   const [q, setQ] = useState("")
   const [cast, setCast] = useState<SceneMember[]>([newMember(0)])
   const [turnMode, setTurnMode] = useState<TurnMode>("turns")
-  const [attribution, setAttribution] = useState<Attribution>("name")
+  const [attribution, setAttribution] = useState<Attribution>("face")
   const [save, setSave] = useState(true)
   const [record, setRecord] = useState(false)
   /** Which cast slots have their fine detail open. Collapsed by default — see below. */
@@ -85,7 +85,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
       vibe: "",
       quiet: false,
     }
-    onStart({ fantasyId: id, cast: [member], turnMode: "turns", attribution: "name", save: true, record: false })
+    onStart({ fantasyId: id, cast: [member], turnMode: "turns", attribution: "face", save: true, record: false })
   }
 
   return (

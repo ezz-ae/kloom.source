@@ -36,7 +36,7 @@
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { adultEnabled } from "@/lib/variant"
 import { proTokenClaims } from "@/lib/airraw-pro-token"
-import { spendPassPhoto, PHOTOS_PER_DAY, PHOTOS_PER_PASS } from "@/lib/airraw/pass-meter"
+import { spendPassPhoto, passKey, PHOTOS_PER_DAY, PHOTOS_PER_PASS } from "@/lib/airraw/pass-meter"
 import { videoConfigured, startVideo, waitVideo, pollVideo } from "@/lib/airraw/video"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 
@@ -178,11 +178,41 @@ export async function POST(request: Request) {
   }
   const spend = await spendPassPhoto(proToken)
   if (!spend.ok) {
-    const daily = spend.reason === "daily-cap"
-    return Response.json(
-      { error: daily ? `that's today's ${PHOTOS_PER_DAY} — more tomorrow` : `this pass's ${PHOTOS_PER_PASS} photos are used up`, reason: spend.reason, perDay: PHOTOS_PER_DAY, perPass: PHOTOS_PER_PASS },
-      { status: 429 },
-    )
+    // TWO DIFFERENT NOs, and they were being answered with the same sentence.
+    //
+    // `unmetered` means the meter could not be REACHED — it counted nothing and
+    // therefore knows nothing. Refusing on that told a buyer who had just paid
+    // nine dollars that "this pass's 30 photos are used up" when they had used
+    // none, which is both a lie and the worst possible first minute of owning
+    // the pass. Failing closed is right when the risk is the open internet; this
+    // path is already behind a server-verified paid pass, so the exposure is a
+    // customer, not a stranger.
+    //
+    // So an unreachable meter serves the photo, bounded by the two ceilings that
+    // exist for exactly this: the global daily spend gate, and a per-pass limit
+    // at the same rate the meter itself would have enforced. Both are
+    // per-instance and therefore leaky — the global gate is the real backstop,
+    // and the provider-side spend limit behind it is the one that cannot leak.
+    //
+    // It heals itself: the moment db/pass_usage.sql exists, spendPassPhoto
+    // succeeds and none of this runs again.
+    if (spend.unmetered) {
+      const gate = globalGate()
+      const rl = rateLimit(`photo-unmetered:${passKey(proToken)}`, PHOTOS_PER_DAY, 86_400_000)
+      if (!gate.ok || !rl.ok) {
+        return Response.json(
+          { error: `that's today's ${PHOTOS_PER_DAY} — more tomorrow`, reason: "daily-cap", perDay: PHOTOS_PER_DAY, perPass: PHOTOS_PER_PASS },
+          { status: 429 },
+        )
+      }
+      console.warn("[media] photo meter unreachable — serving on the bounded fallback (has db/pass_usage.sql been run?)")
+    } else {
+      const daily = spend.reason === "daily-cap"
+      return Response.json(
+        { error: daily ? `that's today's ${PHOTOS_PER_DAY} — more tomorrow` : `this pass's ${PHOTOS_PER_PASS} photos are used up`, reason: spend.reason, perDay: PHOTOS_PER_DAY, perPass: PHOTOS_PER_PASS },
+        { status: 429 },
+      )
+    }
   }
 
   // Identity FIRST and verbatim, scene after — diffusion weights early tokens

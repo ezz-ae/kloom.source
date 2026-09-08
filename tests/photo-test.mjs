@@ -1,12 +1,15 @@
 // A PHOTO OF HER — the one thing that costs cash per unit, sold per unit.
 //
-// Two invariants, and the tests exist to keep them true against every future
+// Three invariants, and the tests exist to keep them true against every future
 // "let's just give free users one":
 //   1. No free path. Not a teaser, not a preview. A free user is shown the wall
 //      and the server is never asked — a photo is two cents spent on someone who
 //      has not paid.
-//   2. Counted BEFORE it is generated, and the meter FAILS CLOSED. A refused
-//      request must cost nothing, and a broken meter must generate nothing.
+//   2. Counted BEFORE it is generated. A refused request must cost nothing.
+//   3. A meter that SAYS no is obeyed. A meter that cannot be REACHED is a
+//      different thing and is answered differently — see below — because those
+//      two were once answered with the same sentence, and it told a buyer who
+//      had just paid that the thirty photos they had never used were used up.
 import { readFileSync } from "node:fs"
 
 let fail = 0
@@ -26,6 +29,28 @@ const spendAt = route.indexOf("spendPassPhoto("), genAt = route.indexOf("/api/ch
 check(spendAt > 0 && genAt > 0 && spendAt < genAt, "and charged BEFORE anything is generated — a refused request costs nothing")
 check(/status: 429/.test(route) && /daily-cap/.test(route), "a capped pass is told which cap, and generates nothing")
 check(!/teaser|free photo|firstPhoto/i.test(route), "there is no free-photo path in the route")
+
+// ── an unreachable meter is not an exhausted one ────────────────────────────
+// Failing closed is right when the risk is the open internet. This path is
+// already behind a server-verified paid pass, so refusing on an unreachable
+// meter punishes a customer for our missing table. It serves — but only inside
+// ceilings, and those ceilings are the point of these assertions: without them
+// this is an uncapped image budget.
+// Bounded by real code, not a comment — `route` has been comment-stripped, so a
+// comment landmark returns -1 and quietly slices most of the file instead.
+const unmet = route.slice(route.indexOf("if (spend.unmetered)"), route.indexOf("const prompt = scene ?"))
+check(unmet.length > 200, "the route distinguishes an unreachable meter from an exhausted one")
+check(/globalGate\(\)/.test(unmet),
+  "and the fallback sits behind the global daily spend gate")
+check(/rateLimit\(`photo-unmetered:\$\{passKey\(proToken\)\}`, PHOTOS_PER_DAY/.test(unmet),
+  "and behind a per-pass limit at the same rate the meter itself would have enforced")
+check(/if \(!gate\.ok \|\| !rl\.ok\)/.test(unmet) && /status: 429/.test(unmet),
+  "past either ceiling it still refuses")
+// The other branch must be untouched: a meter that answered "no" is still obeyed.
+check(/} else \{[\s\S]{0,400}?this pass's \$\{PHOTOS_PER_PASS\} photos are used up/.test(route),
+  "a meter that actually said no is still obeyed, and still generates nothing")
+check(route.indexOf("proTokenClaims(proToken)") < route.indexOf("if (spend.unmetered)"),
+  "and none of it is reachable without a verified pass — the exposure is a customer, never a stranger")
 
 // ── the meter: fails closed ─────────────────────────────────────────────────
 const photoFn = meter.slice(meter.indexOf("export async function spendPassPhoto"), meter.indexOf("const bucket ="))

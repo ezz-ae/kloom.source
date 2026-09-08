@@ -120,13 +120,55 @@ export const FREE_IP_DAILY_CHARS = Math.max(0, Number(process.env.FREE_IP_DAILY_
 
 const bucket = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32)
 
+// ── the wall still has to stand when the meter is down ───────────────────────
+// spendChars fails OPEN when the row-locked meter is unreachable. For a PASS
+// HOLDER that is the right call: losing the voice you paid for because a table
+// is missing is worse than a few unmetered minutes.
+//
+// For a FREE visitor it is the opposite. Failing open does not degrade the free
+// minute, it DELETES it — every visitor gets unlimited premium voice, and the
+// product is given away in full, in the expensive engine, to everyone. That is
+// not a hypothetical: with the meter's table missing, a single day served 1,818
+// voice calls and showed the paywall exactly once.
+//
+// So when the durable meter cannot answer, a per-instance counter answers in its
+// place. It leaks by nature — serverless instances come and go, and each new one
+// starts a visitor back at zero — so it is a weaker wall, not an equal one. A
+// wall that stands most of the time is still the difference between a business
+// and a free service, and it costs nothing when the table exists, because it
+// only runs when the real meter could not be reached.
+const memFree = new Map<string, { chars: number; at: number }>()
+const MEM_TTL = 24 * 3_600_000
+
+function spendMem(key: string, chars: number, cap: number): boolean {
+  const now = Date.now()
+  // Bound the map on a long-lived instance rather than letting it grow forever.
+  if (memFree.size > 5000) {
+    for (const [k, v] of memFree) if (now - v.at > MEM_TTL) memFree.delete(k)
+  }
+  const cur = memFree.get(key)
+  const used = cur && now - cur.at < MEM_TTL ? cur.chars : 0
+  if (used + chars > cap) return false
+  memFree.set(key, { chars: used + chars, at: now })
+  return true
+}
+
 export async function spendFreeChars(visitorId: string | undefined, ip: string, chars: number): Promise<SpendVerdict> {
   if (!FREE_VOICE_CHARS) return { ok: true, unmetered: true }
   const vid = (visitorId || "").trim().slice(0, 80)
   if (vid) {
     const v = await spendChars(`free:v:${bucket(vid)}`, chars, FREE_VOICE_CHARS, FREE_VOICE_CHARS)
     if (!v.ok) return v
+    // The durable meter counted nothing. Count it here instead, or the free
+    // minute is not a minute — it is everything, forever, for nothing.
+    if (v.unmetered && !spendMem(`v:${bucket(vid)}`, chars, FREE_VOICE_CHARS)) {
+      return { ok: false, reason: "exhausted" }
+    }
   }
   const ipv = await spendChars(`free:ip:${bucket(ip || "anon")}`, chars, Number.MAX_SAFE_INTEGER, FREE_IP_DAILY_CHARS)
-  return ipv.ok ? ipv : { ...ipv, reason: "daily-cap" }
+  if (!ipv.ok) return { ...ipv, reason: "daily-cap" }
+  if (ipv.unmetered && !spendMem(`ip:${bucket(ip || "anon")}`, chars, FREE_IP_DAILY_CHARS)) {
+    return { ok: false, reason: "daily-cap" }
+  }
+  return ipv
 }

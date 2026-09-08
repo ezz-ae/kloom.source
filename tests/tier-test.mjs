@@ -45,7 +45,28 @@ check(/FREE_VOICE_CHARS = Math\.max\(0, Number\(process\.env\.FREE_VOICE_CHARS \
 check(/createHash\("sha256"\)\.update\(token\)/.test(meter) && /rpc\("pass_spend"/.test(meter),
   "pass usage is keyed on a hash of the signed token")
 check(/offUntil = Date\.now\(\) \+ OFF_MS/.test(meter) && /return \{ ok: true, unmetered: true \}/.test(meter),
-  "a missing table fails OPEN, and says so")
+  "a missing table fails OPEN for a PASS, and says so — losing paid voice to a missing table is the worse failure")
+
+// ── but the free wall still has to stand ────────────────────────────────────
+// Failing open is right for someone who paid and wrong for someone who has not:
+// for a free visitor it does not shorten the minute, it removes it. This is not
+// hypothetical — with the meter's table missing, one day served 1,818 voice
+// calls and showed the paywall exactly once. The product was being given away
+// in the expensive engine, to everyone, on a budget of zero.
+const freeFn = meter.slice(meter.indexOf("export async function spendFreeChars"))
+check(/function spendMem\(/.test(meter),
+  "there is a per-instance counter for when the durable meter cannot answer")
+check(/v\.unmetered && !spendMem\(`v:\$\{bucket\(vid\)\}`, chars, FREE_VOICE_CHARS\)/.test(freeFn),
+  "an unmetered free spend is counted in memory instead, per visitor")
+check(/ipv\.unmetered && !spendMem\(`ip:\$\{bucket\(ip \|\| "anon"\)\}`, chars, FREE_IP_DAILY_CHARS\)/.test(freeFn),
+  "and per IP, so a cleared browser does not mint a fresh minute either")
+check(/return \{ ok: false, reason: "exhausted" \}/.test(freeFn),
+  "and past it a free visitor is refused — the wall stands without the table")
+// It must not double-count when the real meter IS working.
+check(/if \(v\.unmetered &&/.test(freeFn) && /if \(ipv\.unmetered &&/.test(freeFn),
+  "the memory counter runs ONLY when the durable meter counted nothing, so it never double-charges")
+check(/memFree\.size > 5000/.test(meter),
+  "and the map is bounded, so a long-lived instance cannot grow it forever")
 
 const vis = read("lib/airraw/visitor.ts")
 check(/if \(typeof window === "undefined"\) return ""/.test(vis) && /localStorage\.setItem\(KEY, mem\)/.test(vis),

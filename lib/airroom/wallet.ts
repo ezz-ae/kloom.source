@@ -98,9 +98,9 @@ export async function claimDaily(): Promise<{ ok: boolean; granted: number; alre
  * redirecting, because after the redirect this page is gone and that stash is the
  * only way back to which purchase was in flight.
  */
-export async function buyPack(packId: string): Promise<{ ok: boolean; error?: string }> {
+export async function buyPack(packId: string, promo?: string): Promise<{ ok: boolean; error?: string }> {
   const d = await post<{ url?: string; intentId?: string; packId?: string; chips?: number; price?: number; t?: number; s?: string; error?: string }>(
-    { action: "buy", packId },
+    { action: "buy", packId, promo },
   )
   if (!d || d.error || !d.url || !d.intentId) return { ok: false, error: d?.error || "checkout didn't open" }
   setPendingBuy({ id: d.intentId, packId: d.packId || packId, t: Number(d.t || 0), s: String(d.s || ""), chips: Number(d.chips || 0), usd: Number(d.price || 0) })

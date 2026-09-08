@@ -1009,7 +1009,7 @@ export function Planet() {
               dots={{ talks: talksDot }}
             >
               {showProfile
-                ? <YouPage onPass={() => setShowPro(true)} onResume={(t) => { setShowProfile(false); setSelected(t.cluster) }} />
+                ? <YouPage onPass={() => setShowPro(true)} onGolden={() => setShowGolden(true)} onResume={(t) => { setShowProfile(false); setSelected(t.cluster) }} />
                 : roomOpen
                 ? <TheRoom
                     onPass={() => setShowPro(true)}

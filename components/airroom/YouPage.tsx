@@ -13,6 +13,8 @@
  * on AIRRAW's palette, inside AirShell.
  */
 import { useEffect, useState } from "react"
+import { GOLDEN_USD, GOLDEN_MINUTES, GOLDEN_MAX_BOOKED } from "@/lib/airraw/golden"
+import { goldHeld, onGold, refreshGold } from "@/lib/airroom/golden-client"
 import { getProfile, setProfileName, rerollAvatar, type Profile } from "@/lib/airroom/profile"
 import { getCredits, FREE_GRANT } from "@/lib/airroom/credits"
 import { isPro, proUntil } from "@/lib/airroom/pro"
@@ -34,14 +36,17 @@ function Card({ title, hint, children }: { title: string; hint?: string; childre
   )
 }
 
-export function YouPage({ onPass, onResume }: {
+export function YouPage({ onPass, onResume, onGolden }: {
   onPass: () => void
   /** Reopen a saved conversation from where it stopped. */
   onResume?: (t: SavedTalk) => void
+  /** Book golden sessions ahead. Optional — the card hides without it. */
+  onGolden?: () => void
 }) {
   const [p, setP] = useState<Profile | null>(null)
   const [name, setName] = useState("")
   const [fai, setFai] = useState(0)
+  const [goldHeldN, setGoldHeldN] = useState(goldHeld())
   const [credits, setCredits] = useState(0)
   const [talks, setTalks] = useState<SavedTalk[]>([])
   const [prefs, setPrefs] = useState<LangPrefs>({ primary: "English", also: [] })
@@ -52,6 +57,8 @@ export function YouPage({ onPass, onResume }: {
 
   // Everything here reads localStorage, so it has to wait for the client or the
   // server render and the first paint disagree (hydration).
+  useEffect(() => { const off = onGold(setGoldHeldN); refreshGold().catch(() => { /* the card still offers to book */ }); return off }, [])
+
   useEffect(() => {
     const prof = getProfile()
     setP(prof); setName(prof.name)
@@ -184,6 +191,24 @@ export function YouPage({ onPass, onResume }: {
             <div className="brand-gradient h-full transition-[width] duration-500" style={{ width: `${Math.round(100 * (1 - left / cap))}%` }} />
           </div>
         </Card>
+
+        {/* ── the golden room ──
+            Booked here, opened somewhere else: a session is spent from inside a
+            conversation, on whoever you are already talking to. So this card
+            sells and counts; it deliberately has no "enter" button, because
+            there is nothing to enter without someone to bring. */}
+        {onGolden && (
+          <Card title="The golden room" hint={`$${GOLDEN_USD} a session · ${GOLDEN_MINUTES} minutes. open one from inside any conversation — whoever you're talking to comes with you.`}>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-3xl font-bold leading-none tabular-nums" style={{ color: "#e8c46a" }}>{goldHeldN}</span>
+              <button onClick={onGolden} aria-label="book golden sessions"
+                className="min-h-[44px] rounded-xl px-4 text-sm font-bold"
+                style={{ background: "linear-gradient(135deg,#f7e3a1 0%,#e8c46a 42%,#a97c24 100%)", color: "#0a0805" }}>
+                {goldHeldN > 0 ? "book more" : `book up to ${GOLDEN_MAX_BOOKED}`}
+              </button>
+            </div>
+          </Card>
+        )}
 
         {/* ── the pass ── */}
         <Card title="Voice minutes" hint={pro ? "the pass covers your minutes." : "what's left of your free minutes on the floor."}>

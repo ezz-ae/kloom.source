@@ -36,6 +36,7 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
   // hand, so "live code, no ledger" is a real state — and a buy button that can
   // only fail is worse than no buy button.
   const [ready, setReady] = useState<boolean | null>(null)
+  const [promo, setPromo] = useState("")
 
   useEffect(() => {
     const off = onChips(setBal)
@@ -56,7 +57,7 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
   const buy = async (p: ChipPack) => {
     setBusy(p.id); setNote("")
     track("chips_buy_start", { value: p.usd, currency: "USD", pack: p.id })
-    const r = await buyPack(p.id)
+    const r = await buyPack(p.id, promo.trim() || undefined)
     if (!r.ok) { setBusy(""); setNote(r.error || "checkout didn't open") }
     // On success the browser is already navigating to the checkout.
   }
@@ -144,6 +145,16 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
             </button>
           ))}
         </div>
+
+        {/* A code, if they have one. Priced on the server from what the checkout
+            was opened with — a discount the browser can name is one it can invent. */}
+        {ready !== false && (
+          <input value={promo} onChange={(e) => setPromo(e.target.value.toUpperCase().slice(0, 24))}
+            placeholder="promo code (optional)" aria-label="promo code"
+            style={{ width: "100%", minHeight: 44, borderRadius: 11, padding: "0 13px", marginTop: 10, fontSize: 15,
+              background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "#f0e8ff",
+              outline: "none", fontFamily: "inherit", letterSpacing: 1, boxSizing: "border-box" }} />
+        )}
 
         {note && <p style={{ margin: "13px 0 0", fontSize: 13, color: GOLD, textAlign: "center" }}>{note}</p>}
 

@@ -39,6 +39,7 @@ import { isPro, getPending, setProToken, getProToken, clearPendingIntent, fbCook
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { ChipBar } from "@/components/airroom/ChipBar"
 import { ChipSheet } from "@/components/airroom/ChipSheet"
+import { GoldenSheet } from "@/components/airroom/GoldenSheet"
 import { AirShell, type AirTab } from "@/components/airroom/AirShell"
 import { YouPage } from "@/components/airroom/YouPage"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
@@ -228,6 +229,7 @@ export function Planet() {
   const [pro, setPro] = useState(() => isPro())   // paid: the AIR pulse lights up your best matches
   const [showPro, setShowPro] = useState(false)   // the paywall
   const [showChips, setShowChips] = useState(false)   // the cage
+  const [showGolden, setShowGolden] = useState(false) // booking the golden room
   const [proMsg, setProMsg] = useState("")         // "you're pro" / payment toast
   const airTrig = useRef(0)
   // who you are on the floor + your credit balance (anonymous, local)
@@ -1073,7 +1075,7 @@ export function Planet() {
 
       {started && hud.hearing && !deckOpen && <div style={{ position: "absolute", left: 16, bottom: "calc(env(safe-area-inset-bottom) + 16px)", fontSize: 12.5, lineHeight: 1.35, color: "#cfe0ee", background: "rgba(4,5,11,.55)", padding: "8px 13px", borderRadius: 12, maxWidth: "min(64vw, 250px)", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", pointerEvents: "none", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{hud.hearing}</div>}
 
-      {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { endedTalk(); setSelected(null); setOpening(""); zoomFnRef.current(0.55) }} onTalked={() => { talkedRef.current = true; track("airraw_talk", { surface: "planet" }) }} />}
+      {selected && <AirBubble cluster={selected} opening={opening} lang={lang} tempLabel={tempLabel(selected.f)} onClose={() => { endedTalk(); setSelected(null); setOpening(""); zoomFnRef.current(0.55) }} onTalked={() => { talkedRef.current = true; track("airraw_talk", { surface: "planet" }) }} onGolden={() => setShowGolden(true)} />}
 
       {group && <GroupRoom seed={group.seed} f={group.f} count={group.count} topic={group.title ?? (group.c != null ? TOPICS[group.c][group.seed % TOPICS[group.c].length] : undefined)} opening={opening} lang={lang} tempLabel={tempLabel(group.f)} onClose={() => { setGroup(null); setOpening(""); zoomFnRef.current(0.55) }}
         onCall={(m) => {
@@ -1101,6 +1103,7 @@ export function Planet() {
 
       {showPro && <ProSheet onClose={() => setShowPro(false)} />}
       {showChips && <ChipSheet onClose={() => setShowChips(false)} />}
+      {showGolden && <GoldenSheet onClose={() => setShowGolden(false)} />}
       {faiToast && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", zIndex: 40, display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 999, background: "rgba(4,5,11,.86)", border: ".5px solid rgba(127,214,192,.4)", color: "#7fd6c0", fontSize: 13, fontWeight: 600, fontFamily: "var(--font-geist), system-ui, sans-serif", pointerEvents: "none", animation: "airrise .3s ease both" }}>
           <span aria-hidden>✦</span> +1 FAI — that talk earned it

@@ -19,6 +19,7 @@
 
 import { useEffect, useState } from "react"
 import { claimChips, getPendingBuy } from "@/lib/airroom/wallet"
+import { claimGold, getPendingGold } from "@/lib/airroom/golden-client"
 import { track } from "@/lib/track"
 
 export function ChipClaim() {
@@ -33,10 +34,23 @@ export function ChipClaim() {
       const u = new URLSearchParams(window.location.search)
       const justPaid = u.get("chips_ok") === "1"
       if (u.get("chips_fail") === "1") setMsg("payment didn't go through — you weren't charged.")
-      if (justPaid || u.get("chips_fail")) {
+      if (justPaid || u.get("chips_fail") || u.get("gold_ok") || u.get("gold_fail")) {
         const url = new URL(window.location.href)
         url.searchParams.delete("chips_ok"); url.searchParams.delete("chips_fail")
+        url.searchParams.delete("gold_ok"); url.searchParams.delete("gold_fail")
         window.history.replaceState({}, "", url.pathname + url.search)
+      }
+
+      // A golden purchase returns through the same door and is claimed the same
+      // way — one component, because a buyer coming back does not care which
+      // thing they bought and should never see two competing toasts.
+      const gold = getPendingGold()
+      if (gold?.id) {
+        claimGold().then((g) => {
+          if (stopped || !g.credited) return
+          setMsg(`+${g.granted} golden ${g.granted === 1 ? "session" : "sessions"} ✦ open one from any conversation`)
+          try { track("purchase", { value: gold.usd, currency: "USD", method: "ziina", kind: "golden" }, gold.id) } catch { /* */ }
+        }).catch(() => { /* the next page load claims it */ })
       }
 
       const pending = getPendingBuy()

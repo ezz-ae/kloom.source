@@ -29,6 +29,9 @@ import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySi
 import { loadTalk, saveTalk, forgetTalk, memoryEnabled } from "@/lib/airraw/memory"
 import { shouldPickUp, gapLabel, pickupInstruction, cleanPickup, worthPickingUp } from "@/lib/airraw/pickup"
 import { MicTest } from "@/components/airroom/MicTest"
+import { GoldenRoom } from "@/components/airroom/GoldenRoom"
+import { openGolden, openSession, closeSession, goldHeld, onGold, refreshGold } from "@/lib/airroom/golden-client"
+import { goldenGame, type GoldenSession } from "@/lib/airraw/golden"
 import { getLangPrefs, spokenLanguages } from "@/lib/airraw/lang-prefs"
 
 interface Msg { who: "host" | "you"; text: string; image?: string }
@@ -72,6 +75,19 @@ const HEAT_GRAD:  Record<Heat, string> = {
 // knows nothing about their personality. So a Gulf accent is just as likely to
 // come with the filthiest dossier in the pool as a European one — accent never
 // implies character.
+/**
+ * Give her prompt the shape of a game, without touching who she is.
+ *
+ * The game text is APPENDED to personality. It never rewrites the name, the
+ * backstory or the seed — those are what make this Sami rather than a character
+ * called Sami — so a game can change what the conversation is doing and can
+ * never change who is having it.
+ */
+function withGame<T extends { personality: string }>(persona: T, gameId?: string | null): T {
+  const g = goldenGame(gameId)
+  return g ? { ...persona, personality: `${persona.personality} ${g.play}` } : persona
+}
+
 function personaFor(c: Cluster, lang?: string, pro = false) {
   const id = c.key || c.host
   // The caller's language wins when the surface pinned one; otherwise the user's
@@ -125,7 +141,7 @@ const PARTING = [
   "okay, drift off. but that thing you said? it's not done. come tell me how it ends.",
 ]
 
-export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang = "English" }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string; lang?: string }) {
+export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang = "English", onGolden }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string; lang?: string; onGolden?: () => void }) {
   const accent = HEAT_COLOR[cluster.h]
   // Their pronouns, once. Half the floor is men and every one of them was being
   // described as "she" in the copy around the call.
@@ -179,6 +195,16 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [muted, setMuted] = useState(false)
   const [volume, setVolume] = useState(1)
   const [audioPanel, setAudioPanel] = useState(false)
+  // A golden session, if this conversation has been taken into one. The guest is
+  // never re-derived: it is THIS cluster, carried in, which is the whole contract.
+  const [golden, setGolden] = useState<GoldenSession | null>(() => {
+    const s = openSession()
+    return s && s.guest?.key === (faceSeedFor(cluster) || cluster.key) ? s : null
+  })
+  const [gold, setGold] = useState(goldHeld())
+  const [goldBusy, setGoldBusy] = useState(false)
+  /** Which game is running, read by the reply path so her prompt gains a shape, never a new identity. */
+  const gameRef = useRef<string | null>(null)
   const [outputs, setOutputs] = useState<OutputDevice[]>([])
   const [sink, setSink] = useState("")
   const [humanNote, setHumanNote] = useState(false)
@@ -247,6 +273,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const micMutedRef = useRef(false)
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
+  useEffect(() => { const off = onGold(setGold); refreshGold().catch(() => { /* the door still opens the shop */ }); return off }, [])
 
   // ── she picks it back up ──────────────────────────────────────────────────
   // Reopening a saved thread used to restore the words and nothing else: the old
@@ -566,7 +593,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     try {
       const res = await fetch("/api/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ persona: personaFor(cluster, langRef.current, pro), proVibe: vibeRef.current, proToken: getProToken(), userStyle: stylePromptLine(getStyle()), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
+        // A game APPENDS to her personality; it never replaces it. That is the
+        // difference between Sami playing a game and a game wearing Sami's face.
+        body: JSON.stringify({ persona: withGame(personaFor(cluster, langRef.current, pro), gameRef.current), proVibe: vibeRef.current, proToken: getProToken(), userStyle: stylePromptLine(getStyle()), messages: msgsRef.current.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })) }),
       })
       if (!res.ok) { setTrouble(true); return }
       // She deflected because of the free floor, not because she wasn't interested.
@@ -878,6 +907,23 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     if (dx > 70 && Math.abs(dy) < 80) setChatOpen(true)
   }
 
+  // ── the golden room ───────────────────────────────────────────────────────
+  // Rendered INSTEAD of the call, over the same conversation and the same
+  // person. `msgs` and `send` are handed straight in, so the thread continues
+  // rather than restarting, and the guest is the cluster we are already holding.
+  if (golden) {
+    return (
+      <GoldenRoom
+        guest={cluster}
+        session={golden}
+        lines={msgs}
+        busy={busy}
+        onSay={(t, gameId) => { gameRef.current = gameId ?? null; send(t) }}
+        onLeave={() => { closeSession(); setGolden(null); gameRef.current = null }}
+      />
+    )
+  }
+
   return (
     <div onPointerDown={onSwipeDown} onPointerUp={onSwipeUp} className="air-rise" style={{ position: "fixed", top: 0, left: 0, right: 0, height: "100dvh", background: `radial-gradient(130% 90% at 50% 0%, #1a0828 0%, #0d0418 55%, #07040f 100%)`, display: "flex", flexDirection: "column", zIndex: 20, fontFamily: "var(--font-geist), system-ui, sans-serif", color: "#f0e8ff" }}>
       <style>{`@keyframes airpulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.18);opacity:0}100%{transform:scale(1.18);opacity:0}}@keyframes aireq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes airblink{0%,50%{opacity:1}51%,100%{opacity:0}}`}</style>
@@ -989,6 +1035,28 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </button>
 
           <MicTest accent={accent} />
+
+          {/* THE DOOR. You are already talking to this person; this takes THEM
+              with you. The guest is the cluster in hand, so nothing is recast. */}
+          <button
+            disabled={goldBusy}
+            onClick={async () => {
+              setAudioPanel(false)
+              if (gold < 1) { onGolden?.(); return }
+              setGoldBusy(true)
+              const r = await openGolden({ key: faceSeedFor(cluster) || cluster.key, host: cluster.host, gender: cluster.gender })
+              setGoldBusy(false)
+              if (r.ok && r.session) { setGolden(r.session); try { track("golden_open") } catch { /* */ } }
+              else onGolden?.()
+            }}
+            aria-label={gold > 0 ? `take ${cluster.host} into the golden room` : "get a golden room"}
+            style={{ width: "100%", minHeight: 46, borderRadius: 11, cursor: goldBusy ? "default" : "pointer", padding: "0 13px",
+              background: "linear-gradient(135deg, #f7e3a1 0%, #e8c46a 42%, #a97c24 100%)", border: "none",
+              color: "#0a0805", fontSize: 13.5, fontWeight: 800, fontFamily: "inherit", textAlign: "left",
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, opacity: goldBusy ? .6 : 1 }}>
+            <span>{gold > 0 ? `take ${cluster.host.toLowerCase()} to the golden room` : "the golden room"}</span>
+            <span style={{ opacity: .7, fontWeight: 700 }}>{gold > 0 ? `${gold} held` : "✦"}</span>
+          </button>
 
           <span style={{ height: 1, background: "rgba(255,255,255,.08)", margin: "4px 0" }} />
 

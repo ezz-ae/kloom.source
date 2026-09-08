@@ -28,6 +28,7 @@ import {
   packById, grantChips, chipState, utcDay, ledgerReady,
 } from "@/lib/airraw/chips"
 import { createHash } from "crypto"
+import { applyPromo, promoLabel, PROMO_MAX_OFF } from "@/lib/airraw/promo"
 
 export const maxDuration = 30
 
@@ -82,10 +83,10 @@ export async function POST(req: NextRequest) {
 
   let body: {
     action?: string; packId?: string; intentId?: string; t?: number; s?: string
-    pass?: string; purse?: string; fbp?: string; fbc?: string
+    pass?: string; purse?: string; fbp?: string; fbc?: string; promo?: string
   } = {}
   try { body = await req.json() } catch { /* */ }
-  const { action, packId, intentId, t: anchorTs, s: anchorSig, pass, purse, fbp, fbc } = body
+  const { action, packId, intentId, t: anchorTs, s: anchorSig, pass, purse, fbp, fbc, promo } = body
 
   // ── open ──
   // Resolve the wallet this browser acts on, minting a purse only when there is
@@ -146,9 +147,12 @@ export async function POST(req: NextRequest) {
     const origin = process.env.AIRRAW_ORIGIN || req.nextUrl.origin || SITE_URL
     const ret = process.env.AIRRAW_HOME === "1" ? "/airraw" : "/app"
     try {
+      // The discount is computed HERE, from the code the checkout was opened
+      // with. A price the browser can name is a price the browser can invent.
+      const deal = applyPromo(pack.usd, promo)
       const intent = await createPaymentIntent({
-        usd: pack.usd,
-        message: `${pack.chips} chips`,
+        usd: deal.usd,
+        message: `${pack.chips} chips${deal.applied ? ` · ${promoLabel(deal)}` : ""}`,
         successUrl: `${origin}${ret}?chips_ok=1`,
         cancelUrl:  `${origin}${ret}`,
         failureUrl: `${origin}${ret}?chips_fail=1`,
@@ -161,7 +165,8 @@ export async function POST(req: NextRequest) {
         clientIp: ip, userAgent: req.headers.get("user-agent") || undefined, fbp, fbc,
       }).catch(() => {})
       return Response.json({
-        url, intentId: intent.id, packId: pack.id, chips: pack.chips, price: pack.usd,
+        url, intentId: intent.id, packId: pack.id, chips: pack.chips,
+        price: deal.usd, listPrice: pack.usd, promo: deal.applied ? deal.code : undefined, saved: deal.saved,
         t: anchor, s: signIntent(packAnchor(intent.id, pack.id), anchor),
         test: (intent as { test?: boolean }).test === true,
       })
@@ -188,7 +193,11 @@ export async function POST(req: NextRequest) {
       // Guard two: the money that actually arrived covers this pack. Ziina reports
       // minor units; a cent of tolerance absorbs rounding on conversion.
       const paidUsd = typeof intent.amount === "number" ? intent.amount / 100 : null
-      if (paidUsd !== null && paidUsd + 0.01 < pack.usd) {
+      // A promo may legitimately have lowered this, so the floor is the deepest
+      // discount any code is allowed to reach — not the list price, which would
+      // reject every discounted sale, and not zero, which would accept anything.
+      const floor = pack.usd * (1 - PROMO_MAX_OFF / 100)
+      if (paidUsd !== null && paidUsd + 0.01 < floor) {
         return Response.json({ paid: false, status: "amount_mismatch" })
       }
       // Idempotent on the intent id: the buyer refreshing the return page, the

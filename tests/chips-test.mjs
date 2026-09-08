@@ -156,8 +156,12 @@ check(/packAnchor = \(intentId: string, packId: string\)/.test(route),
   "the signature covers the pack as well as the intent")
 check(/verifyIntentSig\(packAnchor\(intentId, packId\), Number\(anchorTs\), anchorSig\) === null/.test(route),
   "so a claim naming a different pack than it paid for fails the anchor check")
-check(/paidUsd \+ 0\.01 < pack\.usd/.test(route),
-  "and independently, the money that arrived must cover the pack's price")
+// A promo may legitimately lower this, so the floor is the deepest discount any
+// code may reach — not list, which would reject every discounted sale, and not
+// zero, which would accept a free pack.
+check(/const floor = pack\.usd \* \(1 - PROMO_MAX_OFF \/ 100\)/.test(route) && /paidUsd \+ 0\.01 < floor/.test(route),
+  "and independently, the money that arrived must clear the deepest discount a code can reach")
+check(!/paidUsd[^\n]*< 0\b/.test(route), "which is never zero — a free pack is not a discount")
 check(/intent\.status !== "completed"/.test(route),
   "chips are credited only on a completed payment, never on the client saying so")
 check(/`buy:\$\{intentId\}`/.test(route),

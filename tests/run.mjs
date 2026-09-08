@@ -57,10 +57,21 @@ const WHAT = {
   "onetab-test":      "no surface spawns a tab, and the call carries its own settings",
 }
 
-// ui-check.mjs drives a real browser and needs a server, so it is excluded from
-// the default run. Start one and call it directly:
-//   npx next start -p 3131 &   PORT=3131 node tests/ui-check.mjs
-const files = readdirSync(here).filter((f) => f.endsWith(".mjs") && f !== "run.mjs" && f !== "ui-check.mjs").sort()
+// Two suites drive a real browser and need a server, so they are excluded from
+// the default run. Start one and call them directly:
+//   AIRRAW_HOME=1 AIRRAW_PRO_SECRET=probe-secret npx next start -p 3131 &
+//   PORT=3131 node tests/ui-check.mjs
+//   node tests/live-check.mjs
+//
+// live-check is the one to run before any deploy touching audio, metering or the
+// room loop. The suites below read source and assert properties, which is fast
+// and catches most regressions — but it cannot catch code that is written
+// correctly and does not happen. That is not theoretical: loadVolume looked
+// perfect and returned 0 for every new visitor, so every first private call was
+// silent while the voice engine billed for it. Reading it would never have found
+// that; running it found it immediately.
+const SERVER_ONLY = new Set(["run.mjs", "ui-check.mjs", "live-check.mjs"])
+const files = readdirSync(here).filter((f) => f.endsWith(".mjs") && !SERVER_ONLY.has(f)).sort()
 let failed = 0
 for (const f of files) {
   const name = f.replace(/\.mjs$/, "")

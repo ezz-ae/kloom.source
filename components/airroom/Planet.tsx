@@ -40,6 +40,7 @@ import { ProSheet } from "@/components/airroom/ProSheet"
 import { ChipBar } from "@/components/airroom/ChipBar"
 import { ChipSheet } from "@/components/airroom/ChipSheet"
 import { GoldenSheet } from "@/components/airroom/GoldenSheet"
+import { ReportSheet } from "@/components/airroom/ReportSheet"
 import { AirShell, type AirTab } from "@/components/airroom/AirShell"
 import { YouPage } from "@/components/airroom/YouPage"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
@@ -230,6 +231,7 @@ export function Planet() {
   const [showPro, setShowPro] = useState(false)   // the paywall
   const [showChips, setShowChips] = useState(false)   // the cage
   const [showGolden, setShowGolden] = useState(false) // booking the golden room
+  const [showReport, setShowReport] = useState(false) // something's wrong
   const [proMsg, setProMsg] = useState("")         // "you're pro" / payment toast
   const airTrig = useRef(0)
   // who you are on the floor + your credit balance (anonymous, local)
@@ -964,7 +966,14 @@ export function Planet() {
 
       {/* THE WELCOME — once ever, before anything else. */}
       {started && !onboarded && !selected && !group && (
-        <OnboardGate onDone={(c) => { setDeckPos({ c, i: 0 }); setOnboardedState(true) }} />
+        <OnboardGate
+          onDone={(c) => { setDeckPos({ c, i: 0 }); setOnboardedState(true) }}
+          onRestore={() => setShowPro(true)}
+          // Straight to the profile, where saved photos live — going "in" first
+          // would be asking someone to walk past the thing they came back for.
+          onPhotos={() => { setOnboardedState(true); setShowProfile(true) }}
+          onReport={() => setShowReport(true)}
+        />
       )}
 
       {/* THE FLOOR.
@@ -1104,6 +1113,7 @@ export function Planet() {
       {showPro && <ProSheet onClose={() => setShowPro(false)} />}
       {showChips && <ChipSheet onClose={() => setShowChips(false)} />}
       {showGolden && <GoldenSheet onClose={() => setShowGolden(false)} />}
+      {showReport && <ReportSheet onClose={() => setShowReport(false)} ctx={{ pro, chips: undefined }} />}
       {faiToast && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", zIndex: 40, display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 999, background: "rgba(4,5,11,.86)", border: ".5px solid rgba(127,214,192,.4)", color: "#7fd6c0", fontSize: 13, fontWeight: 600, fontFamily: "var(--font-geist), system-ui, sans-serif", pointerEvents: "none", animation: "airrise .3s ease both" }}>
           <span aria-hidden>✦</span> +1 FAI — that talk earned it
@@ -1294,7 +1304,13 @@ const MOODS: { label: string; sub: string; c: number; hue: number }[] = [
   { label: "no filter", sub: "3am, nothing to lose", c: 6, hue: 2 },
 ]
 
-function OnboardGate({ onDone }: { onDone: (c: number) => void }) {
+function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
+  onDone: (c: number) => void
+  /** The pass they already bought — reachable before they are anywhere. */
+  onRestore: () => void
+  onPhotos: () => void
+  onReport: () => void
+}) {
   const [step, setStep] = useState<"name" | "mood" | "shaping">("name")
   const [name, setName] = useState("")
   const [pick, setPick] = useState<typeof MOODS[number] | null>(null)
@@ -1324,6 +1340,36 @@ function OnboardGate({ onDone }: { onDone: (c: number) => void }) {
           />
           <button onClick={() => setStep("mood")} style={{ width: "100%", minHeight: 52, fontSize: 15.5, fontWeight: 700, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 15, cursor: "pointer", boxShadow: "0 12px 30px -10px rgba(127,214,192,.55)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
             {name.trim() ? "continue →" : "skip, just take me in →"}
+          </button>
+
+          {/* Two things a returning person needs on the way in, and neither was
+              anywhere on this screen: the pass they already bought, and the
+              photos they already have. Both were only reachable from deep inside
+              the app — which is exactly where you cannot get to when the reason
+              you are here is that your pass looks gone. */}
+          <div style={{ display: "flex", gap: 9, marginTop: 12 }}>
+            <button onClick={onRestore} aria-label="restore my membership"
+              style={{ flex: 1, minHeight: 46, borderRadius: 13, cursor: "pointer", fontFamily: "inherit",
+                background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.14)",
+                color: "rgba(238,244,248,.72)", fontSize: 13, fontWeight: 600,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
+              <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>✦</span>
+              restore my membership
+            </button>
+            <button onClick={onPhotos} aria-label="save to photos"
+              style={{ flex: 1, minHeight: 46, borderRadius: 13, cursor: "pointer", fontFamily: "inherit",
+                background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.14)",
+                color: "rgba(238,244,248,.72)", fontSize: 13, fontWeight: 600,
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
+              <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>❖</span>
+              save to photos
+            </button>
+          </div>
+
+          <button onClick={onReport} aria-label="report an issue"
+            style={{ width: "100%", marginTop: 10, minHeight: 38, background: "none", border: "none", cursor: "pointer",
+              color: "rgba(238,244,248,.38)", fontSize: 12.5, fontFamily: "inherit" }}>
+            something not working?
           </button>
         </div>
       )}

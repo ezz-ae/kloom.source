@@ -28,6 +28,20 @@ export function ziinaConfigured(): boolean {
   return !!API_KEY
 }
 
+/**
+ * What a buyer's card statement will actually say.
+ *
+ * Exported so the checkout screens can tell them BEFORE they pay. Prices are
+ * quoted in USD and settled here in AED, and a third currency appearing on a
+ * statement with no warning is a chargeback waiting to happen — which on a
+ * merchant-of-record account is not a support cost, it is how the account gets
+ * closed. This is the one place that fact lives; the client is told, it does not
+ * guess.
+ */
+export function chargeCurrency(): string {
+  return CURRENCY
+}
+
 /** USD price → minor units of the configured Ziina currency. $1 → 367 fils (AED). */
 export function usdToMinor(usd: number): number {
   return Math.max(1, Math.round(usd * USD_RATE * 100))

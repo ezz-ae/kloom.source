@@ -14,6 +14,7 @@
 import { useEffect, useState } from "react"
 import { GOLDEN_USD, GOLDEN_MINUTES, GOLDEN_MAX_BOOKED, GOLDEN_GAMES } from "@/lib/airraw/golden"
 import { goldHeld, onGold, refreshGold, buyGold } from "@/lib/airroom/golden-client"
+import { localPrice, priceFootnote } from "@/lib/airraw/money"
 import { track } from "@/lib/track"
 
 const GOLD_PALE = "#f7e3a1", GOLD = "#e8c46a", GOLD_DEEP = "#a97c24", INK = "#0a0805"
@@ -26,15 +27,23 @@ export function GoldenSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState("")
   const [ready, setReady] = useState<boolean | null>(null)
+  // The gateway's own currency, from the server. Never assumed here.
+  const [charge, setCharge] = useState<string>("")
 
   useEffect(() => {
     const off = onGold(setHeld)
     refreshGold().catch(() => { /* the offer still renders */ })
-    fetch("/api/golden").then((r) => r.json()).then((d) => setReady(d?.ready !== false)).catch(() => setReady(null))
+    fetch("/api/golden").then((r) => r.json()).then((d) => {
+      setReady(d?.ready !== false)
+      if (d?.charge) setCharge(String(d.charge))
+    }).catch(() => setReady(null))
     return off
   }, [])
 
   const total = (GOLDEN_USD * qty).toFixed(2).replace(/\.00$/, "")
+  // Shown beside the dollar, never instead of it — see lib/airraw/money.ts.
+  const near = localPrice(GOLDEN_USD * qty)
+  const nearOne = localPrice(GOLDEN_USD)
   const buy = async () => {
     setBusy(true); setNote("")
     track("golden_buy_start", { value: GOLDEN_USD * qty, currency: "USD", qty })
@@ -66,7 +75,7 @@ export function GoldenSheet({ onClose }: { onClose: () => void }) {
           You don&apos;t walk into it — you bring someone with you. Whoever you&apos;re already
           talking to comes exactly as they are: same voice, same face, same conversation.
           <br />
-          <strong style={{ color: GOLD, fontWeight: 600 }}>${GOLDEN_USD} a session · {GOLDEN_MINUTES} minutes</strong>, however you use it.
+          <strong style={{ color: GOLD, fontWeight: 600 }}>${GOLDEN_USD}{nearOne ? ` (${nearOne.text})` : ""} a session · {GOLDEN_MINUTES} minutes</strong>, however you use it.
         </p>
 
         {held > 0 && (
@@ -108,7 +117,7 @@ export function GoldenSheet({ onClose }: { onClose: () => void }) {
           </p>
         ) : (
           <button onClick={buy} disabled={busy}
-            aria-label={`buy ${qty} golden ${qty === 1 ? "session" : "sessions"} for $${total}`}
+            aria-label={`buy ${qty} golden ${qty === 1 ? "session" : "sessions"} for $${total}${near ? `, about ${near.text}` : ""}`}
             style={{ width: "100%", minHeight: 54, borderRadius: 14, border: "none", cursor: busy ? "default" : "pointer",
               background: METAL, color: INK, fontSize: 16.5, fontWeight: 800, fontFamily: "inherit", opacity: busy ? .6 : 1,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -117,7 +126,12 @@ export function GoldenSheet({ onClose }: { onClose: () => void }) {
         )}
 
         {note && <p style={{ margin: "11px 0 0", fontSize: 13, color: GOLD, textAlign: "center" }}>{note}</p>}
-        <p style={{ margin: "14px 0 0", fontSize: 11.5, lineHeight: 1.6, color: "rgba(246,239,224,.32)", textAlign: "center" }}>
+        {/* Both true things, before they pay: roughly what it is in their money,
+            and what their statement will actually say. */}
+        <p style={{ margin: "9px 0 0", fontSize: 12, lineHeight: 1.5, color: "rgba(246,239,224,.5)", textAlign: "center" }}>
+          {priceFootnote(GOLDEN_USD * qty, charge)}
+        </p>
+        <p style={{ margin: "10px 0 0", fontSize: 11.5, lineHeight: 1.6, color: "rgba(246,239,224,.32)", textAlign: "center" }}>
           a session starts when you open it, not when you buy it.
           <br />nothing is charged automatically, ever.
         </p>

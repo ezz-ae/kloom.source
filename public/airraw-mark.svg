@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300" fill="none" role="img" aria-label="AIRRAW">
+  <!-- One stroke, one join at the apex. The left leg is a curve and the right a
+       straight line — the person and the voice, meeting at the top. Drawing them
+       as two separate paths is what put a notch in the apex. -->
+  <path d="M 62 238 Q 100 158 150 66 L 238 238"
+        stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- The crossbar carries the sound. It is weighted so that when the mark is
+       16px the waveform disappears into it and what is left is a legible A,
+       rather than three specks that look like dirt on the screen. -->
+  <g stroke="currentColor" stroke-linecap="round">
+    <path d="M 97 186 H 201" stroke-width="13"/>
+    <path d="M 128 172 V 200 M 150 164 V 208 M 172 172 V 200" stroke-width="9"/>
+  </g>
+</svg>

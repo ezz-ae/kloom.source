@@ -79,9 +79,24 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
-  // Airraw has no Kloom-branded favicon, so omit icons there (falls back to the
-  // default) rather than serving a Kloom icon on airraw.com.
-  icons: AIRRAW ? undefined : {
+  // Two brands, two icon sets, and never the other one's. Serving a Kloom icon
+  // on airraw.com would be wrong; serving an AIRRAW icon on kloom.io would be a
+  // brand-safety problem on the domain that runs Meta ads. So this is a branch,
+  // not a merge, and the AIRRAW files are a separate set with their own names.
+  //
+  // The SVG is listed first and browsers prefer it, but it is the SIMPLIFIED
+  // mark (no waveform ticks) because a tab renders it at 16px — see the comment
+  // in public/airraw-icon.svg. The PNGs are the full mark, which is what the
+  // home screen and the install prompt actually show.
+  icons: AIRRAW ? {
+    icon: [
+      { url: '/airraw-icon.svg', type: 'image/svg+xml' },
+      { url: '/airraw-icon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/airraw-icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/airraw-icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/airraw-apple-icon.png',
+  } : {
     icon: [
       { url: '/kloom-icon-32.png', sizes: '32x32', type: 'image/png' },
       { url: '/kloom-icon-192.png', sizes: '192x192', type: 'image/png' },

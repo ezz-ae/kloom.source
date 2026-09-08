@@ -13,7 +13,7 @@
 // second migration waiting on a password nobody can find.
 import type { NextRequest } from "next/server"
 import { SITE_URL } from "@/lib/brand"
-import { createPaymentIntent, getPaymentIntent, ziinaConfigured } from "@/lib/ziina"
+import { createPaymentIntent, getPaymentIntent, ziinaConfigured, chargeCurrency } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
 import { signIntent, verifyIntentSig } from "@/lib/airraw-pro-token"
 import { metaPurchase, metaEvent } from "@/lib/meta-capi"
@@ -45,6 +45,8 @@ export async function GET() {
     games: GOLDEN_GAMES.map(({ id, name, blurb }) => ({ id, name, blurb })),
     ready: await ledgerReady(),
     methods: ziinaConfigured() ? ["card"] : [],
+    // What the statement will say. The sheet shows it under the button.
+    charge: chargeCurrency(),
   }, { headers: { "Cache-Control": "public, max-age=60" } })
 }
 

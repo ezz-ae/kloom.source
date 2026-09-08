@@ -16,6 +16,7 @@
  */
 import { useEffect, useState } from "react"
 import { CHIP_PACKS, CHIPS_PER_PHOTO, DAILY_CHIPS, type ChipPack } from "@/lib/airraw/chip-rates"
+import { localPrice, chargeNote } from "@/lib/airraw/money"
 import { chipBalance, onChips, openWallet, claimDaily, buyPack } from "@/lib/airroom/wallet"
 import { track } from "@/lib/track"
 
@@ -37,11 +38,16 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
   // only fail is worse than no buy button.
   const [ready, setReady] = useState<boolean | null>(null)
   const [promo, setPromo] = useState("")
+  // The gateway's own currency, from the server. Never assumed here.
+  const [charge, setCharge] = useState<string>("")
 
   useEffect(() => {
     const off = onChips(setBal)
     openWallet().catch(() => { /* the sheet still renders the offer with a 0 balance */ })
-    fetch("/api/chips").then((r) => r.json()).then((d) => setReady(d?.ready !== false)).catch(() => setReady(null))
+    fetch("/api/chips").then((r) => r.json()).then((d) => {
+      setReady(d?.ready !== false)
+      if (d?.charge) setCharge(String(d.charge))
+    }).catch(() => setReady(null))
     return off
   }, [])
 
@@ -139,8 +145,16 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
                   {p.bonusPct > 0 && <span style={{ color: GOLD }}> · {p.bonusPct}% more per dollar</span>}
                 </span>
               </span>
-              <span style={{ flex: "0 0 auto", fontSize: 17, fontWeight: 700, color: busy === p.id ? "rgba(240,232,255,.5)" : ACCENT }}>
-                {busy === p.id ? "…" : `$${p.usd}`}
+              <span style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                <span style={{ fontSize: 17, fontWeight: 700, color: busy === p.id ? "rgba(240,232,255,.5)" : ACCENT }}>
+                  {busy === p.id ? "…" : `$${p.usd}`}
+                </span>
+                {/* Beside the dollar, never instead of it — lib/airraw/money.ts. */}
+                {busy !== p.id && localPrice(p.usd) && (
+                  <span style={{ fontSize: 11.5, color: "rgba(240,232,255,.4)", whiteSpace: "nowrap" }}>
+                    {localPrice(p.usd)!.text}
+                  </span>
+                )}
               </span>
             </button>
           ))}
@@ -158,7 +172,14 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
 
         {note && <p style={{ margin: "13px 0 0", fontSize: 13, color: GOLD, textAlign: "center" }}>{note}</p>}
 
-        <p style={{ margin: "16px 0 0", fontSize: 11.5, color: "rgba(240,232,255,.3)", lineHeight: 1.6, textAlign: "center" }}>
+        {/* What the statement will say, before they pay rather than after. */}
+        {ready !== false && (
+          <p style={{ margin: "12px 0 0", fontSize: 12, color: "rgba(240,232,255,.45)", lineHeight: 1.5, textAlign: "center" }}>
+            {chargeNote(charge)}
+          </p>
+        )}
+
+        <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "rgba(240,232,255,.3)", lineHeight: 1.6, textAlign: "center" }}>
           chips are spent as you use them — voice, photos, scenes.
           <br />nothing is charged automatically, ever.
         </p>

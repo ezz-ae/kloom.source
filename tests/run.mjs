@@ -56,6 +56,7 @@ const WHAT = {
   "pickup-test":      "she opens with something real from last time, or says nothing at all",
   "onetab-test":      "no surface spawns a tab, and the call carries its own settings",
   "golden-test":      "the room you rent keeps the person you brought, and is priced for it",
+  "money-test":       "a price shown in riyals is that price, and the statement currency is said out loud",
 }
 
 // Two suites drive a real browser and need a server, so they are excluded from

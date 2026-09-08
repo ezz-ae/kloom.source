@@ -17,7 +17,7 @@
 // would do. Both, because this is the line where money is decided.
 import type { NextRequest } from "next/server"
 import { SITE_URL } from "@/lib/brand"
-import { createPaymentIntent, getPaymentIntent, ziinaConfigured } from "@/lib/ziina"
+import { createPaymentIntent, getPaymentIntent, ziinaConfigured, chargeCurrency } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
 import { signIntent, verifyIntentSig } from "@/lib/airraw-pro-token"
 import { metaPurchase, metaEvent } from "@/lib/meta-capi"
@@ -73,6 +73,8 @@ export async function GET() {
     daily: DAILY_CHIPS,
     referral: REFERRAL_CHIPS,
     methods: ziinaConfigured() ? ["card"] : [],
+    // What the statement will say. The sheet shows it under the button.
+    charge: chargeCurrency(),
   }, { headers: { "Cache-Control": "public, max-age=60" } })
 }
 

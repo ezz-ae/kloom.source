@@ -40,6 +40,7 @@
  * flight. A room generating for an empty screen is a bill with no reader.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
+import { RoomChips } from "@/components/airroom/ChipBar"
 import { groupCast, faceSeedFor, type Cluster } from "@/lib/airroom/roster"
 import { writtenCast, langFor, CAST_COUNT, writtenFor, identityFor, soulPrompt } from "@/lib/airraw/cast50"
 
@@ -174,10 +175,12 @@ function Mentions({ text, cast, you, onTap }: { text: string; cast: Cluster[]; y
   )
 }
 
-export function TheRoom({ onPrivate, onPass, topic = "tonight" }: {
+export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
   onPrivate: (c: Cluster) => void
   /** Open the pass sheet — the free room has reached its end. */
   onPass: () => void
+  /** Open the chip cage. Optional: a room without it simply doesn't show a balance. */
+  onChips?: () => void
   topic?: string
 }) {
   // NO ONE REPEATS. groupCast seeds member i as seed*7+i+1, so two rooms whose
@@ -506,7 +509,11 @@ export function TheRoom({ onPrivate, onPass, topic = "tonight" }: {
       {/* ── who is here ── faces first, so the room has people before it has words.
           A face glows while its person has been talking lately; one of them pulses
           while they are actually speaking. That is how you notice someone. */}
-      <div style={{ flexShrink: 0, padding: "10px 12px 6px", overflowX: "auto", display: "flex", gap: 10, WebkitOverflowScrolling: "touch" }}>
+      {/* The faces scroll; the chip count does not. They share one band rather
+          than the count floating above it — a balance overlaid on this strip sits
+          on top of whoever is at that end of the scroll. */}
+      <div style={{ flexShrink: 0, display: "flex", alignItems: "flex-start", gap: 8, padding: "10px 12px 6px" }}>
+      <div style={{ flex: 1, minWidth: 0, overflowX: "auto", display: "flex", gap: 10, WebkitOverflowScrolling: "touch" }}>
         {cast.map((c) => {
           const live = speaking === c.key
           const warm = recent.has(c.key)
@@ -524,6 +531,8 @@ export function TheRoom({ onPrivate, onPass, topic = "tonight" }: {
             </button>
           )
         })}
+      </div>
+        {onChips && <RoomChips onOpen={onChips} />}
       </div>
 
       {/* ── the conversation ── */}

@@ -135,7 +135,12 @@ check(/intentId\.startsWith\("air_"\)/.test(pro),
 const cryptoClaim = pro.slice(pro.indexOf('intentId.startsWith("air_")'), pro.indexOf('const intent = await getPaymentIntent'))
 check(/amount_mismatch/.test(cryptoClaim), "the crypto claim checks the amount, like the card claim")
 check(/verifyIntentSig/.test(cryptoClaim), "and anchors the window to purchase time, so re-claiming can't extend it")
-check(/mintProToken/.test(cryptoClaim) && cryptoClaim.indexOf("st.paid") < cryptoClaim.indexOf("mintProToken"),
+// Matches whatever does the minting rather than one function's name — the pass is
+// minted through a helper now that it also grants chips, and the property being
+// guarded is the ORDER, not the callee.
+const mintCall = cryptoClaim.match(/\bmint[A-Za-z]*\s*\(/)
+check(!!mintCall, "the crypto branch mints a pass")
+check(!!mintCall && cryptoClaim.indexOf("st.paid") < cryptoClaim.indexOf(mintCall[0]),
   "and mints only after the rail says paid")
 check(/!ziinaConfigured\(\) && !cryptoGateway\.ready\(\)/.test(pro),
   "the 503 gate asks 'can we sell at all', not 'is the card rail up'")

@@ -37,6 +37,8 @@ import { Face } from "@/components/airroom/Face"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
 import { isPro, getPending, setProToken, getProToken, clearPendingIntent, fbCookies } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
+import { ChipBar } from "@/components/airroom/ChipBar"
+import { ChipSheet } from "@/components/airroom/ChipSheet"
 import { AirShell, type AirTab } from "@/components/airroom/AirShell"
 import { YouPage } from "@/components/airroom/YouPage"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
@@ -225,6 +227,7 @@ export function Planet() {
   const openingRef = useRef("")
   const [pro, setPro] = useState(() => isPro())   // paid: the AIR pulse lights up your best matches
   const [showPro, setShowPro] = useState(false)   // the paywall
+  const [showChips, setShowChips] = useState(false)   // the cage
   const [proMsg, setProMsg] = useState("")         // "you're pro" / payment toast
   const airTrig = useRef(0)
   // who you are on the floor + your credit balance (anonymous, local)
@@ -892,6 +895,13 @@ export function Planet() {
         </button>
       )}
 
+      {/* Your chips, top-right. Same visibility rule as the avatar opposite it:
+          inside a room or a call the room owns the whole screen, and anything
+          floating over its header collides with the room title. */}
+      {profile && !intro && !selected && !group && !deckOpen && (
+        <ChipBar onOpen={() => { track("chips_open"); setShowChips(true) }} />
+      )}
+
       {/* Language lives HERE, on the surface, free to everyone — it used to be
           editable only inside the paywall, so changing your language meant opening
           a sheet asking you for $9. Also now shown on the deck, which is the front
@@ -992,6 +1002,7 @@ export function Planet() {
                 : roomOpen
                 ? <TheRoom
                     onPass={() => setShowPro(true)}
+                    onChips={() => { track("chips_open", { from: "room" }); setShowChips(true) }}
                     onPrivate={(c) => {
                       // Leaving the room for a private thread is the same gate as
                       // any other conversation on this floor — 18+ was confirmed
@@ -1089,6 +1100,7 @@ export function Planet() {
       )}
 
       {showPro && <ProSheet onClose={() => setShowPro(false)} />}
+      {showChips && <ChipSheet onClose={() => setShowChips(false)} />}
       {faiToast && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", zIndex: 40, display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 999, background: "rgba(4,5,11,.86)", border: ".5px solid rgba(127,214,192,.4)", color: "#7fd6c0", fontSize: 13, fontWeight: 600, fontFamily: "var(--font-geist), system-ui, sans-serif", pointerEvents: "none", animation: "airrise .3s ease both" }}>
           <span aria-hidden>✦</span> +1 FAI — that talk earned it

@@ -6,6 +6,8 @@ import { mintProToken, signIntent, verifyIntentSig } from "@/lib/airraw-pro-toke
 import { metaPurchase, metaEvent } from "@/lib/meta-capi"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { cryptoGateway } from "@/lib/pay/crypto"
+import { walletFor } from "@/lib/airraw/purse"
+import { grantChips, PASS_CHIPS } from "@/lib/airraw/chips"
 
 // AIRRAW Pro — anonymous one-time 30-day pass via Ziina hosted checkout.
 //   POST { action: "checkout", method? }   → { url, intentId }  (redirect the user to url)
@@ -43,6 +45,32 @@ export async function GET() {
     { price: PRICE_USD, days: DAYS, minutes: PASS_MINUTES, methods },
     { headers: { "Cache-Control": "public, max-age=300" } },
   )
+}
+
+/**
+ * Mint the pass, and put chips in it.
+ *
+ * The pass and chips are one economy, not two products: a pass IS a wallet
+ * (lib/airraw/purse.ts keys off the signed token), so the buyer walks in holding
+ * a balance instead of meeting a second price the moment they want a photo.
+ *
+ * Idempotent twice over, which is what makes it safe on a path that is re-claimed
+ * on every refresh: the token is derived from the purchase-time anchor so the same
+ * intent always mints the same token and therefore the same wallet, and the grant
+ * is keyed on the intent id so it applies exactly once.
+ *
+ * It never blocks the pass. A ledger that is down must not cost someone the thing
+ * they actually paid for — the chips are recoverable later, the pass in front of
+ * them is not.
+ */
+async function mintPassWithChips(until: number, intentId: string) {
+  const token = mintProToken(until, PASS_MINUTES)
+  if (PASS_CHIPS > 0) {
+    try {
+      await grantChips(walletFor(token, null), PASS_CHIPS, "pass", `pass:${intentId}`)
+    } catch { /* never block a paid pass on the ledger */ }
+  }
+  return token
 }
 
 export async function POST(req: NextRequest) {
@@ -180,7 +208,7 @@ export async function POST(req: NextRequest) {
           value: PRICE_USD, currency: "USD", eventId: intentId,
           clientIp: clientIp(req), userAgent: req.headers.get("user-agent") || undefined, fbp, fbc,
         }).catch(() => {})
-        return Response.json({ paid: true, token: mintProToken(until, PASS_MINUTES), until, minutes: PASS_MINUTES })
+        return Response.json({ paid: true, token: await mintPassWithChips(until, intentId), until, minutes: PASS_MINUTES, chips: PASS_CHIPS })
       } catch (e) {
         return Response.json({ error: e instanceof Error ? e.message : "claim failed" }, { status: 502 })
       }
@@ -213,7 +241,7 @@ export async function POST(req: NextRequest) {
         userAgent: req.headers.get("user-agent") || undefined,
         fbp, fbc,   // browser match keys forwarded from the claim → server Purchase actually matches
       }).catch(() => {})
-      return Response.json({ paid: true, token: mintProToken(until, PASS_MINUTES), until, minutes: PASS_MINUTES })
+      return Response.json({ paid: true, token: await mintPassWithChips(until, intentId), until, minutes: PASS_MINUTES, chips: PASS_CHIPS })
     } catch (e) {
       return Response.json({ error: e instanceof Error ? e.message : "claim failed" }, { status: 502 })
     }

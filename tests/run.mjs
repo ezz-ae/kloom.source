@@ -52,6 +52,7 @@ const WHAT = {
   "fantasy-test":     "the scene menu is closed, clean, and cannot smuggle a prompt",
   "image-test":       "the best face engine runs first, and a refusal falls through instead of failing",
   "cast50-test":      "fifty written people, no two alike, and one person in every language",
+  "chips-test":       "every pack clears its own cost, and nothing is taken back to make you move",
 }
 
 // ui-check.mjs drives a real browser and needs a server, so it is excluded from

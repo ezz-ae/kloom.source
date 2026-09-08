@@ -7,9 +7,50 @@ import { warmAccentPools, ensureAccentPools, discoveredAccentPool, discoveredLan
 import { proTokenClaims } from "@/lib/airraw-pro-token"
 import { adultEnabled } from "@/lib/variant"
 import { spendPassChars, spendFreeChars } from "@/lib/airraw/pass-meter"
+import { walletFor } from "@/lib/airraw/purse"
+import { spendChips, chipsForChars } from "@/lib/airraw/chips"
+import { createHash } from "crypto"
 
 // CosyVoice3 cold starts poll up to ~45s; don't let Vercel kill the request.
 export const maxDuration = 60
+
+/**
+ * Pay for this chunk of speech with chips.
+ *
+ * Reached only when the free minute (or a pass allowance) is spent, so it is the
+ * difference between a wall and a way through. The wallet comes from the purse
+ * cookie — set by /api/chips — or from the pass token, so none of the eight
+ * places that call this endpoint had to learn about wallets.
+ *
+ * THE EVENT KEY. A spend needs one or a retried chunk charges twice, and the
+ * client does not send a per-utterance id. So it is derived: wallet, the text
+ * itself, and the current minute. A retry of the same chunk within that minute is
+ * free — which is the direction to err in — while the same sentence genuinely
+ * spoken again a minute later is charged again. The alternative, a key that
+ * includes the wall-clock instant, would make every retry a fresh charge, which
+ * is the failure that actually costs a customer money.
+ *
+ * Fails closed: no wallet, no ledger, or not enough chips all mean no speech, and
+ * the caller falls back to the 402 it would have returned anyway.
+ */
+async function payWithChips(request: Request, proToken: string | undefined, text: string) {
+  const cookiePurse = (() => {
+    const raw = request.headers.get("cookie") || ""
+    const hit = raw.split("; ").find((c) => c.startsWith("airraw_purse="))
+    return hit ? decodeURIComponent(hit.slice("airraw_purse=".length)) : null
+  })()
+  const wallet = walletFor(proToken, cookiePurse)
+  if (!wallet) return { ok: false as const, spent: 0, balance: 0 }
+
+  const need = chipsForChars(text.length)
+  if (need <= 0) return { ok: false as const, spent: 0, balance: 0 }
+
+  const minute = Math.floor(Date.now() / 60_000)
+  const stamp = createHash("sha256").update(`${wallet}:${text}`).digest("hex").slice(0, 16)
+  const mv = await spendChips(wallet, need, "voice", `voice:${stamp}:${minute}`)
+  if (!mv.ok) return { ok: false as const, spent: 0, balance: mv.balance }
+  return { ok: true as const, spent: mv.replay ? 0 : need, balance: mv.balance }
+}
 
 export async function POST(request: Request) {
   // Global spend ceiling / kill-switch first — protects total budget under ad traffic.
@@ -65,7 +106,7 @@ export async function POST(request: Request) {
   // untouched: `airraw` is false there, so the engine order is what it was.
   const airraw = adultEnabled()
   const claims = airraw ? proTokenClaims(proToken) : null
-  let tier: "kloom" | "pass" | "free" = airraw ? (claims ? "pass" : "free") : "kloom"
+  let tier: "kloom" | "pass" | "free" | "chips" = airraw ? (claims ? "pass" : "free") : "kloom"
   const tierHeaders: Record<string, string> = {}
   if (claims) {
     const v = await spendPassChars(proToken!, claims.minutes, ttsText.length)
@@ -77,8 +118,18 @@ export async function POST(request: Request) {
   if (tier === "free") {
     const v = await spendFreeChars(visitorId, clientIp(request), ttsText.length)
     if (!v.ok) {
-      tierHeaders["X-Free"] = v.reason || "exhausted"
-      return Response.json({ error: "free minute used", paywall: true }, { status: 402, headers: { "Cache-Control": "no-store", "X-TTS-Tier": "free", ...tierHeaders } })
+      // The free minute is gone. Before this became a wall, chips are the way
+      // past it — and the reason chips exist: someone enjoying themselves at
+      // this exact moment could not give us a penny until their next visit.
+      const paid = await payWithChips(request, proToken, ttsText)
+      if (paid.ok) {
+        tier = "chips"
+        tierHeaders["X-Chips"] = String(paid.spent)
+        tierHeaders["X-Chips-Left"] = String(paid.balance)
+      } else {
+        tierHeaders["X-Free"] = v.reason || "exhausted"
+        return Response.json({ error: "free minute used", paywall: true }, { status: 402, headers: { "Cache-Control": "no-store", "X-TTS-Tier": "free", ...tierHeaders } })
+      }
     }
   }
   tierHeaders["X-TTS-Tier"] = tier

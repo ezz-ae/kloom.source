@@ -163,8 +163,8 @@ check(/intent\.status !== "completed"/.test(route),
 check(/`buy:\$\{intentId\}`/.test(route),
   "the grant is keyed on the intent, so a refresh, a webhook and a second tab credit it once")
 const buyBranch = route.slice(route.indexOf('if (action === "buy")'), route.indexOf('if (action === "claim")'))
-check(buyBranch.indexOf("walletFor(pass, purse)") > -1
-   && buyBranch.indexOf("walletFor(pass, purse)") < buyBranch.indexOf("createPaymentIntent("),
+check(buyBranch.indexOf("walletFor(") > -1
+   && buyBranch.indexOf("walletFor(") < buyBranch.indexOf("createPaymentIntent("),
   "a wallet is required BEFORE money is taken — paid-for chips with nowhere to go has no clean recovery")
 check(/if \(!mv\.replay\) \{\s*metaPurchase/.test(route),
   "and the conversion fires once, on the credit that actually happened")
@@ -174,6 +174,34 @@ check(/ipDailyAllowed/.test(route), "the daily is bounded by IP as well as by wa
 check(/`daily:\$\{wallet\}:\$\{day\}`/.test(route), "and is idempotent per wallet per UTC day")
 check(/catch \{\s*return true\s*\}/.test(route.slice(route.indexOf("async function ipDailyAllowed"))),
   "if that counter is unreachable a real returning visitor is still served")
+
+// ── spending: the free wall becomes a door ───────────────────────────────────
+// The point of the whole economy. Someone enjoying themselves at the moment the
+// free minute ends could not previously give us a penny until their next visit.
+console.log("\n— the free minute ends in an offer, not a wall —")
+const tts = readFileSync(new URL("../app/api/tts/route.ts", import.meta.url), "utf8")
+const freeBranch = tts.slice(tts.indexOf('if (tier === "free")'), tts.indexOf('tierHeaders["X-TTS-Tier"]'))
+check(freeBranch.indexOf("payWithChips") > -1
+   && freeBranch.indexOf("payWithChips") < freeBranch.indexOf("paywall: true"),
+  "chips are tried BEFORE the 402, so a paying listener is never stopped")
+check(/paywall: true/.test(freeBranch),
+  "and with no chips it is still the same clean paywall it was")
+
+const payFn = tts.slice(tts.indexOf("async function payWithChips"), tts.indexOf("export async function POST"))
+check(/walletFor\(proToken, cookiePurse\)/.test(payFn),
+  "the wallet comes from the pass or the purse cookie — no call site had to learn about wallets")
+check(/Math\.floor\(Date\.now\(\) \/ 60_000\)/.test(payFn) && !/Date\.now\(\)\}`/.test(payFn),
+  "the spend's event key buckets by minute, so a retried chunk is not charged twice")
+check(/createHash\("sha256"\)/.test(payFn),
+  "and is derived from the text, so two different lines are two different spends")
+check(/return \{ ok: false as const/.test(payFn),
+  "no wallet, no ledger or no chips all mean no speech — it fails closed")
+
+// Kloom must not be able to reach any of this.
+check(/const airraw = adultEnabled\(\)/.test(tts) && /: "kloom"/.test(tts),
+  "tier is 'kloom' off the AIRRAW variant")
+check(!/payWithChips/.test(tts.slice(tts.indexOf('let tier'), tts.indexOf('if (tier === "free")'))),
+  "and nothing spends a chip before the tier is decided, so Kloom never reaches the wallet")
 
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail === 0 ? 0 : 1)

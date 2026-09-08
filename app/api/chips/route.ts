@@ -34,6 +34,31 @@ export const maxDuration = 30
 /** Bind the signature to the pack as well as the intent, so the pack is not a client claim. */
 const packAnchor = (intentId: string, packId: string) => `${intentId}:${packId}`
 
+
+// ── the purse, as a cookie ───────────────────────────────────────────────────
+// The wallet has to be readable by endpoints that spend chips — /api/tts most of
+// all, which is called from eight places. Threading a token through every one of
+// those call sites would be eight chances to forget, and the ninth caller written
+// next month would silently bill nobody. A cookie rides along on every same-origin
+// request instead, so an endpoint that needs the wallet just asks for it.
+//
+// Not httpOnly, deliberately and unlike a session cookie: the purse is also the
+// user's portability story — the same "copy this and paste it on your other
+// device" the pass already has — and a token the page cannot read cannot be
+// offered to them. It is a bearer credential either way, which is why it is
+// SameSite=Lax (never sent cross-site) and Secure in production.
+const PURSE_COOKIE = "airraw_purse"
+
+function purseCookie(token: string): string {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : ""
+  return `${PURSE_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`
+}
+
+function cookiePurse(req: NextRequest): string | null {
+  const v = req.cookies.get(PURSE_COOKIE)?.value
+  return v ? decodeURIComponent(v) : null
+}
+
 export async function GET() {
   return Response.json({
     packs: CHIP_PACKS,
@@ -63,7 +88,7 @@ export async function POST(req: NextRequest) {
   // no pass and no valid purse already. An unverifiable purse is not adopted and
   // not replaced silently — see walletFor.
   if (action === "open") {
-    let token = purse || ""
+    let token = purse || cookiePurse(req) || ""
     let wallet = walletFor(pass, token)
     if (!wallet) {
       if (!purseConfigured()) return Response.json({ error: "wallets are not configured" }, { status: 503 })
@@ -76,7 +101,7 @@ export async function POST(req: NextRequest) {
       purse: token && token !== purse ? token : undefined,
       balance: st.balance, lifetimeIn: st.lifetimeIn, lifetimeOut: st.lifetimeOut,
       history: st.history, daily: DAILY_CHIPS,
-    })
+    }, { headers: token ? { "Set-Cookie": purseCookie(token) } : undefined })
   }
 
   // ── the daily ──
@@ -85,7 +110,7 @@ export async function POST(req: NextRequest) {
   // what stops one person minting fresh purses all afternoon to farm it.
   if (action === "daily") {
     if (!DAILY_CHIPS) return Response.json({ ok: false, reason: "off" })
-    const wallet = walletFor(pass, purse)
+    const wallet = walletFor(pass, purse || cookiePurse(req))
     if (!wallet) return Response.json({ error: "no wallet — open one first" }, { status: 400 })
     const day = utcDay()
 
@@ -105,7 +130,7 @@ export async function POST(req: NextRequest) {
     if (!ziinaConfigured()) return Response.json({ error: "payments not configured" }, { status: 503 })
     // Require a wallet BEFORE taking money: chips paid for with nowhere to put
     // them is the one failure here with no clean recovery.
-    const wallet = walletFor(pass, purse)
+    const wallet = walletFor(pass, purse || cookiePurse(req))
     if (!wallet) return Response.json({ error: "no wallet — open one first" }, { status: 400 })
 
     const origin = process.env.AIRRAW_ORIGIN || req.nextUrl.origin || SITE_URL
@@ -144,7 +169,7 @@ export async function POST(req: NextRequest) {
     if (verifyIntentSig(packAnchor(intentId, packId), Number(anchorTs), anchorSig) === null) {
       return Response.json({ paid: false, status: "bad_anchor" }, { status: 400 })
     }
-    const wallet = walletFor(pass, purse)
+    const wallet = walletFor(pass, purse || cookiePurse(req))
     if (!wallet) return Response.json({ error: "no wallet" }, { status: 400 })
 
     try {

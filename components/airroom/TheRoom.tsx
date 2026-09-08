@@ -116,6 +116,24 @@ const WHISPER_EVERY = 5
  * A pass holder never sees the wall.
  */
 const FREE_ROOM_LINES = 30
+/**
+ * How long the room keeps talking to itself with nobody touching anything.
+ *
+ * This loop is the only thing in the product that spends money without being
+ * asked to: fourteen characters, a line every few seconds, one in four of them
+ * spoken aloud in the premium engine. Left running on a focused tab that is
+ * roughly 550 model calls and 140 voice calls an hour, for an empty chair.
+ *
+ * The line cap above bounds a free visitor, but it is written `!pro` — a pass
+ * holder had no ceiling at all, which is precisely backwards: they are the ones
+ * whose minutes we are paying for. Presence is the right gate, not tier. A room
+ * nobody is in is worth nothing to watch and costs the same as one that is.
+ *
+ * Five minutes, not one — someone can reasonably sit and listen for a while
+ * without touching the screen, and the room saying "still there?" every sixty
+ * seconds would be worse than the spend it saves.
+ */
+const IDLE_MS = 5 * 60_000
 
 /**
  * HOW EACH PERSON WRITES — fixed per person, like a face. This is what makes
@@ -236,6 +254,10 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
   const spokenCount = useRef<Record<string, number>>({})
   const micHandle = useRef<VoiceOnceHandle | null>(null)
   const aiLines = useRef(0)                          // how much the room has said — paces the whispers
+  /** Last sign of a person. The room only talks while someone is here to hear it. */
+  const lastSeen = useRef(Date.now())
+  const [dozing, setDozing] = useState(false)
+  const wake = () => { lastSeen.current = Date.now(); setDozing((d) => (d ? false : d)) }
   const whispered = useRef<Set<string>>(new Set())   // who has already whispered to the visitor
   const whisperBack = useRef<Cluster | null>(null)   // the visitor whispered to this person; they answer in kind
   const replyTo = useRef<Cluster | null>(null)       // the visitor @mentioned this person; they answer, in public
@@ -321,6 +343,9 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
       if (stopped || busy.current) return
       if (typeof document !== "undefined" && document.hidden) return
       if (openRef.current) return
+      // Nobody has touched anything in a while. Stop generating and say so —
+      // going quiet without a word reads as broken, and one tap brings it back.
+      if (Date.now() - lastSeen.current > IDLE_MS) { setDozing(true); return }
       // The free room's end. Checked BEFORE a request is spent, so the wall
       // costs nothing to stand behind. Pass holders are never counted.
       if (!pro && aiLines.current >= FREE_ROOM_LINES) {
@@ -435,12 +460,19 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
 
     speak()
     const id = setInterval(speak, GAP_MS)
-    const onVis = () => { if (!document.hidden) speak() }
+    const onVis = () => { if (!document.hidden) { wake(); speak() } }
     document.addEventListener("visibilitychange", onVis)
+    // Any real sign of a person counts, not just speaking — scrolling the room
+    // or reaching for the mic is someone being here.
+    const onUse = () => { lastSeen.current = Date.now() }
+    window.addEventListener("pointerdown", onUse, { passive: true })
+    window.addEventListener("keydown", onUse, { passive: true })
     return () => {
       stopped = true
       clearInterval(id)
       document.removeEventListener("visibilitychange", onVis)
+      window.removeEventListener("pointerdown", onUse)
+      window.removeEventListener("keydown", onUse)
       ctrl.abort()
       try { micHandle.current?.cancel() } catch { /* */ }
     }
@@ -452,6 +484,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
     if (!text) return
     push({ who: null, text, at: Date.now() })
     setDraft("")
+    wake()
     replyDue.current = true
     // THE FUNNEL, named. Every step from "read the room" to "paid" fires an
     // event, so where people leave is a number and not a guess. Say → whisper →
@@ -609,6 +642,17 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
             </button>
           ))}
         </div>
+      )}
+      {/* The room has stopped talking to itself because nobody is here. Said out
+          loud, because a room that simply goes silent reads as broken — and the
+          honest version is better anyway: it is waiting for you, not failing. */}
+      {dozing && (
+        <button onClick={wake} aria-label="carry on"
+          style={{ flexShrink: 0, margin: "0 12px 8px", padding: "11px 14px", borderRadius: 12, textAlign: "left",
+            background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "rgba(240,232,255,.65)",
+            fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+          the room went quiet while you were away — <span style={{ color: "#ff5f8a", fontWeight: 600 }}>tap to carry on</span>
+        </button>
       )}
       <div style={{ flexShrink: 0, display: "flex", gap: 8, alignItems: "center", padding: "8px 12px calc(env(safe-area-inset-bottom) + 5.5rem)" }}>
         <input

@@ -128,6 +128,30 @@ check(/\{walled && !pro && \(/.test(room), "the wall is never shown to a pass ho
 const wallBtn = room.slice(room.indexOf("that was the free part") - 700, room.indexOf("that was the free part"))
 check(/onPass\(\)/.test(wallBtn) && /onClick=/.test(wallBtn), "tapping it opens the pass sheet")
 check(/that was the free part/.test(room) && /keeps it going for 90 days/.test(room), "it says plainly what ended and what continues it")
+// ── and the room only talks while someone is in it ──────────────────────────
+// This loop is the only thing in the product that spends without being asked.
+// The line cap above is written `!pro`, so a PASS HOLDER had no ceiling — which
+// is backwards, since theirs are the minutes we pay for. Left on a focused tab
+// that is roughly 550 model calls and 140 voice calls an hour for an empty
+// chair. Presence is the gate that actually fits the cost.
+const IDLE = Number((raw.match(/const IDLE_MS = (\d+) \* 60_000/) || [])[1])
+check(IDLE >= 2 && IDLE <= 15, `it goes quiet after ${IDLE} minutes with nobody there`)
+const idleAt = room.indexOf("Date.now() - lastSeen.current > IDLE_MS")
+check(idleAt > 0 && idleAt < spendAt,
+  "the presence check sits ahead of the busy flag too, so dozing costs nothing")
+check(/if \(Date\.now\(\) - lastSeen\.current > IDLE_MS\) \{ setDozing\(true\); return \}/.test(room),
+  "an empty room stops generating rather than talking to itself")
+check(!/!pro[\s\S]{0,40}lastSeen/.test(room),
+  "and it applies to a pass holder too — the cost is the same whoever left the tab open")
+check(/window\.addEventListener\("pointerdown", onUse/.test(room) && /window\.addEventListener\("keydown", onUse/.test(room),
+  "any real sign of a person counts as being here, not only speaking")
+check(/const onVis = \(\) => \{ if \(!document\.hidden\) \{ wake\(\); speak\(\) \} \}/.test(room),
+  "coming back to the tab wakes it immediately")
+check(/\{dozing && \(/.test(room) && /tap to carry on/.test(room),
+  "and it says it is waiting — a room that just goes silent reads as broken")
+check(/removeEventListener\("pointerdown", onUse\)/.test(room) && /removeEventListener\("keydown", onUse\)/.test(room),
+  "the listeners are removed on the way out")
+
 const planetSrc = strip("components/airroom/Planet.tsx")
 check(/<TheRoom\s+onPass=\{\(\) => setShowPro\(true\)\}/.test(planetSrc), "Planet wires the wall to the real pass sheet")
 const sheet = readFileSync("components/airroom/ProSheet.tsx", "utf8")

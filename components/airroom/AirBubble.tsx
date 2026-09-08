@@ -27,6 +27,7 @@ import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQues
 import { dossierLine } from "@/lib/airraw/dossier"
 import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySink, bindMediaSession, type OutputDevice } from "@/lib/airraw/audio-output"
 import { loadTalk, saveTalk, forgetTalk, memoryEnabled } from "@/lib/airraw/memory"
+import { shouldPickUp, gapLabel, pickupInstruction, cleanPickup, worthPickingUp } from "@/lib/airraw/pickup"
 import { getLangPrefs, spokenLanguages } from "@/lib/airraw/lang-prefs"
 
 interface Msg { who: "host" | "you"; text: string; image?: string }
@@ -137,6 +138,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     return saved?.msgs.length ? saved.msgs : [{ who: "host", text: cluster.lines[0] }]
   })
   const [resumed] = useState(() => !!loadTalk(cluster.key)?.msgs.length)
+  /** When this thread was last spoken in — what makes coming back a return. */
+  const [lastAt] = useState(() => loadTalk(cluster.key)?.at || 0)
   const [micMuted, setMicMuted] = useState(false)
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
@@ -220,6 +223,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const speakTokenRef = useRef(0)
   const leavingRef = useRef(false)
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
+  const pickedUpRef = useRef(false)
   // A QUEUE, not a single slot. It used to be one string: if you spoke twice while
   // the character was thinking, the second utterance overwrote the first and the
   // first was silently lost. Coalesced on flush so two halves of one thought
@@ -238,6 +242,80 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const micMutedRef = useRef(false)
 
   useEffect(() => { msgsRef.current = msgs }, [msgs])
+
+  // ── she picks it back up ──────────────────────────────────────────────────
+  // Reopening a saved thread used to restore the words and nothing else: the old
+  // lines sat there and you had to start again, which is the one thing someone
+  // who remembered you would not do. So on a real return she opens, once, with a
+  // line about something that was actually said.
+  //
+  // TEXT, never voice. This line was not asked for, and spending a free
+  // visitor's one minute on speech they did not request is taking something from
+  // them to make a point. It costs one short completion — she talks, and the
+  // voice starts when they answer.
+  //
+  // Nothing is shown unless it is real: cleanPickup drops the escape token, the
+  // over-long answer and the generic "missed you" a model reaches for when it
+  // has nothing. A character inventing a memory is worse than a quiet one.
+  useEffect(() => {
+    if (pickedUpRef.current) return
+    if (!memoryEnabled() || !resumed || !shouldPickUp(lastAt)) return
+    // They arrived with their own line (a mention, a tap-through). That is
+    // already the opening, and two of them is a pile-up.
+    if (opening?.trim()) return
+    pickedUpRef.current = true
+    const ctrl = new AbortController()
+    let dropped = false
+    ;(async () => {
+      try {
+        const history = msgsRef.current
+        // Length at the moment we ask, so "did they get a word in while this was
+        // in flight" is a real comparison. The obvious-looking test — is the last
+        // message theirs — is wrong here and silently killed the feature: a
+        // restored thread almost always ENDS with their line, because saying
+        // something and then leaving is how a conversation gets left.
+        const beforeLen = history.length
+        // Never ASK when there is nothing to remember. Tested against the live
+        // model: after "hey / hi / what's up / nm u" it answered "still editing
+        // your sentences?" — a fabricated memory no output filter can catch,
+        // because it is indistinguishable from a real one without the transcript.
+        if (!worthPickingUp(history)) return
+        const res = await fetch("/api/chat", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          signal: ctrl.signal,
+          body: JSON.stringify({
+            persona: personaFor(cluster, langRef.current, pro),
+            proToken: getProToken(),
+            messages: [
+              ...history.map((m) => ({ role: m.who === "you" ? "user" : "assistant", content: m.text })),
+              { role: "user" as const, content: pickupInstruction(gapLabel(lastAt)) },
+            ],
+          }),
+        })
+        if (!res.ok || !res.body) return
+        let full = ""
+        const rd = res.body.getReader()
+        const dec = new TextDecoder()
+        for (;;) {
+          const { done, value } = await rd.read()
+          if (done) break
+          full += dec.decode(value)
+          if (full.length > 240) { try { await rd.cancel() } catch { /* */ } break }
+        }
+        const line = cleanPickup(full)
+        // The user starting to talk wins: an opener landing on top of their first
+        // sentence is worse than no opener at all.
+        if (!line || dropped || talkedRef.current) return
+        // If anything arrived while this was in flight, theirs stays the most
+        // recent thing on screen and the opener is dropped.
+        setMsgs((m) => (m.length > beforeLen ? m : [...m, { who: "host", text: line }]))
+        try { track("pickup_shown") } catch { /* */ }
+      } catch { /* a thread that does not open is simply the old behaviour */ }
+    })()
+    return () => { dropped = true; ctrl.abort() }
+    // Mount only: this is a property of arriving, not of anything that changes after.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
   useEffect(() => { setSttOk(canListen()) }, [])

@@ -147,8 +147,38 @@ check(/window\.addEventListener\("pointerdown", onUse/.test(room) && /window\.ad
   "any real sign of a person counts as being here, not only speaking")
 check(/const onVis = \(\) => \{ if \(!document\.hidden\) \{ wake\(\); speak\(\) \} \}/.test(room),
   "coming back to the tab wakes it immediately")
-check(/\{dozing && \(/.test(room) && /tap to carry on/.test(room),
+check(/dozing && \(/.test(room) && /tap to carry on/.test(room),
   "and it says it is waiting — a room that just goes silent reads as broken")
+
+// ── one tab spends, the rest watch ──────────────────────────────────────────
+// Two tabs on the room is two rooms generating in parallel for one person who
+// can only read one of them. Four left over from an afternoon of testing is
+// four. The lease makes exactly one of them live.
+const lease = strip("lib/airraw/one-tab.ts")
+check(/if \(!holdsLease\(\)\) return/.test(room), "a tab without the lease generates nothing")
+const leaseAt = room.indexOf("if (!holdsLease()) return")
+check(leaseAt > 0 && leaseAt < spendAt, "and that check is ahead of the busy flag too")
+check(/keepLease\(\(mine\) => setLive\(mine\)\)/.test(room), "the room holds one while it is open")
+check(/claimLease\(\)/.test(lease) && /write\(\{ id: myId, at: Date\.now\(\) \}\)/.test(lease),
+  "the NEWEST tab claims it — the one in front of you is the live one, not the one behind")
+check(/Date\.now\(\) - l\.at > STALE_MS/.test(lease),
+  "a lease is a timestamp, so a crashed tab cannot hold the room hostage")
+check(/if \(!supported\) return true/.test(lease),
+  "with storage unavailable one tab still runs — a private window that silently does nothing is the worse failure")
+check(/e\.key === KEY/.test(lease) && /addEventListener\("storage"/.test(lease),
+  "a takeover is noticed at once, not a heartbeat later")
+check(/localStorage\.removeItem\(KEY\)/.test(lease), "and the lease is handed back on the way out")
+check(/tap to move it here/.test(room), "the quiet tab says why, and hands it back in one tap")
+
+// ── and a window that is merely visible is not attention ────────────────────
+// document.hidden only fires on a properly backgrounded tab. A window sitting
+// behind another one, or on a second monitor, kept generating at full rate.
+const BLUR = Number((raw.match(/const BLUR_MS = (\d+)_000/) || [])[1])
+check(BLUR >= 2 && BLUR <= 30, `an unfocused window stops after ${BLUR} seconds`)
+check(/blurredAt\.current && Date\.now\(\) - blurredAt\.current > BLUR_MS/.test(room),
+  "blur stops it, which document.hidden alone never caught")
+check(/const onFocus = \(\) => \{ blurredAt\.current = 0; wake\(\); speak\(\) \}/.test(room),
+  "and coming back to the window resumes it immediately")
 check(/removeEventListener\("pointerdown", onUse\)/.test(room) && /removeEventListener\("keydown", onUse\)/.test(room),
   "the listeners are removed on the way out")
 

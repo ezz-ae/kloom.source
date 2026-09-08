@@ -59,6 +59,7 @@ import { visitorId } from "@/lib/airraw/visitor"
 import { listenOnce, canListen, type VoiceOnceHandle } from "@/lib/voice-once"
 import { LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { Face } from "@/components/airroom/Face"
+import { keepLease, claimLease, holdsLease } from "@/lib/airraw/one-tab"
 import { track } from "@/lib/airraw/track"
 
 /** Heat → the colour a person is drawn in, same gradient as the rest of the floor. */
@@ -134,6 +135,17 @@ const FREE_ROOM_LINES = 30
  * seconds would be worse than the spend it saves.
  */
 const IDLE_MS = 5 * 60_000
+/**
+ * And a much shorter fuse once the window is no longer the one in front.
+ *
+ * `document.hidden` only becomes true when the tab is properly backgrounded. A
+ * tab that is still "visible" behind another window, or on a second monitor
+ * nobody is looking at, keeps generating at full rate — that is the same empty
+ * chair, and it is the common case on a desktop. Blur is the honest signal that
+ * attention left, and five seconds is enough to absorb clicking the address bar
+ * or alt-tabbing to paste something and coming straight back.
+ */
+const BLUR_MS = 5_000
 
 /**
  * HOW EACH PERSON WRITES — fixed per person, like a face. This is what makes
@@ -256,6 +268,10 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
   const aiLines = useRef(0)                          // how much the room has said — paces the whispers
   /** Last sign of a person. The room only talks while someone is here to hear it. */
   const lastSeen = useRef(Date.now())
+  /** When the window lost focus, or 0 while it has it. */
+  const blurredAt = useRef(0)
+  /** False while another tab holds the room — see lib/airraw/one-tab. */
+  const [live, setLive] = useState(true)
   const [dozing, setDozing] = useState(false)
   const wake = () => { lastSeen.current = Date.now(); setDozing((d) => (d ? false : d)) }
   const whispered = useRef<Set<string>>(new Set())   // who has already whispered to the visitor
@@ -346,6 +362,10 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
       // Nobody has touched anything in a while. Stop generating and say so —
       // going quiet without a word reads as broken, and one tap brings it back.
       if (Date.now() - lastSeen.current > IDLE_MS) { setDozing(true); return }
+      // Another tab is the live one. Nothing to show and nothing to spend.
+      if (!holdsLease()) return
+      // The window is not the one in front any more.
+      if (blurredAt.current && Date.now() - blurredAt.current > BLUR_MS) return
       // The free room's end. Checked BEFORE a request is spent, so the wall
       // costs nothing to stand behind. Pass holders are never counted.
       if (!pro && aiLines.current >= FREE_ROOM_LINES) {
@@ -467,12 +487,24 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
     const onUse = () => { lastSeen.current = Date.now() }
     window.addEventListener("pointerdown", onUse, { passive: true })
     window.addEventListener("keydown", onUse, { passive: true })
+    // Focus is a better signal than visibility on a desktop, where a window can
+    // be "visible" and entirely unattended behind another one.
+    const onBlur = () => { blurredAt.current = Date.now() }
+    const onFocus = () => { blurredAt.current = 0; wake(); speak() }
+    window.addEventListener("blur", onBlur)
+    window.addEventListener("focus", onFocus)
+    // Only one tab generates. The newest claims it, so the tab in front of you
+    // is always the live one; the others go quiet and say why.
+    const release = keepLease((mine) => setLive(mine))
     return () => {
       stopped = true
       clearInterval(id)
       document.removeEventListener("visibilitychange", onVis)
       window.removeEventListener("pointerdown", onUse)
       window.removeEventListener("keydown", onUse)
+      window.removeEventListener("blur", onBlur)
+      window.removeEventListener("focus", onFocus)
+      release()
       ctrl.abort()
       try { micHandle.current?.cancel() } catch { /* */ }
     }
@@ -646,7 +678,18 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
       {/* The room has stopped talking to itself because nobody is here. Said out
           loud, because a room that simply goes silent reads as broken — and the
           honest version is better anyway: it is waiting for you, not failing. */}
-      {dozing && (
+      {/* Another tab has the room. Say so and offer it back, rather than leaving
+          this one looking broken — and taking it is one tap, because the tab you
+          are looking at should be the live one. */}
+      {!live && (
+        <button onClick={() => { claimLease(); setLive(true); wake() }} aria-label="talk here instead"
+          style={{ flexShrink: 0, margin: "0 12px 8px", padding: "11px 14px", borderRadius: 12, textAlign: "left",
+            background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "rgba(240,232,255,.65)",
+            fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+          the room is running in another tab — <span style={{ color: "#ff5f8a", fontWeight: 600 }}>tap to move it here</span>
+        </button>
+      )}
+      {live && dozing && (
         <button onClick={wake} aria-label="carry on"
           style={{ flexShrink: 0, margin: "0 12px 8px", padding: "11px 14px", borderRadius: 12, textAlign: "left",
             background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "rgba(240,232,255,.65)",

@@ -220,6 +220,50 @@ function genderLooks(gender?: string, seed = ""): { pool: string[]; word: string
 }
 
 /**
+ * PORTRAIT_NEG, said affirmatively, for engines that have no negative prompt.
+ *
+ * This exists because of a hole that made every counterweight in PORTRAIT_NEG
+ * decorative on the engine that actually serves production. FLUX — Together's
+ * whole photoreal ladder and fal — takes no `negative_prompt` at all, so
+ * genTogether and genFal never had a parameter to put it in and it was silently
+ * dropped. Everything the negative list refuses was therefore refused only on
+ * google, qwen and runpod, which are the fallbacks.
+ *
+ * The visible symptom was the one that list was written to stop: BASE asks for
+ * "unretouched, natural skin texture with visible pores" and "slight sensor
+ * noise", FLUX reads that stack as AGE, and the only thing pushing back —
+ * "elderly, wrinkled, grey hair, aged skin, sagging skin" — was never sent. The
+ * People deck was handing a visitor a grey-haired woman with deep wrinkles under
+ * a persona written as a twenty-six-year-old.
+ *
+ * It is phrased as a description rather than a prohibition on purpose: a
+ * diffusion model asked for "not old" attends to "old". So it states what IS
+ * true, and lets that crowd out what isn't.
+ *
+ * NOT A SAFETY CHANGE. The safety half of that floor was never carried by the
+ * negative alone — every engine already gets "They are clearly an adult" in the
+ * positive prompt, by design (see the note above the template). This restores
+ * the SECOND layer on the engines that were running on one, and moves the
+ * description further from a minor rather than closer: an explicit "twenties or
+ * thirties" is a narrower, older claim than the age phrase alone.
+ */
+export const NEG_AS_POSITIVE =
+  "They have smooth unlined skin and full hair in its natural colour. " +
+  "They are a healthy adult in their twenties or thirties."
+
+/**
+ * The prompt to send to an engine that cannot take a negative prompt.
+ *
+ * AIRRAW only. The legacy Kloom builder is left byte-identical — it has its own
+ * prompt, its own negative and its own cached faces, and this is not its bug.
+ */
+export function promptWithoutNegative(prompt: string): string {
+  // BASE ends without punctuation, so join with one rather than running the two
+  // sentences together — a model reads "...natural face They have" as one clause.
+  return `${prompt.replace(/[\s.]+$/, "")}. ${NEG_AS_POSITIVE}`
+}
+
+/**
  * A fingerprint of the PROMPT ITSELF, and the reason it exists is a bug that cost
  * two rounds of "the faces are still wrong".
  *
@@ -253,7 +297,10 @@ export const PROMPT_FINGERPRINT = (() => {
   ].join("~")
   const all = [
     ...AGE, ...LOOK_F, ...LOOK_M, ...LOOK_X, ...STYLE, ...HAIR, ...ETHNICITY,
-    BASE, PORTRAIT_NEG, sample,
+    // NEG_AS_POSITIVE is part of what the model is actually sent on the default
+    // engine, so an edit to it has to invalidate cached faces exactly like an
+    // edit to BASE does. Leaving it out is how a prompt fix reaches nobody.
+    BASE, PORTRAIT_NEG, NEG_AS_POSITIVE, sample,
   ].join("|")
   return hash(all).toString(36).slice(0, 6)
 })()

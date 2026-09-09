@@ -102,5 +102,74 @@ check(/return 90/.test(body), "kontext is ranked last, not merely deprioritised"
 check(/pro\|max\|ultra/.test(body), "the expensive tiers rank below the cheap ones")
 check(/dev\|flex\|lightning\|fast/.test(body), "and dev/flex tiers come first")
 
+
+// ── 4. WHAT THE MODEL IS ACTUALLY SENT ──────────────────────────────────────
+// PORTRAIT_NEG is a long, carefully-argued list, and on the engine that serves
+// production it was reaching nothing. FLUX — Together's whole photoreal ladder,
+// and fal — has no negative_prompt, so genTogether and genFal had no parameter
+// to carry it in and it was dropped silently. The visible result was a persona
+// written as twenty-six rendered as a grey-haired woman with deep wrinkles, on
+// the first card of the People deck, because every term meant to prevent that
+// ("elderly, wrinkled, grey hair, aged skin") lived only in the negative.
+//
+// The rule this locks in: an engine either RECEIVES the negative, or is sent a
+// prompt that carries it. Never neither.
+const pp = strip("lib/airraw/portrait-prompt.ts")
+const rt = strip("app/api/character-photo/route.ts")
+
+// Engines whose signature takes a negative must still be handed one.
+for (const g of ["genGoogle", "genQwen", "genRunpod"]) {
+  const sig = new RegExp(`async function ${g}\\(prompt: string, negative: string`)
+  const call = new RegExp(`${g}\\(prompt, negative`)
+  check(sig.test(rt), `${g} takes a negative`)
+  check(call.test(rt), `and is called with it`)
+}
+
+// Engines whose signature has no negative must never be handed the bare prompt.
+for (const g of ["genTogether", "genFal"]) {
+  const sig = rt.match(new RegExp(`async function ${g}\\(([^)]*)\\)`))
+  check(!!sig && !/negative/.test(sig[1]), `${g} genuinely has nowhere to put a negative`)
+  const calls = [...rt.matchAll(new RegExp(`await ${g}\\(([A-Za-z0-9_]+)`, "g"))].map((m) => m[1])
+  check(calls.length > 0, `${g} is actually called`)
+  check(calls.every((a) => a === "promptNoNeg"),
+    `and every one of its ${calls.length} call sites sends the folded prompt, not the bare one`)
+}
+
+// The fold has to say the thing the dropped negative was there to prevent.
+const { NEG_AS_POSITIVE, PORTRAIT_NEG, promptWithoutNegative, buildPortraitPrompt } =
+  await import("../lib/airraw/portrait-prompt.ts")
+check(/twenties|thirties/.test(NEG_AS_POSITIVE) && /skin/.test(NEG_AS_POSITIVE),
+  "the fold names age and skin — the two things FLUX was getting wrong")
+{
+  // A property, not a shape: whatever punctuation the join uses, the persona has
+  // to survive intact and the fold has to land at the end — folding must never
+  // eat the ethnicity, the age phrase or the adult statement.
+  const base = buildPortraitPrompt("fold-check", "female").prompt
+  const folded = promptWithoutNegative(base)
+  check(folded.endsWith(NEG_AS_POSITIVE), "the fold lands at the end")
+  check(folded.startsWith(base.replace(/[\s.]+$/, "")), "and nothing before it is rewritten")
+  for (const keep of ["They are clearly an adult", buildPortraitPrompt("fold-check", "female").ethnicity, buildPortraitPrompt("fold-check", "female").age]) {
+    check(folded.includes(keep), `"${keep}" survives folding`)
+  }
+}
+
+// A prompt fix that doesn't move the cache key reaches nobody — this exact
+// mistake is documented above PROMPT_FINGERPRINT, having already happened once.
+check(/NEG_AS_POSITIVE,\s*sample|BASE, PORTRAIT_NEG, NEG_AS_POSITIVE/.test(pp),
+  "the fold is inside the cache fingerprint, so stale faces regenerate")
+
+// ── THE SAFETY FLOOR IS UNCHANGED ───────────────────────────────────────────
+// This is the assertion that must never be quietly deleted. The fold moves the
+// description toward an older, narrower claim; it must not introduce one word
+// that reads younger, and the two existing layers must both still be there.
+for (const term of ["child", "minor", "underage", "teenager"]) {
+  check(PORTRAIT_NEG.includes(term), `the negative still refuses "${term}"`)
+}
+check(/They are clearly an adult\./.test(buildPortraitPrompt("any-seed", "female").prompt),
+  "and the positive still states it outright, on every engine")
+check(!/\b(teen|young girl|young boy|schoolgirl|petite|barely|childlike|youthful body|small body)\b/i.test(NEG_AS_POSITIVE),
+  "the fold introduces nothing that reads younger than an adult")
+check(/adult/i.test(NEG_AS_POSITIVE), "and restates adult itself")
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail ? 1 : 0)

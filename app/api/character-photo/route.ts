@@ -11,7 +11,7 @@
 // the URL is permanent and cheap to serve.
 
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
-import { buildPortraitPrompt, PROMPT_FINGERPRINT } from "@/lib/airraw/portrait-prompt"
+import { buildPortraitPrompt, promptWithoutNegative, PROMPT_FINGERPRINT } from "@/lib/airraw/portrait-prompt"
 import { isCleanPortrait, validatorReady } from "@/lib/face-validate"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 
@@ -684,6 +684,17 @@ export async function POST(request: Request) {
   const dp = diverse ? buildPortraitPrompt(seedKey, gender, world, desc) : null
   const prompt = dp ? dp.prompt : buildPrompt(name, gender, world, desc)
   const negative = dp ? dp.negative : NEG
+  // FLUX — Together's entire photoreal ladder, and fal — has no negative_prompt,
+  // so genTogether and genFal have no parameter to carry `negative` in and it was
+  // being dropped on the floor. That is the engine production actually runs on,
+  // which made every counterweight in PORTRAIT_NEG decorative: the de-ageing
+  // terms reached google, qwen and runpod and nothing else. Folded into the
+  // positive instead, where a model with no negative can still read it.
+  //
+  // AIRRAW only (`dp`). The Kloom builder keeps the exact prompt it has always
+  // sent — it has its own negative and its own cached faces, and changing what
+  // Kloom asks for is not part of fixing this.
+  const promptNoNeg = dp ? promptWithoutNegative(prompt) : prompt
   const seed = dp ? dp.seed : Math.abs(hashStr(seedKey)) % 2147483647
 
   // Make-once, cache-forever: each unique persona (slug+seed) is generated exactly
@@ -743,7 +754,7 @@ export async function POST(request: Request) {
       if (dp) {
         for (const rung of TOGETHER_LADDER) {
           if (togetherOff.has(rung.model)) continue
-          const b = await genTogether(prompt, dseed, rung.model, rung.steps)
+          const b = await genTogether(promptNoNeg, dseed, rung.model, rung.steps)
           if (b === RATE_LIMITED) break   // account throttled — the floor walk below backs off, once
           if (b) { usedModel = rung.model; return b }
         }
@@ -752,7 +763,7 @@ export async function POST(request: Request) {
       // independent of the Together tier). Fires automatically the moment FAL_KEY is set —
       // no provider switch, no rebuild. Falls through to the schnell floor if FAL is absent.
       if (dp && FAL_KEY) {
-        const fb = await genFal(prompt, dseed)
+        const fb = await genFal(promptNoNeg, dseed)
         if (fb) { usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return fb }
       }
       // The floor: what the account actually has, then the hardcoded guesses as
@@ -766,7 +777,7 @@ export async function POST(request: Request) {
         if (togetherOff.has(m)) { tried.push(`${m}(known-unreachable)`); continue }
         if (asked >= WALK_MAX) break
         tried.push(m); asked++
-        let b = await genTogether(prompt, dseed, m)
+        let b = await genTogether(promptNoNeg, dseed, m)
         // A 429 is the ACCOUNT being throttled, not this model. The live logs
         // showed single requests walking twenty models, collecting twenty 429s,
         // and then being killed at 120s — walking on just spends the budget on
@@ -775,7 +786,7 @@ export async function POST(request: Request) {
         // outer retry loop spaces the next attempt.
         if (b === RATE_LIMITED) {
           await new Promise((r) => setTimeout(r, 2200))
-          b = await genTogether(prompt, dseed, m)
+          b = await genTogether(promptNoNeg, dseed, m)
           if (b === RATE_LIMITED) { limited = true; break }
         }
         if (b) { usedModel = m; return b }
@@ -790,7 +801,7 @@ export async function POST(request: Request) {
       return null
     }
     if (engine === "fal") {
-      const b = await genFal(prompt, dseed)
+      const b = await genFal(promptNoNeg, dseed)
       if (b) { usedModel = process.env.FAL_IMAGE_MODEL || "fal-ai/flux/dev"; return b }
       // fal's key has been answering 403 in production for days, and this branch
       // used to return that null straight to the caller — so a deployment pinned
@@ -798,7 +809,7 @@ export async function POST(request: Request) {
       // with three other working engines sitting right here. A named engine that
       // is not answering is a reason to try the next one, not to end the request.
       if (TOGETHER_KEY) {
-        const t = await genTogether(prompt, dseed)
+        const t = await genTogether(promptNoNeg, dseed)
         if (t && t !== RATE_LIMITED) { usedModel = TOGETHER_MODEL; return t }
       }
     }

@@ -26,7 +26,7 @@
 // than restated.
 
 import type { Cluster } from "@/lib/airroom/roster"
-import { buildPortraitPrompt } from "@/lib/airraw/portrait-prompt"
+import { profileFor, lookLine } from "@/lib/airraw/profile"
 import { isPro } from "@/lib/airroom/pro"
 
 export interface SavedMedia {
@@ -85,14 +85,14 @@ function write(list: SavedCharacter[]) {
  * with it.
  */
 export function lookFor(c: Cluster): string {
-  // A written character describes her own face. Only the generated floor needs a
-  // look composed from the pools.
-  if (c.look) return c.look
-  const { prompt } = buildPortraitPrompt(c.key, c.gender)
-  // buildPortraitPrompt composes "<base>. <style>. portrait of <person>". The
-  // person is the last clause; the two before it are camera direction.
-  const i = prompt.indexOf("portrait of ")
-  return (i >= 0 ? prompt.slice(i + "portrait of ".length) : prompt).trim()
+  // Was: find "portrait of " in the assembled prompt and slice after it. That
+  // anchor stopped existing when the template was reordered to put the subject
+  // first, so the search fell through to returning the ENTIRE prompt — camera
+  // direction included — and every photo request has been carrying "shot on a
+  // phone, unretouched, visible pores, slight sensor noise" into whatever scene
+  // was asked for ever since. Recovering parts by string-searching a string you
+  // assembled is the bug; the parts are handed over now instead.
+  return lookLine(profileFor(c))
 }
 
 export function listCharacters(): SavedCharacter[] {

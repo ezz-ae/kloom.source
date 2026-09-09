@@ -26,6 +26,7 @@
 
 import { makeCharacter, type Cluster } from "@/lib/airroom/roster"
 import { dossierForSeed, cardLinesFor } from "@/lib/airraw/dossier"
+import { profileFor, lookLine } from "@/lib/airraw/profile"
 
 /**
  * How many people get a page. Bounded on purpose (see header) and tunable
@@ -167,6 +168,14 @@ export interface PublicProfile {
   where: string
   /** The dossier, in her voice. */
   says: { work: string; where: string; onMind: string; opinion: string; peeve: string; tell: string }
+  /**
+   * What she looks like, from the same computation the image pipeline uses.
+   *
+   * Was absent, which meant six hundred public pages described six hundred inner
+   * lives attached to nobody in particular — and, for search, six hundred pages
+   * whose only distinguishing text was the dossier.
+   */
+  look: string
   /** Her opening lines, as written on the floor. */
   lines: string[]
   pronoun: "she" | "he"
@@ -192,6 +201,7 @@ export function publicProfile(i: number): PublicProfile {
       peeve: sentence(inHerWords(d.peeve)),
       tell: sentence(inHerWords(d.tell)),
     },
+    look: lookLine(profileFor(c)),
     lines: c.lines || [],
     pronoun: c.gender === "male" ? "he" : "she",
   }

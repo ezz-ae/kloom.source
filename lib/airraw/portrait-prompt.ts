@@ -305,7 +305,27 @@ export const PROMPT_FINGERPRINT = (() => {
   return hash(all).toString(36).slice(0, 6)
 })()
 
-export interface PortraitPrompt { prompt: string; negative: string; seed: number; ethnicity: string; age: string }
+export interface PortraitPrompt {
+  prompt: string
+  negative: string
+  seed: number
+  // THE PARTS, not just the assembled string.
+  //
+  // These were being recovered downstream by searching the finished prompt for
+  // "portrait of " and taking everything after it — which stopped working the
+  // moment the template was reordered to put the subject first, silently, with
+  // the whole camera direction leaking into scene prompts as a result. A caller
+  // that needs the person rather than the photograph should be handed the person.
+  ethnicity: string
+  age: string
+  /** The noun the prompt uses for them: "woman", "man", "person". */
+  word: string
+  /** Their face and expression, one clause. */
+  look: string
+  hair: string
+  /** Where the photograph was taken — a place, not a camera setting. */
+  style: string
+}
 
 /** Build a unique, diverse portrait prompt for a persona. */
 export function buildPortraitPrompt(seedKey: string, gender?: string, _world?: string, desc?: string): PortraitPrompt {
@@ -351,5 +371,5 @@ export function buildPortraitPrompt(seedKey: string, gender?: string, _world?: s
     `${style}. ` +
     `They are clearly an adult. ${BASE}`
 
-  return { prompt, negative: PORTRAIT_NEG, seed: hash(k + "|px") % 2147483647, ethnicity, age }
+  return { prompt, negative: PORTRAIT_NEG, seed: hash(k + "|px") % 2147483647, ethnicity, age, word, look, hair, style }
 }

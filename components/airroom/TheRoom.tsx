@@ -51,6 +51,7 @@ function soulOf(c: Cluster): string {
   return soulPrompt(identityFor(m, langFor(getLangPrefs().primary)))
 }
 import { dossierLine, cardLinesFor, dossierForSeed } from "@/lib/airraw/dossier"
+import { profileFor, selfShort } from "@/lib/airraw/profile"
 import { getLangPrefs } from "@/lib/airraw/lang-prefs"
 import { getProToken, isPro } from "@/lib/airroom/pro"
 import { getProfile } from "@/lib/airroom/profile"
@@ -426,7 +427,10 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
             `When you address someone, write their name as @Name (the visitor is @${you}). ` +
             `Never narrate the room, never ask "how is everyone", never introduce yourself. You've been here an hour.`,
           speakingStyle: `${texture}. one line only, under 22 words, no emoji, no stage directions, no quotation marks.`,
-          backstory: "",
+          // The short form, not the paragraph: this loop runs constantly for
+          // fourteen people and is the one that has already cost real money. Just
+          // enough that her hair here matches her hair on the call.
+          backstory: selfShort(profileFor(who)),
           seedKey: id,
         }
 

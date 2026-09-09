@@ -57,6 +57,7 @@ const WHAT = {
   "onetab-test":      "no surface spawns a tab, and the call carries its own settings",
   "golden-test":      "the room you rent keeps the person you brought, and is priced for it",
   "money-test":       "a price shown in riyals is that price, and the statement currency is said out loud",
+  "profile-test":     "one person computed once — the card, the call and the photo can't disagree",
 }
 
 // Two suites drive a real browser and need a server, so they are excluded from
@@ -73,11 +74,24 @@ const WHAT = {
 // silent while the voice engine billed for it. Reading it would never have found
 // that; running it found it immediately.
 const SERVER_ONLY = new Set(["run.mjs", "ui-check.mjs", "live-check.mjs"])
-const files = readdirSync(here).filter((f) => f.endsWith(".mjs") && !SERVER_ONLY.has(f)).sort()
+// Not suites: the "@/" alias resolver this runner loads into every suite. They
+// contain no assertions, so running them reported two extra PASSes and inflated
+// the count — which is worse than useless, because a real suite disappearing
+// would have been hidden by the same number staying put.
+const HELPERS = new Set(["alias.mjs", "alias-hooks.mjs"])
+const all = readdirSync(here).filter((f) => f.endsWith(".mjs") && !SERVER_ONLY.has(f) && !HELPERS.has(f)).sort()
+// A suite with no description is almost always a new file nobody wired up. Say
+// so rather than running it namelessly under a blank column.
+const undescribed = all.filter((f) => !WHAT[f.replace(/\.mjs$/, "")])
+if (undescribed.length) console.log(`note: no description for ${undescribed.join(", ")} — add one to WHAT\n`)
+const files = all
 let failed = 0
 for (const f of files) {
   const name = f.replace(/\.mjs$/, "")
-  const r = spawnSync(process.execPath, [join(here, f)], { encoding: "utf8" })
+  // --import registers the "@/" alias resolver (tests/alias.mjs) so a suite can
+  // import and RUN a module that uses the project alias, instead of grepping its
+  // source and hoping the text implies the behaviour.
+  const r = spawnSync(process.execPath, ["--import", join(here, "alias.mjs"), join(here, f)], { encoding: "utf8" })
   const ok = r.status === 0
   if (!ok) failed++
   console.log(`${ok ? "PASS" : "FAIL"}  ${name.padEnd(18)} ${WHAT[name] || ""}`)

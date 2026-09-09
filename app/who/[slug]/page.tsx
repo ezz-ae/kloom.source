@@ -61,6 +61,10 @@ export default async function WhoPage({ params }: { params: Promise<{ slug: stri
   const her = p.pronoun === "he" ? "him" : "her"
 
   const facts: Array<[string, string]> = [
+    // The body, first — it is the one thing on this page that was only ever known
+    // to the image pipeline, and for search it is the line that makes six hundred
+    // otherwise-similar pages describe six hundred different people.
+    ["what I look like", p.look],
     ["what I do", p.says.work],
     ["where I am tonight", p.says.where],
     ["what's on my mind", p.says.onMind],

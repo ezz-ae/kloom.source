@@ -25,6 +25,7 @@ import { writtenFor, identityFor, soulPrompt, langFor } from "@/lib/airraw/cast5
 import { LANGUAGE_TO_BCP47, isoForLanguage } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
 import { dossierLine } from "@/lib/airraw/dossier"
+import { profileFor, selfLine } from "@/lib/airraw/profile"
 import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySink, bindMediaSession, type OutputDevice } from "@/lib/airraw/audio-output"
 import { loadTalk, saveTalk, forgetTalk, memoryEnabled } from "@/lib/airraw/memory"
 import { shouldPickUp, gapLabel, pickupInstruction, cleanPickup, worthPickingUp } from "@/lib/airraw/pickup"
@@ -108,7 +109,12 @@ function personaFor(c: Cluster, lang?: string, pro = false) {
       `${(() => { const m = writtenFor(c.key); return m ? soulPrompt(identityFor(m, langFor(prefs.primary))) : dossierLine(id) })()} ` +
       `You want things and you say so out loud.`,
     speakingStyle: "raw, intimate voice at 2am — short fragments, direct, natural. get to it fast. stretch letters for feeling when it's real: 'yesss', 'noooo'. never formal, never robotic.",
-    backstory: `A familiar voice on the ${c.vibe} part of the adult floor.`,
+    // WAS: "A familiar voice on the <vibe> part of the adult floor." — a label,
+    // not a person. The dossier above already gave her an inner life; this is the
+    // body that only the image pipeline knew about, so she stops inventing a new
+    // face every time she is asked what she looks like — and the one she gives is
+    // the one on the card the visitor just tapped.
+    backstory: `A familiar voice on the ${c.vibe} part of the adult floor. ${selfLine(profileFor(c))}`,
     // Accent/dialect is derived from this, and it MUST be the seed the FACE is
     // generated from (faceSeedFor: archetype + name), or a character looks one
     // ethnicity and sounds another. It was the bare name — which the face stopped

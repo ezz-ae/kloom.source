@@ -10,7 +10,8 @@
  * and can speak it aloud (/api/tts). Stockfish would make it a "1%" opponent — the
  * search is swappable for it later.
  */
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState, useMemo } from "react"
+import { renderPersona, namedCharacter } from "@/lib/airraw/persona"
 import { Chess, type Square } from "chess.js"
 import { detectLanguage, LANGUAGE_TO_BCP47 } from "@/lib/languages"
 import { listenOnce } from "@/lib/voice-once"
@@ -62,6 +63,9 @@ function bestMove(g: Chess, depth = 3) {
 }
 
 export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: () => void }) {
+  // He was a bare string, which is why he was the one character in the product
+  // with no seed — and so no derived accent, no voice of his own, and no face.
+  const kai = useMemo(() => namedCharacter(name, "chess", "male"), [name])
   const gameRef = useRef(new Chess())
   const [fen, setFen] = useState(gameRef.current.fen())
   const [sel, setSel] = useState<Square | null>(null)
@@ -133,10 +137,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
 
   const quip = useCallback(async (event: string) => {
     try {
-      const persona = {
-        name, personality: `You are ${name}, a sharp, cocky, playful chess hustler in a late-night arena. You're mid-game against the person across the board. React to what just happened in ONE short spoken line — trash talk, a dare, a smirk. Never explain chess, never list moves.`,
-        speakingStyle: "spoken, cocky, casual, a little dangerous", backstory: "", language: langRef.current,
-      }
+      const persona = renderPersona(kai, "game", { kind: "banter", language: langRef.current })
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, messages: [{ role: "user", content: event }] }) })
       if (!res.ok || !res.body) return
       const rd = res.body.getReader(); const dec = new TextDecoder(); let full = ""
@@ -153,7 +154,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
     if (!text || chatBusy) return
     setChatInput(""); pushChat("you", text); setChatBusy(true)
     try {
-      const persona = { name, personality: `You are ${name}, a cocky, playful chess hustler mid-game against this person. Talk WITH them — banter, smack talk, dares, but you can hold a real conversation too. Keep it to one or two short spoken lines. Never list chess moves.`, speakingStyle: "spoken, cocky, casual", backstory: "", language: langRef.current }
+      const persona = renderPersona(kai, "game", { kind: "talk", language: langRef.current })
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ persona, messages: chatRef.current.map((m) => ({ role: m.who === "you" ? "user" as const : "assistant" as const, content: m.text })) }) })
       let full = ""
       if (res.ok && res.body) { const rd = res.body.getReader(); const dec = new TextDecoder(); for (;;) { const { done, value } = await rd.read(); if (done) break; full += dec.decode(value) } }

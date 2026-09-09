@@ -21,8 +21,8 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { composeScene, castFor, fantasyById, roleById, type SceneConfig } from "@/lib/airraw/fantasy"
-import { dossierLine } from "@/lib/airraw/dossier"
 import { faceSeedFor, type Cluster } from "@/lib/airroom/roster"
+import { renderPersona } from "@/lib/airraw/persona"
 import { getProToken } from "@/lib/airroom/pro"
 import { getLangPrefs } from "@/lib/airraw/lang-prefs"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
@@ -115,16 +115,7 @@ export function SceneRoom({ cfg, onClose, onPass, sceneId, initialLines }: {
   const personaFor = (c: Cluster, slot: number) => {
     const m = cfg.cast[slot]
     const role = roleById(m?.roleId || "")
-    return {
-      name: c.host,
-      personality:
-        `You are ${c.host}. ${role ? `In this scene you are ${role.line}. ` : ""}` +
-        `${dossierLine(c.key || c.host)} You want things and you say so out loud.`,
-      speakingStyle: "raw, intimate, unhurried — short fragments, direct, natural. never formal, never robotic.",
-      backstory: `Part of this scene by choice.`,
-      seedKey: faceSeedFor(c) || c.host,
-      barTalk: 100,
-    }
+    return renderPersona(c, "scene", { role: role?.line })
   }
 
   /** Whose turn it is, by the mode the user picked. */

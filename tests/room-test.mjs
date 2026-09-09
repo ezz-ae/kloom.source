@@ -99,7 +99,15 @@ check(/const mentionOf = \(text: string\): Cluster \| null/.test(room), "a messa
 check(/replyTo\.current = mentionOf\(text\)/.test(room), "an @mentioned person is the one who answers")
 check(/: called \? called/.test(room), "and they are chosen before any random pick")
 check(/to YOU, by name/.test(room), "they are told they were addressed directly")
-check(/write their name as @Name \(the visitor is @\$\{you\}\)/.test(room), "characters are told to address people as @Name")
+{
+  // The instruction moved into the persona registry's `room` surface. Assert the
+  // rendered prompt, not the file it used to live in.
+  const { renderPersona } = await import("@/lib/airraw/persona")
+  const { makeCharacter } = await import("@/lib/airroom/roster")
+  const p = renderPersona(makeCharacter(4242, 0.8), "room", { mood: "m", kind: "k", you: "Ezz" })
+  check(/write their name as @Name \(the visitor is @Ezz\)/.test(p.personality),
+    "characters are told to address people as @Name, and who the visitor is")
+}
 check(/function Mentions\(/.test(room) && /<Mentions text=\{l\.text\}/.test(room), "mentions are highlighted in every line")
 check((room.match(/<Mentions text=\{l\.text\}/g) || []).length >= 2, "in the characters' lines AND the visitor's")
 check(/onTap=\{setOpen\}/.test(room), "and tapping a mention opens that person's card")

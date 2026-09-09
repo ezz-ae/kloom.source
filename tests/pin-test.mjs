@@ -38,12 +38,28 @@ for (const f of ["components/airroom/AirBubble.tsx", "components/airroom/GroupRo
   check(/awaitPin\(who,/.test(s) && /claimFirst\(who,/.test(s), `${short}: the first request for a person goes alone`)
 }
 
+// The dialect is derived server-side from seedKey, and the portrait is generated
+// from the same value, so a persona carrying a different one looks one ethnicity
+// and sounds another. This used to be grepped for in each component; the persona
+// registry is now the single place it is set, so ask the registry — and ask it
+// about EVERY surface, because the way this broke was one surface omitting it.
+const { renderPersona, SURFACE_NAMES } = await import("@/lib/airraw/persona")
+const { makeCharacter, faceSeedFor } = await import("@/lib/airroom/roster")
+{
+  const sample = [4242, 991, 77].map((n) => makeCharacter(n, (n % 97) / 97))
+  const wrong = []
+  for (const c of sample) for (const surf of SURFACE_NAMES) {
+    const p = renderPersona(c, surf, { mood: "m", kind: "k", you: "u", others: "o" })
+    if (p.seedKey !== (faceSeedFor(c) || c.host)) wrong.push(`${c.host}/${surf}`)
+  }
+  if (wrong.length) console.log("   wrong or missing on: " + wrong.join(", "))
+  check(wrong.length === 0, "every surface's persona takes its dialect from the face's seed")
+}
 const air = read("components/airroom/AirBubble.tsx")
-check(/seedKey: faceSeedFor\(c\) \|\| c\.host/.test(air), "the 1:1 persona's dialect comes from the face's seed")
 check(/const TTS_LANES = 2/.test(air) && /acquireTtsLane\(\)/.test(air) && /finally \{ releaseTtsLane\(\) \}/.test(air),
   "at most two chunks are in flight, and a lane is always given back")
 const room = read("components/airroom/GroupRoom.tsx")
-check(/seedKey: faceSeedFor\(mem\) \|\| mem\.host/.test(room), "a group member's dialect comes from the face's seed")
+check(/renderPersona\(mem, "group"/.test(room), "a group member is rendered through the registry, so the seed above covers them too")
 const roster = read("lib/airroom/roster.ts")
 check(/matches\(faceSeedFor\(first\) \|\| first\.key\)/.test(roster) && /matches\(faceSeedFor\(c\) \|\| c\.key\)/.test(roster),
   "the language filter judges the same seed the face and voice use")

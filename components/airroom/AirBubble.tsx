@@ -24,8 +24,7 @@ import { lookFor, saveCharacter, addMedia } from "@/lib/airraw/character"
 import { writtenFor, identityFor, soulPrompt, langFor } from "@/lib/airraw/cast50"
 import { LANGUAGE_TO_BCP47, isoForLanguage } from "@/lib/languages"
 import { getStyle, saveStyle, nextStyleQuestion, stylePromptLine, type StyleQuestion } from "@/lib/airroom/style"
-import { dossierLine } from "@/lib/airraw/dossier"
-import { profileFor, selfLine } from "@/lib/airraw/profile"
+import { renderPersona } from "@/lib/airraw/persona"
 import { loadVolume, saveVolume, canChooseOutput, listOutputs, loadSink, applySink, bindMediaSession, type OutputDevice } from "@/lib/airraw/audio-output"
 import { loadTalk, saveTalk, forgetTalk, memoryEnabled } from "@/lib/airraw/memory"
 import { shouldPickUp, gapLabel, pickupInstruction, cleanPickup, worthPickingUp } from "@/lib/airraw/pickup"
@@ -71,7 +70,8 @@ const HEAT_GRAD:  Record<Heat, string> = {
 // character arrives with a job, a place they're sitting, something on their mind
 // and an opinion they'll argue.
 //
-// The two halves are drawn INDEPENDENTLY and joined only here: `dossierLine`
+// The two halves are drawn INDEPENDENTLY and joined only in the registry:
+// the dossier
 // knows nothing about where the character's voice is from, and `arabicDialectLine`
 // knows nothing about their personality. So a Gulf accent is just as likely to
 // come with the filthiest dossier in the pool as a European one — accent never
@@ -90,40 +90,20 @@ function withGame<T extends { personality: string }>(persona: T, gameId?: string
 }
 
 function personaFor(c: Cluster, lang?: string, pro = false) {
-  const id = c.key || c.host
   // The caller's language wins when the surface pinned one; otherwise the user's
   // own setting decides, rather than everyone starting in English.
   const prefs = getLangPrefs()
   const spoken = spokenLanguages(prefs)
-  return {
+  return renderPersona(c, "call", {
     language: lang || prefs.primary || "English",
     // Every language they speak, so switching mid-call is expected rather than
     // treated as a mistake to correct.
     speaks: spoken,
-    name: c.host,
-    personality:
-      `You are ${c.host}, on a late-night adult voice floor — the "${c.name}" room (vibe: ${c.vibe}). ` +
-      // One of the fifty brings her written inner life and her voice registers.
-      // Everyone else gets the generated dossier. The prompt is the same shape
-      // either way, so nothing downstream has to care which she is.
-      `${(() => { const m = writtenFor(c.key); return m ? soulPrompt(identityFor(m, langFor(prefs.primary))) : dossierLine(id) })()} ` +
-      `You want things and you say so out loud.`,
-    speakingStyle: "raw, intimate voice at 2am — short fragments, direct, natural. get to it fast. stretch letters for feeling when it's real: 'yesss', 'noooo'. never formal, never robotic.",
-    // WAS: "A familiar voice on the <vibe> part of the adult floor." — a label,
-    // not a person. The dossier above already gave her an inner life; this is the
-    // body that only the image pipeline knew about, so she stops inventing a new
-    // face every time she is asked what she looks like — and the one she gives is
-    // the one on the card the visitor just tapped.
-    backstory: `A familiar voice on the ${c.vibe} part of the adult floor. ${selfLine(profileFor(c))}`,
-    // Accent/dialect is derived from this, and it MUST be the seed the FACE is
-    // generated from (faceSeedFor: archetype + name), or a character looks one
-    // ethnicity and sounds another. It was the bare name — which the face stopped
-    // using when the cast grew to 2,980 — so the Bea in "stories" was drawn with
-    // one face and cast with another woman's accent. The unique key stays where
-    // it's free: the dossier and saved threads.
-    seedKey: faceSeedFor(c) || c.host,
-    barTalk: 100,
-  }
+    // One of the fifty brings her written inner life and her voice registers;
+    // everyone else gets the generated dossier. The registry does not know about
+    // cast50, so the lookup stays here and the choice is made there.
+    soul: (() => { const m = writtenFor(c.key); return m ? soulPrompt(identityFor(m, langFor(prefs.primary))) : "" })(),
+  })
 }
 
 // How many chunk requests may be in flight at once, across every call on the

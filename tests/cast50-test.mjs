@@ -109,7 +109,24 @@ check(inRoom > roomSize / 2, `most of the room is hand-written (${inRoom} of ${r
 check(/groupCast/.test(room), "and the generated floor still fills it out, so it is a crowd not a line-up")
 
 // ── their soul is what reaches the model ──────────────────────────────────
-check(/soulOf\(who\) \|\| dossierLine\(id\)/.test(room), "a written character speaks from her own soul in the room, a generated one from the dossier")
+// The choice moved into the persona registry, which is the point — but the room
+// still has to HAND OVER the written soul, and the registry still has to prefer
+// it. Both halves are asserted, because either one alone is a passing test over
+// a broken feature.
+check(/renderPersona\(who, "room", \{\s*soul: soulOf\(who\)/.test(room),
+  "the room hands the written soul to the registry")
+{
+  const { renderPersona } = await import("@/lib/airraw/persona")
+  const { makeCharacter } = await import("@/lib/airroom/roster")
+  const { dossierForSeed } = await import("@/lib/airraw/dossier")
+  const c = makeCharacter(4242, 0.8)
+  const d = dossierForSeed(c.key || c.host)
+  const withSoul = renderPersona(c, "room", { soul: "HER-OWN-SOUL", mood: "m", kind: "k", you: "u" })
+  const without = renderPersona(c, "room", { mood: "m", kind: "k", you: "u" })
+  check(withSoul.personality.includes("HER-OWN-SOUL") && !withSoul.personality.includes(d.opinion),
+    "a written character speaks from her own soul, and not also from the dossier")
+  check(without.personality.includes(d.opinion), "and a generated one speaks from the dossier")
+}
 const bubble = readFileSync("components/airroom/AirBubble.tsx", "utf8")
 check(/writtenFor\(c\.key\)/.test(bubble) && /soulPrompt/.test(bubble), "and the same in a private thread")
 

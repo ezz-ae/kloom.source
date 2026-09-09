@@ -14,6 +14,7 @@
  */
 import { useEffect, useRef, useState } from "react"
 import { groupCast, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
+import { renderPersona } from "@/lib/airraw/persona"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { visitorId } from "@/lib/airraw/visitor"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
@@ -170,18 +171,12 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
     const others = members.filter((x) => x.host !== mem.host).map((x) => x.host).join(", ")
     // The Pro "vibe" steer is sent separately and gated server-side on a real Pro token.
     const persona = {
-      name: mem.host,
       // Same fix as the 1:1 call: every member used to be described by one generic
       // sentence, so nobody in the room had anything of their own to say and they
       // all converged on echoing whatever was said last. The dossier gives each
       // one a job, a night, an opinion — which is also what makes them sound like
       // different people to each other.
-      personality: `You are ${mem.host} in a small late-night group room with ${others} and the people who just walked in. ${dossierLine(mem.key || mem.host)} React to the LAST thing said in ONE short spoken sentence. Sometimes to the others, sometimes to a newcomer. Vibe: ${mem.vibe}.${topic ? ` Tonight the room keeps circling one thing: "${topic}" — drift back to it when the thread goes quiet.` : ""}`,
-      speakingStyle: "spoken, casual, a little imperfect — like a real voice at 2am", backstory: "", language: langRef.current,
-      // The face's seed (archetype + name), not the unique key and not the bare
-      // name: accent is derived from this and the face is generated from it, so
-      // they must agree.
-      seedKey: faceSeedFor(mem) || mem.host,
+      ...renderPersona(mem, "group", { others, topic, language: langRef.current }),
     }
     const msgs = linesRef.current.map((l) => l.kind === "ai" && l.handle === mem.host
       ? { role: "assistant" as const, content: l.content }

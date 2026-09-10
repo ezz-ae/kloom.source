@@ -17,6 +17,7 @@
 import { useEffect, useState } from "react"
 import { CHIP_PACKS, CHIPS_PER_PHOTO, DAILY_CHIPS, type ChipPack } from "@/lib/airraw/chip-rates"
 import { localPrice, chargeNote } from "@/lib/airraw/money"
+import { useT } from "@/lib/airraw/i18n"
 import { chipBalance, onChips, openWallet, claimDaily, buyPack } from "@/lib/airroom/wallet"
 import { track } from "@/lib/track"
 
@@ -29,6 +30,7 @@ const CARD: React.CSSProperties = {
 }
 
 export function ChipSheet({ onClose }: { onClose: () => void }) {
+  const t = useT()
   const [bal, setBal] = useState(chipBalance())
   const [busy, setBusy] = useState("")
   const [note, setNote] = useState("")
@@ -55,21 +57,21 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
     setBusy("daily"); setNote("")
     const r = await claimDaily()
     setBusy("")
-    if (r.already) { setDailyState("tomorrow"); setNote(`already claimed today — ${DAILY_CHIPS} more tomorrow`) }
-    else if (r.ok && r.granted > 0) { setDailyState("done"); setNote(`+${r.granted} chips`); track("chips_daily", { value: r.granted }) }
-    else setNote("couldn't reach the cage — try again in a moment")
+    if (r.already) { setDailyState("tomorrow"); setNote(t("already claimed today — {n} more tomorrow", { n: DAILY_CHIPS })) }
+    else if (r.ok && r.granted > 0) { setDailyState("done"); setNote(t("+{n} chips", { n: r.granted })); track("chips_daily", { value: r.granted }) }
+    else setNote(t("couldn't reach the cage — try again in a moment"))
   }
 
   const buy = async (p: ChipPack) => {
     setBusy(p.id); setNote("")
     track("chips_buy_start", { value: p.usd, currency: "USD", pack: p.id })
     const r = await buyPack(p.id, promo.trim() || undefined)
-    if (!r.ok) { setBusy(""); setNote(r.error || "checkout didn't open") }
+    if (!r.ok) { setBusy(""); setNote(r.error || t("checkout didn't open")) }
     // On success the browser is already navigating to the checkout.
   }
 
   return (
-    <div role="dialog" aria-label="your chips"
+    <div role="dialog" aria-label={t("your chips")}
       style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(6,3,12,.82)", backdropFilter: "blur(14px)",
         display: "flex", alignItems: "flex-end", justifyContent: "center" }}
       onClick={onClose}>
@@ -81,8 +83,8 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
           fontFamily: "inherit", boxShadow: "0 -20px 60px -20px rgba(0,0,0,.9)" }}>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <span style={{ fontSize: 12.5, letterSpacing: 1.4, textTransform: "uppercase", color: "rgba(240,232,255,.42)" }}>your chips</span>
-          <button onClick={onClose} aria-label="close"
+          <span style={{ fontSize: 12.5, letterSpacing: 1.4, textTransform: "uppercase", color: "rgba(240,232,255,.42)" }}>{t("your chips")}</span>
+          <button onClick={onClose} aria-label={t("close")}
             style={{ background: "none", border: "none", color: "rgba(240,232,255,.5)", fontSize: 22, cursor: "pointer", padding: "0 4px", lineHeight: 1, fontFamily: "inherit" }}>×</button>
         </div>
 
@@ -90,11 +92,11 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
             without a rate beside it is a number people have to take on trust. */}
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 2 }}>
           <span style={{ fontSize: 52, fontWeight: 300, letterSpacing: -1.5, color: GOLD, lineHeight: 1.05 }}>{bal}</span>
-          <span style={{ fontSize: 15, color: "rgba(240,232,255,.5)" }}>{bal === 1 ? "chip" : "chips"}</span>
+          <span style={{ fontSize: 15, color: "rgba(240,232,255,.5)" }}>{bal === 1 ? t("chip") : t("chips")}</span>
         </div>
         <p style={{ margin: "0 0 18px", fontSize: 13.5, color: "rgba(240,232,255,.5)", lineHeight: 1.55 }}>
-          one chip is a minute of their voice. {CHIPS_PER_PHOTO} chips is a photo.
-          <br />they don&apos;t expire.
+          {t("one chip is a minute of their voice. {n} chips is a photo.", { n: CHIPS_PER_PHOTO })}
+          <br />{t("they don't expire.")}
         </p>
 
         {/* The daily. Stated as a fact with a fixed number, not dressed as a prize
@@ -107,10 +109,10 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
               borderColor: dailyState === "done" ? `${GOLD}55` : "rgba(255,255,255,.11)", opacity: dailyState === "tomorrow" ? .55 : 1 }}>
             <span>
               <span style={{ display: "block", fontSize: 14.5, fontWeight: 600 }}>
-                {dailyState === "done" ? "collected" : dailyState === "tomorrow" ? "back tomorrow" : "today's chips"}
+                {dailyState === "done" ? t("collected") : dailyState === "tomorrow" ? t("back tomorrow") : t("today's chips")}
               </span>
               <span style={{ display: "block", fontSize: 12.5, color: "rgba(240,232,255,.45)", marginTop: 2 }}>
-                free, once a day, whether or not you came yesterday
+                {t("free, once a day, whether or not you came yesterday")}
               </span>
             </span>
             <span style={{ flex: "0 0 auto", fontSize: 15, fontWeight: 700, color: GOLD }}>
@@ -121,8 +123,7 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
 
         {ready === false && (
           <p style={{ ...CARD, margin: 0, padding: "13px 15px", fontSize: 13.5, color: "rgba(240,232,255,.6)", lineHeight: 1.55 }}>
-            the cage is closed for a moment — chips can&apos;t be bought right now.
-            nothing was charged, and your balance is safe.
+            {t("the cage is closed for a moment — chips can't be bought right now. nothing was charged, and your balance is safe.")}
           </p>
         )}
 
@@ -138,11 +139,11 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
                 background: i === 1 ? "rgba(244,114,182,.07)" : CARD.background }}>
               <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                 <span style={{ fontSize: 19, fontWeight: 600, letterSpacing: -.2 }}>
-                  {p.chips} <span style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,232,255,.5)" }}>chips</span>
+                  {p.chips} <span style={{ fontSize: 14, fontWeight: 400, color: "rgba(240,232,255,.5)" }}>{t("chips")}</span>
                 </span>
                 <span style={{ fontSize: 12.5, color: "rgba(240,232,255,.45)", marginTop: 3 }}>
-                  ≈ {p.chips} minutes out loud
-                  {p.bonusPct > 0 && <span style={{ color: GOLD }}> · {p.bonusPct}% more per dollar</span>}
+                  {t("≈ {n} minutes out loud", { n: p.chips })}
+                  {p.bonusPct > 0 && <span style={{ color: GOLD }}> · {t("{pct}% more per dollar", { pct: p.bonusPct })}</span>}
                 </span>
               </span>
               <span style={{ flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
@@ -164,7 +165,7 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
             was opened with — a discount the browser can name is one it can invent. */}
         {ready !== false && (
           <input value={promo} onChange={(e) => setPromo(e.target.value.toUpperCase().slice(0, 24))}
-            placeholder="promo code (optional)" aria-label="promo code"
+            placeholder={t("promo code (optional)")} aria-label={t("promo code")}
             style={{ width: "100%", minHeight: 44, borderRadius: 11, padding: "0 13px", marginTop: 10, fontSize: 15,
               background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "#f0e8ff",
               outline: "none", fontFamily: "inherit", letterSpacing: 1, boxSizing: "border-box" }} />
@@ -180,8 +181,8 @@ export function ChipSheet({ onClose }: { onClose: () => void }) {
         )}
 
         <p style={{ margin: "12px 0 0", fontSize: 11.5, color: "rgba(240,232,255,.3)", lineHeight: 1.6, textAlign: "center" }}>
-          chips are spent as you use them — voice, photos, scenes.
-          <br />nothing is charged automatically, ever.
+          {t("chips are spent as you use them — voice, photos, scenes.")}
+          <br />{t("nothing is charged automatically, ever.")}
         </p>
       </div>
     </div>

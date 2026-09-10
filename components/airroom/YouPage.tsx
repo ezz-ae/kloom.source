@@ -13,6 +13,8 @@
  * on AIRRAW's palette, inside AirShell.
  */
 import { useEffect, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
+import { displayName } from "@/lib/airraw/arabic-names"
 import { GOLDEN_USD, GOLDEN_MINUTES, GOLDEN_MAX_BOOKED } from "@/lib/airraw/golden"
 import { goldHeld, onGold, refreshGold } from "@/lib/airroom/golden-client"
 import { getProfile, setProfileName, rerollAvatar, type Profile } from "@/lib/airroom/profile"
@@ -43,6 +45,8 @@ export function YouPage({ onPass, onResume, onGolden }: {
   /** Book golden sessions ahead. Optional — the card hides without it. */
   onGolden?: () => void
 }) {
+  // `t` is already the saved talk in the list below, so the translator is `tr`.
+  const tr = useT()
   const [p, setP] = useState<Profile | null>(null)
   const [name, setName] = useState("")
   const [fai, setFai] = useState(0)
@@ -117,7 +121,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
             className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-lg font-semibold text-white outline-none focus:border-fuchsia-400/40"
           />
           <div className="mt-1.5 text-[11px] text-white/35">
-            {pro ? `✦ pass active${untilStr ? ` · until ${untilStr}` : ""}` : "free · tap the avatar to reshuffle"}
+            {pro ? `✦ pass active${untilStr ? ` · until ${untilStr}` : ""}` : tr("free · tap the avatar to reshuffle")}
           </div>
         </div>
       </div>
@@ -128,10 +132,10 @@ export function YouPage({ onPass, onResume, onGolden }: {
             Subtractive and empty by default (see lib/airraw/taste.ts), so this
             card reads as "narrow it down", never as a form to fill in first. */}
         <Card
-          title="Who you want to meet"
+          title={tr("Who you want to meet")}
           hint={tasteIsSet(taste)
             ? "the floor is filtered to this. tap again to unset."
-            : "everyone, for now. pick anything to narrow the floor."}
+            : tr("everyone, for now. pick anything to narrow the floor.")}
         >
           <div className="flex gap-1.5">
             {([["any", "anyone"], ["female", "women"], ["male", "men"]] as Array<[TasteGender, string]>).map(([g, label]) => {
@@ -174,17 +178,17 @@ export function YouPage({ onPass, onResume, onGolden }: {
               onClick={() => putTaste({ gender: "any", vibes: [] })}
               className="mt-3 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-[11.5px] font-semibold text-white/45 transition hover:text-white/75"
             >
-              Show me everyone again
+              {tr("Show me everyone again")}
             </button>
           )}
         </Card>
 
         {/* ── FAI ── */}
-        <Card title="Your FAI" hint="a seat in a talk costs one. it cannot be bought — you earn one every time you finish a talk.">
+        <Card title={tr("Your FAI")} hint={tr("a seat in a talk costs one. it cannot be bought — you earn one every time you finish a talk.")}>
           <div className="flex items-end gap-3">
             <span className="brand-text text-3xl font-bold leading-none tabular-nums">{fai}</span>
             <span className="pb-1 text-xs text-white/40">
-              {left > 0 ? `${left} more to find today` : "that's all of today's"}
+              {left > 0 ? tr("{n} more to find today", { n: left }) : tr("that's all of today's")}
             </span>
           </div>
           <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
@@ -198,25 +202,25 @@ export function YouPage({ onPass, onResume, onGolden }: {
             sells and counts; it deliberately has no "enter" button, because
             there is nothing to enter without someone to bring. */}
         {onGolden && (
-          <Card title="The golden room" hint={`$${GOLDEN_USD} a session · ${GOLDEN_MINUTES} minutes. open one from inside any conversation — whoever you're talking to comes with you.`}>
+          <Card title={tr("The golden room")} hint={tr("${usd} a session · {min} minutes. open one from inside any conversation — whoever you're talking to comes with you.", { usd: GOLDEN_USD, min: GOLDEN_MINUTES })}>
             <div className="flex items-center justify-between gap-4">
               <span className="text-3xl font-bold leading-none tabular-nums" style={{ color: "#e8c46a" }}>{goldHeldN}</span>
-              <button onClick={onGolden} aria-label="book golden sessions"
+              <button onClick={onGolden} aria-label={tr("book golden sessions")}
                 className="min-h-[44px] rounded-xl px-4 text-sm font-bold"
                 style={{ background: "linear-gradient(135deg,#f7e3a1 0%,#e8c46a 42%,#a97c24 100%)", color: "#0a0805" }}>
-                {goldHeldN > 0 ? "book more" : `book up to ${GOLDEN_MAX_BOOKED}`}
+                {goldHeldN > 0 ? tr("book more") : tr("book up to {n}", { n: GOLDEN_MAX_BOOKED })}
               </button>
             </div>
           </Card>
         )}
 
         {/* ── the pass ── */}
-        <Card title="Voice minutes" hint={pro ? "the pass covers your minutes." : "what's left of your free minutes on the floor."}>
+        <Card title={tr("Voice minutes")} hint={pro ? tr("the pass covers your minutes.") : tr("what's left of your free minutes on the floor.")}>
           <div className="flex items-center justify-between gap-4">
             <span className="text-2xl font-bold tabular-nums text-white">{pro ? "∞" : credits}</span>
             {!pro && (
               <button onClick={onPass} className="brand-gradient brand-glow rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#1a0a1f] transition-transform hover:scale-[1.02]">
-                Get a pass
+                {tr("Get a pass")}
               </button>
             )}
           </div>
@@ -228,7 +232,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
         </Card>
 
         {/* ── language ── */}
-        <Card title="You speak" hint={langPrefsPersist() ? "saved as your default between visits." : "kept for this visit. a pass makes it stick."}>
+        <Card title={tr("You speak")} hint={langPrefsPersist() ? tr("saved as your default between visits.") : tr("kept for this visit. a pass makes it stick.")}>
           <select
             value={prefs.primary}
             onChange={(e) => setPrimary(e.target.value)}
@@ -269,15 +273,15 @@ export function YouPage({ onPass, onResume, onGolden }: {
 
         {/* ── memory ── */}
         <Card
-          title="Conversations"
+          title={tr("Conversations")}
           hint={memoryEnabled()
             ? "kept on this device only, so you can pick one back up. nothing leaves your browser."
-            : "a free session keeps nothing — nothing is stored, on this device or anywhere else."}
+            : tr("a free session keeps nothing — nothing is stored, on this device or anywhere else.")}
         >
           {memoryEnabled() ? (
             <>
               <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5">
-                <span className="text-sm text-white/70">Remember my conversations</span>
+                <span className="text-sm text-white/70">{tr("Remember my conversations")}</span>
                 <input
                   type="checkbox"
                   checked={!off}
@@ -294,15 +298,15 @@ export function YouPage({ onPass, onResume, onGolden }: {
                         <Face persona={{ name: t.cluster.host, gender: t.cluster.gender, seed: faceSeedFor(t.cluster) }} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                       </span>
                       <button onClick={() => onResume?.(t)} className="min-w-0 flex-1 text-left">
-                        <span className="block truncate text-sm font-medium text-white/85">{t.cluster.host}</span>
+                        <span className="block truncate text-sm font-medium text-white/85">{displayName(t.cluster.host, t.cluster.gender, tr.locale)}</span>
                         <span className="block truncate text-[11px] text-white/35">{agoLabel(t.at)}</span>
                       </button>
                       <button
                         onClick={() => { forgetTalk(t.key); setTalks(listTalks()) }}
-                        aria-label={`forget your conversation with ${t.cluster.host}`}
+                        aria-label={tr("forget your conversation with {name}", { name: displayName(t.cluster.host, t.cluster.gender, tr.locale) })}
                         className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-white/30 hover:bg-white/5 hover:text-rose-300"
                       >
-                        forget
+                        {tr("forget")}
                       </button>
                     </li>
                   ))}
@@ -313,18 +317,18 @@ export function YouPage({ onPass, onResume, onGolden }: {
                   onClick={() => { forgetAll(); setTalks(listTalks()) }}
                   className="mt-3 w-full rounded-xl border border-rose-400/25 bg-rose-500/[0.08] px-4 py-2.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/15"
                 >
-                  Forget everything
+                  {tr("Forget everything")}
                 </button>
               )}
             </>
           ) : (
-            <p className="text-sm text-white/45">Nothing to erase — nothing was kept.</p>
+            <p className="text-sm text-white/45">{tr("Nothing to erase — nothing was kept.")}</p>
           )}
         </Card>
 
         <div className="flex flex-wrap justify-center gap-5 pt-2 text-[11px] text-white/25">
-          <a href="/legal/terms" className="hover:text-white/50">Terms</a>
-          <a href="/legal/privacy" className="hover:text-white/50">Privacy</a>
+          <a href="/legal/terms" className="hover:text-white/50">{tr("Terms")}</a>
+          <a href="/legal/privacy" className="hover:text-white/50">{tr("Privacy")}</a>
           <a href="/legal/cookies" className="hover:text-white/50">Cookies</a>
           <a href="/legal/payments" className="hover:text-white/50">Payments</a>
         </div>

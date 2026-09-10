@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react"
 import { liveTalks, seatsLeft, ageLabel, talkRoom, heatF, BOARD_FACES, type Talk, type TalkRoom } from "@/lib/airraw/talks"
 import { getFai, spendFai, canAfford } from "@/lib/airraw/fai"
 import { groupCast, faceSeedFor } from "@/lib/airroom/roster"
+import { useT } from "@/lib/airraw/i18n"
 import { Face } from "@/components/airroom/Face"
 
 const HEAT = (h: string) => (h === "w" ? "#c084fc" : h === "m" ? "#f472b6" : "#fb7185")
@@ -63,6 +64,8 @@ export function Talks({ onJoin, onSpent }: {
   onBack?: () => void
   onSpent: () => void
 }) {
+  // `t` is already the talk in the map below, so the translator is `tr` here.
+  const tr = useT()
   // Re-derive on a timer: the board is a function of the clock, so seats fill and
   // talks turn over while you're looking at it. That movement IS the feature —
   // a static list is the furniture this replaces.
@@ -107,9 +110,9 @@ export function Talks({ onJoin, onSpent }: {
       </div>
 
       <div style={{ padding: "6px 18px 2px" }}>
-        <div style={{ fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 600, letterSpacing: -0.5 }}>happening now</div>
+        <div style={{ fontSize: "clamp(24px, 7vw, 30px)", fontWeight: 600, letterSpacing: -0.5 }}>{tr("happening now")}</div>
         <div style={{ fontSize: 13, color: "rgba(240,232,255,.5)", marginTop: 4 }}>
-          one FAI takes a seat. you earn one every time you finish a talk.
+          {tr("one FAI takes a seat. you earn one every time you finish a talk.")}
         </div>
       </div>
 
@@ -128,7 +131,7 @@ export function Talks({ onJoin, onSpent }: {
               <div style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.3, color: "#f4ecff" }}>{t.title}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "rgba(240,232,255,.55)" }}>
                 <Who t={t} />
-                <span style={{ color: c, fontWeight: 700 }}>{left} seat{left === 1 ? "" : "s"} open</span>
+                <span style={{ color: c, fontWeight: 700 }}>{left === 1 ? tr("1 seat open") : tr("{n} seats open", { n: left })}</span>
                 <span aria-hidden>·</span>
                 <span>{ageLabel(t)}</span>
               </div>
@@ -140,7 +143,7 @@ export function Talks({ onJoin, onSpent }: {
                   are one button to anyone not looking at the screen. */}
               <button onClick={() => take(t)} aria-label={`take a seat in "${t.title}" · 1 FAI`}
                 style={{ minHeight: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 14.5, fontWeight: 700, color: "#150a1f", background: c, WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}>
-                take a seat · 1 FAI
+                {tr("take a seat · 1 FAI")}
               </button>
             </div>
           )
@@ -154,7 +157,7 @@ export function Talks({ onJoin, onSpent }: {
         {!making ? (
           <button onClick={() => setMaking(true)}
             style={{ width: "100%", minHeight: 48, borderRadius: 14, fontSize: 14, color: "rgba(240,232,255,.75)", background: "transparent", border: ".5px dashed rgba(255,255,255,.24)", cursor: "pointer", fontFamily: "inherit" }}>
-            + start your own talk
+            {tr("+ start your own talk")}
           </button>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px", borderRadius: 16, background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.14)" }}>
@@ -167,17 +170,17 @@ export function Talks({ onJoin, onSpent }: {
               style={{ minHeight: 46, borderRadius: 12, fontSize: 15, color: "#f0e8ff", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.2)", padding: "0 12px", outline: "none", fontFamily: "inherit" }}
             />
             <label style={{ fontSize: 12.5, color: "rgba(240,232,255,.6)", display: "flex", alignItems: "center", gap: 10 }}>
-              seats
+              {tr("seats")}
               <input type="range" min={3} max={20} value={seats} onChange={(e) => setSeats(Number(e.target.value))}
                 style={{ flex: 1, accentColor: "#7fd6c0" }} />
               <span style={{ width: 26, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "#7fd6c0", fontWeight: 700 }}>{seats}</span>
             </label>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => { setMaking(false); setTitle("") }}
-                style={{ flex: "0 0 auto", minHeight: 46, padding: "0 16px", borderRadius: 12, fontSize: 13, color: "rgba(240,232,255,.55)", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", cursor: "pointer", fontFamily: "inherit" }}>cancel</button>
+                style={{ flex: "0 0 auto", minHeight: 46, padding: "0 16px", borderRadius: 12, fontSize: 13, color: "rgba(240,232,255,.55)", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", cursor: "pointer", fontFamily: "inherit" }}>{tr("cancel")}</button>
               <button onClick={create} disabled={!title.trim()}
                 style={{ flex: 1, minHeight: 46, borderRadius: 12, border: "none", fontSize: 14.5, fontWeight: 700, color: "#06121e", background: title.trim() ? "#7fd6c0" : "rgba(127,214,192,.3)", cursor: title.trim() ? "pointer" : "default", fontFamily: "inherit" }}>
-                open it · 1 FAI
+                {tr("open it · 1 FAI")}
               </button>
             </div>
           </div>

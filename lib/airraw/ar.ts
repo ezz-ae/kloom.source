@@ -18,6 +18,18 @@
 //     change what the model is asked for, which is a different job with a
 //     different way of being wrong.
 
+/**
+ * Keys that are deliberately identical in both languages.
+ *
+ * Declared rather than tolerated: the test asserts every OTHER value contains
+ * Arabic script, so the only way a string stays English is by being named here
+ * on purpose. Slipping one through silently is exactly what that test exists to
+ * stop.
+ */
+export const UNTRANSLATED = new Set<string>([
+  "airraw pro",   // the wordmark — a brand is not translated
+])
+
 export const AR: Record<string, string> = {
   // ── the dock ───────────────────────────────────────────────────────────────
   "Room": "الغرفة",
@@ -49,6 +61,7 @@ export const AR: Record<string, string> = {
 
   // ── chips ──────────────────────────────────────────────────────────────────
   "chips": "رقائق",
+  "chip": "رقاقة",
   "get more": "زد رصيدك",
   "your chips": "رقائقك",
   "today's chips": "رقائق اليوم",
@@ -62,6 +75,19 @@ export const AR: Record<string, string> = {
   "couldn't reach the cage — try again in a moment": "ما قدرنا نوصل الحين — جرّب بعد شوي",
   "charged in USD": "يُخصم بالدولار",
   "charged in AED": "يُخصم بالدرهم الإماراتي",
+  "one chip is a minute of their voice. {n} chips is a photo.":
+    "الرقاقة الوحدة دقيقة من صوته. و{n} رقائق صورة.",
+  "they don't expire.": "وما تنتهي صلاحيتها.",
+  "free, once a day, whether or not you came yesterday":
+    "مجاناً، مرة كل يوم، جيت أمس أو ما جيت",
+  "≈ {n} minutes out loud": "≈ {n} دقيقة صوت",
+  "{pct}% more per dollar": "{pct}٪ أكثر لكل دولار",
+  "the cage is closed for a moment — chips can't be bought right now. nothing was charged, and your balance is safe.":
+    "الشراء مقفل لحظة — ما تقدر تشتري رقائق الحين. ما انخصم منك شي، ورصيدك بأمان.",
+  "chips are spent as you use them — voice, photos, scenes.":
+    "الرقائق تنصرف وأنت تستخدمها — صوت، صور، مشاهد.",
+  "already claimed today — {n} more tomorrow": "استلمتها اليوم — {n} بكرة",
+  "+{n} chips": "+{n} رقائق",
 
   // ── the pass ───────────────────────────────────────────────────────────────
   "a month": "شهر",
@@ -76,6 +102,15 @@ export const AR: Record<string, string> = {
   "couldn’t start checkout — try again": "ما بدأت عملية الدفع — جرّب مرة ثانية",
   "network hiccup — try again": "الشبكة تعثّرت — جرّب مرة ثانية",
   "that code looks invalid or expired — copy the whole thing": "الكود غير صالح أو منتهي — انسخه كامل",
+  "airraw pro": "airraw pro",
+  "unlock the floor": "افتح الصالة كاملة",
+  "already paid? restore it": "دافع من قبل؟ استرجعه",
+  "restore my pass": "استرجع اشتراكي",
+  "pay with crypto": "ادفع بالعملات الرقمية",
+  "not now": "مو الحين",
+  "your languages": "لغاتك",
+  "you speak mostly": "تتكلم غالباً",
+  "and also": "وكذلك",
 
   // ── the golden room ────────────────────────────────────────────────────────
   "the golden room": "الغرفة الذهبية",
@@ -86,6 +121,13 @@ export const AR: Record<string, string> = {
   "nothing is charged automatically, ever.": "ما نخصم منك تلقائياً أبداً.",
   "the golden room is closed for a moment — nothing was charged.":
     "الغرفة الذهبية مقفلة لحظة — ما انخصم منك شي.",
+  "You don't walk into it — you bring someone with you. Whoever you're already talking to comes exactly as they are: same voice, same face, same conversation.":
+    "ما تدخلها لحالك — تاخذ معك أحد. اللي تتكلم معه الحين يجي مثل ما هو تماماً: نفس الصوت، نفس الوجه، نفس السالفة.",
+  "${usd} a session · {min} minutes": "{usd} دولار للجلسة · {min} دقيقة",
+  ", however you use it.": "، مهما استخدمتها.",
+  "you're holding {n} — open one from inside any conversation.":
+    "عندك {n} — افتح وحدة من داخل أي محادثة.",
+  "hold {n} · ${total}": "احجز {n} · {total} دولار",
 
   // ── report ─────────────────────────────────────────────────────────────────
   "something's wrong": "في شي غلط",
@@ -98,6 +140,8 @@ export const AR: Record<string, string> = {
   "thank you": "شكراً لك",
   "Got it — that's logged.": "وصلنا — تم تسجيله.",
   "back": "رجوع",
+  "reference": "المرجع",
+  "not sent": "ما يُرسل",
   "couldn't send that": "ما قدرنا نرسل",
   "you seem to be offline": "يبدو إنك غير متصل",
   "tell us what happened": "قل لنا وش صار",
@@ -117,6 +161,60 @@ export const AR: Record<string, string> = {
   "skip, just take me in →": "تخطَّ وادخل ←",
   "hey — what should I call you?": "هلا — وش نناديك؟",
   "optional — go by anything": "اختياري — سمِّ نفسك أي اسم",
+
+  // ── the deck, the tabs, the account page ─────────────────────────────────
+  "swipe for someone else": "اسحب لشخص ثاني",
+  "someone else": "شخص ثاني",
+  "your scenes": "مشاهدك",
+  "go back in": "ارجع لها",
+  "delete it — sure?": "تحذفه — أكيد؟",
+  "delete": "حذف",
+  "happening now": "يصير الحين",
+  "one FAI takes a seat. you earn one every time you finish a talk.":
+    "نقطة FAI وحدة تحجز لك مقعد. تكسب وحدة كل ما تخلّص جلسة.",
+  "take a seat · 1 FAI": "احجز مقعد · 1 FAI",
+  "open it · 1 FAI": "افتحها · 1 FAI",
+  "seats": "مقاعد",
+  "+ start your own talk": "+ ابدأ جلستك",
+  "{n} seats": "{n} مقاعد",
+  "cancel": "إلغاء",
+  "{n} seats open": "{n} مقاعد فاضية",
+  "1 seat open": "مقعد واحد فاضي",
+  "Show me everyone again": "ورّني الكل مرة ثانية",
+  "Get a pass": "خذ الاشتراك",
+  "Remember my conversations": "احفظ محادثاتي",
+  "forget": "انسَ",
+  "forget your conversation with {name}": "انسَ محادثتك مع {name}",
+  "Forget everything": "انسَ كل شي",
+  "Nothing to erase — nothing was kept.": "ما فيه شي يُمسح — ما انحفظ شي.",
+  "Terms": "الشروط",
+  "Privacy": "الخصوصية",
+  "Conversations": "المحادثات",
+  "The golden room": "الغرفة الذهبية",
+  "Voice minutes": "دقائق الصوت",
+  "Who you want to meet": "مين تبي تقابل",
+  "You speak": "تتكلم",
+  "Your FAI": "نقاطك FAI",
+  "free · tap the avatar to reshuffle": "مجاني · اضغط الصورة تغيّرها",
+  "everyone, for now. pick anything to narrow the floor.":
+    "الكل، حالياً. اختر أي شي تضيّق الصالة.",
+  "a seat in a talk costs one. it cannot be bought — you earn one every time you finish a talk.":
+    "المقعد في الجلسة يكلّف وحدة. ما تنشرى — تكسبها كل ما تخلّص جلسة.",
+  "{n} more to find today": "باقي {n} تلقاها اليوم",
+  "Cast your own scene": "اصنع مشهدك",
+  "Everywhere else you meet whoever is here. In Scenes you choose the situation, who is in the room, what each of them is, and who is allowed to speak.":
+    "في كل مكان ثاني تقابل اللي موجود. في المشاهد أنت تختار الموقف، ومين في الغرفة، ووش دور كل واحد، ومين مسموح له يتكلم.",
+  "that's all of today's": "خلصت حصة اليوم",
+  "${usd} a session · {min} minutes. open one from inside any conversation — whoever you're talking to comes with you.":
+    "{usd} دولار للجلسة · {min} دقيقة. افتح وحدة من داخل أي محادثة — اللي تتكلم معه يجي معك.",
+  "book up to {n}": "احجز لين {n}",
+  "book more": "احجز أكثر",
+  "the pass covers your minutes.": "الاشتراك يغطي دقائقك.",
+  "what's left of your free minutes on the floor.": "اللي باقي من دقائقك المجانية في الصالة.",
+  "saved as your default between visits.": "محفوظة كافتراضي بين الزيارات.",
+  "kept for this visit. a pass makes it stick.": "محفوظة لهذي الزيارة. الاشتراك يخليها ثابتة.",
+  "a free session keeps nothing — nothing is stored, on this device or anywhere else.":
+    "الجلسة المجانية ما تحفظ شي — لا على هذا الجهاز ولا في أي مكان ثاني.",
 
   // ── the call ───────────────────────────────────────────────────────────────
   "while you talk": "وأنت تتكلم",

@@ -22,6 +22,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { makeCharacter, pickForLanguages, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
+import { useT } from "@/lib/airraw/i18n"
 import { matchesPrefs } from "@/lib/airraw/lang-prefs"
 import { walkFor, matchesTaste, getTaste } from "@/lib/airraw/taste"
 import { cardLinesFor } from "@/lib/airraw/dossier"
@@ -51,6 +52,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
   /** Fired after FAI is earned so the balance in the corner updates immediately. */
   onEarned?: () => void
 }) {
+  const t = useT()
   // NO NOTIFICATIONS ON THIS SCREEN. The seats nudge used to live here, and a
   // page whose whole job is one person does not also get to interrupt. What is
   // happening in Talks belongs in Talks; the dock carries a dot instead.
@@ -296,7 +298,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
             </button>
             <button
               onClick={() => { if (!dragged.current) fling("left") }}
-              aria-label="someone else"
+              aria-label={t("someone else")}
               style={{ flex: "0 0 auto", width: 48, height: 48, borderRadius: 999, cursor: "pointer", fontSize: 20, color: "rgba(240,232,255,.6)", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.14)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
             >
               ›
@@ -307,7 +309,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
               and the line is just another thing between you and the picture. */}
           {i < 3 && (
             <div style={{ textAlign: "center", fontSize: 11, color: "rgba(240,232,255,.3)", marginTop: 1 }}>
-              swipe for someone else
+              {t(t("swipe for someone else"))}
             </div>
           )}
         </div>

@@ -46,6 +46,7 @@ import { YouPage } from "@/components/airroom/YouPage"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
 import { hasOnboarded, markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
 import { takeEntryMood } from "@/lib/airraw/entry"
+import { useT } from "@/lib/airraw/i18n"
 import { getCredits, spendCredits } from "@/lib/airroom/credits"
 import { getFai, earnFai } from "@/lib/airraw/fai"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
@@ -1421,13 +1422,13 @@ function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
  * where a thumb lands, so this gets walked past often.
  */
 function ScenesLocked({ onPass }: { onPass: () => void }) {
+  const t = useT()
   const peek = FANTASIES.filter((f) => ["hotel-last-night", "the-ex", "told-what", "three", "office-late", "watched"].includes(f.id))
   return (
     <div style={{ color: "#f0e8ff", padding: "10px 0 40px" }}>
-      <h2 style={{ fontSize: 25, fontWeight: 700, letterSpacing: -.4, margin: "0 0 8px" }}>Cast your own scene</h2>
+      <h2 style={{ fontSize: 25, fontWeight: 700, letterSpacing: -.4, margin: "0 0 8px" }}>{t("Cast your own scene")}</h2>
       <p style={{ fontSize: 15, color: "rgba(240,232,255,.6)", lineHeight: 1.55, margin: "0 0 22px" }}>
-        Everywhere else you meet whoever is here. In Scenes you choose the situation, who is in the room,
-        what each of them is, and who is allowed to speak.
+        {t("Everywhere else you meet whoever is here. In Scenes you choose the situation, who is in the room, what each of them is, and who is allowed to speak.")}
       </p>
 
       <ul style={{ listStyle: "none", padding: 0, margin: "0 0 22px", display: "grid", gap: 8 }}>

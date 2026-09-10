@@ -7,7 +7,7 @@
 // is one international list applied to every origin, so the filter can pass a
 // Gulf Arab called Frida. Neither showed up as an error.
 import { readFileSync } from "node:fs"
-import { AR } from "@/lib/airraw/ar"
+import { AR, UNTRANSLATED } from "@/lib/airraw/ar"
 import { translate, isRTL, currentLocale } from "@/lib/airraw/i18n"
 import { ALL_ARABIC_NAMES, displayName } from "@/lib/airraw/arabic-names"
 import { ethnicityForSeed } from "@/lib/airraw/portrait-prompt"
@@ -29,9 +29,12 @@ check(currentLocale() === "en", "no preference means English, not a guess")
 
 console.log("\n— every translation is actually in Arabic —")
 {
-  const notArabic = Object.entries(AR).filter(([, v]) => !ARABIC.test(v))
+  // An English value is a bug unless it is DECLARED — see UNTRANSLATED in ar.ts.
+  const notArabic = Object.entries(AR).filter(([k, v]) => !ARABIC.test(v) && !UNTRANSLATED.has(k))
   if (notArabic.length) console.log("   e.g. " + JSON.stringify(notArabic[0]))
   check(notArabic.length === 0, `no entry was left in English by mistake (${Object.keys(AR).length} strings)`)
+  check([...UNTRANSLATED].every((k) => k in AR),
+    "and every declared exception is a real key, so the list cannot rot")
   // Interpolation has to survive translation or the name vanishes from the line.
   const withVars = Object.entries(AR).filter(([k]) => k.includes("{name}"))
   check(withVars.length > 0 && withVars.every(([, v]) => v.includes("{name}")),

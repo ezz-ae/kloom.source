@@ -140,6 +140,26 @@ console.log("\n— every pool the floor draws from has an Arabic version —")
     "card halves": [...dossier.matchAll(/\[\s*"(?:[^"\\]|\\.)*",\s*"((?:[^"\\]|\\.)*)"\s*\]/g)].map((m) => m[1]),
     "talk titles": [...talks.matchAll(/\["((?:[^"\\]|\\.)*)",\s*"[wmf]"\]/g)].map((m) => m[1]),
   }
+  // The scene builder: its library is the largest single block of writing in the
+  // product, and it is the paid tab — a visitor who reaches it has already
+  // decided they might pay, which is the worst possible moment to switch back
+  // into English.
+  const fantasy = readFileSync("lib/airraw/fantasy.ts", "utf8")
+  const fblk = (n) => {
+    const i = fantasy.indexOf(`export const ${n}`)
+    return fantasy.slice(i, fantasy.indexOf("\n]", i))
+  }
+  Object.assign(pools, {
+    "fantasy labels": [...fblk("FANTASIES").matchAll(/label: "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]),
+    "fantasy scenes": [...fblk("FANTASIES").matchAll(/scene: "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]),
+    "role labels": [...fblk("ROLES").matchAll(/label:\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]),
+    "role lines": [...fblk("ROLES").matchAll(/line:\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]),
+    "scene kinds": [...fblk("FANTASY_KINDS").matchAll(/label: "([^"]+)"/g)].map((m) => m[1]),
+    "cast vibes": [...fblk("VIBES").matchAll(/"([^"]+)"/g)].map((m) => m[1]),
+    "turn modes": [...fblk("TURN_MODES").matchAll(/(?:label|hint): "([^"]+)"/g)].map((m) => m[1]),
+    "attributions": [...fblk("ATTRIBUTIONS").matchAll(/(?:label|hint): "([^"]+)"/g)].map((m) => m[1]),
+  })
+
   for (const [label, arr] of Object.entries(pools)) {
     const miss = arr.filter((x) => !have(x))
     if (miss.length) console.log(`   missing: ${miss.slice(0, 3).join(" | ")}`)

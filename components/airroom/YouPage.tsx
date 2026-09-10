@@ -275,7 +275,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
         <Card
           title={tr("Conversations")}
           hint={memoryEnabled()
-            ? "kept on this device only, so you can pick one back up. nothing leaves your browser."
+            ? tr("kept on this device only, so you can pick one back up. nothing leaves your browser.")
             : tr("a free session keeps nothing — nothing is stored, on this device or anywhere else.")}
         >
           {memoryEnabled() ? (

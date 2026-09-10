@@ -11,6 +11,7 @@
  * Nothing here talks to a model. It produces a SceneConfig and hands it over.
  */
 import { useMemo, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
 import {
   FANTASIES, FANTASY_KINDS, ROLES, VIBES, GENDERS, TURN_MODES, ATTRIBUTIONS,
   MAX_CAST, VIBE_MAX, cleanVibe,
@@ -29,6 +30,8 @@ const newMember = (i: number): SceneMember => ({
 })
 
 export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfig) => void; onClose?: () => void }) {
+  // `t` is already a turn mode in the map below, so the translator is `tr`.
+  const tr = useT()
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [fantasyId, setFantasyId] = useState("")
   const [kind, setKind] = useState<string>("meeting")
@@ -92,13 +95,13 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
     <div style={{ minHeight: "100%", color: "#f0e8ff", padding: "6px 16px 96px", maxWidth: 640, margin: "0 auto", boxSizing: "border-box" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
         {onClose && (
-          <button onClick={onClose} aria-label="back" style={{ background: "none", border: "none", color: "rgba(240,232,255,.6)", fontSize: 22, cursor: "pointer", padding: "4px 6px" }}>‹</button>
+          <button onClick={onClose} aria-label={tr("back")} style={{ background: "none", border: "none", color: "rgba(240,232,255,.6)", fontSize: 22, cursor: "pointer", padding: "4px 6px" }}>‹</button>
         )}
         <div>
           <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -.3 }}>
-            {step === 1 ? "pick a scene" : step === 2 ? "who's in it" : "how it runs"}
+            {step === 1 ? tr("pick a scene") : step === 2 ? tr("who's in it") : tr("how it runs")}
           </div>
-          <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.45)" }}>{step === 1 ? `${FANTASIES.length} to choose from` : `step ${step} of 3`}</div>
+          <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.45)" }}>{step === 1 ? tr("{n} to choose from", { n: FANTASIES.length }) : tr("step {n} of 3", { n: step })}</div>
         </div>
       </header>
 
@@ -107,7 +110,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
         <>
           <input
             value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="search 57 scenes…" aria-label="search scenes"
+            placeholder={tr("search 57 scenes…")} aria-label={tr("search scenes")}
             style={{ ...CARD, width: "100%", padding: "12px 14px", color: "#f0e8ff", fontSize: 15, fontFamily: "inherit", outline: "none", marginBottom: 12, boxSizing: "border-box" }}
           />
           {!q.trim() && (
@@ -116,14 +119,14 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                 <button key={k.id} onClick={() => setKind(k.id)}
                   style={{ flex: "0 0 auto", padding: "8px 13px", borderRadius: 999, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
                     background: kind === k.id ? ACCENT : "rgba(255,255,255,.06)", color: kind === k.id ? "#0d0418" : "rgba(240,232,255,.75)",
-                    border: ".5px solid rgba(255,255,255,.1)", fontWeight: kind === k.id ? 700 : 400 }}>{k.label}</button>
+                    border: ".5px solid rgba(255,255,255,.1)", fontWeight: kind === k.id ? 700 : 400 }}>{tr(k.label)}</button>
               ))}
             </div>
           )}
           <p style={{ fontSize: 13, color: "rgba(240,232,255,.45)", margin: "2px 0 12px", lineHeight: 1.5 }}>
-            Tap one and it starts. <button onClick={() => { setFantasyId(fantasyId || shown[0]?.id || FANTASIES[0].id); setStep(2) }}
+            {tr("Tap one and it starts.")} <button onClick={() => { setFantasyId(fantasyId || shown[0]?.id || FANTASIES[0].id); setStep(2) }}
               style={{ background: "none", border: "none", padding: 0, font: "inherit", color: ACCENT, cursor: "pointer", textDecoration: "underline" }}>
-              or cast it yourself
+              {tr("or cast it yourself")}
             </button>
           </p>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -132,8 +135,8 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                 <button onClick={() => quickStart(f.id)}
                   style={{ ...CARD, width: "100%", textAlign: "left", padding: "13px 15px", cursor: "pointer", color: "#f0e8ff", fontFamily: "inherit",
                     borderColor: fantasyId === f.id ? ACCENT : "rgba(255,255,255,.11)" }}>
-                  <div style={{ fontSize: 15.5, fontWeight: 600 }}>{f.label}</div>
-                  <div style={{ fontSize: 13, color: "rgba(240,232,255,.5)", marginTop: 4, lineHeight: 1.45 }}>{f.scene}</div>
+                  <div style={{ fontSize: 15.5, fontWeight: 600 }}>{tr(f.label)}</div>
+                  <div style={{ fontSize: 13, color: "rgba(240,232,255,.5)", marginTop: 4, lineHeight: 1.45 }}>{tr(f.scene)}</div>
                 </button>
               </li>
             ))}
@@ -171,7 +174,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                 <select value={m.roleId} onChange={(e) => patch(m.id, { roleId: e.target.value })} aria-label={`role for person ${i + 1}`}
                   style={{ width: "100%", padding: "11px 12px", borderRadius: 10, background: "rgba(255,255,255,.06)", color: "#f0e8ff",
                     border: ".5px solid rgba(255,255,255,.1)", fontSize: 14.5, fontFamily: "inherit", marginBottom: 11, boxSizing: "border-box" }}>
-                  {ROLES.map((r) => <option key={r.id} value={r.id} style={{ background: "#1a0828" }}>{r.label}</option>)}
+                  {ROLES.map((r) => <option key={r.id} value={r.id} style={{ background: "#1a0828" }}>{tr(r.label)}</option>)}
                 </select>
 
                 <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8, minWidth: 0 }}>
@@ -179,7 +182,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                     <button key={v} onClick={() => patch(m.id, { vibe: m.vibe === v ? "" : v })}
                       style={{ flex: "0 0 auto", padding: "6px 11px", borderRadius: 999, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit",
                         background: m.vibe === v ? `${ACCENT}33` : "rgba(255,255,255,.05)", color: m.vibe === v ? ACCENT : "rgba(240,232,255,.6)",
-                        border: `.5px solid ${m.vibe === v ? ACCENT + "88" : "rgba(255,255,255,.09)"}` }}>{v}</button>
+                        border: `.5px solid ${m.vibe === v ? ACCENT + "88" : "rgba(255,255,255,.09)"}` }}>{tr(v)}</button>
                   ))}
                 </div>
                 {/* The two controls almost nobody needs on the way in, folded away.
@@ -189,7 +192,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                 {detail[m.id] ? (
                   <>
                     <input value={m.vibe} onChange={(e) => patch(m.id, { vibe: cleanVibe(e.target.value) })} maxLength={VIBE_MAX}
-                      placeholder="or describe them in your own words…" aria-label={`vibe for person ${i + 1}`}
+                      placeholder={tr("or describe them in your own words…")} aria-label={`vibe for person ${i + 1}`}
                       style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.05)", color: "#f0e8ff",
                         border: ".5px solid rgba(255,255,255,.09)", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
                     <label style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 11, fontSize: 13.5, color: "rgba(240,232,255,.6)", cursor: "pointer" }}>
@@ -221,14 +224,14 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
       {/* ── 3. the controls ── */}
       {step === 3 && (
         <>
-          <Group label="who speaks, and when">
+          <Group label={tr("who speaks, and when")}>
             {TURN_MODES.map((t) => (
-              <Choice key={t.id} on={turnMode === t.id} onPick={() => setTurnMode(t.id)} title={t.label} hint={t.hint} />
+              <Choice key={t.id} on={turnMode === t.id} onPick={() => setTurnMode(t.id)} title={tr(t.label)} hint={tr(t.hint)} />
             ))}
           </Group>
-          <Group label="how you can tell who's talking">
+          <Group label={tr("how you can tell who's talking")}>
             {ATTRIBUTIONS.map((a) => (
-              <Choice key={a.id} on={attribution === a.id} onPick={() => setAttribution(a.id)} title={a.label} hint={a.hint} />
+              <Choice key={a.id} on={attribution === a.id} onPick={() => setAttribution(a.id)} title={tr(a.label)} hint={tr(a.hint)} />
             ))}
           </Group>
           <Group label="afterwards">

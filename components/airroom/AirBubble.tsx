@@ -18,7 +18,7 @@ import { SpeechSegmenter, phoneMicAudio } from "@/lib/speech-segmenter"
 import { canListen } from "@/lib/voice-once"
 import { Face } from "@/components/airroom/Face"
 import { VoiceWave } from "@/components/airroom/VoiceWave"
-import { isPro, getProToken } from "@/lib/airroom/pro"
+import { isPro, getProToken, markProRefused } from "@/lib/airroom/pro"
 import { getCredits } from "@/lib/airroom/credits"
 import { ProSheet } from "@/components/airroom/ProSheet"
 import { track } from "@/lib/airraw/track"
@@ -183,6 +183,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const [speaking, setSpeaking] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [chatOpen, setChatOpen] = useState(false)
+  // Set when the SERVER refuses this pass. markProRefused() is what actually
+  // records it; this exists to force the re-render, because everything that
+  // shows paid state calls isPro() during render and would otherwise keep
+  // painting the old answer until something else happened to move.
+  const [, setPassRefused] = useState(false)
   const [micHint, setMicHint] = useState("")
   const [muted, setMuted] = useState(false)
   const [volume, setVolume] = useState(1)
@@ -503,8 +508,24 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             setMicHint(why === "expired"
               ? "your pass has run out — restore or renew it to keep talking"
               : "we couldn't verify your pass — restore it and you're back")
+            // And the UI stops claiming otherwise. isPro() reads the token's
+            // expiry date without checking its signature, so the You page said
+            // "pass active · until Oct 21" in green while this very request was
+            // being refused. The server is the only thing that can settle it, and
+            // it just did.
+            markProRefused(); setPassRefused(true)
           }
           else { setMicHint("your free minute is up — unlock the pass to keep talking"); setShowPro(true) }
+          // THE CALL DOES NOT END HERE.
+          //
+          // This used to drop handsFree on every branch, so the first refused
+          // chunk tore the call down mid-sentence: no voice, half a line of text
+          // on screen, and a dead screen. For a refused PASS that is indefensible
+          // — they are still a customer and the words still work. Even on the
+          // genuine free wall, the words are free; what ran out is the voice. So
+          // the transcript opens and the conversation carries on reading, which
+          // is also the only state in which the pass is worth selling.
+          setChatOpen(true)
           setHandsFree(false)
         }
         return

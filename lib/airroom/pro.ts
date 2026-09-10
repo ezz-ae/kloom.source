@@ -8,8 +8,36 @@ export function getProToken(): string | null {
   if (typeof window === "undefined") return null
   try { return localStorage.getItem("airraw_pro_token") } catch { return null }
 }
-export function setProToken(t: string) { try { localStorage.setItem("airraw_pro_token", t) } catch { /* */ } }
-export function clearPro() { try { localStorage.removeItem("airraw_pro_token") } catch { /* */ } }
+export function setProToken(t: string) {
+  try { localStorage.setItem("airraw_pro_token", t); localStorage.removeItem(REFUSED_KEY) } catch { /* */ }
+}
+export function clearPro() {
+  try { localStorage.removeItem("airraw_pro_token"); localStorage.removeItem(REFUSED_KEY) } catch { /* */ }
+}
+
+// ── WHEN THE SERVER SAYS NO ──────────────────────────────────────────────────
+//
+// isPro() reads the expiry OUT OF the token without checking its signature,
+// because the client has no secret and never can. That is fine while the two
+// agree. It stops being fine the moment they do not: after AIRRAW_PRO_SECRET
+// moved, a real customer's You page showed a green "pass active · until Oct 21"
+// while every single voice request for that same token was being refused. The
+// product told them they were paid up and then behaved as though they were not,
+// which is worse than either answer on its own.
+//
+// The client cannot verify a pass. It CAN listen: a 402 carrying
+// X-Pass: rejected is the server settling it, and after one the UI stops
+// claiming otherwise. Restoring or buying a pass clears the mark, so this is a
+// memory of a refusal rather than a punishment.
+const REFUSED_KEY = "airraw_pro_refused"
+
+/** The server refused this token. Called from the 402 path, never guessed at. */
+export function markProRefused() {
+  try { localStorage.setItem(REFUSED_KEY, "1") } catch { /* private mode */ }
+}
+export function proRefused(): boolean {
+  try { return localStorage.getItem(REFUSED_KEY) === "1" } catch { return false }
+}
 
 function tokenUntil(token: string | null): number {
   if (!token) return 0
@@ -46,6 +74,10 @@ export function isPro(): boolean {
     if (u.get("pro") === "0") { localStorage.removeItem("airraw_pro"); clearPro() }
     if (devOverride && localStorage.getItem("airraw_pro") === "1") return true
   } catch { /* */ }
+  // A refusal outranks the token's own expiry claim: the server has already
+  // declined this exact pass, so showing it as active is a lie the UI is telling
+  // on the server's behalf.
+  if (proRefused()) return false
   return proUntil() > Date.now()
 }
 

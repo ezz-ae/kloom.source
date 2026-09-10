@@ -45,6 +45,7 @@ import { AirShell, type AirTab } from "@/components/airroom/AirShell"
 import { YouPage } from "@/components/airroom/YouPage"
 import { getProfile, type Profile } from "@/lib/airroom/profile"
 import { hasOnboarded, markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
+import { takeEntryMood } from "@/lib/airraw/entry"
 import { getCredits, spendCredits } from "@/lib/airroom/credits"
 import { getFai, earnFai } from "@/lib/airraw/fai"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
@@ -166,6 +167,15 @@ export function Planet() {
   // browser never flashes the deck before the welcome.
   const [onboarded, setOnboardedState] = useState(true)
   useEffect(() => { setOnboardedState(hasOnboarded()) }, [])
+  // A dedicated landing (/ar) runs its own welcome and picks a mood, then sends
+  // the visitor here already onboarded — so this component skips its own gate and
+  // would otherwise drop them wherever the deck happens to open, making the choice
+  // they were just asked to make meaningless. Read-once: it applies to this
+  // arrival and never overrides a later pick made inside the app.
+  useEffect(() => {
+    const c = takeEntryMood()
+    if (c !== null) setDeckPos({ c, i: 0 })
+  }, [])
   // AUDIO UNLOCK: mobile browsers (especially iOS Safari) only allow audio.play()
   // if it happens as a direct, SYNCHRONOUS result of a user gesture — but a reply's
   // TTS fetch is async, so by the time play() actually runs we're several ticks past

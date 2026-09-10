@@ -130,23 +130,38 @@ const LOOK_X = [
 // framing and drop the damage: the light is soft or warm or golden rather than
 // harsh, the surfaces are clean, and nothing asks for blur or grain.
 const STYLE = [
-  "snapshot on a phone, soft window light, warm and natural",
-  "candid photo at home in the evening, warm lamp light, relaxed",
-  "bedroom photo at night, one soft lamp, low warm light",
-  "mirror selfie, clean mirror, soft even light, looking at the camera",
-  "photo taken by a friend mid-laugh, natural light, off-guard",
-  "late afternoon sun through a window, golden and soft",
-  "getting ready to go out, soft bathroom light, half-done hair",
-  "warm hallway light in the evening, leaning against the wall",
-  "sofa photo at night, warm lamp glow, unhurried",
-  "photo on a balcony at dusk, city light behind, wind in the hair",
-  "café by a window, soft daylight, caught looking up",
-  "close portrait in warm low light, looking straight into the lens",
+  // MIXED ON PURPOSE. Twelve variations of the same lamp reads as a template the
+  // moment you scroll a floor of them, so this is roughly two thirds at home in
+  // the evening and one third dressed and out — the same person on two different
+  // kinds of night, which is what makes a roster feel like people rather than a
+  // product shoot.
+  //
+  // Everything here is CLOTHED and non-explicit. These portraits are the avatar
+  // on every card, including the SFW lobby the ads point at, so the setting can
+  // be intimate but the picture cannot be.
+  //
+  // What is deliberately gone: bathrooms, corridors and stairwells, overhead
+  // fluorescent light, and clutter. Those were not "authentic", they were just
+  // unflattering — the floor was full of people photographed next to somebody
+  // else's toothpaste.
+  "at home in the evening, one soft warm lamp, relaxed on the sofa",
+  "warm lamp light in a quiet room at night, unhurried, close",
+  "curled up in an armchair at night, one lamp, soft shadows",
+  "by a window at dusk, warm light, city glow behind",
+  "on a balcony in the evening, warm light, wind in the hair",
+  "low warm light at home, looking straight into the lens",
+  "late evening at home, soft string lights, warm and close",
+  "a quiet kitchen at night, warm light, leaning on the counter",
+  // dressed, and out
+  "dressed for the evening, warm low light of a bar at night",
+  "out at night, city lights behind, soft focus, dressed up",
+  "at a restaurant table in low candlelight, dressed for the evening",
+  "in a taxi at night, city lights passing, dressed up, caught looking over",
 ]
 
 const HAIR = [
-  "short hair", "long hair", "curly hair", "wavy hair", "tied-back hair", "messy hair",
-  "shoulder-length hair", "a fresh haircut", "bleached hair", "dyed hair", "a headscarf", "a cap",
+  "short hair", "long hair", "curly hair", "wavy hair", "tied-back hair", "loosely styled hair",
+  "shoulder-length hair", "a fresh haircut", "bleached hair", "dyed hair", "a headscarf", "hair pinned up",
 ]
 
 const BASE =
@@ -161,13 +176,21 @@ const BASE =
   // plain. The people here are meant to be attractive AND real, and dropping
   // "attractive" was not the way to stop them looking generated — the superlatives
   // were ("strikingly beautiful", "flawless"), and those are still gone.
-  "amateur photograph, shot on a phone, unretouched, natural skin texture with visible pores, " +
+  // "amateur photograph, shot on a phone, unretouched, visible pores" was the
+  // whole problem, and it was in the BASE, so it applied to every face on the
+  // floor. It worked: the pictures stopped looking generated and started looking
+  // like unflattering snapshots of strangers — bathroom light, frizz, clutter.
+  //
+  // The opposite of a plastic AI render is not an amateur one. It is a GOOD
+  // photograph: one plane in focus, warm available light, real skin that has
+  // texture without damage. So the realism cues stay and the drabness goes.
+  "photograph, natural skin texture, soft shallow depth of field, " +
   "one single real human face with two clear symmetric correctly-placed eyes and natural undistorted features, " +
-  "head and shoulders with space around the head, available light, slight sensor noise, " +
+  "head and shoulders with space around the head, warm available light, flattering, " +
   // An ordinary, completely fictional stranger — NOT a celebrity/model likeness. Diffusion
   // models reproduce recognizable famous faces when prompted "gorgeous/stunning/model"; this
   // steers to a unique everyday person nobody would recognize (likeness-rights safety).
-  "an attractive real person photographed casually, a completely fictional unique stranger with a natural face"
+  "an attractive real person, well photographed, a completely fictional unique stranger with a natural face"
 
 export const PORTRAIT_NEG =
   // THE SAFETY TERMS STAY, EXACTLY AS THEY ARE. child/minor/underage/teenager are
@@ -195,7 +218,12 @@ export const PORTRAIT_NEG =
   // positive is the bug that aged everyone up two commits ago.
   "acne, pimples, spots, skin blemishes, moles, warts, skin lesions, rash, scabs, " +
   "bad teeth, damaged teeth, missing teeth, discoloured teeth, " +
-  "extreme close-up, face filling the frame, cropped forehead, unattractive, "
+  "extreme close-up, face filling the frame, cropped forehead, unattractive, " +
+  // The look that was actually shipping. Named here so the engines that DO take
+  // a negative push away from it, and so NEG_AS_POSITIVE carries it to FLUX,
+  // which takes none.
+  "harsh overhead light, fluorescent light, cluttered background, " +
+  "bathroom, public toilet, hallway, corridor, stairwell, frizzy unkempt hair, "
   // Anti-likeness: keep generated faces from resembling any real, recognizable person.
   "celebrity, famous person, public figure, well-known model, recognizable actor, actress, " +
   "influencer, deepfake, likeness of a real person, lookalike, supermodel, fashion-model face, " +
@@ -365,8 +393,17 @@ export function buildPortraitPrompt(seedKey: string, gender?: string, _world?: s
   // person is, then what the picture is like, then the technical notes. Nothing
   // was removed; it was put in the order that makes it land.
   const prompt =
-    `A candid amateur photograph of a ${ethnicity} ${word} ${age}, ` +
-    `${look}, with ${hair}. ` +
+    // THE OPENING IS THE BRIEF. The comment above explains why the subject was
+    // moved to the front: Gemini reads the first clause as the instruction and
+    // treats the rest as trailing detail. Which means "candid amateur" was not
+    // one adjective among many — it WAS the art direction, and every other word
+    // in this file was arguing with it and losing.
+    //
+    // "attractive" is the word BASE already uses. The superlatives that were
+    // removed for pulling celebrity likenesses — "strikingly beautiful",
+    // "flawless" — stay removed.
+    `A warm, intimate photograph of an attractive ${ethnicity} ${word} ${age}, ` +
+    `${look}, with ${hair}, styled and at ease. ` +
     `${d ? `${d}. ` : ""}` +
     `${style}. ` +
     `They are clearly an adult. ${BASE}`

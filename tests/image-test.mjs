@@ -113,7 +113,11 @@ check(lut(0)[128] === 128 && lut(0)[255] === 255, `contrast 0 is an identity cur
 check(lut(0.05)[255] === 255 && lut(0.05)[0] === 0, "and a real contrast still maps the endpoints")
 
 // ── the style pool asks for real, not for ugly ────────────────────────────
-const style = prompt.slice(prompt.indexOf("const STYLE = ["), prompt.indexOf("]", prompt.indexOf("const STYLE = [")))
+// The pool, not the prose above it. This scanned the raw slice, so a comment
+// EXPLAINING that the bathrooms were dropped for being unflattering failed the
+// check that no style asks for "unflattering".
+const styleRaw = prompt.slice(prompt.indexOf("const STYLE = ["), prompt.indexOf("]", prompt.indexOf("const STYLE = [")))
+const style = styleRaw.replace(/^\s*\/\/.*$/gm, "")
 for (const w of ["unflattering", "underexposed", "blurry", "grainy", "out of focus", "dirty", "smudged", "harsh"]) {
   check(!new RegExp(w, "i").test(style), `the style pool no longer asks for "${w}"`)
 }
@@ -179,8 +183,22 @@ check(/They are clearly an adult/.test(prompt),
 // Ordering is load-bearing on an instruction-following model: Gemini read a long
 // technical opener as the brief and largely ignored the ethnicity buried after
 // it, so a pool that is 19% East Asian returned a floor that looked far more so.
-check(/A candid amateur photograph of a \$\{ethnicity\}/.test(prompt),
-  "the subject — and their ethnicity — opens the prompt rather than trailing it")
+// Asserted as an ORDERING, not as a sentence. It was pinned to the exact opening
+// words, so re-briefing the photograph — which is a thing that will keep
+// happening — failed a check about where the ethnicity sits.
+{
+  // Comments stripped first. A comment in the template block that merely NAMES
+  // BASE is not BASE, and indexing raw source found the word in the prose.
+  const tpl = prompt.slice(prompt.indexOf("const prompt ="), prompt.indexOf("return { prompt"))
+    .replace(/^\s*\/\/.*$/gm, "")
+  const at = (needle) => tpl.indexOf(needle)
+  check(at("${ethnicity}") > 0, "the ethnicity is in the prompt at all")
+  check(at("${ethnicity}") < at("${style}") && at("${ethnicity}") < at("BASE"),
+    "the subject — and their ethnicity — opens the prompt rather than trailing the setting and the technical notes")
+  const firstLine = tpl.slice(at("`"), at("`") + 120)
+  check(/\$\{ethnicity\}/.test(firstLine),
+    "and it is in the FIRST clause, which is the part an instruction-following model reads as the brief")
+}
 
 for (const w of ["child", "minor", "underage", "teenager"]) {
   check(new RegExp(`\\b${w}\\b`).test(prompt), `the portrait negative still refuses "${w}"`)

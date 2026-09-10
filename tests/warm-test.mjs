@@ -70,6 +70,28 @@ console.log("\n— every language, because the name is half the seed —")
   check(CAST_LANGS.length > 1 && CAST_LANGS.includes("ar"), `CAST_LANGS still carries Arabic (${CAST_LANGS.join(",")})`)
 }
 
+// ── the path it writes must be the path production will read ────────────────
+//
+// A face lives at {slug}-{seed}-{realism}-{fingerprint}. The fingerprint is
+// meant to differ — that is the change being warmed. REALISM_VERSION is not: it
+// is an env var, and a preview that does not inherit production's pin writes
+// r5-... while production reads r3-.... Several hundred faces warmed into that
+// still miss on promote, which is this file's whole failure mode with a bill on
+// it. Production is pinned to r3 today and the preview defaulted to r5, so this
+// is not hypothetical.
+{
+  console.log("\n— and it refuses to warm a path production will not read —")
+  check(/async function pathShape/.test(body), "it reads the storage path shape from both deployments first")
+  check(/there\.realism !== prod\.realism/.test(body), "and compares the realism version, not just the fingerprint")
+  const at = body.indexOf("there.realism !== prod.realism")
+  const arm = body.slice(at, at + 900)
+  check(/process\.exit\(1\)/.test(arm), "a mismatch stops it before a single face is generated")
+  check(!/there\.fingerprint !== prod\.fingerprint[\s\S]{0,200}process\.exit\(1\)/.test(body),
+    "while a DIFFERENT fingerprint is expected and allowed — that is the thing being warmed")
+  check(body.indexOf("async function pathShape") < body.indexOf("const people = cast()"),
+    "and the check runs before the work, not after it")
+}
+
 // ── the guardrails that make it safe to run at all ──────────────────────────
 console.log("\n— and it cannot do the damage it exists to prevent —")
 check(/looks like production/.test(src) && /--yes-production/.test(body),

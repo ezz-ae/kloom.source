@@ -83,6 +83,16 @@ It is resumable — an existing face returns `cached` in milliseconds and costs
 nothing — and it stops itself after a run of failures rather than making
 hundreds of doomed calls at a dead provider.
 
+**One env var has to match, and it is easy to miss.** A face lives at
+`{slug}-{seed}-{realismVersion}-{fingerprint}.jpg`. The fingerprint is meant to
+differ — that is the change being warmed. `REALISM_VERSION` is not, and it is an
+env var: production is pinned to `r3`, while a preview that does not inherit the
+pin builds `r5`. Warm into that and every face still misses on promote. So set
+`REALISM_VERSION` on the Preview environment to whatever Production has, and
+never clear the Production pin while faces are cached under it — that alone
+would blank the floor. The warmer refuses to run on a mismatch and prints both
+paths.
+
 **It cannot finish, and is not supposed to.** The room draws a new cast every
 hour, so the face population is unbounded; `--hours 24` warms a day ahead of the
 clock. Ongoing cost is roughly 14 faces an hour, about 340 a day if every hour

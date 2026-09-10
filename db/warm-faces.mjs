@@ -138,6 +138,58 @@ async function warm(p) {
   return { ok: false, status: res.status, why: d.error || `http ${res.status}`, disabled: !!d.disabled }
 }
 
+/**
+ * THE PATH THE TARGET WRITES MUST BE THE PATH PRODUCTION WILL READ.
+ *
+ * A face lives at `{slug}-{seed}-{realismVersion}-{fingerprint}.jpg`. The
+ * fingerprint is SUPPOSED to differ — that is the change being warmed. The
+ * realism version is not: it comes from REALISM_VERSION, which is an env var, and
+ * a preview that does not inherit production's pin builds `r5-...` while
+ * production reads `r3-...`. Warm several hundred faces into that and every one
+ * still misses the moment it is promoted, which is the exact failure this file
+ * exists to prevent — just with a bill attached.
+ *
+ * Caught for real: production is pinned to r3 and the preview defaulted to r5.
+ */
+async function pathShape(base) {
+  const res = await fetch(`${base}/api/character-photo`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "Shape", gender: "female", seed: "warm-shape-probe", diverse: true }),
+    signal: AbortSignal.timeout(180000),
+  })
+  const d = await res.json().catch(() => ({}))
+  if (!d.url) return null
+  const m = /-(\w+)-(\w+)\.(?:jpg|png)$/.exec(d.url)
+  return m ? { realism: m[1], fingerprint: m[2] } : null
+}
+
+const PROD = val("--production", "https://airraw.com")
+if (!has("--skip-shape-check")) {
+  const [there, prod] = await Promise.all([pathShape(BASE), pathShape(PROD)])
+  if (!there || !prod) {
+    console.error("Could not read the storage path from one of the deployments — refusing to warm blind.")
+    console.error(`  ${BASE} -> ${JSON.stringify(there)}`)
+    console.error(`  ${PROD} -> ${JSON.stringify(prod)}`)
+    process.exit(1)
+  }
+  if (there.realism !== prod.realism) {
+    console.error(`REALISM VERSION MISMATCH — nothing warmed.\n`)
+    console.error(`  target     ${BASE}  writes  ${there.realism}-${there.fingerprint}`)
+    console.error(`  production ${PROD}  reads   ${prod.realism}-${prod.fingerprint}\n`)
+    console.error(`Every face warmed here would still miss on promote, because the path`)
+    console.error(`differs by more than the fingerprint. REALISM_VERSION is an env var:`)
+    console.error(`set it to "${prod.realism}" on the target's environment, or clear the pin`)
+    console.error(`on production so both use the code default. Then run this again.`)
+    process.exit(1)
+  }
+  if (there.fingerprint === prod.fingerprint) {
+    console.log(`NOTE: ${BASE} carries the same prompt as production (${there.fingerprint}).`)
+    console.log(`Nothing new to warm — this will just confirm existing coverage.\n`)
+  } else {
+    console.log(`warming ${there.realism}-${there.fingerprint}  (production reads ${prod.realism}-${prod.fingerprint})\n`)
+  }
+}
+
 const people = cast()
 const byWhy = people.reduce((a, p) => ({ ...a, [p.why.replace(/\+\d+$/, "+N")]: (a[p.why.replace(/\+\d+$/, "+N")] || 0) + 1 }), {})
 console.log(`${people.length} faces to account for, through ${BASE}`)

@@ -39,6 +39,7 @@
 // the one thing this exists to avoid.
 import { ROSTER, groupCast, faceSeedFor } from "@/lib/airroom/roster"
 import { writtenCast, CAST_COUNT, CAST_LANGS } from "@/lib/airraw/cast50"
+import { isArabSeed, nativeLanguageFor } from "@/lib/airraw/lang-prefs"
 
 const argv = process.argv.slice(2)
 const has = (f) => argv.includes(f)
@@ -119,7 +120,24 @@ function cast() {
     // The same wide draw the room makes. It takes the leading CAST of whatever
     // survives the visitor's language filter; warming the leading 2×CAST covers
     // the default visitor and most filtered ones without warming the whole tail.
-    for (const c of groupCast(seed, 0.5, CAST_PER_ROOM * 2)) {
+    // TWO FLOORS COME OUT OF ONE DRAW.
+    //
+    // A visitor with no Arabic preference sees the leading edge. An Arabic one —
+    // now the DEFAULT, so this is the common case — sees only characters who are
+    // Arab, and roughly one in seven qualifies, so the room keeps reading down
+    // the same list until it has fourteen. Measured across the next 24 hours it
+    // reaches 115 deep. Warming the leading 28 left about ninety faces an hour to
+    // be drawn live, which is the whole failure this file exists to prevent.
+    const wide = groupCast(seed, 0.5, (CAST_PER_ROOM + 6) * 10)
+    for (const c of wide.slice(0, CAST_PER_ROOM * 2)) {
+      add(c.host, c.gender, faceSeedFor(c), `hour+${h}`)
+    }
+    let arab = 0
+    for (const c of wide) {
+      if (arab >= CAST_PER_ROOM) break
+      const fk = faceSeedFor(c) || c.host
+      if (nativeLanguageFor(fk) !== "Arabic" || !isArabSeed(fk)) continue
+      arab++
       add(c.host, c.gender, faceSeedFor(c), `hour+${h}`)
     }
   }
@@ -165,7 +183,12 @@ async function pathShape(base) {
 
 const PROD = val("--production", "https://airraw.com")
 if (!has("--skip-shape-check")) {
-  const [there, prod] = await Promise.all([pathShape(BASE), pathShape(PROD)])
+  // An unreachable host is an answer, not a crash — this runs before anything
+  // else and a stack trace here reads as the tool being broken.
+  const [there, prod] = await Promise.all([
+    pathShape(BASE).catch(() => null),
+    pathShape(PROD).catch(() => null),
+  ])
   if (!there || !prod) {
     console.error("Could not read the storage path from one of the deployments — refusing to warm blind.")
     console.error(`  ${BASE} -> ${JSON.stringify(there)}`)

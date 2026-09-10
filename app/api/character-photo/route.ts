@@ -665,19 +665,29 @@ export async function POST(request: Request) {
 
   const provider = providerOverride || PROVIDER
 
-  // Fast path when this provider isn't usable — return immediately so the client
-  // falls back to the monogram identity card instead of hanging on a dead endpoint.
-  if (provider === "none"
+  // CAN A NEW FACE BE DRAWN — which is not the same question as "is there a face".
+  //
+  // This used to return 503 disabled right here, above the cache. So the day the
+  // image account ran out of credit, the floor did not lose the faces it could no
+  // longer draw; it lost EVERY face, including the thousands already generated and
+  // sitting in storage costing nothing to serve. A new visitor got a screen of
+  // monograms, and because the client latches on `disabled` it stopped asking for
+  // the rest of the session.
+  //
+  // A dead provider means no NEW faces. It does not mean no faces. So the answer
+  // is deferred until after the cache has been consulted.
+  const canGenerate = !(provider === "none"
       || ((provider === "runpod" || provider === "qwen") && !RP_KEY)
       || (provider === "fal" && !FAL_KEY)
       || (provider === "together" && !TOGETHER_KEY)
       || (provider === "google" && !GEMINI_KEY && !TOGETHER_KEY && !FAL_KEY && !RP_KEY)
-      || providerRejected()) {
-    // Same shape as "no key configured", because it is the same situation from
-    // the client's side: no photo is coming, show the monogram and stop asking.
-    return Response.json({ error: "image generation disabled", disabled: true }, { status: 503 })
+      || providerRejected())
+  // With no storage there is no cache to fall back on, so the old answers stand.
+  if (!hasAdmin()) {
+    return canGenerate
+      ? Response.json({ error: "storage unavailable" }, { status: 503 })
+      : Response.json({ error: "image generation disabled", disabled: true }, { status: 503 })
   }
-  if (!hasAdmin()) return Response.json({ error: "storage unavailable" }, { status: 503 })
 
   // DIVERSE builder (AIRRAW): every persona a unique mix of race/age/look/style, no
   // duplicates. Otherwise the legacy single-look builder (kloom create).
@@ -727,6 +737,12 @@ export async function POST(request: Request) {
       return Response.json({ url: existing, cached: true, model: "cached" })
     }
   } catch { /* not cached → generate */ }
+
+  // Cache missed, and nothing can draw this one. NOW the client is told to stop
+  // asking — after every already-generated face has had its chance to be served.
+  if (!canGenerate) {
+    return Response.json({ error: "image generation disabled", disabled: true }, { status: 503 })
+  }
 
   // One generation at a given diffusion seed (the prompt — i.e. the persona — is
   // fixed; only the pixels change with the seed). diverse → try photoreal FLUX.1-dev,

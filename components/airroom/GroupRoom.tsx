@@ -68,6 +68,10 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   const [listening, setListening] = useState(false)
   const [muted, setMuted] = useState(false)         // mute the room's voices (text keeps flowing)
   const [speaking, setSpeaking] = useState(false)   // someone is talking aloud → sound indicator
+  // A 402 here used to be `return` — the room simply went quiet, which reads as
+  // broken rather than as a wall. Same three cases as the 1:1 call, and the
+  // same rule: only a caller with no pass is shown the sheet.
+  const [wallNote, setWallNote] = useState("")
   const [humanNote, setHumanNote] = useState(false) // one-time "some people are real" note (first room ever)
   const [pro] = useState(() => isPro())
   const [active, setActive] = useState(0)           // who holds the stage (last AI voice heard)
@@ -113,6 +117,16 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       const req = fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, personaName: m.host, seedKey: who, gender: m.gender, language: lang, voiceId: m.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), visitorId: visitorId(), mode: "voice" }) })
       claimFirst(who, lang, req)
       const res = await req
+      if (res.status === 402) {
+        const why = res.headers.get("X-Pass")
+        if (why === "daily-cap") setWallNote(t("you've used today's voice — your pass resets at midnight"))
+        else if (why === "rejected" || why === "expired") {
+          setWallNote(t(why === "expired"
+            ? "your pass has run out — restore or renew it to keep talking"
+            : "we couldn't verify your pass — restore it and you're back"))
+        } else { setWallNote(t("your free minute is up — unlock the pass to keep talking")); setShowPro(true) }
+        return
+      }
       if (!res.ok) return
       pinFromResponse(who, lang, res)
       const url = URL.createObjectURL(await res.blob())
@@ -330,7 +344,8 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
               <Face persona={{ name: members[active]?.host || "", gender: members[active]?.gender, seed: faceSeedFor(members[active]) }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </div>
           </div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "#eef4f8", lineHeight: 1 }}>{members[active]?.host}</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#eef4f8", lineHeight: 1 }}>{displayName(members[active]?.host || "", members[active]?.gender, t.locale)}</div>
+          {wallNote && <div style={{ fontSize: 11.5, color: "#fbbf24", marginTop: 6, textAlign: "center", lineHeight: 1.4 }}>{wallNote}</div>}
         </div>
         <div style={{ display: "flex", gap: 9, alignItems: "center", maxWidth: "100%", overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", padding: "2px 2px 4px", maskImage: "linear-gradient(to right, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 92%, transparent)" }}>
           {members.slice(0, 12).map((m, i) => (

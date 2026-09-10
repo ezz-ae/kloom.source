@@ -12,6 +12,23 @@ const SECRET = process.env.AIRRAW_PRO_SECRET
   || process.env.SUPABASE_SERVICE_ROLE_KEY
   || (process.env.NODE_ENV === "production" ? "" : "airraw-dev-secret")
 
+// Every pass is an HMAC over SECRET, so the moment SECRET changes, every pass
+// already sold stops verifying — and the holder is silently metered as a free
+// visitor: one minute, then the sheet asking them to buy what they already
+// bought. That is not hypothetical. SECRET falls back to
+// SUPABASE_SERVICE_ROLE_KEY, so it moved when AIRRAW_PRO_SECRET was first set,
+// and it moves again with any Supabase rotation or project switch.
+//
+// So verification accepts a PREVIOUS secret as well. Minting never does: new
+// passes are always signed with the current one, and the old value only keeps
+// already-sold passes alive until they expire. Rotating is now: put the old
+// value in AIRRAW_PRO_SECRET_PREV, the new one in AIRRAW_PRO_SECRET, and nobody
+// who paid loses anything.
+const PREV_SECRET = process.env.AIRRAW_PRO_SECRET_PREV || ""
+
+/** Secrets a token may be signed with, current first. Verify only. */
+const VERIFY_SECRETS: string[] = [SECRET, PREV_SECRET].filter(Boolean)
+
 export function mintProToken(untilMs: number, minutes = 6000): string {
   if (!SECRET) throw new Error("AIRRAW_PRO_SECRET not configured — refusing to mint with an empty secret")
   // The ONE pass: adult18 (S1 age attestation) + minutes (the voice allowance). Both live
@@ -23,17 +40,42 @@ export function mintProToken(untilMs: number, minutes = 6000): string {
 
 /** Verified claims from a Pro token, or null if invalid/expired/unsigned. */
 export function proTokenClaims(token?: string | null): { until: number; v: number; adult18?: boolean; minutes?: number } | null {
-  if (!token || !SECRET) return null
+  if (!token || !VERIFY_SECRETS.length) return null
   const [payload, sig] = token.split(".")
   if (!payload || !sig) return null
   try {
-    const expected = createHmac("sha256", SECRET).update(payload).digest("hex")
-    const a = Buffer.from(sig, "hex"), b = Buffer.from(expected, "hex")
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null
+    const a = Buffer.from(sig, "hex")
+    // Constant-time against each accepted secret. Both are checked even after a
+    // match so a rotated pass and a current one cost the same time.
+    let signed = false
+    for (const secret of VERIFY_SECRETS) {
+      const b = Buffer.from(createHmac("sha256", secret).update(payload).digest("hex"), "hex")
+      if (a.length === b.length && timingSafeEqual(a, b)) signed = true
+    }
+    if (!signed) return null
     const claims = JSON.parse(Buffer.from(payload, "base64").toString())
     if (typeof claims.until !== "number" || claims.until <= Date.now()) return null
     return claims
   } catch { return null }
+}
+
+/**
+ * Why a token was not honoured — for the response header, so a paying customer
+ * being metered as a free visitor is one header away from being diagnosed
+ * instead of being guessed at.
+ */
+export type PassRefusal = "none" | "rejected" | "expired"
+
+export function proTokenRefusal(token?: string | null): PassRefusal | null {
+  if (!token) return "none"
+  if (proTokenClaims(token)) return null
+  // Unverified read of the payload — only to tell "expired" from "rejected".
+  // It decides a message, never access.
+  try {
+    const claims = JSON.parse(Buffer.from(token.split(".")[0], "base64").toString())
+    if (typeof claims.until === "number" && claims.until <= Date.now()) return "expired"
+  } catch { /* not even shaped like a token */ }
+  return "rejected"
 }
 
 export function proTokenValid(token?: string | null): boolean {

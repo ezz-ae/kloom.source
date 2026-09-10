@@ -38,6 +38,7 @@ const WHAT = {
   "llm-seat-test":    "a rejected model key is asked once, not every turn",
   "media-test":       "text/voice to media is always the SAME her",
   "taste-test":       "the floor is filterable, and a filter is never a dead end",
+  "pass-rotation-test": "a pass outlives a rotated secret, and a paid caller is never sold it twice",
   "pay-test":         "a crypto pass needs a signed callback, never a claim",
   "video-test":       "a clip outlives its request, is paid for once, and persists",
   "cast-test":        "the floor has 2,980 people in it, not 298",

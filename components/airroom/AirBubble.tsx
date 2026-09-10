@@ -491,6 +491,14 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         if (res.status === 402) {
           const why = res.headers.get("X-Pass")
           if (why === "daily-cap") setMicHint("you've used today's voice — your pass resets at midnight")
+          else if (why === "rejected" || why === "expired") {
+            // They HAVE a pass and the server would not take it. Never the free
+            // wall's words and never the buy sheet: asking someone to pay for
+            // what they already bought is the worst thing this screen can do.
+            setMicHint(why === "expired"
+              ? "your pass has run out — restore or renew it to keep talking"
+              : "we couldn't verify your pass — restore it and you're back")
+          }
           else { setMicHint("your free minute is up — unlock the pass to keep talking"); setShowPro(true) }
           setHandsFree(false)
         }

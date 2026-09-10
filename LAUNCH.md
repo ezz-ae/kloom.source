@@ -73,7 +73,37 @@ token, chat and speech recognition answer. These are the open items, in order:
 2. **`AIRRAW_PRO_SECRET`** — set on 2026-09-04 (sensitive, so its value can't be
    read back). Make sure it is a long random value (`openssl rand -hex 32`), not a
    word: every pass is an HMAC over it, and a guessable secret is a free pass for
-   anyone who reads the code. Changing it later voids every pass sold until then.
+   anyone who reads the code.
+
+   **Rotating it no longer voids the passes already sold** — but only if you say
+   what the old value was. `AIRRAW_PRO_SECRET_PREV` is accepted for VERIFYING a
+   pass and never for minting one, so:
+
+   ```
+   vercel env add AIRRAW_PRO_SECRET_PREV production   # the value being replaced
+   vercel env add AIRRAW_PRO_SECRET production        # the new one
+   ```
+
+   Passes signed with either keep working; new ones are signed with the current
+   secret only. Drop `_PREV` once every pass signed with it has expired (90 days).
+
+   This matters more than it looks, because `AIRRAW_PRO_SECRET` falls back to
+   `SUPABASE_SERVICE_ROLE_KEY` when unset — so the secret ALSO moves on any
+   Supabase key rotation or project switch. When it moves, a paying customer is
+   not shown an error: they are metered as a free visitor, get one minute, and
+   are then asked to buy the pass they already own.
+
+   **To tell whether that is happening in production**, make one call and read the
+   response headers — `X-TTS-Tier` and `X-Pass` on the 402:
+
+   | `X-TTS-Tier` | `X-Pass`     | what it means                                  |
+   |--------------|--------------|------------------------------------------------|
+   | `pass`       | —            | the pass is being honoured; look elsewhere      |
+   | `free`       | *(absent)*   | no pass was sent — the browser has no token     |
+   | `free`       | `rejected`   | a pass was sent and the signature did not verify — the secret moved; set `AIRRAW_PRO_SECRET_PREV` |
+   | `free`       | `expired`    | the pass is past its `until` — it needs renewing |
+   | `free`       | `exhausted`  | the pass verified but its allowance is spent    |
+   | `free`       | `daily-cap`  | fair-use cap for today (`PASS_DAILY_CAP_MIN`)   |
 3. **The Fish key has EXPIRED** (`FISH_API_KEY` → "Token expired"). Fish is the
    fallback when ElevenLabs can't answer — with it dead, an ElevenLabs outage
    means silence (logged as `[tts] fish rejected the key`). Log in at fish.audio → API keys → new key →

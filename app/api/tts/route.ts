@@ -4,7 +4,7 @@ import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { isSouthAsianSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
 import { warmAccentPools, ensureAccentPools, discoveredAccentPool, discoveredLangPool, isLibraryVoice, noteLibraryVoiceRejected } from "@/lib/airraw/voice-discovery"
-import { proTokenClaims } from "@/lib/airraw-pro-token"
+import { proTokenClaims, proTokenRefusal } from "@/lib/airraw-pro-token"
 import { adultEnabled } from "@/lib/variant"
 import { spendPassChars, spendFreeChars } from "@/lib/airraw/pass-meter"
 import { walletFor } from "@/lib/airraw/purse"
@@ -108,6 +108,14 @@ export async function POST(request: Request) {
   const claims = airraw ? proTokenClaims(proToken) : null
   let tier: "kloom" | "pass" | "free" | "chips" = airraw ? (claims ? "pass" : "free") : "kloom"
   const tierHeaders: Record<string, string> = {}
+  // A pass that was SENT and not honoured is a different event from no pass at
+  // all, and it is the one that costs a customer: they paid, the signature no
+  // longer verifies (a rotated secret voids every pass signed with the old one),
+  // and they get metered as a free visitor. Say so on the response instead of
+  // leaving it to be guessed at from the outside.
+  if (airraw && !claims && proToken) {
+    tierHeaders["X-Pass"] = proTokenRefusal(proToken) || "rejected"
+  }
   if (claims) {
     const v = await spendPassChars(proToken!, claims.minutes, ttsText.length)
     // An exhausted pass, or one past today's fair-use cap, falls back to the free

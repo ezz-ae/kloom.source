@@ -11,7 +11,7 @@
 // the URL is permanent and cheap to serve.
 
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
-import { buildPortraitPrompt, promptWithoutNegative, PROMPT_FINGERPRINT } from "@/lib/airraw/portrait-prompt"
+import { buildPortraitPrompt, promptWithoutNegative, PROMPT_FINGERPRINT, PORTRAIT_SAFETY_NEG } from "@/lib/airraw/portrait-prompt"
 import { isCleanPortrait, validatorReady } from "@/lib/face-validate"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 
@@ -385,9 +385,19 @@ async function googleImageModel(): Promise<string> {
  */
 async function genGoogle(prompt: string, negative: string, seed: number): Promise<Buffer | null | typeof REFUSED> {
   if (!GEMINI_KEY || Date.now() < googleOffUntil) return null
-  const full = negative
-    ? `${prompt}. Absolutely do not depict any of the following: ${negative}.`
-    : prompt
+  // ONLY THE SAFETY FLOOR IS STATED AS A PROHIBITION.
+  //
+  // The whole negative used to be pasted in here as "Absolutely do not depict
+  // …", and Gemini answered it with an elderly, grey, deeply wrinkled face
+  // filling the frame — every term of which was on that list. An
+  // instruction-following model treats a named concept as a concept, and a long
+  // list of things not to draw is a long list of things to think about.
+  //
+  // The aesthetic constraints now live in the positive brief where they describe
+  // the person. What is still refused outright is the age floor, because that is
+  // a safety rule rather than a preference and it is not traded away for a
+  // better-looking result.
+  const full = `${prompt}. This is an adult. Absolutely do not depict: ${PORTRAIT_SAFETY_NEG}.`
   const model = await googleImageModel()
   const imagen = /imagen/i.test(model)
   try {

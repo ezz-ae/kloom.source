@@ -58,9 +58,17 @@ check(offenders.length === 0,
 
 // ── the client must drop faces cached under the old key ─────────────────────
 const face = readFileSync("lib/airraw/face.ts", "utf8")
-const ver = (face.match(/FACE_CACHE_VERSION = "(v\d+)"/) || [])[1]
-check(ver && Number(ver.slice(1)) >= 6,
-  `the face cache version was bumped for the new key (${ver})`)
+// It used to be a hand-typed "v6", and that is exactly how it failed: the prompt
+// was rewritten twice, the server regenerated every face, and phones kept serving
+// the old ones — an elderly grey-haired woman was the first thing a visitor saw —
+// because nobody remembered to bump a string. It is now the prompt's own
+// fingerprint, which cannot be pinned and cannot be forgotten.
+check(/FACE_CACHE_VERSION = PROMPT_FINGERPRINT/.test(face),
+  "the client cache is versioned by the prompt itself, not by a number someone must remember")
+check(!/FACE_CACHE_VERSION = "v\d+"/.test(face),
+  "and not by a hand-typed version, which is the thing that went stale")
+check(/from "@\/lib\/airraw\/portrait-prompt"/.test(face),
+  "so a prompt change invalidates every device the moment it ships")
 check(/p\.seed \|\| p\.name/.test(face), "seed wins over name when both are present")
 
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)

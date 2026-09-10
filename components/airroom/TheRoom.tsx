@@ -53,6 +53,7 @@ function soulOf(c: Cluster): string {
 import { dossierLine, cardLinesFor, dossierForSeed } from "@/lib/airraw/dossier"
 import { renderPersona } from "@/lib/airraw/persona"
 import { useT } from "@/lib/airraw/i18n"
+import { registerAudio } from "@/lib/airraw/audio-unlock"
 import { displayName } from "@/lib/airraw/arabic-names"
 import { getLangPrefs, matchesPrefs } from "@/lib/airraw/lang-prefs"
 import { getProToken, isPro } from "@/lib/airroom/pro"
@@ -275,6 +276,9 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
 
   const scroller = useRef<HTMLDivElement | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // iOS refuses play() that is not inside a gesture, and every sound here
+  // starts from a fetch callback. The first touch on the page unlocks it.
+  useEffect(() => registerAudio(audioRef.current), [])
   const busy = useRef(false)
   const openRef = useRef(false)
   const linesRef = useRef<Line[]>([])

@@ -65,7 +65,7 @@ export function GoldenSheet({ onClose }: { onClose: () => void }) {
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 11.5, letterSpacing: 1.6, textTransform: "uppercase", fontWeight: 700,
-            background: METAL, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>{t(t("the golden room"))}</span>
+            background: METAL, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>{t("the golden room")}</span>
           <button onClick={onClose} aria-label={t("close")}
             style={{ background: "none", border: "none", color: "rgba(246,239,224,.5)", fontSize: 21, cursor: "pointer", padding: "0 3px", lineHeight: 1, fontFamily: "inherit" }}>×</button>
         </div>

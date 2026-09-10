@@ -196,6 +196,24 @@ const BASE =
   // steers to a unique everyday person nobody would recognize (likeness-rights safety).
   "an attractive real person, well photographed, a completely fictional unique stranger with a natural face"
 
+/**
+ * THE ONLY PROHIBITION AN INSTRUCTION MODEL IS TOLD.
+ *
+ * Gemini is handed the negative as "Absolutely do not depict any of the
+ * following: …". It drew an elderly woman with grey hair, deep wrinkles and
+ * moles, filling the frame — every one of which was in that list. Naming a
+ * concept inside a prohibition is still naming it, and an instruction-following
+ * model raises its likelihood rather than lowering it. This file already learned
+ * the same lesson once, when asking for "unretouched" produced skin damage.
+ *
+ * So the aesthetic terms come OUT of the prohibition and go into the positive
+ * brief, where they are describing a person instead of summoning one. What stays
+ * is the safety floor, which is not an aesthetic preference and is not
+ * negotiable — it is a hard refusal that must be stated however imperfectly it
+ * is obeyed, and it is backed by the positive "They are clearly an adult".
+ */
+export const PORTRAIT_SAFETY_NEG = "child, minor, underage, teenager"
+
 export const PORTRAIT_NEG =
   // THE SAFETY TERMS STAY, EXACTLY AS THEY ARE. child/minor/underage/teenager are
   // a hard floor and nothing below is allowed to weaken them.
@@ -409,8 +427,16 @@ export function buildPortraitPrompt(seedKey: string, gender?: string, _world?: s
     // "attractive" is the word BASE already uses. The superlatives that were
     // removed for pulling celebrity likenesses — "strikingly beautiful",
     // "flawless" — stay removed.
-    `A warm, intimate photograph of an attractive ${ethnicity} ${word} ${age}, ` +
-    `${look}, with ${hair}, styled and at ease. ` +
+    // SAID POSITIVELY, BECAUSE A PROHIBITION SUMMONS WHAT IT NAMES.
+    // "young, smooth skin, dark hair" describes a person. "not elderly, no grey
+    // hair, no wrinkles" describes the same person to a diffusion model and the
+    // opposite one to Gemini, which drew exactly the face the list forbade.
+    `A warm, intimate photograph of an attractive young ${ethnicity} ${word} ${age}, ` +
+    `with smooth clear youthful skin and ${hair}. ` +
+    `${look}, styled and at ease. ` +
+    // The framing was in the prohibition too, and came back as a face filling the
+    // whole frame. Asked for instead of forbidden.
+    `Waist-up portrait, the whole head and the shoulders in frame with space above the head. ` +
     `${d ? `${d}. ` : ""}` +
     `${style}. ` +
     `They are clearly an adult. ${BASE}`

@@ -21,6 +21,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useT } from "@/lib/airraw/i18n"
+import { registerAudio } from "@/lib/airraw/audio-unlock"
 import { displayName } from "@/lib/airraw/arabic-names"
 import { composeScene, castFor, fantasyById, roleById, type SceneConfig } from "@/lib/airraw/fantasy"
 import { faceSeedFor, type Cluster } from "@/lib/airroom/roster"
@@ -87,6 +88,9 @@ export function SceneRoom({ cfg, onClose, onPass, sceneId, initialLines }: {
   const turnRef = useRef(0)
   const endRef = useRef<HTMLDivElement | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // iOS refuses play() that is not inside a gesture, and every sound here
+  // starts from a fetch callback. The first touch on the page unlocks it.
+  useEffect(() => registerAudio(audioRef.current), [])
   const mutedRef = useRef(false)
   useEffect(() => { mutedRef.current = muted }, [muted])
 

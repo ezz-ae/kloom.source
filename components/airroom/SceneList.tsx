@@ -41,7 +41,7 @@ export function SceneList({ onOpen, onNew }: {
   return (
     <div style={{ color: "#f0e8ff", padding: "6px 16px 96px", maxWidth: 640, margin: "0 auto", boxSizing: "border-box" }}>
       <header style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -.3 }}>{t(t("your scenes"))}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: -.3 }}>{t("your scenes")}</div>
         <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.45)" }}>
           {scenes.length} {scenes.length === 1 ? "scene" : "scenes"} · pick up where you left off
         </div>
@@ -83,17 +83,17 @@ export function SceneList({ onOpen, onNew }: {
               <div style={{ display: "flex", borderTop: ".5px solid rgba(255,255,255,.08)" }}>
                 <button onClick={() => onOpen(s)}
                   style={{ flex: 1, padding: "10px 0", background: "none", border: "none", color: ACCENT, fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                  {t(t("go back in"))}
+                  {t("go back in")}
                 </button>
                 {confirming === s.id ? (
                   <button onClick={() => drop(s.id)}
                     style={{ flex: 1, padding: "10px 0", background: "none", border: "none", borderLeft: ".5px solid rgba(255,255,255,.08)", color: "#fb7185", fontSize: 13.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-                    {t(t("delete it — sure?"))}
+                    {t("delete it — sure?")}
                   </button>
                 ) : (
                   <button onClick={() => setConfirming(s.id)} aria-label={t("delete the scene with {cast}", { cast: castLabel(s) })}
                     style={{ flex: "0 0 auto", padding: "10px 16px", background: "none", border: "none", borderLeft: ".5px solid rgba(255,255,255,.08)", color: "rgba(240,232,255,.4)", fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
-                    {t(t("delete"))}
+                    {t("delete")}
                   </button>
                 )}
               </div>

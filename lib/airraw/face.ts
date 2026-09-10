@@ -4,6 +4,8 @@
 // view. Concurrent requests for the same persona are de-duped. Until a face resolves,
 // callers show a cheap fallback (gradient/initial) — so the floor never blocks.
 
+import { PROMPT_FINGERPRINT } from "@/lib/airraw/portrait-prompt"
+
 export interface FacePersona { name: string; gender?: string; seed?: string }
 
 const PROVIDER = process.env.NEXT_PUBLIC_AIRRAW_IMG_PROVIDER || "together"
@@ -54,7 +56,19 @@ function keyOf(p: FacePersona): string { return String(p.seed || p.name || "").t
 // Bump when the SERVER image pipeline changes (model / realism pass) so every client
 // drops its cached URLs and re-fetches the new faces — otherwise a returning visitor
 // keeps seeing the old face URL saved in localStorage even though the server moved on.
-const FACE_CACHE_VERSION = "v6"   // v6: faces key on archetype+name, not name alone
+// THE CLIENT CACHE IS VERSIONED BY THE PROMPT, NOT BY HAND.
+//
+// This was "v6", a string somebody had to remember to change. Nobody did, and
+// the consequence was the loudest bug of the day: the prompt was rewritten
+// twice, the server regenerated every face, and phones kept showing the old
+// ones — including an elderly grey-haired woman as the first thing a visitor
+// saw — because a URL cached under "v6" is still a URL cached under "v6".
+//
+// The server already solved this for its own cache and wrote down why:
+// PROMPT_FINGERPRINT "cannot be pinned and cannot be forgotten". The client now
+// keys on the same value, so a prompt change invalidates every device at the
+// moment it ships, with nothing to remember.
+const FACE_CACHE_VERSION = PROMPT_FINGERPRINT
 const lsKey = (k: string) => `airraw_face:${FACE_CACHE_VERSION}:` + k
 
 // One-time sweep: drop face URLs cached under an older pipeline version so stale

@@ -47,6 +47,7 @@ import { getProfile, type Profile } from "@/lib/airroom/profile"
 import { hasOnboarded, markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
 import { takeEntryMood } from "@/lib/airraw/entry"
 import { useT } from "@/lib/airraw/i18n"
+import { registerAudio } from "@/lib/airraw/audio-unlock"
 import { displayName } from "@/lib/airraw/arabic-names"
 import { getCredits, spendCredits } from "@/lib/airroom/credits"
 import { getFai, earnFai } from "@/lib/airraw/fai"
@@ -127,6 +128,9 @@ export function Planet() {
   tRef.current = t
   const cvRef = useRef<HTMLCanvasElement | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // The front door. iOS refuses play() outside a gesture and every sound here
+  // starts from a callback, so the first touch on the page unlocks it.
+  useEffect(() => registerAudio(audioRef.current), [])
   const zoomFnRef = useRef<(f: number) => void>(() => {})
 
   const [selected, setSelected] = useState<Cluster | null>(null)

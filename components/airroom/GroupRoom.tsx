@@ -14,6 +14,7 @@
  */
 import { useEffect, useRef, useState } from "react"
 import { useT } from "@/lib/airraw/i18n"
+import { registerAudio } from "@/lib/airraw/audio-unlock"
 import { groupCast, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { renderPersona } from "@/lib/airraw/persona"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
@@ -96,6 +97,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
   const driveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const humansRef = useRef<Participant[]>([])
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // iOS refuses play() that is not inside a gesture, and every sound here
+  // starts from a fetch callback. The first touch on the page unlocks it.
+  useEffect(() => registerAudio(audioRef.current), [])
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const recRef = useRef<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
   const bcastRef = useRef<((m: WireMessage) => void) | null>(null)

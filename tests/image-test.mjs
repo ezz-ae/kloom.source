@@ -164,7 +164,17 @@ check(/looking (straight )?into the lens|direct.*gaze|looking at the camera/i.te
 // instructions.
 const gg = src.slice(src.indexOf("async function genGoogle"), src.indexOf("/**\n * Ask Together"))
 check(/genGoogle\(prompt: string, negative: string/.test(gg), "genGoogle takes the negative rather than ignoring it")
-check(/Absolutely do not depict any of the following/.test(gg), "and states the exclusions in words, since there is no field for them")
+// ...but ONLY the safety floor. The whole negative used to be pasted in, and
+// Gemini answered it with an elderly, grey, deeply wrinkled face filling the
+// frame — every term of which was on that list. An instruction-following model
+// treats a named concept as a concept, so a list of things not to draw is a list
+// of things to think about. The aesthetic constraints moved into the positive
+// brief; the age floor stays, because it is a safety rule and not a preference.
+check(/Absolutely do not depict/.test(gg), "and states the age floor in words, since there is no field for it")
+check(/PORTRAIT_SAFETY_NEG/.test(gg), "using the safety list alone")
+check(!/\$\{negative\}/.test(gg),
+  "never the whole aesthetic negative — naming 'elderly, wrinkled, grey hair' to this model produced exactly that")
+check(/This is an adult/.test(gg), "with the positive half of the same floor alongside it")
 check(/text: full/.test(gg) && /prompt: full/.test(gg), "both request shapes send the combined text, not the bare prompt")
 check(/genGoogle\(prompt, negative, dseed\)/.test(src), "the caller passes it through")
 

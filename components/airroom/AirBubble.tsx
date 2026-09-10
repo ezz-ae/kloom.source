@@ -9,6 +9,7 @@
  */
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import { useT, translate, currentLocale } from "@/lib/airraw/i18n"
+import { unlockAudio, registerAudio } from "@/lib/airraw/audio-unlock"
 import { displayName } from "@/lib/airraw/arabic-names"
 import { faceSeedFor } from "@/lib/airroom/roster"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
@@ -247,6 +248,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   }
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Belt and braces with the unlock in onTalk: if sound ever starts from
+  // somewhere other than the call button, the first touch has already armed it.
+  useEffect(() => registerAudio(audioRef.current), [])
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const msgsRef = useRef(msgs)
   const busyRef = useRef(false)
@@ -794,6 +798,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   }, [])
 
   const onTalk = () => {
+    unlockAudio(audioRef.current)   // FIRST, and synchronously: this is the gesture.
     setMicHint(""); lastActivityRef.current = Date.now()
     setHandsFree((h) => {
       const next = !h

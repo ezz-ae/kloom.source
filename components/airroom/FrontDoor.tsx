@@ -309,7 +309,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
               and the line is just another thing between you and the picture. */}
           {i < 3 && (
             <div style={{ textAlign: "center", fontSize: 11, color: "rgba(240,232,255,.3)", marginTop: 1 }}>
-              {t(t("swipe for someone else"))}
+              {t("swipe for someone else")}
             </div>
           )}
         </div>

@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import { useT } from "@/lib/airraw/i18n"
+import { registerAudio } from "@/lib/airraw/audio-unlock"
 import { displayName } from "@/lib/airraw/arabic-names"
 import { renderPersona, namedCharacter } from "@/lib/airraw/persona"
 import { Chess, type Square } from "chess.js"
@@ -86,6 +87,9 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
   const chatScrollRef = useRef<HTMLDivElement | null>(null)
   const chatRecRef = useRef<any>(null) // eslint-disable-line @typescript-eslint/no-explicit-any
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // iOS refuses play() that is not inside a gesture, and every sound here
+  // starts from a fetch callback. The first touch on the page unlocks it.
+  useEffect(() => registerAudio(audioRef.current), [])
   const banterTok = useRef(0)
   const langRef = useRef("English")   // the house talks your language
   useEffect(() => { langRef.current = detectLanguage() }, [])

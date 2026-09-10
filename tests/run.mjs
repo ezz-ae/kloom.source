@@ -56,6 +56,7 @@ const WHAT = {
   "who-test":         "every person has a page, in their own words, that can never spend money",
   "fantasy-test":     "the scene menu is closed, clean, and cannot smuggle a prompt",
   "image-test":       "the best face engine runs first, and a refusal falls through instead of failing",
+  "audio-unlock-test":  "the speaker is unlocked on a gesture, or the product is silent",
   "browser-language-test": "the visitor browser picks the language, nobody else does",
   "cast50-test":      "fifty written people, no two alike, and one person in every language",
   "chips-test":       "every pack clears its own cost, and nothing is taken back to make you move",

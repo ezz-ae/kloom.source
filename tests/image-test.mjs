@@ -204,5 +204,35 @@ for (const w of ["child", "minor", "underage", "teenager"]) {
   check(new RegExp(`\\b${w}\\b`).test(prompt), `the portrait negative still refuses "${w}"`)
 }
 
+// ── the engine ladder asks the account rather than guessing ─────────────────
+//
+// TOGETHER_LADDER defaulted to a model this account cannot call serverlessly, so
+// every diverse portrait spent a request collecting a 400 before moving on —
+// and once fal started answering, the fallthrough caught it and the floor walk
+// that DISCOVERS the account's real models was never reached. Together was
+// funded, healthy, and never used. The discovery already existed; the default
+// just never consulted it.
+{
+  console.log("\n— the ladder asks the account instead of guessing —")
+  const r = readFileSync("app/api/character-photo/route.ts", "utf8")
+  const b = r.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+
+  const ladder = b.slice(b.indexOf("const TOGETHER_LADDER"), b.indexOf("const stepsFor"))
+  check(!/FLUX\.1-dev/.test(ladder),
+    "no hardcoded model is the DEFAULT climb — that is the guess that kept failing")
+  check(/return \[\]/.test(ladder), "with no pin the ladder is empty, so discovery decides")
+  check(/TOGETHER_REAL_MODEL/.test(ladder) && /process\.env\.TOGETHER_LADDER/.test(ladder),
+    "and an explicit pin still overrides it")
+
+  check(/TOGETHER_LADDER\.length[\s\S]{0,200}togetherImageModels\(\)/.test(b),
+    "the diverse path falls back to the discovered list when nothing is pinned")
+  check(/\.slice\(0, 4\)/.test(b),
+    "capped, so a bad night costs a few requests rather than the whole model list")
+
+  // The safety net stays: if the list cannot be read, the hardcoded names are
+  // still there as a floor. Removing them would turn an API blip into no faces.
+  check(/TOGETHER_FLOOR/.test(b), "the hardcoded names remain as the floor when the list cannot be read")
+}
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail === 0 ? 0 : 1)

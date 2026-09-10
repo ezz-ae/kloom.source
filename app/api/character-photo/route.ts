@@ -69,13 +69,28 @@ const TOGETHER_STEPS = Number(process.env.TOGETHER_IMAGE_STEPS || (TOGETHER_MODE
 // key's ceiling. Default ladder is FLUX.1-dev, then the schnell base as the floor.
 //   • Pin one model with TOGETHER_REAL_MODEL (e.g. black-forest-labs/FLUX.1.1-pro).
 //   • Or set TOGETHER_LADDER to a comma list to customise the climb.
+// EMPTY BY DEFAULT, AND THAT IS THE FIX.
+//
+// This defaulted to [FLUX.1-dev], which this account cannot call serverlessly —
+// Together answers 400 "Unable to access non-serverless model … create a
+// dedicated endpoint". So every diverse portrait spent a request being refused
+// before moving on, and because fal now answers, it never reached the floor walk
+// below where the account's REAL models are discovered. Together was funded,
+// healthy, and never actually used.
+//
+// The discovery a few hundred lines down already knows the truth — it reads
+// /v1/models and ranks them for cheap portraits, and its own comment records
+// that the account holds 29 image models and none of the FLUX.1 family this
+// list named. So the default is now "ask", not "guess". A pin still wins.
 const TOGETHER_LADDER: { model: string; steps: number }[] = (() => {
   const pin = process.env.TOGETHER_REAL_MODEL
   if (pin) return [{ model: pin, steps: Number(process.env.TOGETHER_REAL_STEPS || 28) }]
   const env = process.env.TOGETHER_LADDER
   if (env) return env.split(",").map((s) => s.trim()).filter(Boolean).map((m) => ({ model: m, steps: /pro/i.test(m) ? 0 : 28 }))
-  return [{ model: "black-forest-labs/FLUX.1-dev", steps: 28 }]
+  return []
 })()
+/** Steps for a discovered model: the pro/max tiers price per-step, so let them default. */
+const stepsFor = (m: string) => (/pro|max|ultra/i.test(m) ? 0 : 28)
 const togetherOff = new Set<string>()   // models this key can't use (cached 4xx)
 // "The account is throttled" — distinct from "this model failed", because the
 // right response is to WAIT, not to ask the next model the same question.
@@ -768,7 +783,13 @@ export async function POST(request: Request) {
     if (engine === "together") {
       // Diverse → climb the photoreal ladder (best the key can reach), then schnell floor.
       if (dp) {
-        for (const rung of TOGETHER_LADDER) {
+        // Pinned rungs if there are any, otherwise the account's own list —
+        // already ranked cheap-and-photoreal-first by togetherImageModels().
+        // Capped at four so a bad night costs four requests, not twenty-nine.
+        const rungs = TOGETHER_LADDER.length
+          ? TOGETHER_LADDER
+          : (await togetherImageModels()).slice(0, 4).map((m) => ({ model: m, steps: stepsFor(m) }))
+        for (const rung of rungs) {
           if (togetherOff.has(rung.model)) continue
           const b = await genTogether(promptNoNeg, dseed, rung.model, rung.steps)
           if (b === RATE_LIMITED) break   // account throttled — the floor walk below backs off, once

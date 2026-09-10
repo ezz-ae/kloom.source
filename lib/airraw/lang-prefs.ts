@@ -63,31 +63,25 @@ export interface LangPrefs {
 //
 // It is a DEFAULT, not a lock: anyone who picks a language gets what they picked,
 // and that choice is what is read on every later visit.
-// ...BUT THE BROWSER GETS THE FIRST WORD, BECAUSE THE TRAFFIC IS NOT WHO WE
-// ASSUMED. Measured the day this shipped: 101 visitors, 92 of them from the US,
-// three from the UAE, none from Saudi. A flat Arabic default would have opened
-// an Arabic page for nine visitors in ten — the ads deliver, and they deliver
-// mostly English speakers.
+// THE BROWSER DECIDES. FULL STOP.
 //
-// So the rule is: whatever the browser asks for, if we support it. Only when the
-// browser says nothing we recognise does AIRRAW fall to Arabic rather than
-// English, which is what makes the Gulf the house default without making it the
-// only language in the building.
-const AIRRAW_DEFAULT_LANGUAGE = "Arabic"
+// /ar was built as an Arabic entrance for a Gulf ad, and for a while airraw.com
+// itself defaulted to Arabic so an Arabic visitor would not have to find that
+// door. Then the traffic was measured: 101 visitors in a day, 92 of them from
+// the US, three from the UAE, none from Saudi. The ads are running in English
+// and delivering English speakers, so any Arabic default — even as a fallback —
+// is a language chosen for a visitor who did not ask for it.
+//
+// So there is no house language. detectLanguage() walks navigator.languages and
+// returns the first one supported, or English when it recognises nothing. An
+// Arabic phone typing airraw.com gets the Arabic product with no door to find;
+// an American phone gets English; /ar still sets Arabic explicitly for anyone
+// arriving through the ad, and a saved choice beats all of it.
+//
+// Kloom is untouched: it never reaches this branch.
 function airrawDefaultLanguage(): string {
   if (!adultEnabled()) return DEFAULT_LANGUAGE
-  try {
-    const fromBrowser = detectLanguage()
-    // detectLanguage() returns DEFAULT_LANGUAGE both when it MATCHED English and
-    // when it matched nothing at all. Distinguish them, or an Arabic phone with
-    // an unsupported locale would be handed English.
-    const asked = typeof navigator !== "undefined"
-      ? [...((navigator.languages as string[] | undefined) || []), navigator.language || ""].filter(Boolean)
-      : []
-    const sawSomethingWeSupport = fromBrowser !== DEFAULT_LANGUAGE
-      || asked.some((c) => c.toLowerCase().split("-")[0] === "en")
-    return sawSomethingWeSupport ? fromBrowser : AIRRAW_DEFAULT_LANGUAGE
-  } catch { return AIRRAW_DEFAULT_LANGUAGE }
+  try { return detectLanguage() } catch { return DEFAULT_LANGUAGE }
 }
 const DEFAULTS: LangPrefs = {
   get primary() { return airrawDefaultLanguage() },

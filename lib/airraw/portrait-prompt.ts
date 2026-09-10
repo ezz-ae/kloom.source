@@ -152,8 +152,12 @@ const STYLE = [
   "low warm light at home, looking straight into the lens",
   "late evening at home, soft string lights, warm and close",
   "a quiet kitchen at night, warm light, leaning on the counter",
-  // dressed, and out
-  "dressed for the evening, warm low light of a bar at night",
+  // Dressed, and out — WITHOUT a drink in it. The first sample came back with a
+  // whisky, a beer and a shelf of wine, because "bar at night" is the whole
+  // picture to an image model. The Gulf is the market the /ar door was built
+  // for, so alcohol is off-note there at best, and none of the look depends on
+  // it: the warm low light, the bokeh and being dressed are doing the work.
+  "dressed for the evening, warm low light of a quiet restaurant at night",
   "out at night, city lights behind, soft focus, dressed up",
   "at a restaurant table in low candlelight, dressed for the evening",
   "in a taxi at night, city lights passing, dressed up, caught looking over",
@@ -223,7 +227,10 @@ export const PORTRAIT_NEG =
   // a negative push away from it, and so NEG_AS_POSITIVE carries it to FLUX,
   // which takes none.
   "harsh overhead light, fluorescent light, cluttered background, " +
-  "bathroom, public toilet, hallway, corridor, stairwell, frizzy unkempt hair, "
+  "bathroom, public toilet, hallway, corridor, stairwell, frizzy unkempt hair, " +
+  // See the note in STYLE. Named here as well so the engines that take a
+  // negative push off it, rather than relying on the setting alone.
+  "alcohol, wine, wine glass, wine bottles, beer, beer glass, cocktail, spirits, liquor bottles, pub, "
   // Anti-likeness: keep generated faces from resembling any real, recognizable person.
   "celebrity, famous person, public figure, well-known model, recognizable actor, actress, " +
   "influencer, deepfake, likeness of a real person, lookalike, supermodel, fashion-model face, " +

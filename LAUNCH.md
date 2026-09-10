@@ -104,6 +104,26 @@ token, chat and speech recognition answer. These are the open items, in order:
    | `free`       | `expired`    | the pass is past its `until` — it needs renewing |
    | `free`       | `exhausted`  | the pass verified but its allowance is spent    |
    | `free`       | `daily-cap`  | fair-use cap for today (`PASS_DAILY_CAP_MIN`)   |
+
+   **If the old secret is genuinely gone**, those passes can never verify again —
+   and neither can the wallets their chips live in, since a wallet is a hash of
+   the whole token. `db/reissue-pass.mjs` mints replacements from the payments
+   themselves:
+
+   ```
+   vercel env pull .env.production.local
+   node db/reissue-pass.mjs --list              # what we know was paid
+   node db/reissue-pass.mjs --all --dry-run     # check everyone, mint nothing
+   node db/reissue-pass.mjs --all --yes --out codes.csv
+   ```
+
+   It is not a way to hand out passes and has no override flag. Ziina must report
+   the intent `completed`, the amount must cover the price, the replacement is
+   anchored to the ORIGINAL purchase (so reissuing cannot extend a window or make
+   a $9 sale a lifetime pass), a lapsed pass is refused rather than resurrected,
+   and the chips it re-grants are keyed per intent so running it twice cannot pay
+   twice. Send each customer their own code; they paste it into the pass sheet
+   under "restore".
 3. **The Fish key has EXPIRED** (`FISH_API_KEY` → "Token expired"). Fish is the
    fallback when ElevenLabs can't answer — with it dead, an ElevenLabs outage
    means silence (logged as `[tts] fish rejected the key`). Log in at fish.audio → API keys → new key →

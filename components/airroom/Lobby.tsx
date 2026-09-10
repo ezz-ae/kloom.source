@@ -11,6 +11,7 @@
  * Funnel: land → tap a face → talk (voice) → soft email wall.
  */
 import { useMemo, useEffect, useRef, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
 import { makeCharacter, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { avatarBg, avatarGlow } from "@/lib/airroom/avatar"
 import { Face } from "@/components/airroom/Face"
@@ -37,6 +38,7 @@ const FIELD = Array.from({ length: 30 }, (_, i) => {
 })
 
 export function Lobby() {
+  const t = useT()
   const [active, setActive] = useState<{ seed: number; f: number; c: Cluster } | null>(null)
   const [talked, setTalked] = useState(false)
   const [capture, setCapture] = useState(false)
@@ -77,7 +79,7 @@ export function Lobby() {
           <Face persona={{ name: c.host, gender: c.gender, seed: faceSeedFor(c) }} className="orb-img" />
         </span>
         <span className="orb-name" style={{ color: nameColor(f) }}>{c.host}</span>
-        <span className="orb-line" style={{ opacity: isHover ? 1 : 0.62, maxHeight: isHover ? 60 : 32 }}>&ldquo;{c.lines[0]}&rdquo;</span>
+        <span className="orb-line" style={{ opacity: isHover ? 1 : 0.62, maxHeight: isHover ? 60 : 32 }}>&ldquo;{t(c.lines[0])}&rdquo;</span>
       </button>
     )
   }), [hover])
@@ -90,13 +92,13 @@ export function Lobby() {
       <div className="world-glow-bot" aria-hidden />
 
       <div className="topbar">
-        <div className="wordmark">airraw</div>
-        <button onClick={() => setCapture(true)} className="pass-cta">get the pass</button>
+        <div className="wordmark">{t("airraw")}</div>
+        <button onClick={() => setCapture(true)} className="pass-cta">{t("get the pass")}</button>
       </div>
 
       <header className="hero">
-        <div className="hero-now">it&apos;s the now</div>
-        <h1 className="hero-h1">tap a face — and talk, out loud, right now.</h1>
+        <div className="hero-now">{t("it's the now")}</div>
+        <h1 className="hero-h1">{t("tap a face — and talk, out loud, right now.")}</h1>
         <div className="live">
           <span className="live-dot" />
           {presence.total > 0 ? `${presence.total} here right now` : "a room full of voices, live"}
@@ -106,9 +108,9 @@ export function Lobby() {
       <div className="field">{orbs}</div>
 
       <div className="deeper">
-        <a href="/universe" className="deeper-link">fall deeper into the universe ↓</a>
+        <a href="/universe" className="deeper-link">{t("fall deeper into the universe ↓")}</a>
         <div className="legal">
-          <a href="/airraw/privacy">privacy</a><span>·</span><a href="/airraw/terms">terms</a><span>·</span>some here are AI · some are real
+          <a href="/airraw/privacy">{t("privacy")}</a><span>·</span><a href="/airraw/terms">{t("terms")}</a><span>·</span>{t("some here are AI · some are real")}
         </div>
       </div>
 

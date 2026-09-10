@@ -104,7 +104,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
       <div className="flex items-center gap-4 py-5">
         <button
           onClick={() => { const np = rerollAvatar(); setP({ ...np }) }}
-          aria-label="reshuffle your avatar"
+          aria-label={tr("reshuffle your avatar")}
           className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-3xl text-white/95 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-105"
           style={{ background: avatarBg, boxShadow: `0 12px 34px -10px hsla(${p.hue},80%,55%,.7)` }}
         >
@@ -117,7 +117,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
             onBlur={() => { const np = setProfileName(name); setP({ ...np }); setName(np.name) }}
             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur() }}
             maxLength={24}
-            aria-label="your name on the floor"
+            aria-label={tr("your name on the floor")}
             className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-lg font-semibold text-white outline-none focus:border-fuchsia-400/40"
           />
           <div className="mt-1.5 text-[11px] text-white/35">
@@ -236,10 +236,10 @@ export function YouPage({ onPass, onResume, onGolden }: {
           <select
             value={prefs.primary}
             onChange={(e) => setPrimary(e.target.value)}
-            aria-label="your language"
+            aria-label={tr("your language")}
             className="w-full cursor-pointer rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5 text-sm text-white outline-none focus:border-fuchsia-400/40"
           >
-            {LANGUAGES.map((l) => <option key={l.name} value={l.name} className="text-black">{l.name}</option>)}
+            {LANGUAGES.map((l) => <option key={l.name} value={l.name} className="text-black">{tr(l.name)}</option>)}
           </select>
           <button
             onClick={() => setAlsoOpen((o) => !o)}
@@ -263,7 +263,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
                       on ? "bg-emerald-400/90 text-[#06121e]" : "border border-white/12 bg-white/[0.05] text-white/55 hover:text-white/80"
                     }`}
                   >
-                    {l.name}
+                    {tr(l.name)}
                   </button>
                 )
               })}
@@ -285,7 +285,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
                 <input
                   type="checkbox"
                   checked={!off}
-                  aria-label="remember my conversations"
+                  aria-label={tr("remember my conversations")}
                   onChange={(e) => { const v = !e.target.checked; setMemoryOff(v); setOff(v); setTalks(listTalks()) }}
                   className="h-5 w-5 accent-fuchsia-400"
                 />
@@ -329,8 +329,8 @@ export function YouPage({ onPass, onResume, onGolden }: {
         <div className="flex flex-wrap justify-center gap-5 pt-2 text-[11px] text-white/25">
           <a href="/legal/terms" className="hover:text-white/50">{tr("Terms")}</a>
           <a href="/legal/privacy" className="hover:text-white/50">{tr("Privacy")}</a>
-          <a href="/legal/cookies" className="hover:text-white/50">Cookies</a>
-          <a href="/legal/payments" className="hover:text-white/50">Payments</a>
+          <a href="/legal/cookies" className="hover:text-white/50">{tr("Cookies")}</a>
+          <a href="/legal/payments" className="hover:text-white/50">{tr("Payments")}</a>
         </div>
       </div>
     </div>

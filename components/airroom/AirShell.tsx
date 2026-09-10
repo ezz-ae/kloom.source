@@ -127,7 +127,7 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
           <div className="rounded-2xl border border-emerald-300/20 bg-emerald-400/[0.07] px-4 py-3">
             <div className="text-sm font-bold tracking-wide text-emerald-300">✦ {fai} FAI</div>
             <div className="mt-1 text-[11px] leading-snug text-white/40">
-              one takes a seat. you earn one every time you finish a talk.
+              {tr("one takes a seat. you earn one every time you finish a talk.")}
             </div>
           </div>
           {!pro && (
@@ -135,7 +135,7 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
               onClick={onPass}
               className="brand-gradient brand-glow flex w-full items-center justify-center gap-1.5 rounded-2xl px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#1a0a1f] transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.02]"
             >
-              Get a pass
+              {tr("Get a pass")}
             </button>
           )}
         </div>

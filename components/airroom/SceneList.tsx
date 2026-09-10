@@ -91,7 +91,7 @@ export function SceneList({ onOpen, onNew }: {
                     {t(t("delete it — sure?"))}
                   </button>
                 ) : (
-                  <button onClick={() => setConfirming(s.id)} aria-label={`delete the scene with ${castLabel(s)}`}
+                  <button onClick={() => setConfirming(s.id)} aria-label={t("delete the scene with {cast}", { cast: castLabel(s) })}
                     style={{ flex: "0 0 auto", padding: "10px 16px", background: "none", border: "none", borderLeft: ".5px solid rgba(255,255,255,.08)", color: "rgba(240,232,255,.4)", fontSize: 13.5, cursor: "pointer", fontFamily: "inherit" }}>
                     {t(t("delete"))}
                   </button>

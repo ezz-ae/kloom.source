@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ROSTER, ROSTER_COUNT, type Heat } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { detectLanguage } from "@/lib/languages"
+import { useT } from "@/lib/airraw/i18n"
 
 const CLUSTERS = ROSTER
 const FLOOR_H = 5400
@@ -43,6 +44,7 @@ function zoneLabel(f: number): string {
 }
 
 export default function FloorPage() {
+  const t = useT()
   const [lang, setLang] = useState("English")
   const langRef = useRef("English")
   useEffect(() => { const d = detectLanguage(); setLang(d); langRef.current = d }, [])
@@ -93,7 +95,7 @@ export default function FloorPage() {
 
   const f = maxDepth > 0 ? depth / maxDepth : 0
   const a = CLUSTERS[active]
-  const displayLine = soundOn ? (spoken || a.lines[0]) : a.lines[0]
+  const displayLine = t(soundOn ? (spoken || a.lines[0]) : a.lines[0])
   const ac = PIN_COLOR[a.h]
   const ag = GLOW_COLOR[a.h]
   const af = FILL_COLOR[a.h]
@@ -185,7 +187,7 @@ export default function FloorPage() {
         {/* 18+ gate line */}
         <div style={{ position: "absolute", left: 0, right: 0, top: gateTop, borderTop: "1px dashed rgba(244,114,182,.35)", textAlign: "center" }}>
           <span style={{ fontSize: 10, color: "#f472b6", background: "#1a0818", padding: "2px 12px", borderRadius: 12, position: "relative", top: -10, letterSpacing: 1 }}>
-            18+ · explicit content below
+            {t("18+ · explicit content below")}
           </span>
         </div>
 
@@ -238,13 +240,13 @@ export default function FloorPage() {
               <div style={{ width: 1.5, height: isActive ? 10 : 7, background: `linear-gradient(180deg,${pc},transparent)`, opacity: 0.7 }} />
 
               {/* name + vibe */}
-              <div style={{ fontSize: isActive ? 13 : 10.5, fontWeight: isActive ? 600 : 500, color: isActive ? pc : `${pc}99`, letterSpacing: 0.2, lineHeight: 1.2 }}>{c.name}</div>
-              <div style={{ fontSize: 9.5, color: isActive ? `${pc}cc` : "rgba(255,255,255,.28)", letterSpacing: 0.5, marginTop: 1 }}>{c.vibe}</div>
+              <div style={{ fontSize: isActive ? 13 : 10.5, fontWeight: isActive ? 600 : 500, color: isActive ? pc : `${pc}99`, letterSpacing: 0.2, lineHeight: 1.2 }}>{t(c.name)}</div>
+              <div style={{ fontSize: 9.5, color: isActive ? `${pc}cc` : "rgba(255,255,255,.28)", letterSpacing: 0.5, marginTop: 1 }}>{t(c.vibe)}</div>
 
               {/* people count */}
               {isActive && (
                 <div style={{ marginTop: 5, fontSize: 9, color: pc, background: fc, border: `1px solid ${pc}50`, borderRadius: 99, padding: "2px 8px", letterSpacing: 0.5 }}>
-                  {c.n} inside
+                  {t("{n} inside", { n: c.n })}
                 </div>
               )}
             </div>
@@ -262,18 +264,18 @@ export default function FloorPage() {
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 5, color: "#f0e8ff" }}>airraw</div>
           <div style={{ fontSize: 11, color: ac, letterSpacing: 1.5, marginTop: 3, transition: "color .3s" }}>
-            📍 {zoneLabel(f)}
+            📍 {t(zoneLabel(f))}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, pointerEvents: "auto" }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "#f0e8ff", background: "rgba(192,132,252,.18)", border: "1px solid rgba(192,132,252,.35)", padding: "5px 12px", borderRadius: 20 }}>18+</div>
-          <div style={{ fontSize: 10, color: "rgba(255,255,255,.3)", letterSpacing: 0.5 }}>{ROSTER_COUNT} people</div>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,.3)", letterSpacing: 0.5 }}>{t("{n} people", { n: ROSTER_COUNT })}</div>
         </div>
       </div>
 
       {/* you indicator — the cursor on the map */}
       <div style={{ position: "absolute", top: center, left: "50%", transform: "translate(-50%,-50%)", zIndex: 5, pointerEvents: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-        <div style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid rgba(255,255,255,.85)", boxShadow: "0 0 20px rgba(255,255,255,.25), inset 0 0 12px rgba(255,255,255,.08)", background: "rgba(255,255,255,.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,.8)", letterSpacing: 1 }}>you</div>
+        <div style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid rgba(255,255,255,.85)", boxShadow: "0 0 20px rgba(255,255,255,.25), inset 0 0 12px rgba(255,255,255,.08)", background: "rgba(255,255,255,.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,.8)", letterSpacing: 1 }}>{t("you")}</div>
       </div>
 
       {/* depth gauge — right side */}
@@ -296,8 +298,8 @@ export default function FloorPage() {
             {ARCH_ABBR[a.archetype] || a.archetype.slice(0, 2).toUpperCase()}
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#f0e8ff", letterSpacing: -0.3 }}>{a.name}</div>
-            <div style={{ fontSize: 11, color: ac, letterSpacing: 0.8, marginTop: 1 }}>{a.vibe} · {a.n} inside</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#f0e8ff", letterSpacing: -0.3 }}>{t(a.name)}</div>
+            <div style={{ fontSize: 11, color: ac, letterSpacing: 0.8, marginTop: 1 }}>{t(a.vibe)} · {t("{n} inside", { n: a.n })}</div>
           </div>
           {/* sound toggle */}
           <button
@@ -342,7 +344,7 @@ export default function FloorPage() {
             }}
           >
             <span style={{ fontSize: 16 }}>{soundOn ? "🔊" : "🔇"}</span>
-            <span style={{ fontSize: 9, letterSpacing: 0.5 }}>{soundOn ? "live" : "mute"}</span>
+            <span style={{ fontSize: 9, letterSpacing: 0.5 }}>{soundOn ? t("live") : t("mute")}</span>
           </button>
 
           <button
@@ -359,7 +361,7 @@ export default function FloorPage() {
               transition: "box-shadow .2s",
             }}
           >
-            Enter {a.name}  →
+            {t("enter {name} →", { name: t(a.name) })}
           </button>
         </div>
       </div>
@@ -369,30 +371,30 @@ export default function FloorPage() {
         <div style={{ position: "absolute", inset: 0, background: "rgba(7,4,15,.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 28, zIndex: 30 }}>
           <div style={{ maxWidth: 340, textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🔞</div>
-            <div style={{ fontSize: 12, letterSpacing: 2, color: "#f472b6", textTransform: "uppercase", marginBottom: 8 }}>adults only</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: "#f0e8ff", marginBottom: 10, lineHeight: 1.3 }}>explicit content ahead</div>
-            <div style={{ fontSize: 14, lineHeight: 1.65, color: "rgba(240,232,255,.65)", marginBottom: 24 }}>kink, groups, explicit roleplay — everything adults actually want. confirm your age to keep going.</div>
+            <div style={{ fontSize: 12, letterSpacing: 2, color: "#f472b6", textTransform: "uppercase", marginBottom: 8 }}>{t("adults only")}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: "#f0e8ff", marginBottom: 10, lineHeight: 1.3 }}>{t("explicit content ahead")}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.65, color: "rgba(240,232,255,.65)", marginBottom: 24 }}>{t("kink, groups, explicit roleplay — everything adults actually want. confirm your age to keep going.")}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button
                 onClick={() => { setVerified(true); setShowGate(false); try { localStorage.setItem("airroom_18", "1") } catch { /* */ } }}
                 style={{ fontSize: 15, fontWeight: 700, color: "#fff", background: "linear-gradient(135deg,#db2777,#f472b6)", border: "none", borderRadius: 14, padding: "14px 0", cursor: "pointer", boxShadow: "0 10px 28px -10px rgba(244,114,182,.6)" }}
               >
-                I&apos;m 18 or older — let me in
+                {t("i'm 18 or older — let me in")}
               </button>
               <button
                 onClick={() => setShowGate(false)}
                 style={{ fontSize: 14, color: "rgba(240,232,255,.5)", background: "transparent", border: ".5px solid rgba(255,255,255,.12)", borderRadius: 14, padding: "13px 0", cursor: "pointer" }}
               >
-                go back
+                {t("go back")}
               </button>
             </div>
-            <div style={{ marginTop: 14, fontSize: 10, color: "rgba(255,255,255,.25)", letterSpacing: 0.5 }}>by continuing you confirm you are 18+</div>
+            <div style={{ marginTop: 14, fontSize: 10, color: "rgba(255,255,255,.25)", letterSpacing: 0.5 }}>{t("by continuing you confirm you are 18+")}</div>
           </div>
         </div>
       )}
 
       {entered && (
-        <AirBubble cluster={a} tempLabel={zoneLabel(f)} lang={lang} onClose={() => setEntered(false)} />
+        <AirBubble cluster={a} tempLabel={t(zoneLabel(f))} lang={lang} onClose={() => setEntered(false)} />
       )}
 
       <audio ref={audioRef} style={{ display: "none" }} />

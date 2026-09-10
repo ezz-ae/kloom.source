@@ -8,6 +8,7 @@
  * crowd you'll meet inside. "Drift in" / "say hi" opens the real room.
  */
 import { useMemo, useState, useEffect, useRef } from "react"
+import { useT } from "@/lib/airraw/i18n"
 import { makeCharacter, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { Face } from "@/components/airroom/Face"
 import { getProToken } from "@/lib/airroom/pro"
@@ -30,6 +31,7 @@ const BG_SPOTS = [
 ]
 
 export function RoomCard({ p, onEnter, onClose, lang }: { p: RoomPreview; onEnter: () => void; onClose: () => void; lang?: string }) {
+  const t = useT()
   // SAME deterministic crowd you'll meet inside (preserve the seed-derived cast).
   const members = useMemo<Cluster[]>(() => {
     if (p.kind === "voice") return [makeCharacter((p.seed >>> 0) + 7, p.f)]
@@ -76,7 +78,7 @@ export function RoomCard({ p, onEnter, onClose, lang }: { p: RoomPreview; onEnte
       const req = fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: lead.lines[0], personaName: lead.host, seedKey: who, gender: lead.gender, language: lang2, voiceId: (lead as any).voiceId, elevenId: pinnedVoice(who, lang2), proToken: getProToken(), visitorId: visitorId(), mode: "voice" }),
+        body: JSON.stringify({ text: t(lead.lines[0]), personaName: lead.host, seedKey: who, gender: lead.gender, language: lang2, voiceId: (lead as any).voiceId, elevenId: pinnedVoice(who, lang2), proToken: getProToken(), visitorId: visitorId(), mode: "voice" }),
       })
       claimFirst(who, lang2, req)
       const res = await req
@@ -153,14 +155,14 @@ export function RoomCard({ p, onEnter, onClose, lang }: { p: RoomPreview; onEnte
           </button>
           <button onClick={togglePreview} style={{ width: "100%", minHeight: 44, fontSize: 13, color: previewState === "playing" ? tint : "#9fb2c4", background: "transparent", border: `.5px solid ${previewState === "playing" ? `hsla(${p.hue},60%,60%,.35)` : "rgba(255,255,255,.12)"}`, borderRadius: 14, cursor: previewState === "loading" ? "default" : "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, transition: "color .2s, border-color .2s" }}>
             {previewState === "loading" ? (
-              <><span style={{ display: "inline-block", width: 10, height: 10, border: `1.5px solid rgba(159,178,196,.3)`, borderTopColor: "#9fb2c4", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>loading…</>
+              <><span style={{ display: "inline-block", width: 10, height: 10, border: `1.5px solid rgba(159,178,196,.3)`, borderTopColor: "#9fb2c4", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>{t("loading…")}</>
             ) : previewState === "playing" ? (
-              <>■ stop</>
+              <>{t("■ stop")}</>
             ) : (
-              <>▶ hear their voice</>
+              <>{t("▶ hear their voice")}</>
             )}
           </button>
-          <button onClick={onClose} style={{ width: "100%", minHeight: 44, fontSize: 13, color: "#6b7d8e", background: "transparent", border: "none", borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>not now</button>
+          <button onClick={onClose} style={{ width: "100%", minHeight: 44, fontSize: 13, color: "#6b7d8e", background: "transparent", border: "none", borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("not now")}</button>
         </div>
       </div>
     </div>

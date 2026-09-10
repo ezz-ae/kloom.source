@@ -205,7 +205,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
             </div>
           )}
           <div className="bottom-[calc(env(safe-area-inset-bottom)+6.25rem)] lg:bottom-[calc(env(safe-area-inset-bottom)+1.625rem)]" style={{ position: "absolute", left: 0, right: 0, fontSize: 12, color: "rgba(200,240,228,.4)" }}>
-            {claimed ? "swipe on" : "↑ swipe up"}
+            {claimed ? t("swipe on") : t("↑ swipe up")}
           </div>
         </div>
       ) : (

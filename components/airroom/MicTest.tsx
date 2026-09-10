@@ -15,10 +15,12 @@
  * money or leaves a file somewhere is a worse thing than the problem it solves.
  */
 import { useEffect, useRef, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
 
 type State = "idle" | "asking" | "listening" | "heard" | "denied" | "nomic"
 
 export function MicTest({ accent }: { accent: string }) {
+  const t = useT()
   const [state, setState] = useState<State>("idle")
   const [level, setLevel] = useState(0)
   const stopRef = useRef<(() => void) | null>(null)
@@ -82,10 +84,10 @@ export function MicTest({ accent }: { accent: string }) {
     : state === "heard" ? "heard you clearly ✓"
     : state === "denied" ? "the browser blocked the mic"
     : state === "nomic" ? "this browser has no microphone access"
-    : "test your mic"
+    : t("test your mic")
 
   return (
-    <button onClick={start} aria-label="test your microphone"
+    <button onClick={start} aria-label={t("test your microphone")}
       style={{
         width: "100%", minHeight: 44, borderRadius: 10, padding: "8px 12px", cursor: "pointer",
         background: "rgba(255,255,255,.08)", border: `.5px solid ${state === "heard" ? `${accent}66` : "rgba(255,255,255,.10)"}`,

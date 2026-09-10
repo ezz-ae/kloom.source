@@ -11,6 +11,8 @@
  * search is swappable for it later.
  */
 import { useCallback, useEffect, useRef, useState, useMemo } from "react"
+import { useT } from "@/lib/airraw/i18n"
+import { displayName } from "@/lib/airraw/arabic-names"
 import { renderPersona, namedCharacter } from "@/lib/airraw/persona"
 import { Chess, type Square } from "chess.js"
 import { detectLanguage, LANGUAGE_TO_BCP47 } from "@/lib/languages"
@@ -63,6 +65,7 @@ function bestMove(g: Chess, depth = 3) {
 }
 
 export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: () => void }) {
+  const t = useT()
   // He was a bare string, which is why he was the one character in the product
   // with no seed — and so no derived accent, no voice of his own, and no face.
   const kai = useMemo(() => namedCharacter(name, "chess", "male"), [name])
@@ -236,10 +239,10 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
         {/* header — aligned to the board's edges */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
           <div>
-            <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>the arena · chess</div>
+            <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>{t("the arena · chess")}</div>
             <div style={{ fontSize: 18, fontWeight: 500 }}>{name} · the house</div>
           </div>
-          <button onClick={() => onClose ? onClose() : (window.location.href = "/airraw")} style={{ flex: "0 0 auto", fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 14px", minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
+          <button onClick={() => onClose ? onClose() : (window.location.href = "/airraw")} style={{ flex: "0 0 auto", fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 14px", minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("← leave")}</button>
         </div>
 
         <div style={{ fontSize: 13, color: "#cfe0ee", height: 40, display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", textAlign: "center", fontStyle: "italic", lineHeight: 1.4 }}>&ldquo;{banter}&rdquo;</div>
@@ -260,10 +263,10 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 13, minHeight: 44 }}>
-          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: thinking ? "#7fd6c0" : "#9fb2c4" }}>{thinking ? `${name.toLowerCase()} is thinking…` : status}</span>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: thinking ? "#7fd6c0" : "#9fb2c4" }}>{thinking ? t("{name} is thinking…", { name: displayName(name, undefined, t.locale).toLowerCase() }) : t(status)}</span>
           {over
-            ? <button onClick={reset} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 12, padding: "11px 18px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>new game</button>
-            : <button onClick={() => setChatOpen(true)} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "11px 16px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>💬 talk</button>}
+            ? <button onClick={reset} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 12, padding: "11px 18px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("new game")}</button>
+            : <button onClick={() => setChatOpen(true)} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "11px 16px", cursor: "pointer", whiteSpace: "nowrap", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("💬 talk")}</button>}
         </div>
         <div style={{ fontSize: 12, color: "#6b8092", textAlign: "center" }}>{void fen}you&apos;re white · tap a piece, then a square</div>
       </div>
@@ -271,7 +274,7 @@ export function ChessRoom({ name = "Kai", onClose }: { name?: string; onClose?: 
         <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "min(46vh, 430px)", zIndex: 5, background: "linear-gradient(180deg, rgba(6,7,14,0) 0%, rgba(6,7,14,.96) 20%)", display: "flex", flexDirection: "column", paddingTop: 14, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "0 max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left))" }}>
             <span style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>talking to {name} · game&apos;s still on</span>
-            <button onClick={() => setChatOpen(false)} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 40, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "8px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↓ board</button>
+            <button onClick={() => setChatOpen(false)} style={{ flex: "0 0 auto", fontSize: 13, minHeight: 40, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "8px 12px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("↓ board")}</button>
           </div>
           <div ref={chatScrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "4px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }} />

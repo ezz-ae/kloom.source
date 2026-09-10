@@ -41,7 +41,10 @@ const drawer = bubble.slice(bubble.indexOf("── THE CALL DRAWER"), bubble.ind
 check(drawer.length > 800, "there is a drawer on the call screen")
 check(/const \[audioPanel, setAudioPanel\] = useState\(false\)/.test(bubble),
   "closed until asked for — it never covers the call by default")
-check(/role="dialog" aria-label="call settings"/.test(drawer), "it is a real dialog, not a floating div")
+// The label may be wrapped in the translator now — what matters is that it IS a
+// dialog and that it carries the call-settings name, in whatever language.
+check(/role="dialog" aria-label=(?:"call settings"|\{t\("call settings"\)\})/.test(drawer),
+  "it is a real dialog, not a floating div")
 check(/position: "absolute", top: 0, bottom: 0, right: 0/.test(drawer),
   "and it slides in from the side, so the portrait and the call button do not move under it")
 check(/onClick=\{\(\) => setAudioPanel\(false\)\}/.test(drawer), "tapping away closes it")

@@ -6,7 +6,7 @@
 // filter entirely and seated Faye and Mireille in an Arabic room. The name pool
 // is one international list applied to every origin, so the filter can pass a
 // Gulf Arab called Frida. Neither showed up as an error.
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { AR, UNTRANSLATED } from "@/lib/airraw/ar"
 import { AR_CONTENT } from "@/lib/airraw/ar-content"
 import { translate, isRTL, currentLocale } from "@/lib/airraw/i18n"
@@ -160,6 +160,18 @@ console.log("\n— every pool the floor draws from has an Arabic version —")
     "attributions": [...fblk("ATTRIBUTIONS").matchAll(/(?:label|hint): "([^"]+)"/g)].map((m) => m[1]),
   })
 
+  // The written fifty. Only two of their soul's fields ever reach a screen —
+  // `clusterFor` maps soul.wants onto the cluster's vibe (the line under their
+  // name) and openers onto its lines (the quote on the card). The rest of the
+  // soul is prompt text the model reads, and stays English on purpose, exactly
+  // like the generated dossier's first halves.
+  const cast50 = readFileSync("lib/airraw/cast50.ts", "utf8")
+  Object.assign(pools, {
+    "written wants": [...cast50.matchAll(/wants: "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]),
+    "written openers": [...cast50.matchAll(/openers: \[([\s\S]*?)\n    \]/g)]
+      .flatMap((m) => [...m[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((x) => x[1])),
+  })
+
   for (const [label, arr] of Object.entries(pools)) {
     const miss = arr.filter((x) => !have(x))
     if (miss.length) console.log(`   missing: ${miss.slice(0, 3).join(" | ")}`)
@@ -170,6 +182,132 @@ console.log("\n— every pool the floor draws from has an Arabic version —")
   // Two files, two jobs — a key in both is a merge conflict waiting to happen.
   const dupes = Object.keys(AR_CONTENT).filter((k) => k in AR)
   check(dupes.length === 0, `no key is in both the interface and the content table${dupes.length ? ": " + dupes[0] : ""}`)
+}
+
+// ── the key is the English string, so it must BE the English string ─────────
+//
+// JSX decodes HTML entities in a text node; a JS string argument does not. So
+// the moment a line like `you&apos;re in.` is wrapped as t("you&apos;re in."),
+// two things break at once: English starts printing the entity literally, and
+// the Arabic lookup misses, because the table is keyed on the apostrophe. It
+// happened to eleven strings on the first bulk pass and was invisible in
+// review — both languages were wrong, and only one of them was being read.
+{
+  console.log("\n— no translator key carries an HTML entity —")
+  const ENT = /&(?:[a-zA-Z]+|#\d+);/
+  // The page files too. The first bulk pass swept components/airroom only, and
+  // the discovery floor sat in app/ rendering translated room names in English
+  // because the page itself never called the translator.
+  const dirs = ["components/airroom", "components/widgets",
+                "app/ar", "app/floor", "app/universe", "app/airraw", "app/airraw/chess"]
+  let entities = 0, scanned = 0
+  for (const d of dirs) {
+    let files = []
+    try { files = readdirSync(d).filter((f) => f.endsWith(".tsx")) } catch { continue }
+    for (const f of files) {
+      const src = readFileSync(`${d}/${f}`, "utf8")
+      scanned++
+      for (const m of src.matchAll(/\b(?:t|tr)\("((?:[^"\\]|\\.)*)"/g)) {
+        if (ENT.test(m[1])) { entities++; console.log(`   ${f}: ${m[1].slice(0, 60)}`) }
+      }
+    }
+  }
+  check(scanned > 20, `${scanned} surfaces scanned`)
+  check(entities === 0, "every key is the literal text, not its escaped form")
+
+  // And the other half of the same rule: a key that no Arabic table answers is
+  // a string that silently ships in English on an Arabic-only build.
+  let untranslated = 0, keys = 0
+  const skip = UNTRANSLATED
+  for (const d of dirs) {
+    let files = []
+    try { files = readdirSync(d).filter((f) => f.endsWith(".tsx")) } catch { continue }
+    for (const f of files) {
+      const src = readFileSync(`${d}/${f}`, "utf8")
+      for (const m of src.matchAll(/\b(?:t|tr)\("((?:[^"\\]|\\.)*)"/g)) {
+        const k = m[1].replace(/\\"/g, '"')
+        keys++
+        if (k in AR || k in AR_CONTENT || skip.has(k)) continue
+        untranslated++
+        if (untranslated <= 40) console.log(`   ${f}: ${k.slice(0, 70)}`)
+      }
+    }
+  }
+  check(keys > 200, `${keys} translator calls on the surfaces`)
+  check(untranslated === 0, `every one of them resolves to Arabic (${untranslated} left in English)`)
+}
+
+// ── the tables the surfaces render out of ───────────────────────────────────
+//
+// A table of {label, sub} rendered through t(m.label) is a dynamic call, so the
+// literal scan cannot see the strings inside it. The mood step is the first
+// screen anyone sees after the door, and it sat in English through two passes
+// because of exactly that.
+{
+  console.log("\n— and the tables they render out of —")
+  const TABLES = [
+    ["components/airroom/Planet.tsx", "MOODS", /const MOODS[^=]*= \[([\s\S]*?)\n\]/],
+  ]
+  for (const [file, name, re] of TABLES) {
+    const m = readFileSync(file, "utf8").match(re)
+    check(!!m, `${name} found in ${file.split("/").pop()}`)
+    if (!m) continue
+    const strings = [...m[1].matchAll(/(?:label|sub|hint|title):\s*"((?:[^"\\]|\\.)+)"/g)].map((x) => x[1])
+    const miss = strings.filter((x) => !(x in AR) && !(x in AR_CONTENT) && !UNTRANSLATED.has(x))
+    if (miss.length) console.log(`   missing: ${miss.join(" | ")}`)
+    check(strings.length > 4 && miss.length === 0, `   ${strings.length - miss.length}/${strings.length} of ${name} written in Arabic`)
+  }
+}
+
+// ── the language picker prints names, and those are strings too ─────────────
+//
+// The picker renders l.name and stores l.name, which is why the name itself
+// cannot be translated in the table that feeds it: prefs, the roster and the
+// voice all match on the English key. So the VALUE stays English and only the
+// printed name is translated — and a language added later must bring its own.
+{
+  console.log("\n— every language the picker offers has an Arabic name —")
+  const { LANGUAGES } = await import("@/lib/languages")
+  const names = LANGUAGES.map((l) => l.name)
+  const miss = names.filter((n) => !(n in AR) && !(n in AR_CONTENT))
+  if (miss.length) console.log(`   missing: ${miss.join(", ")}`)
+  check(names.length > 10 && miss.length === 0, `${names.length - miss.length}/${names.length} languages named in Arabic`)
+
+  // And the stored value is still the English key, or a returning Arabic
+  // visitor would be filtered against a language nothing in the roster speaks.
+  for (const f of ["Planet", "ProSheet", "YouPage"]) {
+    const src = readFileSync(`components/airroom/${f}.tsx`, "utf8")
+    check(/value=\{l\.name\}/.test(src), `${f} still stores the English key, and translates only what is shown`)
+  }
+}
+
+// ── status text is set in one place and read in another ─────────────────────
+//
+// The mic hint and the chess board's status are written into state as English
+// literals and rendered somewhere else entirely. Wrapping them where they are
+// SET would freeze the language at that moment and miss every other branch, so
+// they are translated where they are READ — which means the literal scan above
+// cannot see them. This is the guard for that class: both halves, together.
+{
+  console.log("\n— text set in one place and read in another —")
+  const INDIRECT = [
+    ["components/airroom/AirBubble.tsx", "setMicHint", "{micHint ? t(micHint) :"],
+    ["components/airroom/ChessRoom.tsx", "setStatus", ": t(status)}"],
+  ]
+  for (const [file, setter, reader] of INDIRECT) {
+    const src = readFileSync(file, "utf8")
+    const name = file.split("/").pop().replace(/\.tsx$/, "")
+    check(src.includes(reader), `${name} translates ${setter.replace("set", "").toLowerCase()} where it is read`)
+    // Every literal in the call, not just the first — a setter is as often
+    // handed a ternary as a bare string.
+    const written = [...src.matchAll(new RegExp(`${setter}\\(([^\\n]*?)\\)\\s*[;,}]`, "g"))]
+      .flatMap((m) => [...m[1].matchAll(/"((?:[^"\\]|\\.)+)"/g)].map((x) => x[1]))
+      .filter((x) => /[a-z]{2}/.test(x))
+    check(written.length > 2, `   ${written.length} literals reach ${setter}`)
+    const miss = written.filter((x) => !(x in AR) && !(x in AR_CONTENT) && !UNTRANSLATED.has(x))
+    if (miss.length) miss.slice(0, 6).forEach((x) => console.log(`   ${x}`))
+    check(miss.length === 0, `   and every one of them has Arabic`)
+  }
 }
 
 console.log(fail === 0 ? "\nPASS — Arabic all the way down" : `\nFAIL — ${fail}`)

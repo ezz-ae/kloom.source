@@ -8,6 +8,7 @@
  * (lib/airroom/roster.makeCharacter). Cool→hot temperature runs through every level.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
 import { makeCharacter, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { GroupRoom } from "@/components/airroom/GroupRoom"
@@ -44,6 +45,7 @@ const roomF = (w: number, rm: number) => clamp01(worldF(w) + (frac(w * 131 + rm 
 const voiceF = (w: number, rm: number, v: number) => clamp01(roomF(w, rm) + (frac(w * 9311 + rm * 131 + v) - 0.5) * 0.1)
 
 export function ZoomBuffet() {
+  const t = useT()
   const [level, setLevel] = useState(0)
   const [world, setWorld] = useState(0)
   const [room, setRoom] = useState(0)
@@ -105,7 +107,7 @@ export function ZoomBuffet() {
     const seed = (world * 100003 + room) * 100003 + v
     const char = makeCharacter(seed, f)
     return (
-      <button key={v} onClick={() => openVoice(char)} aria-label="a voice" style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed, f), border: "1px solid rgba(255,255,255,.14)", cursor: "pointer", boxShadow: `0 0 6px ${avatarGlow(f)}55`, padding: 0 }}>
+      <button key={v} onClick={() => openVoice(char)} aria-label={t("a voice")} style={{ width: 32, height: 32, borderRadius: "50%", overflow: "hidden", background: avatarBg(seed, f), border: "1px solid rgba(255,255,255,.14)", cursor: "pointer", boxShadow: `0 0 6px ${avatarGlow(f)}55`, padding: 0 }}>
         <Face persona={{ name: char.host, gender: char.gender, seed: faceSeedFor(char) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       </button>
     )
@@ -117,17 +119,17 @@ export function ZoomBuffet() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             {level > 0 && (
-              <button onClick={() => setLevel(level - 1)} style={{ fontSize: 13, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 12, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>← zoom out</button>
+              <button onClick={() => setLevel(level - 1)} style={{ fontSize: 13, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 12, padding: "6px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>{t("← zoom out")}</button>
             )}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: 3 }}>airraw</div>
+              <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: 3 }}>{t("airraw")}</div>
               <div style={{ fontSize: 11, color: "#9fb2c4", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 it&apos;s the now · {crumb}
                 {presence.total > 0 && <span style={{ color: "#7fd6c0" }}> · {presence.total} live{presence.here > 1 ? ` · ${presence.here} right here` : ""}</span>}
               </div>
             </div>
           </div>
-          <a href="/airraw" style={{ fontSize: 12, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 20, padding: "6px 12px", textDecoration: "none", whiteSpace: "nowrap" }}>← lobby</a>
+          <a href="/airraw" style={{ fontSize: 12, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 20, padding: "6px 12px", textDecoration: "none", whiteSpace: "nowrap" }}>{t("← lobby")}</a>
         </div>
       </div>
 
@@ -142,7 +144,7 @@ export function ZoomBuffet() {
                 <div style={{ fontSize: 16, fontWeight: 500, color: labFor(f), maxWidth: "85%" }}>{w}</div>
                 <div>
                   <div style={{ fontSize: 11, color: "rgba(255,255,255,.45)" }}>{tempLabelFor(f)}{f >= 0.72 ? " · 18+" : ""}</div>
-                  <div style={{ fontSize: 11, color: "rgba(255,255,255,.3)", marginTop: 2 }}>~1,000 rooms inside</div>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,.3)", marginTop: 2 }}>{t("~1,000 rooms inside")}</div>
                 </div>
               </button>
             )
@@ -170,8 +172,8 @@ export function ZoomBuffet() {
       {level === 2 && (
         <div key={`l2-${world}-${room}`} className="zb-in">
           <div style={{ padding: "16px 16px 0", textAlign: "center" }}>
-            <button onClick={() => setGroup({ seed: world * 100003 + room, f: roomF(world, room) })} style={{ fontSize: 13, fontWeight: 500, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "11px 18px", cursor: "pointer" }}>step into the room — a few of them, together →</button>
-            <div style={{ fontSize: 11, color: "#7f93a5", marginTop: 8 }}>…or tap a single voice for a 1:1</div>
+            <button onClick={() => setGroup({ seed: world * 100003 + room, f: roomF(world, room) })} style={{ fontSize: 13, fontWeight: 500, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 14, padding: "11px 18px", cursor: "pointer" }}>{t("step into the room — a few of them, together →")}</button>
+            <div style={{ fontSize: 11, color: "#7f93a5", marginTop: 8 }}>{t("…or tap a single voice for a 1:1")}</div>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7, padding: 16, alignContent: "flex-start" }}>
             {voiceOrbs}
@@ -186,12 +188,12 @@ export function ZoomBuffet() {
       {pending && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,4,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 26, zIndex: 30 }}>
           <div style={{ maxWidth: 340, textAlign: "center", color: "#fbeae3" }}>
-            <div style={{ fontSize: 12, letterSpacing: 1, color: "#ff9c73" }}>this one&apos;s in the fire</div>
-            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>it gets adult</div>
-            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#e7c3b6" }}>flirty, late-night, 18+. nothing explicit — but grown. confirm you&apos;re old enough.</div>
+            <div style={{ fontSize: 12, letterSpacing: 1, color: "#ff9c73" }}>{t("this one's in the fire")}</div>
+            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>{t("it gets adult")}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#e7c3b6" }}>{t("flirty, late-night, 18+. nothing explicit — but grown. confirm you're old enough.")}</div>
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
-              <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>i&apos;m 18 or older</button>
-              <button onClick={() => setPending(null)} style={{ fontSize: 14, color: "#e7c3b6", background: "transparent", border: ".5px solid rgba(255,160,120,.3)", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>never mind</button>
+              <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, color: "#1a0d08", background: "#ef7a4d", border: "none", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>{t("i'm 18 or older")}</button>
+              <button onClick={() => setPending(null)} style={{ fontSize: 14, color: "#e7c3b6", background: "transparent", border: ".5px solid rgba(255,160,120,.3)", borderRadius: 14, padding: "12px 0", cursor: "pointer" }}>{t("never mind")}</button>
             </div>
           </div>
         </div>

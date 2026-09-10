@@ -18,6 +18,7 @@
  * one accent, no confetti, no second colour.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
 import type { Cluster } from "@/lib/airroom/roster"
 import { Face } from "@/components/airroom/Face"
 import { faceSeedFor } from "@/lib/airroom/roster"
@@ -49,6 +50,7 @@ export function GoldenRoom({
   busy?: boolean
   timeLeftMs?: number
 }) {
+  const t = useT()
   const [draft, setDraft] = useState("")
   const [game, setGame] = useState<string | null>(session.game || null)
   const [left, setLeft] = useState(() => timeLeftMs ?? goldenLeftMs(session))
@@ -88,7 +90,7 @@ export function GoldenRoom({
       <header className="goldsheen" style={{ position: "relative", flexShrink: 0, display: "flex", alignItems: "center", gap: 11,
         padding: "calc(env(safe-area-inset-top) + 12px) 14px 12px", borderBottom: `.5px solid ${GOLD}33`,
         background: "linear-gradient(180deg, rgba(232,196,106,.22), rgba(232,196,106,.04))", boxShadow: `0 12px 34px -20px ${GOLD}` }}>
-        <button onClick={onLeave} aria-label="leave the golden room"
+        <button onClick={onLeave} aria-label={t("leave the golden room")}
           style={{ flex: "0 0 auto", width: 34, height: 34, borderRadius: 10, background: "rgba(255,255,255,.06)",
             border: `.5px solid ${GOLD}44`, color: GOLD, fontSize: 17, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}>‹</button>
         <span style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", flex: "0 0 auto", border: `1.5px solid ${GOLD}`, background: "#1a1408" }}>
@@ -98,7 +100,7 @@ export function GoldenRoom({
         <span style={{ minWidth: 0, flex: 1 }}>
           <span style={{ display: "block", fontSize: 15.5, fontWeight: 700, letterSpacing: -.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{guest.host}</span>
           <span style={{ display: "block", fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase",
-            background: METAL, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", fontWeight: 700 }}>the golden room</span>
+            background: METAL, WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", fontWeight: 700 }}>{t("the golden room")}</span>
         </span>
         <span style={{ flex: "0 0 auto", fontSize: 11.5, color: `${GOLD}cc`, fontVariantNumeric: "tabular-nums" }}>{goldenLabel(left)}</span>
       </header>
@@ -107,7 +109,7 @@ export function GoldenRoom({
         {lines.length === 0 && (
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6, color: "rgba(246,239,224,.55)" }}>
             you brought {guest.host} in here. {guest.gender === "male" ? "he" : "she"} knows.
-            <br />pick something below, or just carry on.
+            <br />{t("pick something below, or just carry on.")}
           </p>
         )}
         {lines.map((l, i) => (
@@ -145,10 +147,10 @@ export function GoldenRoom({
       <div style={{ flexShrink: 0, display: "flex", gap: 8, alignItems: "center", padding: "0 14px calc(env(safe-area-inset-bottom) + 12px)" }}>
         <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }}
           placeholder={game ? `${GOLDEN_GAMES.find((g) => g.id === game)?.name}…` : `say something to ${guest.host.toLowerCase()}`}
-          aria-label="say something in the golden room"
+          aria-label={t("say something in the golden room")}
           style={{ flex: 1, minWidth: 0, minHeight: 46, borderRadius: 13, padding: "0 14px", fontSize: 16, color: "#f6efe0",
             background: "rgba(255,255,255,.05)", border: `.5px solid ${GOLD}55`, outline: "none", fontFamily: "inherit", boxShadow: `inset 0 1px 0 ${GOLD_PALE}14` }} />
-        <button onClick={send} disabled={busy || !draft.trim()} aria-label="send"
+        <button onClick={send} disabled={busy || !draft.trim()} aria-label={t("send")}
           style={{ flex: "0 0 auto", minHeight: 46, padding: "0 18px", borderRadius: 13, border: "none", cursor: "pointer",
             background: METAL, color: INK, fontSize: 15, fontWeight: 800, fontFamily: "inherit", boxShadow: `0 8px 22px -10px ${GOLD}`,
             opacity: busy || !draft.trim() ? .45 : 1 }}>↑</button>

@@ -638,8 +638,8 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
                 <button onClick={() => setOpen(l.who)} style={{ fontSize: 12, fontWeight: 700, color: dot(l.who.f), background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>{l.who.host}</button>
-                {l.spoken && <span style={{ fontSize: 10, color: `${dot(l.who.f)}cc`, letterSpacing: .8, textTransform: "uppercase" }}>🎙 said out loud</span>}
-                {l.toYou && <span style={{ fontSize: 10, color: "rgba(240,232,255,.5)", letterSpacing: .8, textTransform: "uppercase" }}>to you</span>}
+                {l.spoken && <span style={{ fontSize: 10, color: `${dot(l.who.f)}cc`, letterSpacing: .8, textTransform: "uppercase" }}>{t("🎙 said out loud")}</span>}
+                {l.toYou && <span style={{ fontSize: 10, color: "rgba(240,232,255,.5)", letterSpacing: .8, textTransform: "uppercase" }}>{t("to you")}</span>}
               </div>
               <div style={{ fontSize: 14.5, lineHeight: 1.4, color: "#ece4f8" }}><Mentions text={l.text} cast={cast} you={you} onTap={setOpen} /></div>
             </div>
@@ -658,7 +658,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
         <button onClick={() => { try { track("room_wall_tap") } catch { /* */ } ; onPass() }}
           style={{ flexShrink: 0, margin: "0 12px 8px", padding: "13px 14px", borderRadius: 14, textAlign: "center", cursor: "pointer", background: "rgba(232,121,249,.1)", border: ".5px solid rgba(232,121,249,.4)", color: "#f0e8ff", fontSize: 13.5, lineHeight: 1.4, WebkitTapHighlightColor: "transparent" }}>
           the room went quiet — that was the free part.{" "}
-          <span style={{ fontWeight: 700, color: "#e879f9" }}>$9 keeps it going for 90 days →</span>
+          <span style={{ fontWeight: 700, color: "#e879f9" }}>{t("$9 keeps it going for 90 days →")}</span>
         </button>
       )}
 
@@ -686,19 +686,19 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
           this one looking broken — and taking it is one tap, because the tab you
           are looking at should be the live one. */}
       {!live && (
-        <button onClick={() => { claimLease(); setLive(true); wake() }} aria-label="talk here instead"
+        <button onClick={() => { claimLease(); setLive(true); wake() }} aria-label={t("talk here instead")}
           style={{ flexShrink: 0, margin: "0 12px 8px", padding: "11px 14px", borderRadius: 12, textAlign: "left",
             background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "rgba(240,232,255,.65)",
             fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
-          the room is running in another tab — <span style={{ color: "#ff5f8a", fontWeight: 600 }}>{t("tap to move it here")}</span>
+          {t("the room is running in another tab —")} <span style={{ color: "#ff5f8a", fontWeight: 600 }}>{t("tap to move it here")}</span>
         </button>
       )}
       {live && dozing && (
-        <button onClick={wake} aria-label="carry on"
+        <button onClick={wake} aria-label={t("carry on")}
           style={{ flexShrink: 0, margin: "0 12px 8px", padding: "11px 14px", borderRadius: 12, textAlign: "left",
             background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "rgba(240,232,255,.65)",
             fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
-          the room went quiet while you were away — <span style={{ color: "#ff5f8a", fontWeight: 600 }}>{t("tap to carry on")}</span>
+          {t("the room went quiet while you were away —")} <span style={{ color: "#ff5f8a", fontWeight: 600 }}>{t("tap to carry on")}</span>
         </button>
       )}
       <div style={{ flexShrink: 0, display: "flex", gap: 8, alignItems: "center", padding: "8px 12px calc(env(safe-area-inset-bottom) + 5.5rem)" }}>
@@ -755,10 +755,10 @@ function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster;
           </div>
         </div>
         <div style={{ marginTop: 15, display: "flex", flexDirection: "column", gap: 9 }}>
-          <Fact label="tonight" text={d.onMind} accent={accent} />
+          <Fact label={t("tonight")} text={t(d.onMind)} accent={accent} />
           {/* Their pronoun, not a default. Half this floor is men, and every one
               of them was being introduced as "she" on their own profile card. */}
-          <Fact label={`${c.gender === "male" ? "he" : "she"}'ll argue`} text={d.opinion} accent={accent} />
+          <Fact label={t(c.gender === "male" ? "he'll argue" : "she'll argue")} text={t(d.opinion)} accent={accent} />
         </div>
         {/* A little of the conversation before the whole one. Whisper something
             only she can read; she whispers back, in the room, and nobody else
@@ -773,11 +773,11 @@ function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster;
         </div>
         <button onClick={() => { onClose(); onPrivate(c) }}
           style={{ marginTop: 10, width: "100%", minHeight: 52, fontSize: 16, fontWeight: 700, color: "#180a20", background: accent, border: "none", borderRadius: 15, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
-          message {c.host} privately
+          {t("message {name} privately", { name: displayName(c.host, c.gender, t.locale) })}
         </button>
         <button onClick={onClose}
           style={{ marginTop: 8, width: "100%", minHeight: 42, fontSize: 13, color: "rgba(240,232,255,.45)", background: "transparent", border: ".5px solid rgba(255,255,255,.12)", borderRadius: 13, cursor: "pointer" }}>
-          back to the room
+          {t("back to the room")}
         </button>
       </div>
     </div>

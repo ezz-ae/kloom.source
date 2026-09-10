@@ -13,12 +13,14 @@
  * real, and — that's the whole point — you can't always tell.
  */
 import { useEffect, useRef, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
 import { groupCast, type Cluster, faceSeedFor } from "@/lib/airroom/roster"
 import { renderPersona } from "@/lib/airraw/persona"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { visitorId } from "@/lib/airraw/visitor"
 import { joinSession, resolveHandle, colorFor, type WireMessage, type Participant } from "@/lib/room-session"
 import { avatarBg } from "@/lib/airroom/avatar"
+import { displayName } from "@/lib/airraw/arabic-names"
 import { Face } from "@/components/airroom/Face"
 import { isPro, getProToken } from "@/lib/airroom/pro"
 import { ProSheet } from "@/components/airroom/ProSheet"
@@ -49,6 +51,7 @@ function pickResponders(msgId: string, n: number): number[] {
 }
 
 export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lang = "English", onCall, topic }: { seed: number; f: number; tempLabel: string; onClose: () => void; count?: number; opening?: string; lang?: string; onCall?: (m: Cluster) => void; topic?: string }) {
+  const t = useT()
   // Deterministic cast of N — the same crowd for everyone who enters this room.
   // The zoom level chose N (a 60-voice floor or a 4-voice booth); members spread
   // across a small temperature band around the room so the room has texture.
@@ -305,13 +308,13 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
               <span key={i} style={{ width: 3, height: 12, borderRadius: 2, background: muted ? "#46586a" : "#7fd6c0", transformOrigin: "center", animation: (speaking && !muted) ? `greq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)" }} />
             ))}
           </span>
-          <button onClick={() => setPeopleOpen(true)} aria-label="who's on this call" style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+          <button onClick={() => setPeopleOpen(true)} aria-label={t("who's on this call")} style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
             {muted ? "muted · text only" : <>{members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""} · {tempLabel}</>}
           </button>
         </div>
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n && audioRef.current) { try { audioRef.current.pause() } catch { /* */ } setSpeaking(false) } return n }) }} aria-label={muted ? "unmute" : "mute"} style={{ width: 44, height: 44, borderRadius: 12, fontSize: 13, color: muted ? "#ffb59c" : "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{muted ? "🔇" : "🔊"}</button>
-          <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 12px", minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>← leave</button>
+          <button onClick={onClose} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 12px", minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("← leave")}</button>
         </div>
       </div>
 
@@ -331,7 +334,7 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
         </div>
         <div style={{ display: "flex", gap: 9, alignItems: "center", maxWidth: "100%", overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch", padding: "2px 2px 4px", maskImage: "linear-gradient(to right, #000 92%, transparent)", WebkitMaskImage: "linear-gradient(to right, #000 92%, transparent)" }}>
           {members.slice(0, 12).map((m, i) => (
-            <button key={i} onClick={() => passTo(i)} disabled={busy} aria-label={`pass the mic to ${m.host}`}
+            <button key={i} onClick={() => passTo(i)} disabled={busy} aria-label={t("pass the mic to {name}", { name: displayName(m.host, m.gender, t.locale) })}
               style={{ flexShrink: 0, width: 38, height: 38, borderRadius: "50%", overflow: "hidden", padding: 0, background: avatarBg(seed * 7 + i + 1, m.f), border: i === active ? `2px solid ${dot(m.f)}` : "1px solid rgba(255,255,255,.18)", boxShadow: i === active ? `0 0 10px ${dot(m.f)}88` : "none", opacity: busy ? 0.55 : i === active ? 1 : 0.85, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "border-color .2s, box-shadow .2s" }}>
               <Face persona={{ name: m.host, gender: m.gender, seed: faceSeedFor(m) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </button>
@@ -359,21 +362,21 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
             </div>
           )
         })}
-        {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: "#7f93a5", fontStyle: "italic" }}>the room is talking…</div>}
+        {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: "#7f93a5", fontStyle: "italic" }}>{t("the room is talking…")}</div>}
       </div>
 
       <div style={{ padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))", boxSizing: "border-box" }}>
         {humanNote && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cfe0ee", background: "rgba(127,214,192,.1)", border: ".5px solid rgba(127,214,192,.25)", borderRadius: 12, padding: "9px 12px", marginBottom: 9 }}>
-            <span style={{ flex: 1, lineHeight: 1.4 }}>some people in here are real — you won&apos;t always know which.</span>
-            <button onClick={dismissHumanNote} style={{ flex: "0 0 auto", fontSize: 12, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 9, padding: "7px 12px", minHeight: 34, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>got it</button>
+            <span style={{ flex: 1, lineHeight: 1.4 }}>{t("some people in here are real — you won't always know which.")}</span>
+            <button onClick={dismissHumanNote} style={{ flex: "0 0 auto", fontSize: 12, color: "#06201a", background: "#7fd6c0", border: "none", borderRadius: 9, padding: "7px 12px", minHeight: 34, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>{t("got it")}</button>
           </div>
         )}
         {/* pass + vibe — one fixed-height row, never reflows */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", height: 38, marginBottom: 9 }}>
-          <button onClick={pass} disabled={busy} aria-label="pass the mic to someone else" style={{ flex: "0 0 auto", fontSize: 12.5, height: 38, color: "#cfe0ee", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, padding: "0 15px", cursor: "pointer", opacity: busy ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>↦ pass the mic</button>
+          <button onClick={pass} disabled={busy} aria-label={t("pass the mic to someone else")} style={{ flex: "0 0 auto", fontSize: 12.5, height: 38, color: "#cfe0ee", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 999, padding: "0 15px", cursor: "pointer", opacity: busy ? 0.5 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("↦ pass the mic")}</button>
           {(
-            <button onClick={() => pro ? setVibeEdit(true) : setShowPro(true)} aria-label="set the room vibe" style={{ flex: "0 1 auto", minWidth: 0, fontSize: 12.5, height: 38, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "0 15px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ vibe — pro"}</button>
+            <button onClick={() => pro ? setVibeEdit(true) : setShowPro(true)} aria-label={t("set the room vibe")} style={{ flex: "0 1 auto", minWidth: 0, fontSize: 12.5, height: 38, fontWeight: 500, color: vibe ? "#1a0d2a" : "#c7b3ff", background: vibe ? "#c7b3ff" : "rgba(150,120,255,.12)", border: vibe ? "none" : ".5px solid rgba(150,120,255,.4)", borderRadius: 999, padding: "0 15px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{vibe ? `vibe · ${vibe}` : pro ? "✦ set the vibe" : "✦ vibe — pro"}</button>
           )}
         </div>
         {/* input + ONE morphing button (fixed 66×44, so nothing jumps) — empty = voice, typing = send */}
@@ -398,9 +401,9 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
           style={{ position: "absolute", inset: 0, zIndex: 27, background: "rgba(3,5,10,.94)", backdropFilter: "blur(10px)", display: "flex", flexDirection: "column", animation: "sheetin .3s ease both" }}>
           <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(22px, env(safe-area-inset-right)) 10px max(22px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
             <div style={{ fontSize: 12, color: "#9fb2c4", letterSpacing: 1 }}>on this call · {members.length} voices{realOthers.length > 0 ? ` + ${realOthers.length} real` : ""}</div>
-            <button onClick={() => setPeopleOpen(false)} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 12px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>back →</button>
+            <button onClick={() => setPeopleOpen(false)} style={{ fontSize: 13, color: "#cdd9e3", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", padding: "11px 12px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("back →")}</button>
           </div>
-          <div style={{ fontSize: 12, color: "#7f93a5", textAlign: "center", padding: "0 22px 12px" }}>tap someone to call them, just you two · swipe → back · swipe ← leave</div>
+          <div style={{ fontSize: 12, color: "#7f93a5", textAlign: "center", padding: "0 22px 12px" }}>{t("tap someone to call them, just you two · swipe → back · swipe ← leave")}</div>
           <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "4px 22px calc(env(safe-area-inset-bottom) + 20px)", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 14, alignContent: "start" }}>
             {members.map((m, i) => (
               <button key={i} onClick={() => { setPeopleOpen(false); onCall?.(m) }} aria-label={`call ${m.host}`}
@@ -423,12 +426,12 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
       {vibeEdit && pro && (
         <div style={{ position: "absolute", inset: 0, zIndex: 26, background: "rgba(4,6,12,.82)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ width: "min(88vw, 400px)", background: "#0f1622", border: ".5px solid rgba(150,120,255,.4)", borderRadius: 18, padding: 20, textAlign: "center" }}>
-            <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#c7b3ff" }}>pro · set the room vibe</div>
-            <div style={{ fontSize: 14, color: "#cdd9e3", margin: "8px 0 14px", lineHeight: 1.5 }}>set the mood and the whole room follows it.</div>
-            <input value={vibe} onChange={(e) => setVibe(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setVibeEdit(false) }} autoFocus placeholder="e.g. roast each other · deep and honest · hype" style={{ width: "100%", fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "12px 14px", minHeight: 46, boxSizing: "border-box", outline: "none" }} />
+            <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: "#c7b3ff" }}>{t("pro · set the room vibe")}</div>
+            <div style={{ fontSize: 14, color: "#cdd9e3", margin: "8px 0 14px", lineHeight: 1.5 }}>{t("set the mood and the whole room follows it.")}</div>
+            <input value={vibe} onChange={(e) => setVibe(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") setVibeEdit(false) }} autoFocus placeholder={t("e.g. roast each other · deep and honest · hype")} style={{ width: "100%", fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "12px 14px", minHeight: 46, boxSizing: "border-box", outline: "none" }} />
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-              <button onClick={() => { setVibe(""); setVibeEdit(false) }} style={{ flex: 1, minHeight: 44, fontSize: 13, color: "#9fb2c4", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 12, cursor: "pointer" }}>clear</button>
-              <button onClick={() => setVibeEdit(false)} style={{ flex: 1, minHeight: 44, fontSize: 14, fontWeight: 600, color: "#1a0d2a", background: "#c7b3ff", border: "none", borderRadius: 12, cursor: "pointer" }}>set it</button>
+              <button onClick={() => { setVibe(""); setVibeEdit(false) }} style={{ flex: 1, minHeight: 44, fontSize: 13, color: "#9fb2c4", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 12, cursor: "pointer" }}>{t("clear")}</button>
+              <button onClick={() => setVibeEdit(false)} style={{ flex: 1, minHeight: 44, fontSize: 14, fontWeight: 600, color: "#1a0d2a", background: "#c7b3ff", border: "none", borderRadius: 12, cursor: "pointer" }}>{t("set it")}</button>
             </div>
           </div>
         </div>

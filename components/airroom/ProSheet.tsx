@@ -132,7 +132,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
               onChange={(e) => setPrimary(e.target.value)}
               style={{ width: "100%", marginTop: 5, height: 38, borderRadius: 11, fontSize: 13, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.2)", padding: "0 9px", cursor: "pointer" }}
             >
-              {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{l.name}</option>)}
+              {LANGUAGES.map((l) => <option key={l.name} value={l.name}>{t(l.name)}</option>)}
             </select>
           </label>
           <div style={{ fontSize: 11.5, color: "#9fb2c4" }}>{t("and also")}</div>
@@ -146,7 +146,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
                   aria-pressed={on}
                   style={{ fontSize: 12, padding: "6px 11px", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", color: on ? "#1a0d2a" : "#9fb2c4", background: on ? "#e9b6ff" : "rgba(255,255,255,.06)", border: on ? "none" : ".5px solid rgba(255,255,255,.16)", fontFamily: "inherit" }}
                 >
-                  {l.name}
+                  {t(l.name)}
                 </button>
               )
             })}

@@ -20,6 +20,8 @@
  * sent as `persona`, so they cannot speak even if the model would like them to.
  */
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
+import { displayName } from "@/lib/airraw/arabic-names"
 import { composeScene, castFor, fantasyById, roleById, type SceneConfig } from "@/lib/airraw/fantasy"
 import { faceSeedFor, type Cluster } from "@/lib/airroom/roster"
 import { renderPersona } from "@/lib/airraw/persona"
@@ -51,6 +53,7 @@ export function SceneRoom({ cfg, onClose, onPass, sceneId, initialLines }: {
   /** What was already said, when this scene is being reopened. */
   initialLines?: SavedLine[]
 }) {
+  const t = useT()
   const [id] = useState(() => sceneId || newSceneId())
   // THE SEED IS THE CASTING, NOT THE CLOCK.
   //
@@ -207,14 +210,14 @@ export function SceneRoom({ cfg, onClose, onPass, sceneId, initialLines }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", color: "#f0e8ff" }}>
       <header style={{ display: "flex", alignItems: "center", gap: 11, padding: "4px 0 14px", borderBottom: ".5px solid rgba(255,255,255,.09)" }}>
-        <button onClick={onClose} aria-label="leave the scene" style={{ background: "none", border: "none", color: "rgba(240,232,255,.6)", fontSize: 22, cursor: "pointer", padding: "2px 4px" }}>‹</button>
+        <button onClick={onClose} aria-label={t("leave the scene")} style={{ background: "none", border: "none", color: "rgba(240,232,255,.6)", fontSize: 22, cursor: "pointer", padding: "2px 4px" }}>‹</button>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fantasy?.label || "a scene"}</div>
           <div style={{ fontSize: 12, color: "rgba(240,232,255,.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {cast.map((c) => c.host).join(" · ")}{cfg.save ? "" : " · not saved"}
+            {cast.map((c) => displayName(c.host, c.gender, t.locale)).join(" · ")}{cfg.save ? "" : t(" · not saved")}
           </div>
         </div>
-        <button onClick={() => setMuted((v) => !v)} aria-pressed={muted} aria-label={muted ? "turn the voices on" : "turn the voices off"}
+        <button onClick={() => setMuted((v) => !v)} aria-pressed={muted} aria-label={muted ? t("turn the voices on") : t("turn the voices off")}
           style={{ flex: "0 0 auto", width: 40, height: 40, borderRadius: "50%", fontSize: 17, cursor: "pointer",
             background: muted ? "rgba(255,255,255,.06)" : `${ACCENT}22`, color: muted ? "rgba(240,232,255,.5)" : ACCENT,
             border: ".5px solid rgba(255,255,255,.12)", fontFamily: "inherit" }}>{muted ? "🔇" : "🔊"}</button>
@@ -225,7 +228,7 @@ export function SceneRoom({ cfg, onClose, onPass, sceneId, initialLines }: {
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 0", display: "grid", gap: 11, alignContent: "start" }}>
         {lines.length === 0 && (
           <p style={{ fontSize: 14, color: "rgba(240,232,255,.45)", lineHeight: 1.6, margin: 0 }}>
-            {fantasy?.scene} <br /><br />Say something, and it starts.
+            {fantasy?.scene} <br /><br />{t("Say something, and it starts.")}
           </p>
         )}
         {lines.map((l, k) => {
@@ -250,7 +253,7 @@ export function SceneRoom({ cfg, onClose, onPass, sceneId, initialLines }: {
                 {l.audio && (
                   <button onClick={() => { const a = audioRef.current; if (a) { a.src = l.audio!; a.play().catch(() => { /* */ }) } }}
                     aria-label={`play ${c?.host || "that"} again`}
-                    style={{ marginTop: 6, background: "none", border: "none", color: col, fontSize: 12, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>▶ play again</button>
+                    style={{ marginTop: 6, background: "none", border: "none", color: col, fontSize: 12, cursor: "pointer", padding: 0, fontFamily: "inherit" }}>{t("▶ play again")}</button>
                 )}
               </div>
             </div>
@@ -275,12 +278,12 @@ export function SceneRoom({ cfg, onClose, onPass, sceneId, initialLines }: {
 
       <div style={{ display: "flex", gap: 9, paddingBottom: 8 }}>
         <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") send() }}
-          placeholder="say something…" aria-label="say something in the scene"
+          placeholder={t("say something…")} aria-label={t("say something in the scene")}
           style={{ flex: 1, padding: "13px 15px", borderRadius: 14, background: "rgba(255,255,255,.06)", color: "#f0e8ff",
             border: ".5px solid rgba(255,255,255,.11)", fontSize: 16, fontFamily: "inherit", outline: "none", minWidth: 0 }} />
-        <button onClick={send} disabled={busy || !input.trim()} aria-label="send"
+        <button onClick={send} disabled={busy || !input.trim()} aria-label={t("send")}
           style={{ flex: "0 0 auto", padding: "0 20px", borderRadius: 14, background: ACCENT, color: "#0d0418", fontSize: 15, fontWeight: 700,
-            border: "none", cursor: "pointer", fontFamily: "inherit", opacity: busy || !input.trim() ? .5 : 1 }}>send</button>
+            border: "none", cursor: "pointer", fontFamily: "inherit", opacity: busy || !input.trim() ? .5 : 1 }}>{t("send")}</button>
       </div>
     </div>
   )

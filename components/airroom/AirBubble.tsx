@@ -8,6 +8,8 @@
  *                             no pressing. Ignores its own voice while it speaks.
  */
 import { type CSSProperties, useEffect, useRef, useState } from "react"
+import { useT, translate, currentLocale } from "@/lib/airraw/i18n"
+import { displayName } from "@/lib/airraw/arabic-names"
 import { faceSeedFor } from "@/lib/airroom/roster"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { visitorId } from "@/lib/airraw/visitor"
@@ -128,6 +130,10 @@ const PARTING = [
 ]
 
 export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang = "English", onGolden }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string; lang?: string; onGolden?: () => void }) {
+  const t = useT()
+  // The opener in the language of the room. Read synchronously: the lazy state
+  // below is built on the first render, before useT has resolved the locale.
+  const opener = (s: string) => translate(s, currentLocale())
   const accent = HEAT_COLOR[cluster.h]
   // Their pronouns, once. Half the floor is men and every one of them was being
   // described as "she" in the copy around the call.
@@ -142,7 +148,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   // and the user never sees the greeting flash in over their old conversation.
   const [msgs, setMsgs] = useState<Msg[]>(() => {
     const saved = loadTalk(cluster.key)
-    return saved?.msgs.length ? saved.msgs : [{ who: "host", text: cluster.lines[0] }]
+    return saved?.msgs.length ? saved.msgs : [{ who: "host", text: opener(cluster.lines[0]) }]
   })
   const [resumed] = useState(() => !!loadTalk(cluster.key)?.msgs.length)
   /** When this thread was last spoken in — what makes coming back a return. */
@@ -222,8 +228,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     const next = myLangs[(i + 1) % myLangs.length]
     setActiveLang(next)
     langRef.current = next          // set now: the segmenter reads the ref, not the state
-    setMicHint(`switched to ${next.toLowerCase()}`)
-    setTimeout(() => setMicHint((h) => (h.startsWith("switched to") ? "" : h)), 1800)
+    // The one hint that carries a value, so it is translated here rather than at
+    // the read site. Clearing it compares against the exact message instead of
+    // its English prefix, which stops being a prefix in any other language.
+    const msg = t("switched to {lang}", { lang: t(next).toLowerCase() })
+    setMicHint(msg)
+    setTimeout(() => setMicHint((h) => (h === msg ? "" : h)), 1800)
   }
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -552,7 +562,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   const greetIfNeeded = () => {
     if (greetedRef.current || resumed) return
     greetedRef.current = true
-    speak(cluster.lines[0])
+    speak(opener(cluster.lines[0]))
   }
 
   // Persist the thread as it goes, so closing the tab mid-sentence still leaves
@@ -640,7 +650,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         }
       }
       const fallbackIdx = (msgsRef.current.filter(m => m.who === "host").length) % cluster.lines.length
-      const fullText = accumulated.trim() || cluster.lines[fallbackIdx] || cluster.lines[0]
+      const fullText = accumulated.trim() || opener(cluster.lines[fallbackIdx] || cluster.lines[0])
       const after: Msg[] = [...msgsRef.current, { who: "host", text: fullText }]
       msgsRef.current = after; setMsgs(after)
       // Nothing streamed at all → speak the fallback line; otherwise flush the tail.
@@ -881,7 +891,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   const last = msgs[msgs.length - 1]
   const host = cluster.host.toLowerCase()
-  const status = speaking ? `${host} is talking…` : busy ? `${host} is thinking…` : handsFree ? "listening — just talk" : "tap call to start"
+  const status = speaking ? t("{name} is talking…", { name: host }) : busy ? t("{name} is thinking…", { name: host }) : handsFree ? t("listening — just talk") : t("tap call to start")
 
   // Swipe right anywhere → the words (text sheet). A 1:1 call has no swipe left —
   // there's no one else on the line. Pointer events cover touch AND trackpad.
@@ -923,7 +933,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               basic thing this screen has to do. */}
           <button
             onClick={() => (leaving ? onClose() : leaveCall())}
-            aria-label="leave"
+            aria-label={t("leave")}
             style={{ flex: "0 0 auto", width: 36, height: 36, borderRadius: 11, fontSize: 17, lineHeight: 1, color: "rgba(240,232,255,.72)", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.10)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
           >
             ‹
@@ -933,7 +943,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               <span key={i} style={{ width: 3, height: 14, borderRadius: 2, background: muted ? "rgba(240,232,255,.2)" : accent, transformOrigin: "center", animation: (speaking && !muted) ? `aireq .7s ease-in-out ${i * 0.15}s infinite` : "none", transform: (speaking && !muted) ? undefined : "scaleY(.4)", transition: "background .3s" }} />
             ))}
           </span>
-          <span style={{ fontSize: 12, color: (micMuted && handsFree) ? "#fb7185" : muted ? "rgba(240,232,255,.35)" : "rgba(240,232,255,.6)", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(micMuted && handsFree) ? "your mic is off" : muted ? "muted · text only" : "on air · just you two"}</span>
+          <span style={{ fontSize: 12, color: (micMuted && handsFree) ? "#fb7185" : muted ? "rgba(240,232,255,.35)" : "rgba(240,232,255,.6)", letterSpacing: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(micMuted && handsFree) ? t("your mic is off") : muted ? t("muted · text only") : t("on air · just you two")}</span>
         </div>
         {/* One button, not three. It opens the sound panel below — mute, level and
             (where the browser allows it) which speaker — so the top bar keeps
@@ -944,7 +954,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           {myLangs.length > 1 && (
             <button
               onClick={cycleLang}
-              aria-label={`chatting in ${activeLang} — switch language`}
+              aria-label={t("chatting in {lang} — switch language", { lang: t(activeLang) })}
               style={{ height: 44, minWidth: 44, padding: "0 12px", borderRadius: 12, fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "rgba(240,232,255,.75)", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.10)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}
             >
               {(isoForLanguage(activeLang) || activeLang.slice(0, 2)).toUpperCase()}
@@ -952,7 +962,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           )}
           <button
             onClick={openAudioPanel}
-            aria-label="sound"
+            aria-label={t("sound")}
             aria-expanded={audioPanel}
             style={{ width: 44, height: 44, borderRadius: 12, fontSize: 18, color: (muted || (micMuted && handsFree)) ? "#fb7185" : "rgba(240,232,255,.55)", background: audioPanel ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.07)", border: `.5px solid rgba(255,255,255,.10)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
@@ -977,15 +987,15 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           style={{ position: "absolute", inset: 0, zIndex: 40, background: "rgba(6,3,12,.55)", backdropFilter: "blur(3px)" }} />
       )}
       {audioPanel && (
-        <div role="dialog" aria-label="call settings" onClick={(e) => e.stopPropagation()}
+        <div role="dialog" aria-label={t("call settings")} onClick={(e) => e.stopPropagation()}
           style={{ position: "absolute", top: 0, bottom: 0, right: 0, zIndex: 41, width: "min(320px, 86vw)", overflowY: "auto",
             background: "linear-gradient(180deg, #17111f 0%, #0e0916 100%)", borderLeft: ".5px solid rgba(255,255,255,.12)",
             padding: "calc(env(safe-area-inset-top) + 16px) 14px calc(env(safe-area-inset-bottom) + 16px)",
             display: "flex", flexDirection: "column", gap: 10, boxShadow: "-24px 0 60px -20px rgba(0,0,0,.9)" }}>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-            <span style={{ fontSize: 11.5, letterSpacing: 1.3, textTransform: "uppercase", color: "rgba(240,232,255,.4)" }}>while you talk</span>
-            <button onClick={() => setAudioPanel(false)} aria-label="close settings"
+            <span style={{ fontSize: 11.5, letterSpacing: 1.3, textTransform: "uppercase", color: "rgba(240,232,255,.4)" }}>{t("while you talk")}</span>
+            <button onClick={() => setAudioPanel(false)} aria-label={t("close settings")}
               style={{ background: "none", border: "none", color: "rgba(240,232,255,.5)", fontSize: 20, lineHeight: 1, cursor: "pointer", padding: "0 2px", fontFamily: "inherit" }}>×</button>
           </div>
 
@@ -994,7 +1004,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               thing you do mid-sentence. Hidden entirely when there is only one
               language to be in. */}
           {myLangs.length > 1 && (
-            <button onClick={cycleLang} aria-label={`switch to ${myLangs[(myLangs.indexOf(activeLang) + 1) % myLangs.length]}`}
+            <button onClick={cycleLang} aria-label={t("switch to {lang}", { lang: t(myLangs[(myLangs.indexOf(activeLang) + 1) % myLangs.length]) })}
               style={{ width: "100%", minHeight: 44, borderRadius: 10, padding: "0 12px", cursor: "pointer", textAlign: "left",
                 background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.10)", color: "rgba(240,232,255,.8)",
                 fontSize: 12.5, fontWeight: 600, fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -1010,14 +1020,19 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             style={{ width: "100%", minHeight: 44, borderRadius: 10, padding: "0 12px", cursor: "pointer", textAlign: "left",
               background: chatOpen ? `${accent}22` : "rgba(255,255,255,.08)", border: `.5px solid ${chatOpen ? `${accent}55` : "rgba(255,255,255,.10)"}`,
               color: "rgba(240,232,255,.8)", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit" }}>
-            {chatOpen ? "hide the words" : "show the words while we talk"}
+            {chatOpen ? t("hide the words") : t("show the words while we talk")}
           </button>
 
           <button onClick={() => { setMuted((m) => { const n = !m; mutedRef.current = n; if (n) stopSpeaking(); return n }) }} aria-pressed={!muted}
             style={{ width: "100%", minHeight: 44, borderRadius: 10, padding: "0 12px", cursor: "pointer", textAlign: "left",
               background: muted ? "rgba(255,255,255,.08)" : `${accent}22`, border: `.5px solid ${muted ? "rgba(255,255,255,.10)" : `${accent}55`}`,
               color: "rgba(240,232,255,.8)", fontSize: 12.5, fontWeight: 600, fontFamily: "inherit" }}>
-            {muted ? `${they} is on mute — tap to hear ${them}` : `you hear ${them} out loud`}
+            {/* Two keys per gender rather than an interpolated pronoun: Arabic attaches
+                 the object pronoun as a SUFFIX (تسمعه / تسمعها), so a slot in the
+                 middle of the sentence cannot be filled with a word. */}
+            {muted
+              ? t(cluster.gender === "male" ? "he is on mute — tap to hear him" : "she is on mute — tap to hear her")
+              : t(cluster.gender === "male" ? "you hear him out loud" : "you hear her out loud")}
           </button>
 
           <MicTest accent={accent} />
@@ -1035,12 +1050,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               if (r.ok && r.session) { setGolden(r.session); try { track("golden_open") } catch { /* */ } }
               else onGolden?.()
             }}
-            aria-label={gold > 0 ? `take ${cluster.host} into the golden room` : "get a golden room"}
+            aria-label={gold > 0 ? t("take {name} into the golden room", { name: displayName(cluster.host, cluster.gender, t.locale) }) : t("get a golden room")}
             style={{ width: "100%", minHeight: 46, borderRadius: 11, cursor: goldBusy ? "default" : "pointer", padding: "0 13px",
               background: "linear-gradient(135deg, #f7e3a1 0%, #e8c46a 42%, #a97c24 100%)", border: "none",
               color: "#0a0805", fontSize: 13.5, fontWeight: 800, fontFamily: "inherit", textAlign: "left",
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, opacity: goldBusy ? .6 : 1 }}>
-            <span>{gold > 0 ? `take ${cluster.host.toLowerCase()} to the golden room` : "the golden room"}</span>
+            <span>{gold > 0 ? t("take {name} to the golden room", { name: displayName(cluster.host, cluster.gender, t.locale) }) : t("the golden room")}</span>
             <span style={{ opacity: .7, fontWeight: 700 }}>{gold > 0 ? `${gold} held` : "✦"}</span>
           </button>
 
@@ -1052,12 +1067,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               buttons a centimetre apart was the panel telling you the same thing
               twice. */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ flex: "0 0 auto", fontSize: 11.5, color: "rgba(240,232,255,.45)" }}>volume</span>
+            <span style={{ flex: "0 0 auto", fontSize: 11.5, color: "rgba(240,232,255,.45)" }}>{t("volume")}</span>
             <input
               type="range" min={0} max={1} step={0.05}
               value={volume}
               onChange={(e) => changeVolume(Number(e.target.value))}
-              aria-label="volume"
+              aria-label={t("volume")}
               style={{ flex: 1, accentColor: accent, height: 34, cursor: "pointer" }}
             />
             <span style={{ flex: "0 0 auto", width: 34, textAlign: "right", fontSize: 11, color: "rgba(240,232,255,.5)", fontVariantNumeric: "tabular-nums" }}>{Math.round(volume * 100)}</span>
@@ -1071,7 +1086,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               onClick={toggleMicMute}
-              aria-label={micMuted ? "unmute your microphone" : "mute your microphone"}
+              aria-label={micMuted ? t("unmute your microphone") : t("mute your microphone")}
               aria-pressed={micMuted}
               style={{ flex: 1, height: 34, borderRadius: 10, fontSize: 12, fontWeight: 600, color: micMuted ? "#0d0418" : "rgba(240,232,255,.75)", background: micMuted ? "#fb7185" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.10)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
             >
@@ -1084,10 +1099,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               advertises storage that isn't happening. */}
           {memoryEnabled() && resumed && (
             <button
-              onClick={() => { forgetTalk(cluster.key); setMsgs([{ who: "host", text: cluster.lines[0] }]); msgsRef.current = [{ who: "host", text: cluster.lines[0] }]; setAudioPanel(false) }}
+              onClick={() => { forgetTalk(cluster.key); setMsgs([{ who: "host", text: opener(cluster.lines[0]) }]); msgsRef.current = [{ who: "host", text: cluster.lines[0] }]; setAudioPanel(false) }}
               style={{ height: 32, borderRadius: 10, fontSize: 11.5, color: "rgba(240,232,255,.55)", background: "transparent", border: ".5px solid rgba(255,255,255,.12)", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
             >
-              forget this conversation
+              {t("forget this conversation")}
             </button>
           )}
 
@@ -1097,10 +1112,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             <select
               value={sink}
               onChange={(e) => chooseSink(e.target.value)}
-              aria-label="speaker"
+              aria-label={t("speaker")}
               style={{ width: "100%", height: 34, borderRadius: 10, fontSize: 12, color: "rgba(240,232,255,.75)", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.10)", padding: "0 8px", cursor: "pointer" }}
             >
-              <option value="">speaker · system default</option>
+              <option value="">{t("speaker · system default")}</option>
               {outputs.filter((d) => d.id && d.id !== "default").map((d) => (
                 <option key={d.id} value={d.id}>{d.label}</option>
               ))}
@@ -1112,8 +1127,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
       {humanNote && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px max(18px, env(safe-area-inset-right)) 2px max(18px, env(safe-area-inset-left))", fontSize: 12, color: "rgba(240,232,255,.8)", background: fill, border: `.5px solid ${accent}50`, borderRadius: 12, padding: "9px 12px" }}>
-          <span style={{ flex: 1, lineHeight: 1.4 }}>some voices here are real people — you won&apos;t always know.</span>
-          <button onClick={dismissHumanNote} style={{ flex: "0 0 auto", fontSize: 12, color: "#0d0418", background: accent, border: "none", borderRadius: 9, padding: "7px 12px", minHeight: 34, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontWeight: 600 }}>got it</button>
+          <span style={{ flex: 1, lineHeight: 1.4 }}>{t("some voices here are real people — you won't always know.")}</span>
+          <button onClick={dismissHumanNote} style={{ flex: "0 0 auto", fontSize: 12, color: "#0d0418", background: accent, border: "none", borderRadius: 9, padding: "7px 12px", minHeight: 34, cursor: "pointer", WebkitTapHighlightColor: "transparent", fontWeight: 600 }}>{t("got it")}</button>
         </div>
       )}
 
@@ -1141,7 +1156,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         <div style={{ textAlign: "center" }}>
           <button
             onClick={() => pro ? setVibeEdit(true) : setShowPro(true)}
-            aria-label="set the vibe"
+            aria-label={t("set the vibe")}
             style={{ background: "none", border: "none", cursor: "pointer", padding: 0, WebkitTapHighlightColor: "transparent" }}
           >
             <div style={{ fontSize: 23, fontWeight: 500, color: "#f0e8ff" }}>{cluster.host}</div>
@@ -1165,7 +1180,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         {/* the newest photo, on the call screen itself — a photo that only lives
             behind the keypad is a photo nobody finds */}
         {(() => { const ph = [...msgs].reverse().find((m) => m.image); return ph && !styleQ ? (
-          <button onClick={() => setChatOpen(true)} aria-label="see her photos" style={{ width: "min(46vw, 180px)", aspectRatio: "3 / 4", borderRadius: 14, overflow: "hidden", border: `.5px solid ${accent}66`, boxShadow: `0 16px 40px -16px ${glow}`, padding: 0, background: "none", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
+          <button onClick={() => setChatOpen(true)} aria-label={t("see her photos")} style={{ width: "min(46vw, 180px)", aspectRatio: "3 / 4", borderRadius: 14, overflow: "hidden", border: `.5px solid ${accent}66`, boxShadow: `0 16px 40px -16px ${glow}`, padding: 0, background: "none", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={ph.image} alt={cluster.host} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
           </button>
@@ -1182,7 +1197,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           {/* style profile question — 2-word choice, shown once per question slot */}
           {styleQ && (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, paddingTop: 4 }}>
-              <div style={{ fontSize: 11, color: accent + "80", letterSpacing: 1.5, textTransform: "uppercase" }}>quick pick</div>
+              <div style={{ fontSize: 11, color: accent + "80", letterSpacing: 1.5, textTransform: "uppercase" }}>{t("quick pick")}</div>
               <div style={{ display: "flex", gap: 10 }}>
                 {[styleQ.a, styleQ.b].map(opt => (
                   <button key={opt} onClick={() => pickStyle(opt)} style={{ fontSize: 14, fontWeight: 500, padding: "10px 18px", borderRadius: 999, color: accent, background: accent + "18", border: `.5px solid ${accent}55`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", letterSpacing: -0.2 }}>{opt}</button>
@@ -1202,13 +1217,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           the mic mute, the sound panel, the text transcript, hanging up. */}
       <div style={{ flexShrink: 0, padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 22px) max(18px, env(safe-area-inset-right))" }}>
         <div style={{ fontSize: 11, color: micHint ? "#fb7185" : "rgba(240,232,255,.3)", marginBottom: 12, textAlign: "center", minHeight: 14, letterSpacing: 0.4 }}>
-          {micHint || (handsFree ? "" : "swipe → for the words")}
+          {micHint ? t(micHint) : (handsFree ? "" : t("swipe → for the words"))}
         </div>
 
         {handsFree && !leaving && (
           <div style={{ display: "flex", justifyContent: "center", gap: 26, marginBottom: 18 }}>
             {([
-              { label: micMuted ? "unmute" : "mute", icon: micMuted ? "🔇" : "🎙", on: micMuted, act: toggleMicMute, aria: micMuted ? "unmute your microphone" : "mute your microphone" },
+              { label: micMuted ? t("unmute") : t("mute"), icon: micMuted ? "🔇" : "🎙", on: micMuted, act: toggleMicMute, aria: micMuted ? t("unmute your microphone") : t("mute your microphone") },
               { label: "speaker", icon: "🔊", on: audioPanel, act: () => setAudioPanel((v) => !v), aria: "sound" },
               { label: "keypad", icon: "⌨", on: false, act: () => setChatOpen(true), aria: "type" },
               { label: photoBusy ? "taking\u2026" : "photo", icon: "\ud83d\udcf7", on: photoBusy, act: () => askPhoto(), aria: "ask her for a photo" },
@@ -1225,7 +1240,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
           <button
             onClick={leaving ? onClose : handsFree ? leaveCall : sttOk ? onTalk : () => setChatOpen(true)}
-            aria-label={leaving ? "close" : handsFree ? "end the call" : sttOk ? "call" : "type"}
+            aria-label={leaving ? t("close") : handsFree ? t("end the call") : sttOk ? t("call") : t("type")}
             style={{
               width: (handsFree || leaving) ? 72 : 92, height: (handsFree || leaving) ? 72 : 92, borderRadius: "50%", cursor: "pointer",
               fontWeight: 700, fontSize: (handsFree || leaving) ? 26 : 17, color: "#fff", letterSpacing: 0.5,
@@ -1235,7 +1250,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
               WebkitTapHighlightColor: "transparent", touchAction: "manipulation", transition: "background .2s, box-shadow .2s, width .2s, height .2s",
             } as CSSProperties}
           >
-            {leaving ? "close" : handsFree ? "📞" : sttOk ? "call" : "text"}
+            {leaving ? t("close") : handsFree ? "📞" : sttOk ? t("call") : t("text")}
           </button>
         </div>
 
@@ -1259,7 +1274,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         <div style={{ position: "absolute", inset: 0, background: "rgba(7,4,15,.95)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", display: "flex", flexDirection: "column", zIndex: 25 }}>
           <div style={{ padding: "calc(env(safe-area-inset-top) + 14px) max(20px, env(safe-area-inset-right)) 8px max(20px, env(safe-area-inset-left))", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: 12, color: accent + "cc", letterSpacing: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>the words · {cluster.host}</span>
-            <button onClick={() => setChatOpen(false)} style={{ flex: "0 0 auto", fontSize: 13, color: "rgba(240,232,255,.7)", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.14)", padding: "10px 14px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>back</button>
+            <button onClick={() => setChatOpen(false)} style={{ flex: "0 0 auto", fontSize: 13, color: "rgba(240,232,255,.7)", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.14)", padding: "10px 14px", minHeight: 44, borderRadius: 12, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("back")}</button>
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", padding: "8px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }} />
@@ -1275,7 +1290,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             {busy && <div style={{ alignSelf: "flex-start", fontSize: 13, color: accent + "99", fontStyle: "italic" }}>{cluster.host} is thinking…</div>}
             {styleQ && (
               <div style={{ alignSelf: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 9, margin: "4px 0 8px" }}>
-                <div style={{ fontSize: 11, color: accent + "80", letterSpacing: 1.5, textTransform: "uppercase" }}>quick pick</div>
+                <div style={{ fontSize: 11, color: accent + "80", letterSpacing: 1.5, textTransform: "uppercase" }}>{t("quick pick")}</div>
                 <div style={{ display: "flex", gap: 10 }}>
                   {[styleQ.a, styleQ.b].map(opt => (
                     <button key={opt} onClick={() => pickStyle(opt)} style={{ fontSize: 13, fontWeight: 500, padding: "9px 16px", borderRadius: 999, color: accent, background: accent + "18", border: `.5px solid ${accent}55`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{opt}</button>
@@ -1286,7 +1301,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           </div>
           <div style={{ padding: "10px max(18px, env(safe-area-inset-left)) calc(env(safe-area-inset-bottom) + 18px) max(18px, env(safe-area-inset-right))", boxSizing: "border-box" }}>
             {trouble && (
-              <div onClick={retry} role="button" tabIndex={0} style={{ fontSize: 12, color: "#fb7185", background: "rgba(251,113,133,.12)", border: ".5px solid rgba(251,113,133,.35)", borderRadius: 12, padding: "9px 12px", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 9, textAlign: "center", cursor: "pointer" }}>couldn&apos;t reach the voice — tap to retry</div>
+              <div onClick={retry} role="button" tabIndex={0} style={{ fontSize: 12, color: "#fb7185", background: "rgba(251,113,133,.12)", border: ".5px solid rgba(251,113,133,.35)", borderRadius: 12, padding: "9px 12px", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 9, textAlign: "center", cursor: "pointer" }}>{t("couldn't reach the voice — tap to retry")}</div>
             )}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input
@@ -1312,19 +1327,19 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       {vibeEdit && pro && (
         <div style={{ position: "absolute", inset: 0, zIndex: 26, background: "rgba(7,4,15,.88)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ width: "min(88vw, 400px)", background: "#0f041a", border: `.5px solid ${accent}50`, borderRadius: 18, padding: 20, textAlign: "center" }}>
-            <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: accent }}>pro · set the vibe</div>
+            <div style={{ fontSize: 12, letterSpacing: 1.5, textTransform: "uppercase", color: accent }}>{t("pro · set the vibe")}</div>
             <div style={{ fontSize: 14, color: "rgba(240,232,255,.7)", margin: "8px 0 14px", lineHeight: 1.5 }}>tell {cluster.host.toLowerCase()} the mood — they&apos;ll follow it.</div>
             <input
               value={vibe}
               onChange={(e) => setVibe(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") setVibeEdit(false) }}
               autoFocus
-              placeholder="e.g. flirty and slow · hype me up · brutally honest"
+              placeholder={t("e.g. flirty and slow · hype me up · brutally honest")}
               style={{ width: "100%", fontSize: 16, color: "#f0e8ff", background: "rgba(255,255,255,.07)", border: `.5px solid ${accent}50`, borderRadius: 12, padding: "12px 14px", minHeight: 46, boxSizing: "border-box", outline: "none" }}
             />
             <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-              <button onClick={() => { setVibe(""); setVibeEdit(false) }} style={{ flex: 1, minHeight: 44, fontSize: 13, color: "rgba(240,232,255,.5)", background: "transparent", border: ".5px solid rgba(255,255,255,.12)", borderRadius: 12, cursor: "pointer" }}>clear</button>
-              <button onClick={() => setVibeEdit(false)} style={{ flex: 1, minHeight: 44, fontSize: 14, fontWeight: 700, color: "#0d0418", background: grad, border: "none", borderRadius: 12, cursor: "pointer" }}>set it</button>
+              <button onClick={() => { setVibe(""); setVibeEdit(false) }} style={{ flex: 1, minHeight: 44, fontSize: 13, color: "rgba(240,232,255,.5)", background: "transparent", border: ".5px solid rgba(255,255,255,.12)", borderRadius: 12, cursor: "pointer" }}>{t("clear")}</button>
+              <button onClick={() => setVibeEdit(false)} style={{ flex: 1, minHeight: 44, fontSize: 14, fontWeight: 700, color: "#0d0418", background: grad, border: "none", borderRadius: 12, cursor: "pointer" }}>{t("set it")}</button>
             </div>
           </div>
         </div>
@@ -1351,12 +1366,12 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           }}
         >
           {nudge}{" "}
-          <span style={{ fontWeight: 700, color: accent }}>$9 opens her all the way →</span>
+          <span style={{ fontWeight: 700, color: accent }}>{t("$9 opens her all the way →")}</span>
           <span
             onClick={(e) => { e.stopPropagation(); setCeiling(false) }}
             style={{ display: "block", marginTop: 5, fontSize: 11, color: "rgba(240,232,255,.4)" }}
           >
-            not now
+            {t("not now")}
           </span>
         </div>
       )}

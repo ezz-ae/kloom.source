@@ -162,11 +162,11 @@ export function Talks({ onJoin, onSpent }: {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px", borderRadius: 16, background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.14)" }}>
             <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.6)" }}>
-              what&apos;s it about? the good ones sound like a confession, not a topic.
+              {tr("what's it about? the good ones sound like a confession, not a topic.")}
             </div>
             <input
               value={title} onChange={(e) => setTitle(e.target.value)} maxLength={70}
-              placeholder="i've never told anyone this"
+              placeholder={tr("i've never told anyone this")}
               style={{ minHeight: 46, borderRadius: 12, fontSize: 15, color: "#f0e8ff", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.2)", padding: "0 12px", outline: "none", fontFamily: "inherit" }}
             />
             <label style={{ fontSize: 12.5, color: "rgba(240,232,255,.6)", display: "flex", alignItems: "center", gap: 10 }}>

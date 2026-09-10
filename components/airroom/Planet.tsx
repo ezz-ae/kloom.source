@@ -47,6 +47,7 @@ import { getProfile, type Profile } from "@/lib/airroom/profile"
 import { hasOnboarded, markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
 import { takeEntryMood } from "@/lib/airraw/entry"
 import { useT } from "@/lib/airraw/i18n"
+import { displayName } from "@/lib/airraw/arabic-names"
 import { getCredits, spendCredits } from "@/lib/airroom/credits"
 import { getFai, earnFai } from "@/lib/airraw/fai"
 import { detectLanguage, LANGUAGES } from "@/lib/languages"
@@ -119,6 +120,11 @@ function ifrac(h: number): number { return (h % 100003) / 100003 }
 const btn: React.CSSProperties = { width: 44, height: 44, color: "#dfeaf2", background: "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, cursor: "pointer", fontSize: 20, lineHeight: "1", display: "flex", alignItems: "center", justifyContent: "center", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }
 
 export function Planet() {
+  const t = useT()
+  // The render loop shadows `t` with a timestamp and outlives any closure over
+  // the translator, so it reaches the current one through a ref.
+  const tRef = useRef(t)
+  tRef.current = t
   const cvRef = useRef<HTMLCanvasElement | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const zoomFnRef = useRef<(f: number) => void>(() => {})
@@ -377,7 +383,7 @@ export function Planet() {
       await awaitPin(who, lang)
       const req = fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: char.lines[0], personaName: char.host, seedKey: who, gender: char.gender, language: lang, voiceId: char.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), visitorId: visitorId(), mode: "voice" }),
+        body: JSON.stringify({ text: t(char.lines[0]), personaName: char.host, seedKey: who, gender: char.gender, language: lang, voiceId: char.voiceId, elevenId: pinnedVoice(who, lang), proToken: getProToken(), visitorId: visitorId(), mode: "voice" }),
       })
       claimFirst(who, lang, req)
       const res = await req
@@ -858,7 +864,7 @@ export function Planet() {
       if (cam.s < 3.2) { crumb = "the whole now"; altl = "orbit" }
       else if (cam.s < 11) { crumb = co.v; altl = "region" }
       else if (!anyCrowdShown) { crumb = co.v; altl = "block" }
-      else { crumb = co.v; altl = "floor"; if (actChar) hear = `${actChar.host} · “${actChar.lines[0]}”` }
+      else { crumb = co.v; altl = "floor"; if (actChar) hear = `${displayName(actChar.host, actChar.gender, tRef.current.locale)} · “${tRef.current(actChar.lines[0])}”` }
       const sig = crumb + "|" + altl + "|" + hear + "|" + (join ? `${join.n}:${join.seed}` : "0")
       if (sig !== lastHud) { lastHud = sig; setHud({ crumb, alt: altl, hearing: hear, join }) }
     }
@@ -904,7 +910,7 @@ export function Planet() {
           Hidden while inside a room/call: rooms own their whole screen, and this
           was floating OVER their header (avatar colliding with the room title). */}
       {profile && !intro && !selected && !group && !deckOpen && (
-        <button onClick={() => setShowProfile(true)} aria-label="your profile" style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "max(16px, env(safe-area-inset-left))", zIndex: 26, width: 40, height: 40, borderRadius: "50%", border: "none", background: `radial-gradient(120% 120% at 30% 25%, hsl(${profile.hue},78%,64%), hsl(${(profile.hue + 40) % 360},70%,40%))`, color: "rgba(255,255,255,.96)", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 6px 18px -6px hsla(${profile.hue},80%,50%,.7)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+        <button onClick={() => setShowProfile(true)} aria-label={t("your profile")} style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "max(16px, env(safe-area-inset-left))", zIndex: 26, width: 40, height: 40, borderRadius: "50%", border: "none", background: `radial-gradient(120% 120% at 30% 25%, hsl(${profile.hue},78%,64%), hsl(${(profile.hue + 40) % 360},70%,40%))`, color: "rgba(255,255,255,.96)", fontSize: 18, lineHeight: 1, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: `0 6px 18px -6px hsla(${profile.hue},80%,50%,.7)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
           {profile.glyph}
           <span style={{ position: "absolute", bottom: -4, right: -4, minWidth: 18, height: 18, padding: "0 4px", borderRadius: 9, background: "#0a0c12", border: `.5px solid ${pro ? "rgba(255,217,138,.55)" : "rgba(127,214,192,.5)"}`, color: pro ? "#ffd98a" : "#7fd6c0", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>{pro ? "∞" : credits}</span>
         </button>
@@ -925,8 +931,8 @@ export function Planet() {
       <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", left: "50%", transform: "translateX(-50%)", zIndex: 25, display: (intro || selected || group || (deckOpen && !legacyRooms)) ? "none" : "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(4,5,11,.55)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 999, padding: "4px 6px 4px 11px" }}>
           <span style={{ fontSize: 12 }} aria-hidden>🌐</span>
-          <select value={lang} onChange={(e) => pickPrimary(e.target.value)} aria-label="language" style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", color: "#cfe0ee", border: "none", fontSize: 12.5, fontFamily: "inherit", padding: "2px 2px 2px 4px", cursor: "pointer", outline: "none" }}>
-            {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{l.name}</option>)}
+          <select value={lang} onChange={(e) => pickPrimary(e.target.value)} aria-label={t("language")} style={{ appearance: "none", WebkitAppearance: "none", background: "transparent", color: "#cfe0ee", border: "none", fontSize: 12.5, fontFamily: "inherit", padding: "2px 2px 2px 4px", cursor: "pointer", outline: "none" }}>
+            {LANGUAGES.map((l) => <option key={l.name} value={l.name} style={{ color: "#06121e" }}>{t(l.name)}</option>)}
           </select>
           <span style={{ fontSize: 9, color: "#8aa0b3" }} aria-hidden>▾</span>
           {/* Second language. Collapsed to a single glyph until asked for, so the
@@ -942,18 +948,18 @@ export function Planet() {
         </div>
         {langOpen && (
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 5, maxWidth: "min(92vw, 420px)", background: "rgba(4,5,11,.75)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 14, padding: "8px 9px" }}>
-            <div style={{ width: "100%", textAlign: "center", fontSize: 10.5, color: "#8aa0b3", marginBottom: 2 }}>what else do you speak?</div>
+            <div style={{ width: "100%", textAlign: "center", fontSize: 10.5, color: "#8aa0b3", marginBottom: 2 }}>{t("what else do you speak?")}</div>
             {LANGUAGES.filter((l) => l.name !== lang).map((l) => {
               const on = alsoLangs.includes(l.name)
               return (
                 <button key={l.name} onClick={() => toggleAlso(l.name)} aria-pressed={on}
                   style={{ fontSize: 11.5, padding: "5px 9px", borderRadius: 999, cursor: "pointer", WebkitTapHighlightColor: "transparent", color: on ? "#06121e" : "#9fb2c4", background: on ? "#7fd6c0" : "rgba(255,255,255,.06)", border: on ? "none" : ".5px solid rgba(255,255,255,.14)", fontFamily: "inherit" }}>
-                  {l.name}
+                  {t(l.name)}
                 </button>
               )
             })}
             <div style={{ width: "100%", textAlign: "center", fontSize: 10, color: "#6b7d8e", marginTop: 4 }}>
-              {langPrefsPersist() ? "saved as your default" : "kept for this visit"}
+              {langPrefsPersist() ? t("saved as your default") : t("kept for this visit")}
             </div>
           </div>
         )}
@@ -968,7 +974,7 @@ export function Planet() {
               <div key={i} style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center", fontWeight: 500, lineHeight: 1.2, color: "#eef4f8", letterSpacing: 0.2, textShadow: "0 2px 34px rgba(127,214,192,.28)", opacity: 0, animation: `introScroll ${INTRO_LINE_MS}ms ease-in-out ${i * INTRO_LINE_MS}ms both` }}>{ln}</div>
             ))}
           </div>
-          <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 30px)", left: 0, right: 0, textAlign: "center", fontSize: 12, color: "#5f7080", letterSpacing: 1, opacity: 0, animation: "skipFade 2.4s ease both" }}>tap to skip</div>
+          <div style={{ position: "absolute", bottom: "calc(env(safe-area-inset-bottom) + 30px)", left: 0, right: 0, textAlign: "center", fontSize: 12, color: "#5f7080", letterSpacing: 1, opacity: 0, animation: "skipFade 2.4s ease both" }}>{t("tap to skip")}</div>
         </div>
       )}
 
@@ -1075,14 +1081,14 @@ export function Planet() {
       )}
       {/* back to the people deck from the open sky */}
       {started && !deckOpen && !selected && !group && (
-        <button onClick={() => setDeckOpen(true)} aria-label="back to people" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 24, minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 999, cursor: "pointer", boxShadow: "0 10px 26px -10px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>people</button>
+        <button onClick={() => setDeckOpen(true)} aria-label={t("back to people")} style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", zIndex: 24, minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 999, cursor: "pointer", boxShadow: "0 10px 26px -10px rgba(127,214,192,.6)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>{t("people")}</button>
       )}
 
       {/* one-time gesture hint — sky mode only */}
       {started && navHint && !deckOpen && !selected && !group && (
         <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: "calc(env(safe-area-inset-top) + 64px)", zIndex: 24, fontSize: 12.5, letterSpacing: 0.6, color: "rgba(238,244,248,.62)", background: "rgba(4,5,11,.5)", border: ".5px solid rgba(255,255,255,.1)", borderRadius: 999, padding: "8px 16px", pointerEvents: "none", whiteSpace: "nowrap", fontFamily: "var(--font-geist), system-ui, sans-serif", animation: "navhint 6.5s ease both" }}>
           <style>{`@keyframes navhint{0%{opacity:0;transform:translateX(-50%) translateY(6px)}8%,80%{opacity:1;transform:translateX(-50%) translateY(0)}100%{opacity:0}}`}</style>
-          scroll to go closer · drag to drift
+          {t("scroll to go closer · drag to drift")}
         </div>
       )}
 
@@ -1110,12 +1116,12 @@ export function Planet() {
       {(pending || pendingJoin || nearDeep) && !verified && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(20,6,30,.9)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto", paddingTop: "max(26px, env(safe-area-inset-top))", paddingBottom: "max(26px, env(safe-area-inset-bottom))", paddingLeft: "max(26px, env(safe-area-inset-left))", paddingRight: "max(26px, env(safe-area-inset-right))", zIndex: 30 }}>
           <div style={{ maxWidth: 340, textAlign: "center", color: "#f3e8fb" }}>
-            <div style={{ fontSize: 12, letterSpacing: 1, color: "#c69cff" }}>you&apos;re approaching the deep</div>
-            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>18+ only past here</div>
-            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#d7c3ea" }}>flirty, explicit, late-night. tap below to confirm you&apos;re 18 or older.</div>
+            <div style={{ fontSize: 12, letterSpacing: 1, color: "#c69cff" }}>{t("you're approaching the deep")}</div>
+            <div style={{ fontSize: 21, fontWeight: 500, margin: "8px 0 10px" }}>{t("18+ only past here")}</div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: "#d7c3ea" }}>{t("flirty, explicit, late-night. tap below to confirm you're 18 or older.")}</div>
             <div style={{ marginTop: 18, display: "flex", flexDirection: "column", gap: 9 }}>
-              <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, minHeight: 44, color: "#1a0d2a", background: "#c69cff", border: "none", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>i&apos;m 18 or older — enter</button>
-              <button onClick={() => { setPending(null); setPendingJoin(null); setNearDeep(false); zoomFnRef.current(0.18) }} style={{ fontSize: 14, lineHeight: 1.2, minHeight: 44, color: "#d7c3ea", background: "transparent", border: "1px solid rgba(198,156,255,.4)", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>no — take me back</button>
+              <button onClick={confirm18} style={{ fontSize: 14, fontWeight: 500, lineHeight: 1.2, minHeight: 44, color: "#1a0d2a", background: "#c69cff", border: "none", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("i'm 18 or older — enter")}</button>
+              <button onClick={() => { setPending(null); setPendingJoin(null); setNearDeep(false); zoomFnRef.current(0.18) }} style={{ fontSize: 14, lineHeight: 1.2, minHeight: 44, color: "#d7c3ea", background: "transparent", border: "1px solid rgba(198,156,255,.4)", borderRadius: 14, padding: "12px 14px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("no — take me back")}</button>
             </div>
           </div>
         </div>
@@ -1149,6 +1155,7 @@ export function Planet() {
 // the user sits still, four faint arrows breathe in. The only other control is
 // RAW (the open sky).
 function RoomDeck({ onJoin, onExplore, fai, onProfile, pos, setPos, onResume, onBack }: { onJoin: (j: Join) => void; onExplore: () => void; fai: string; onProfile: () => void; pos: { c: number; i: number }; setPos: React.Dispatch<React.SetStateAction<{ c: number; i: number }>>; onResume: (c: Cluster) => void; onBack?: () => void }) {
+  const t = useT()
   // Threads waiting to be picked back up. Empty for a free session and for anyone
   // who has switched memory off, so the strip simply isn't there rather than
   // being an empty shelf advertising a feature.
@@ -1287,7 +1294,7 @@ function RoomDeck({ onJoin, onExplore, fai, onProfile, pos, setPos, onResume, on
         <div style={{ fontSize: 13.5, color: "rgba(238,244,248,.55)", textAlign: "center", maxWidth: 300, lineHeight: 1.5 }}>{co.v}</div>
         <button onClick={() => { if (draggedRef.current) return; onJoin({ n: room.n, seed: room.seed, f: co.f, adult: !!co.adult, c: room.c }) }}
           style={{ marginTop: 4, minHeight: 54, padding: "0 44px", fontSize: 16, fontWeight: 700, color: "#06121e", background: `linear-gradient(135deg, hsl(${co.h},72%,62%), hsl(${(co.h + 25) % 360},72%,70%))`, border: "none", borderRadius: 16, cursor: "pointer", boxShadow: `0 14px 36px -12px hsla(${co.h},80%,55%,.6)`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
-          step in →
+          {t("step in →")}
         </button>
       </div>
       {/* whisper arrows — appear only on hesitation, breathe away on touch */}
@@ -1296,9 +1303,9 @@ function RoomDeck({ onJoin, onExplore, fai, onProfile, pos, setPos, onResume, on
       <span style={{ ...arrow, left: 14, top: "50%", transform: "translateY(-50%)" }}>‹</span>
       <span style={{ ...arrow, right: 14, top: "50%", transform: "translateY(-50%)" }}>›</span>
       {/* your AIR — the one number money runs on, always visible, taps to the profile */}
-      <button onClick={onProfile} aria-label="your FAI balance" style={{ position: "absolute", left: 14, top: "calc(env(safe-area-inset-top) + 12px)", minHeight: 36, padding: "0 14px", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{fai} FAI</button>
+      <button onClick={onProfile} aria-label={t("your FAI balance")} style={{ position: "absolute", left: 14, top: "calc(env(safe-area-inset-top) + 12px)", minHeight: 36, padding: "0 14px", fontSize: 12.5, fontWeight: 700, letterSpacing: 1, color: "#7fd6c0", background: "rgba(4,5,11,.55)", border: ".5px solid rgba(127,214,192,.35)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{fai} FAI</button>
       {/* the ONE other control */}
-      <button onClick={onExplore} aria-label="RAW — drift the open sky" style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#cfe0ee", background: "rgba(4,5,11,.6)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>RAW</button>
+      <button onClick={onExplore} aria-label={t("RAW — drift the open sky")} style={{ position: "absolute", right: 14, bottom: "calc(env(safe-area-inset-bottom) + 14px)", minHeight: 40, padding: "0 18px", fontSize: 12.5, fontWeight: 700, letterSpacing: 2, color: "#cfe0ee", background: "rgba(4,5,11,.6)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 999, cursor: "pointer", backdropFilter: "blur(6px)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>RAW</button>
     </div>
   )
 }
@@ -1322,6 +1329,7 @@ function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
   onPhotos: () => void
   onReport: () => void
 }) {
+  const t = useT()
   const [step, setStep] = useState<"name" | "mood" | "shaping">("name")
   const [name, setName] = useState("")
   const [pick, setPick] = useState<typeof MOODS[number] | null>(null)
@@ -1339,18 +1347,18 @@ function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
     <div className="air-fade" style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", background: "radial-gradient(120% 90% at 50% 30%, #14101f 0%, #050308 70%)", fontFamily: "var(--font-geist), system-ui, sans-serif" }}>
       {step === "name" && (
         <div className="air-rise" style={{ width: "100%", maxWidth: 340, textAlign: "center" }}>
-          <div style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#7fd6c0", marginBottom: 10 }}>airraw</div>
-          <div style={{ fontSize: 24, fontWeight: 600, color: "#eef4f8", lineHeight: 1.3, marginBottom: 20 }}>hey — what should I call you?</div>
+          <div style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#7fd6c0", marginBottom: 10 }}>{t("airraw")}</div>
+          <div style={{ fontSize: 24, fontWeight: 600, color: "#eef4f8", lineHeight: 1.3, marginBottom: 20 }}>{t("hey — what should I call you?")}</div>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") setStep("mood") }}
-            placeholder="optional — go by anything"
+            placeholder={t("optional — go by anything")}
             autoFocus
             style={{ width: "100%", fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "14px 16px", minHeight: 50, boxSizing: "border-box", outline: "none", textAlign: "center", marginBottom: 16 }}
           />
           <button onClick={() => setStep("mood")} style={{ width: "100%", minHeight: 52, fontSize: 15.5, fontWeight: 700, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 15, cursor: "pointer", boxShadow: "0 12px 30px -10px rgba(127,214,192,.55)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
-            {name.trim() ? "continue →" : "skip, just take me in →"}
+            {name.trim() ? t("continue →") : t("skip, just take me in →")}
           </button>
 
           {/* Two things a returning person needs on the way in, and neither was
@@ -1359,41 +1367,41 @@ function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
               the app — which is exactly where you cannot get to when the reason
               you are here is that your pass looks gone. */}
           <div style={{ display: "flex", gap: 9, marginTop: 12 }}>
-            <button onClick={onRestore} aria-label="restore my membership"
+            <button onClick={onRestore} aria-label={t("restore my membership")}
               style={{ flex: 1, minHeight: 46, borderRadius: 13, cursor: "pointer", fontFamily: "inherit",
                 background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.14)",
                 color: "rgba(238,244,248,.72)", fontSize: 13, fontWeight: 600,
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
               <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>✦</span>
-              restore my membership
+              {t("restore my membership")}
             </button>
-            <button onClick={onPhotos} aria-label="save to photos"
+            <button onClick={onPhotos} aria-label={t("save to photos")}
               style={{ flex: 1, minHeight: 46, borderRadius: 13, cursor: "pointer", fontFamily: "inherit",
                 background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.14)",
                 color: "rgba(238,244,248,.72)", fontSize: 13, fontWeight: 600,
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
               <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>❖</span>
-              save to photos
+              {t("save to photos")}
             </button>
           </div>
 
-          <button onClick={onReport} aria-label="report an issue"
+          <button onClick={onReport} aria-label={t("report an issue")}
             style={{ width: "100%", marginTop: 10, minHeight: 38, background: "none", border: "none", cursor: "pointer",
               color: "rgba(238,244,248,.38)", fontSize: 12.5, fontFamily: "inherit" }}>
-            something not working?
+            {t("something not working?")}
           </button>
         </div>
       )}
       {step === "mood" && (
         <div className="air-rise" style={{ width: "100%", maxWidth: 360, textAlign: "center" }}>
           <div style={{ fontSize: 20, fontWeight: 600, color: "#eef4f8", marginBottom: 22 }}>
-            {name.trim() ? `good to meet you, ${name.trim()}.` : "one thing —"} what's tonight?
+            {name.trim() ? t("good to meet you, {name}. what's tonight?", { name: name.trim() }) : t("one thing — what's tonight?")}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             {MOODS.map((m) => (
               <button key={m.label} onClick={() => choose(m)} style={{ padding: "18px 12px", borderRadius: 16, textAlign: "center", background: `hsla(${m.hue},55%,40%,.14)`, border: `.5px solid hsla(${m.hue},60%,60%,.35)`, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#eef4f8", marginBottom: 4 }}>{m.label}</div>
-                <div style={{ fontSize: 11.5, color: "rgba(238,244,248,.55)" }}>{m.sub}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#eef4f8", marginBottom: 4 }}>{t(m.label)}</div>
+                <div style={{ fontSize: 11.5, color: "rgba(238,244,248,.55)" }}>{t(m.sub)}</div>
               </button>
             ))}
           </div>
@@ -1404,7 +1412,7 @@ function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
           <style>{`@keyframes onboardpulse{0%,100%{transform:scale(1);opacity:.55}50%{transform:scale(1.6);opacity:1}}`}</style>
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: `hsl(${pick.hue},70%,62%)`, margin: "0 auto 18px", animation: "onboardpulse 1.1s ease-in-out infinite" }} />
           <div style={{ fontSize: 17, color: "#eef4f8", fontWeight: 500 }}>
-            {name.trim() ? `shaping it around you, ${name.trim()}…` : "shaping your first room…"}
+            {name.trim() ? t("shaping it around you, {name}…", { name: name.trim() }) : t("shaping your first room…")}
           </div>
         </div>
       )}
@@ -1454,9 +1462,9 @@ function ScenesLocked({ onPass }: { onPass: () => void }) {
 
       <button onClick={onPass}
         style={{ width: "100%", padding: "17px 0", borderRadius: 15, background: "#f472b6", color: "#0d0418", fontSize: 16.5, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit" }}>
-        unlock scenes →
+        {t("unlock scenes →")}
       </button>
-      <p style={{ fontSize: 12, color: "rgba(240,232,255,.4)", textAlign: "center", marginTop: 12 }}>part of the pass · 18+</p>
+      <p style={{ fontSize: 12, color: "rgba(240,232,255,.4)", textAlign: "center", marginTop: 12 }}>{t("part of the pass · 18+")}</p>
     </div>
   )
 }

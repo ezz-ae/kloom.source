@@ -140,7 +140,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                 </button>
               </li>
             ))}
-            {shown.length === 0 && <li style={{ color: "rgba(240,232,255,.45)", fontSize: 14, padding: "18px 2px" }}>nothing by that name.</li>}
+            {shown.length === 0 && <li style={{ color: "rgba(240,232,255,.45)", fontSize: 14, padding: "18px 2px" }}>{tr("nothing by that name.")}</li>}
           </ul>
         </>
       )}
@@ -149,7 +149,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
       {step === 2 && (
         <>
           <p style={{ fontSize: 13.5, color: "rgba(240,232,255,.5)", margin: "0 0 14px", lineHeight: 1.5 }}>
-            You are in this. Add up to {MAX_CAST} others — what they are, what they&rsquo;re like, and whether they speak.
+            {tr("you are in this. add up to {n} others — what they are, what they're like, and whether they speak.", { n: MAX_CAST })}
           </p>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(0, 1fr)" }}>
             {cast.map((m, i) => (
@@ -158,7 +158,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                   <span style={{ fontSize: 12, letterSpacing: 1.2, textTransform: "uppercase", color: "rgba(240,232,255,.42)", fontWeight: 600 }}>#{i + 1}</span>
                   {cast.length > 1 && (
                     <button onClick={() => setCast((c) => c.filter((x) => x.id !== m.id))} aria-label={`remove person ${i + 1}`}
-                      style={{ background: "none", border: "none", color: "rgba(240,232,255,.45)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>remove</button>
+                      style={{ background: "none", border: "none", color: "rgba(240,232,255,.45)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>{tr("remove")}</button>
                   )}
                 </div>
 
@@ -197,7 +197,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
                         border: ".5px solid rgba(255,255,255,.09)", fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }} />
                     <label style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 11, fontSize: 13.5, color: "rgba(240,232,255,.6)", cursor: "pointer" }}>
                       <input type="checkbox" checked={m.quiet} onChange={(e) => patch(m.id, { quiet: e.target.checked })} style={{ accentColor: ACCENT, width: 17, height: 17 }} />
-                      here, but doesn&rsquo;t speak
+                      {tr("here, but doesn't speak")}
                     </label>
                   </>
                 ) : (
@@ -235,10 +235,10 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
             ))}
           </Group>
           <Group label="afterwards">
-            <Toggle on={save} set={setSave} title="keep the transcript" hint="it stays on this device — off means nothing is written" />
+            <Toggle on={save} set={setSave} title={tr("keep the transcript")} hint="it stays on this device — off means nothing is written" />
             {/* Says what it actually does. The clips are object URLs held for the life of
               the scene, so "replay any line" is true and "saved forever" would not be. */}
-          <Toggle on={record} set={setRecord} title="keep the voices" hint="replay any line while the scene is open" />
+          <Toggle on={record} set={setRecord} title={tr("keep the voices")} hint="replay any line while the scene is open" />
           </Group>
           <Nav back={() => setStep(2)} next={go} nextLabel="begin →" />
         </>
@@ -292,11 +292,12 @@ function Toggle({ on, set, title, hint }: { on: boolean; set: (v: boolean) => vo
  * has the side benefit that the way forward is always on screen.
  */
 function Nav({ back, next, nextLabel }: { back: () => void; next: () => void; nextLabel: string }) {
+  const tr = useT()
   return (
     <div style={{ display: "flex", gap: 10, marginTop: 22, position: "sticky",
       bottom: "max(5.75rem, calc(env(safe-area-inset-bottom) + 5.25rem))", zIndex: 5,
       background: "linear-gradient(to top, #0d0418 62%, transparent)", paddingTop: 14, paddingBottom: 4 }}>
-      <button onClick={back} style={{ ...CARD, flex: "0 0 auto", padding: "15px 20px", color: "rgba(240,232,255,.7)", fontSize: 15, cursor: "pointer", fontFamily: "inherit" }}>back</button>
+      <button onClick={back} style={{ ...CARD, flex: "0 0 auto", padding: "15px 20px", color: "rgba(240,232,255,.7)", fontSize: 15, cursor: "pointer", fontFamily: "inherit" }}>{tr("back")}</button>
       <button onClick={next} style={{ flex: 1, padding: "15px 0", borderRadius: 14, background: ACCENT, color: "#0d0418", fontSize: 16, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "inherit" }}>{nextLabel}</button>
     </div>
   )

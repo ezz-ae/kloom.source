@@ -56,11 +56,11 @@ export function ReportSheet({ onClose, ctx }: { onClose: () => void; ctx?: Repor
           <>
             <p style={{ margin: "0 0 8px", fontSize: 16, lineHeight: 1.5 }}>{t("Got it — that's logged.")}</p>
             <p style={{ margin: "0 0 18px", fontSize: 13, color: "rgba(240,232,255,.5)" }}>
-              reference <code style={{ background: "rgba(255,255,255,.07)", padding: "2px 6px", borderRadius: 5 }}>{sent}</code>
+              {t("reference")} <code style={{ background: "rgba(255,255,255,.07)", padding: "2px 6px", borderRadius: 5 }}>{sent}</code>
             </p>
             <button onClick={onClose}
               style={{ width: "100%", minHeight: 50, borderRadius: 13, border: "none", background: ACCENT, color: "#0d0418",
-                fontSize: 15.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>back</button>
+                fontSize: 15.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>{t("back")}</button>
           </>
         ) : (
           <>

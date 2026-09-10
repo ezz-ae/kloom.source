@@ -26,7 +26,7 @@
  */
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { saveLangPrefs } from "@/lib/airraw/lang-prefs"
+import { saveLangPrefs, markArabicEntry } from "@/lib/airraw/lang-prefs"
 import { setEntryMood } from "@/lib/airraw/entry"
 import { markOnboarded, setOnboardName } from "@/lib/airroom/onboard"
 
@@ -57,6 +57,9 @@ export function ArabicDoor() {
     // instruction: spokenLanguages() returns Arabic alone, so the floor shows
     // only people who open in it and no character is told to expect a switch.
     saveLangPrefs({ primary: "Arabic", also: [] })
+    // Everyone they meet is Arab and opens in Arabic — pass or no pass. See
+    // arabicEntry() in lang-prefs for why this one case is not behind the pass.
+    markArabicEntry()
     setOnboardName(name)
     markOnboarded()
     setEntryMood(c)

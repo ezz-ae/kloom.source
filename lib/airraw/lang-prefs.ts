@@ -11,6 +11,7 @@
 // Stored per-browser. No account needed, same as the pass.
 
 import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages"
+import { ethnicityForSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
 import { isPro } from "@/lib/airroom/pro"
 
@@ -110,9 +111,66 @@ export function nativeLanguageFor(seedKey: string): string {
  * produces Arabic or English today) would otherwise get an empty floor. See
  * pickForLanguages in the roster, which always returns somebody.
  */
+/**
+ * The ethnicities that read as Arab, out of the forty-five the portrait pool
+ * draws from.
+ *
+ * Used to FILTER who is shown, never to change who is generated. ethnicityForSeed
+ * feeds buildPortraitPrompt, which feeds PROMPT_FINGERPRINT, which is the face
+ * cache key — so steering generation toward Arab faces would regenerate every
+ * portrait in the product and bill for all of them. Selecting from the ones that
+ * already are costs nothing.
+ */
+const ARAB = new Set([
+  "North African", "Egyptian", "Moroccan", "Middle Eastern", "Gulf Arab", "Lebanese",
+])
+
+/**
+ * Is this person Arab, as their own face already describes them?
+ *
+ * The written fifty are excluded from this test on purpose — in Arabic their
+ * look comes from LOCALE_FACE.ar ("Levantine or Gulf Arab features"), so all
+ * fifty of them ARE Arab in this locale, and the pooled ethnicity that a
+ * generated character carries does not apply to them at all.
+ */
+export function isArabSeed(seedKey: string): boolean {
+  return ARAB.has(ethnicityForSeed(seedKey))
+}
+
+/**
+ * The Arabic entrance (/ar) promises a room of Arabic speakers, so it delivers
+ * one — for everybody, pass or no pass.
+ *
+ * This is a deliberate hole in the rule below, and it is not the pass leaking.
+ * `matchesPrefs` gates POOL STEERING on the pass: a paying user's taste and
+ * languages shape who they meet. But a visitor who arrived through an Arabic ad,
+ * read an Arabic page and picked an Arabic mood has not expressed a preference —
+ * they have been sold a specific product, and a floor that opens in Mandarin is
+ * not that product. Charging for the thing the advert already promised is how a
+ * click becomes a bounce.
+ */
+export function arabicEntry(): boolean {
+  try { return sessionStorage.getItem("airraw_arabic_entry") === "1" } catch { return false }
+}
+
+export function markArabicEntry() {
+  try { sessionStorage.setItem("airraw_arabic_entry", "1") } catch { /* private mode */ }
+}
+
 export function matchesPrefs(seedKey: string, p = getLangPrefs()): boolean {
-  // Steering the pool is part of the pass. Without it the floor is unfiltered,
-  // exactly as it is today — a free session loses nothing it already had.
+  // An Arabic arrival gets the floor it was promised, pass or not, AND everyone
+  // on it is Arab — which in this locale the written fifty already are, so this
+  // only constrains the generated floor behind them.
+  if (arabicEntry()) {
+    // Language and origin only. Requiring an Arabic-looking NAME as well was
+    // measured and abandoned: it left five to seven eligible people per heat band
+    // and none at all around f≈0.15, because a walk holds `f` — and therefore the
+    // archetype — fixed. Presentation solves it instead (arabic-names.ts), which
+    // is what cast50 already does for the written fifty.
+    return nativeLanguageFor(seedKey) === "Arabic" && isArabSeed(seedKey)
+  }
+  // Otherwise: steering the pool is part of the pass. Without it the floor is
+  // unfiltered, exactly as it is today — a free session loses nothing it had.
   if (!isPro()) return true
   return spokenLanguages(p).includes(nativeLanguageFor(seedKey))
 }

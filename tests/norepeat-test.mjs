@@ -35,7 +35,22 @@ check(dupWithin === 0, `no room in 5000 hours seats the same name twice (${dupWi
 // ── and it is ENFORCED in the room, not just true of the maths ─────────────
 const src = strip(room)
 check(/seenFace\.has\(fk\) \|\| seenName\.has\(c\.host\)/.test(src), "the room dedupes by face key AND name before seating anyone")
-check(/groupCast\(seed, 0\.5, CAST \+ 6\)/.test(src), "drawing a few extra so a dropped duplicate still leaves a full room")
+// The property, not the literal: the room must DRAW MORE than it seats, so that
+// dedupe (and, on an Arabic floor, the origin filter) still leaves it full. The
+// exact surplus has changed twice now; pinning the number just breaks the test
+// each time the reason for the surplus gets stronger.
+{
+  // Anchored on the .filter that follows, because the draw expression itself
+  // contains parentheses — "(CAST + 6) * 40" — and a lazy [^)]+ stops inside it.
+  const m = src.match(/groupCast\(seed, 0\.5, (.+?)\)\.filter/)
+  check(!!m, "the room fills itself from groupCast")
+  const draw = m ? m[1].replace(/\s/g, "") : ""
+  check(/^\(?CAST\+\d+\)?(\*\d+)?$/.test(draw), `the draw is expressed in terms of CAST (got "${draw}")`)
+  const seats = Number((src.match(/const CAST = (\d+)/) || [])[1]) || 14
+  // eslint-disable-next-line no-eval
+  const n = eval(draw.replace(/CAST/g, String(seats)))
+  check(n > seats, `and it draws more than it seats (${n} for ${seats} places)`)
+}
 
 // ── consecutive hours share nobody ─────────────────────────────────────────
 check(/Math\.floor\(Date\.now\(\) \/ 3_600_000\) \* 3/.test(src), "the room seed is spaced by 3 (21 member-seeds apart, past the 14 drawn)")

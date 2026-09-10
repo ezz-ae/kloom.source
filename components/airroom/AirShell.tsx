@@ -23,6 +23,7 @@
  *    and you should not be one mis-tap from leaving a conversation.
  */
 import { useEffect, useState, type ReactNode } from "react"
+import { useT } from "@/lib/airraw/i18n"
 import { Flame, MessagesSquare, Users, User, Drama } from "lucide-react"
 
 export type AirTab = "room" | "people" | "scenes" | "talks" | "you"
@@ -57,6 +58,8 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
   dots?: Partial<Record<AirTab, boolean>>
   children: ReactNode
 }) {
+  // `t` is already the tab in the maps below, so the translator is `tr` here.
+  const tr = useT()
   // Is the on-screen keyboard up? Tracked by what has focus rather than by
   // measuring the viewport: a visualViewport resize also fires for the URL bar
   // collapsing on scroll, which would make the dock flicker away while someone is
@@ -75,7 +78,11 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
   }, [])
 
   return (
-    <div className="airraw-skin fixed inset-0 z-[19] flex h-[100dvh] overflow-hidden bg-[#07040f] text-[#f0e8ff]">
+    // dir on the shell, so the dock, the rail and everything inside mirror as a
+    // layout rather than being right-aligned one element at a time. Set from the
+    // visitor's own language preference — English stays exactly as it was, which
+    // is what keeps Kloom byte-identical.
+    <div dir={tr.dir} lang={tr.locale} className="airraw-skin fixed inset-0 z-[19] flex h-[100dvh] overflow-hidden bg-[#07040f] text-[#f0e8ff]">
       {/* Ambient backdrop — the same drifting blobs as the Kloom app, re-skinned
           to the floor's purple/pink in globals.css. */}
       {!immersive && <div className="app-ambient" aria-hidden><div className="blob-3" /></div>}
@@ -105,7 +112,7 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
                   <span className="brand-gradient absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full shadow-[0_0_10px_rgba(232,121,249,0.7)]" />
                 )}
                 <t.icon size={18} className={`shrink-0 ${active ? "text-fuchsia-300" : ""}`} />
-                <span className="flex-1 truncate text-left">{t.label}</span>
+                <span className="flex-1 truncate text-left">{tr(t.label)}</span>
                 {dots?.[t.id] && !active && (
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,.9)]" aria-hidden />
                 )}
@@ -173,7 +180,7 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
                 key={t.id}
                 onClick={() => onTab(t.id)}
                 aria-current={active ? "page" : undefined}
-                aria-label={t.label}
+                aria-label={tr(t.label)}
                 className={`relative flex shrink-0 items-center rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   active
                     ? "bg-fuchsia-500/25 px-3 py-2 text-fuchsia-200 shadow-[0_0_16px_-4px_rgba(232,121,249,0.7)]"
@@ -188,7 +195,7 @@ export function AirShell({ tab, onTab, fai, onPass, pro, immersive, dots, childr
                     active ? "ml-1.5 max-w-[6rem] opacity-100" : "ml-0 max-w-0 opacity-0"
                   }`}
                 >
-                  {t.label}
+                  {tr(t.label)}
                 </span>
                 {dots?.[t.id] && !active && (
                   <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_6px_rgba(110,231,183,.9)]" aria-hidden />

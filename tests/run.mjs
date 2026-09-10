@@ -59,6 +59,7 @@ const WHAT = {
   "money-test":       "a price shown in riyals is that price, and the statement currency is said out loud",
   "profile-test":     "one person computed once — the card, the call and the photo can't disagree",
   "persona-test":     "one definition rendered per surface — no character left without a voice",
+  "arabic-test":      "the Arabic build: everyone Arab, everything Arabic, Kloom out of reach",
 }
 
 // Two suites drive a real browser and need a server, so they are excluded from

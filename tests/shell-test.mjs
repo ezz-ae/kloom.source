@@ -106,7 +106,9 @@ check(labelPx <= 12, `its labels are a caption, not a heading (${labelPx}px)`)
 // DOM (collapsed) so every control keeps an accessible name.
 check(/active \? "ml-1\.5 max-w-\[6rem\] opacity-100" : "ml-0 max-w-0 opacity-0"/.test(shell),
   "only the active tab shows its label, and the others collapse rather than unmount")
-check(/aria-label=\{t\.label\}/.test(shell), "an icon-only tab still has a name")
+// The label may be wrapped in the translator (tr(t.label)) — what matters is
+// that the collapsed tab still carries an accessible name derived from the tab.
+check(/aria-label=\{(?:tr\()?t\.label\)?\}/.test(shell), "an icon-only tab still has a name")
 
 // ── it gets out of the way of the keyboard ─────────────────────────────────
 // In the room the chat input sits directly above the dock, so opening the

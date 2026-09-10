@@ -12,11 +12,13 @@
  * on exactly the person who just paid.
  */
 import { useEffect, useState } from "react"
+import { useT } from "@/lib/airraw/i18n"
 import { chipBalance, walletLoaded, onChips, openWallet } from "@/lib/airroom/wallet"
 
 const GOLD = "#f4c672"
 
 export function ChipBar({ onOpen }: { onOpen: () => void }) {
+  const t = useT()
   const [bal, setBal] = useState(chipBalance())
   const [ready, setReady] = useState(walletLoaded())
 
@@ -29,7 +31,7 @@ export function ChipBar({ onOpen }: { onOpen: () => void }) {
   if (!ready) return null
 
   return (
-    <button onClick={onOpen} aria-label={`${bal} chips — get more`}
+    <button onClick={onOpen} aria-label={`${bal} ${t("chips")} — ${t("get more")}`}
       style={{
         position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)",
         right: "max(16px, env(safe-area-inset-right))", zIndex: 26,
@@ -60,6 +62,7 @@ export function ChipBar({ onOpen }: { onOpen: () => void }) {
  * happens to be scrolled to that edge.
  */
 export function RoomChips({ onOpen }: { onOpen: () => void }) {
+  const t = useT()
   const [bal, setBal] = useState(chipBalance())
   const [ready, setReady] = useState(walletLoaded())
 
@@ -72,7 +75,7 @@ export function RoomChips({ onOpen }: { onOpen: () => void }) {
   if (!ready) return null
 
   return (
-    <button onClick={onOpen} aria-label={`${bal} chips — get more`}
+    <button onClick={onOpen} aria-label={`${bal} ${t("chips")} — ${t("get more")}`}
       style={{
         flex: "0 0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
         width: 46, padding: "4px 0 0", background: "none", border: "none", cursor: "pointer",
@@ -84,7 +87,7 @@ export function RoomChips({ onOpen }: { onOpen: () => void }) {
         border: `.5px solid ${bal > 0 ? `${GOLD}88` : "rgba(255,255,255,.18)"}`,
         color: bal > 0 ? "#2a1a05" : "rgba(240,232,255,.55)", fontSize: 12.5, fontWeight: 800, lineHeight: 1,
       }}>{bal}</span>
-      <span style={{ fontSize: 10.5, color: "rgba(240,232,255,.5)" }}>chips</span>
+      <span style={{ fontSize: 10.5, color: "rgba(240,232,255,.5)" }}>{t("chips")}</span>
     </button>
   )
 }

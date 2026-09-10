@@ -564,7 +564,16 @@ export function pickForLanguages(
   seed: number,
   f: number,
   matches: (seedKey: string) => boolean,
-  scan = 24,
+  // 400, not 24. The walk is over a pure function — makeCharacter does no I/O and
+  // costs microseconds — so the only thing a short window buys is failure. At
+  // 24 a filter that one character in seven satisfies fell through to `first`
+  // about 2% of the time, which on a fourteen-person floor is a wrong face in
+  // roughly every fourth room. At 96 it is about one room in four thousand.
+  //
+  // Raising it is strictly additive: when the old window found somebody it found
+  // them in the same order, so the only results that change are the ones that
+  // were previously giving up and returning a person who did not match at all.
+  scan = 400,
 ): Cluster {
   const first = makeCharacter(seed, f)
   // Judged on the FACE seed, not the unique key: nativeLanguageFor() derives a

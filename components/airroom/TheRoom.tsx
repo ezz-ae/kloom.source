@@ -52,7 +52,9 @@ function soulOf(c: Cluster): string {
 }
 import { dossierLine, cardLinesFor, dossierForSeed } from "@/lib/airraw/dossier"
 import { renderPersona } from "@/lib/airraw/persona"
-import { getLangPrefs } from "@/lib/airraw/lang-prefs"
+import { useT } from "@/lib/airraw/i18n"
+import { displayName } from "@/lib/airraw/arabic-names"
+import { getLangPrefs, matchesPrefs } from "@/lib/airraw/lang-prefs"
 import { getProToken, isPro } from "@/lib/airroom/pro"
 import { getProfile } from "@/lib/airroom/profile"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
@@ -221,6 +223,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
   // nobody. And a room can never hold the same person twice: names walk a
   // permutation, but this is the guarantee the visitor was promised, so it is
   // enforced rather than assumed — dedupe by face key AND by name.
+  const t = useT()
   const seed = useMemo(() => Math.floor(Date.now() / 3_600_000) * 3, [])
   // WHO IS IN THE ROOM: the written cast first, the generated floor behind them.
   //
@@ -237,8 +240,20 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
     const written = writtenCast(seed, Math.min(WRITTEN_IN_ROOM, CAST_COUNT), lang)
     const seenFace = new Set<string>(written.map((c) => faceSeedFor(c) || c.host))
     const seenName = new Set<string>(written.map((c) => c.host))
-    const filled = groupCast(seed, 0.5, CAST + 6).filter((c) => {
+    // The filler behind the written cast goes through the SAME language and
+    // origin filter the deck uses. It did not before — groupCast calls
+    // makeCharacter directly and never consulted matchesPrefs — so an Arabic
+    // floor came up with Faye, Mireille and Remi sitting in it, which is the one
+    // thing the Arabic entrance promises will not happen.
+    //
+    // Drawn from a deliberately larger pool: about one generated character in
+    // seven opens in Arabic, so asking for CAST + 6 and then filtering would
+    // leave the room half empty.
+    // groupCast is a pure function over a seed — no I/O — so a wide draw costs
+    // microseconds, once per hourly room seed.
+    const filled = groupCast(seed, 0.5, (CAST + 6) * 10).filter((c) => {
       const fk = faceSeedFor(c) || c.host
+      if (!matchesPrefs(fk)) return false
       if (seenFace.has(fk) || seenName.has(c.host)) return false
       seenFace.add(fk); seenName.add(c.host); return true
     }).slice(0, Math.max(0, CAST - written.length))
@@ -572,7 +587,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
           const live = speaking === c.key
           const warm = recent.has(c.key)
           return (
-            <button key={c.key} onClick={() => setOpen(c)} aria-label={`open ${c.host}'s profile`}
+            <button key={c.key} onClick={() => setOpen(c)} aria-label={t("open {name}'s profile", { name: displayName(c.host, c.gender, t.locale) })}
               style={{ flexShrink: 0, width: 54, background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
               <span style={{ position: "relative", display: "block", width: 54, height: 54 }}>
                 {live && <span style={{ position: "absolute", inset: -5, borderRadius: "50%", border: `2px solid ${dot(c.f)}`, animation: "roompulse 1.4s ease-out infinite" }} />}
@@ -581,7 +596,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
                 </span>
                 {talkers.has(c.key) && <span aria-hidden style={{ position: "absolute", right: -2, bottom: -2, fontSize: 10, background: "#0d0818", borderRadius: 8, padding: "1px 3px", border: ".5px solid rgba(255,255,255,.15)" }}>🎙</span>}
               </span>
-              <span style={{ display: "block", fontSize: 10.5, color: warm ? "#f0e8ff" : "rgba(240,232,255,.5)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", transition: "color .4s" }}>{c.host}</span>
+              <span style={{ display: "block", fontSize: 10.5, color: warm ? "#f0e8ff" : "rgba(240,232,255,.5)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", transition: "color .4s" }}>{displayName(c.host, c.gender, t.locale)}</span>
             </button>
           )
         })}
@@ -592,21 +607,21 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
       {/* ── the conversation ── */}
       <div ref={scroller} style={{ flex: 1, overflowY: "auto", padding: "4px 12px 12px", WebkitOverflowScrolling: "touch" }}>
         {!lines.length && (
-          <div style={{ color: "rgba(240,232,255,.3)", fontSize: 13, textAlign: "center", padding: "28px 0" }}>the room is waking up…</div>
+          <div style={{ color: "rgba(240,232,255,.3)", fontSize: 13, textAlign: "center", padding: "28px 0" }}>{t("the room is waking up…")}</div>
         )}
         {lines.map((l, i) => l.who && l.whisper ? (
           // A whisper to you. Only you can read it, and tapping it is how you
           // answer — alone, with what they said already on the table.
           <button key={`${l.at}-${i}`} onClick={() => answerAlone(l.who as Cluster, l.text)}
-            aria-label={`${l.who.host} whispered to you — answer alone`}
+            aria-label={t("{name} whispered to you — answer alone", { name: displayName(l.who.host, l.who.gender, t.locale) })}
             style={{ display: "flex", gap: 9, alignItems: "flex-start", width: "calc(100% + 20px)", margin: "0 -10px 11px", padding: "9px 10px", borderRadius: 12, textAlign: "left", cursor: "pointer", background: `${dot(l.who.f)}10`, border: `.5px dashed ${dot(l.who.f)}77`, WebkitTapHighlightColor: "transparent" }}>
             <span style={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", overflow: "hidden", border: `1px solid ${dot(l.who.f)}88`, background: "#160f24" }}>
               <Face persona={{ name: l.who.host, gender: l.who.gender, seed: faceSeedFor(l.who) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </span>
             <span style={{ minWidth: 0, flex: 1 }}>
-              <span style={{ display: "block", fontSize: 10, color: `${dot(l.who.f)}dd`, letterSpacing: .8, textTransform: "uppercase" }}>🤫 {l.who.host} whispered to you · only you can see this</span>
+              <span style={{ display: "block", fontSize: 10, color: `${dot(l.who.f)}dd`, letterSpacing: .8, textTransform: "uppercase" }}>🤫 {t("{name} whispered to you · only you can see this", { name: displayName(l.who.host, l.who.gender, t.locale) })}</span>
               <span style={{ display: "block", fontSize: 14.5, lineHeight: 1.4, color: "#f3ecff", fontStyle: "italic", marginTop: 2 }}>{l.text}</span>
-              <span style={{ display: "block", fontSize: 11, color: `${dot(l.who.f)}`, marginTop: 5, fontWeight: 700 }}>answer {l.who.host} alone →</span>
+              <span style={{ display: "block", fontSize: 11, color: `${dot(l.who.f)}`, marginTop: 5, fontWeight: 700 }}>{t("answer {name} alone →", { name: displayName(l.who.host, l.who.gender, t.locale) })}</span>
             </span>
           </button>
         ) : !l.who && l.whisper ? (
@@ -616,7 +631,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
           </div>
         ) : l.who ? (
           <div key={`${l.at}-${i}`} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 11, padding: l.toYou ? "8px 10px" : 0, marginLeft: l.toYou ? -10 : 0, marginRight: l.toYou ? -10 : 0, borderRadius: 12, background: l.toYou ? `${dot(l.who.f)}14` : "transparent", border: l.toYou ? `.5px solid ${dot(l.who.f)}44` : ".5px solid transparent" }}>
-            <button onClick={() => setOpen(l.who)} aria-label={`open ${l.who.host}'s profile`}
+            <button onClick={() => setOpen(l.who)} aria-label={t("open {name}'s profile", { name: displayName(l.who.host, l.who.gender, t.locale) })}
               style={{ flexShrink: 0, width: 30, height: 30, borderRadius: "50%", overflow: "hidden", border: `1px solid ${dot(l.who.f)}55`, background: "#160f24", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
               <Face persona={{ name: l.who.host, gender: l.who.gender, seed: faceSeedFor(l.who) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             </button>
@@ -652,7 +667,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
           you by name. That reply is voiced when it can be, because being spoken
           to is the moment people decide to stay. */}
       {suggestions.length > 0 && (
-        <div role="listbox" aria-label="mention someone" style={{ flexShrink: 0, display: "flex", gap: 6, overflowX: "auto", padding: "0 12px 6px", WebkitOverflowScrolling: "touch" }}>
+        <div role="listbox" aria-label={t("mention someone")} style={{ flexShrink: 0, display: "flex", gap: 6, overflowX: "auto", padding: "0 12px 6px", WebkitOverflowScrolling: "touch" }}>
           {suggestions.map((c) => (
             <button key={c.key} role="option" onClick={() => insertMention(c)} aria-label={`mention ${c.host}`}
               style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 5px", borderRadius: 999, background: `${dot(c.f)}1a`, border: `.5px solid ${dot(c.f)}55`, color: "#f0e8ff", fontSize: 13, fontWeight: 600, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
@@ -675,7 +690,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
           style={{ flexShrink: 0, margin: "0 12px 8px", padding: "11px 14px", borderRadius: 12, textAlign: "left",
             background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "rgba(240,232,255,.65)",
             fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
-          the room is running in another tab — <span style={{ color: "#ff5f8a", fontWeight: 600 }}>tap to move it here</span>
+          the room is running in another tab — <span style={{ color: "#ff5f8a", fontWeight: 600 }}>{t("tap to move it here")}</span>
         </button>
       )}
       {live && dozing && (
@@ -683,7 +698,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
           style={{ flexShrink: 0, margin: "0 12px 8px", padding: "11px 14px", borderRadius: 12, textAlign: "left",
             background: "rgba(255,255,255,.05)", border: ".5px solid rgba(255,255,255,.12)", color: "rgba(240,232,255,.65)",
             fontSize: 13.5, fontFamily: "inherit", cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>
-          the room went quiet while you were away — <span style={{ color: "#ff5f8a", fontWeight: 600 }}>tap to carry on</span>
+          the room went quiet while you were away — <span style={{ color: "#ff5f8a", fontWeight: 600 }}>{t("tap to carry on")}</span>
         </button>
       )}
       <div style={{ flexShrink: 0, display: "flex", gap: 8, alignItems: "center", padding: "8px 12px calc(env(safe-area-inset-bottom) + 5.5rem)" }}>
@@ -691,15 +706,15 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") say(draft) }}
-          placeholder={mic === "listening" ? "listening…" : mic === "thinking" ? "one sec…" : "say something to the room"}
-          aria-label="say something to the room"
+          placeholder={mic === "listening" ? t("listening…") : mic === "thinking" ? t("one sec…") : t("say something to the room")}
+          aria-label={t("say something to the room")}
           style={{ flex: 1, minHeight: 44, fontSize: 15, color: "#f0e8ff", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.14)", borderRadius: 14, padding: "0 14px", outline: "none" }}
         />
         {canListen() && (
-          <button onClick={holdMic} aria-label="hold to talk to the room" disabled={mic !== "idle"}
+          <button onClick={holdMic} aria-label={t("hold to talk to the room")} disabled={mic !== "idle"}
             style={{ width: 44, height: 44, borderRadius: 14, fontSize: 18, background: mic === "listening" ? "#ff5f8a" : "rgba(255,255,255,.08)", border: ".5px solid rgba(255,255,255,.16)", cursor: "pointer", WebkitTapHighlightColor: "transparent", animation: mic === "listening" ? "roompulse 1.2s ease-out infinite" : "none" }}>🎙</button>
         )}
-        <button onClick={() => say(draft)} disabled={!draft.trim()} aria-label="send"
+        <button onClick={() => say(draft)} disabled={!draft.trim()} aria-label={t("send")}
           style={{ width: 44, height: 44, borderRadius: 14, fontSize: 16, fontWeight: 700, color: "#180a20", background: draft.trim() ? "#e879f9" : "rgba(255,255,255,.12)", border: "none", cursor: draft.trim() ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}>↑</button>
       </div>
 
@@ -717,6 +732,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
  * face and the accent, so the card cannot promise one person and open another.
  */
 function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster; talker: boolean; onClose: () => void; onPrivate: (c: Cluster) => void; onWhisper: (text: string) => void }) {
+  const t = useT()
   const [w, setW] = useState("")
   const id = faceSeedFor(c) || c.host
   const card = cardLinesFor(id)
@@ -734,7 +750,7 @@ function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster;
           </span>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: accent, fontWeight: 600 }}>{c.vibe}{talker ? " · 🎙 talks" : ""}</div>
-            <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1, marginTop: 2 }}>{c.host}</div>
+            <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1, marginTop: 2 }}>{displayName(c.host, c.gender, t.locale)}</div>
             <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.5)", marginTop: 3 }}>{card.work} · {card.where}</div>
           </div>
         </div>
@@ -752,7 +768,7 @@ function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster;
           <input value={w} onChange={(e) => setW(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && w.trim()) onWhisper(w) }}
             placeholder={`whisper to ${c.host} — only ${c.gender === "male" ? "he" : "she"} reads it`} aria-label={`whisper to ${c.host}`}
             style={{ flex: 1, minHeight: 44, fontSize: 14, fontStyle: "italic", color: "#f0e8ff", background: "rgba(255,255,255,.06)", border: `.5px dashed ${accent}66`, borderRadius: 13, padding: "0 13px", outline: "none" }} />
-          <button onClick={() => { if (w.trim()) onWhisper(w) }} disabled={!w.trim()} aria-label="send whisper"
+          <button onClick={() => { if (w.trim()) onWhisper(w) }} disabled={!w.trim()} aria-label={t("send whisper")}
             style={{ width: 44, height: 44, borderRadius: 13, fontSize: 18, background: w.trim() ? `${accent}33` : "rgba(255,255,255,.06)", border: `.5px solid ${accent}55`, cursor: w.trim() ? "pointer" : "default", WebkitTapHighlightColor: "transparent" }}>🤫</button>
         </div>
         <button onClick={() => { onClose(); onPrivate(c) }}

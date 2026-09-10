@@ -10,7 +10,7 @@
 //
 // Stored per-browser. No account needed, same as the pass.
 
-import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages"
+import { LANGUAGES, DEFAULT_LANGUAGE, detectLanguage } from "@/lib/languages"
 import { adultEnabled } from "@/lib/variant"
 import { ethnicityForSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
@@ -63,9 +63,34 @@ export interface LangPrefs {
 //
 // It is a DEFAULT, not a lock: anyone who picks a language gets what they picked,
 // and that choice is what is read on every later visit.
+// ...BUT THE BROWSER GETS THE FIRST WORD, BECAUSE THE TRAFFIC IS NOT WHO WE
+// ASSUMED. Measured the day this shipped: 101 visitors, 92 of them from the US,
+// three from the UAE, none from Saudi. A flat Arabic default would have opened
+// an Arabic page for nine visitors in ten — the ads deliver, and they deliver
+// mostly English speakers.
+//
+// So the rule is: whatever the browser asks for, if we support it. Only when the
+// browser says nothing we recognise does AIRRAW fall to Arabic rather than
+// English, which is what makes the Gulf the house default without making it the
+// only language in the building.
 const AIRRAW_DEFAULT_LANGUAGE = "Arabic"
+function airrawDefaultLanguage(): string {
+  if (!adultEnabled()) return DEFAULT_LANGUAGE
+  try {
+    const fromBrowser = detectLanguage()
+    // detectLanguage() returns DEFAULT_LANGUAGE both when it MATCHED English and
+    // when it matched nothing at all. Distinguish them, or an Arabic phone with
+    // an unsupported locale would be handed English.
+    const asked = typeof navigator !== "undefined"
+      ? [...((navigator.languages as string[] | undefined) || []), navigator.language || ""].filter(Boolean)
+      : []
+    const sawSomethingWeSupport = fromBrowser !== DEFAULT_LANGUAGE
+      || asked.some((c) => c.toLowerCase().split("-")[0] === "en")
+    return sawSomethingWeSupport ? fromBrowser : AIRRAW_DEFAULT_LANGUAGE
+  } catch { return AIRRAW_DEFAULT_LANGUAGE }
+}
 const DEFAULTS: LangPrefs = {
-  primary: adultEnabled() ? AIRRAW_DEFAULT_LANGUAGE : DEFAULT_LANGUAGE,
+  get primary() { return airrawDefaultLanguage() },
   also: [],
 }
 

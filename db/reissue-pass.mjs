@@ -107,15 +107,47 @@ async function ziinaIntent(id) {
 }
 
 // ── the decision, in one place so it can be tested on its own ───────────────
+
+/** Crypto states NOWPayments considers money-in — the same set lib/pay/crypto.ts uses. */
+const CRYPTO_PAID = new Set(["confirmed", "sending", "finished"])
+
+/**
+ * The two rails record their amount in DIFFERENT UNITS, and comparing the wrong
+ * pair silently refuses every sale on one of them (or accepts every sale on the
+ * other). The card row holds Ziina's minor units in the charge currency — AED
+ * by default, so ~3305 for a $9 pass — while a crypto row holds plain USD cents,
+ * 900. So the floor is per rail, never shared.
+ */
+export function priceFloor(rail) {
+  return rail === "crypto" ? Math.round(PRICE_USD * 100) : usdToMinor(PRICE_USD)
+}
+
+/** Normalise a row + whatever the rail can tell us into one shape. */
+export function saleFrom({ rail, status, amountMinor }) {
+  return {
+    rail,
+    status: String(status || "unknown"),
+    amountMinor: typeof amountMinor === "number" ? amountMinor : null,
+    paid: rail === "crypto" ? CRYPTO_PAID.has(String(status)) : status === "completed",
+  }
+}
+
 /**
  * Everything that decides whether a reissue is allowed and what it produces.
  * Pure: no network, no clock beyond `now`. tests/reissue-test.mjs drives it.
  */
-export function reissuePlan({ intent, purchasedAt, now = Date.now() }) {
-  if (!intent) return { ok: false, why: "no such payment intent at Ziina" }
-  if (intent.status !== "completed") return { ok: false, why: `Ziina says "${intent.status}", not completed` }
-  if (typeof intent.amount === "number" && intent.amount + 2 < usdToMinor(PRICE_USD)) {
-    return { ok: false, why: `paid ${intent.amount} minor units, below the ${usdToMinor(PRICE_USD)} the pass costs` }
+export function reissuePlan({ sale, purchasedAt, now = Date.now() }) {
+  if (!sale) return { ok: false, why: "no record of that sale on either rail" }
+  if (!sale.paid) {
+    return { ok: false, why: sale.rail === "crypto"
+      ? `the chain reports "${sale.status}", which is not a settled payment`
+      : `Ziina says "${sale.status}", not completed` }
+  }
+  const floor = priceFloor(sale.rail)
+  // A tolerance of 2 minor units, matching the card claim path — rounding across
+  // a currency conversion should not cost someone the pass they bought.
+  if (sale.amountMinor != null && sale.amountMinor + 2 < floor) {
+    return { ok: false, why: `paid ${sale.amountMinor} against a floor of ${floor} (${sale.rail}) — below the price of the pass` }
   }
   if (!purchasedAt) return { ok: false, why: "no purchase time on record — cannot anchor the window without extending it" }
   const until = purchasedAt + DAYS * 86_400_000
@@ -123,7 +155,7 @@ export function reissuePlan({ intent, purchasedAt, now = Date.now() }) {
     const gone = Math.round((now - until) / 86_400_000)
     return { ok: false, why: `that pass ran out ${gone} day${gone === 1 ? "" : "s"} ago — a reissue restores, it does not resurrect` }
   }
-  return { ok: true, until, purchasedAt }
+  return { ok: true, until, purchasedAt, rail: sale.rail }
 }
 
 // ── main ────────────────────────────────────────────────────────────────────
@@ -135,7 +167,12 @@ const DRY = has("--dry-run")
 
 async function knownPayments() {
   const since = val("--since")
-  const q = ["kind=eq.airraw_pass", "select=id,status,amount,currency,created_at,wallet", "order=created_at.desc", "limit=500"]
+  // BOTH rails. The crypto rail records under its own kind, and filtering on the
+  // card one alone made every crypto buyer invisible to this tool — the exact
+  // customers it exists for.
+  const q = ["kind=in.(airraw_pass,airraw_pass_crypto)",
+             "select=id,kind,status,amount,currency,created_at,wallet",
+             "order=created_at.desc", "limit=500"]
   if (since) q.push(`created_at=gte.${since}`)
   return sb(`ziina_payments?${q.join("&")}`)
 }
@@ -159,7 +196,7 @@ async function main() {
     const rows = await knownPayments()
     console.log(`${rows.length} pass payment${rows.length === 1 ? "" : "s"} on record\n`)
     for (const r of rows) {
-      console.log(`  ${r.id.padEnd(34)} ${String(r.status).padEnd(10)} ${String(r.amount ?? "?").padStart(7)} ${r.currency || ""}  ${String(r.created_at).slice(0, 10)}  ${r.wallet && r.wallet !== "anon" ? r.wallet : ""}`)
+      console.log(`  ${r.id.padEnd(34)} ${(r.kind === "airraw_pass_crypto" ? "crypto" : "card").padEnd(7)} ${String(r.status).padEnd(10)} ${String(r.amount ?? "?").padStart(7)} ${r.currency || ""}  ${String(r.created_at).slice(0, 10)}  ${r.wallet && r.wallet !== "anon" ? r.wallet : ""}`)
     }
     if (!ids.length && !has("--all")) {
       console.log("\nReissue with:  node db/reissue-pass.mjs <intentId>   or   --all --yes")
@@ -178,22 +215,40 @@ async function main() {
     }
   }
 
-  // Purchase times come from OUR row, not from Ziina — the intent object has no
+  // Purchase times come from OUR row, not from the rail — Ziina's intent has no
   // dependable created timestamp, and anchoring on "now" would quietly hand
   // everyone a fresh 90 days.
   const rows = await knownPayments().catch(() => [])
-  const bought = new Map(rows.map((r) => [r.id, Date.parse(r.created_at)]))
+  const known = new Map(rows.map((r) => [r.id, r]))
 
   const out = []
   let done = 0, refused = 0
   for (const id of targets) {
-    let intent = null
-    try { intent = await ziinaIntent(id) } catch (e) { console.log(`refused  ${id}  ${e.message}`); refused++; continue }
-    const plan = reissuePlan({ intent, purchasedAt: bought.get(id) })
+    const row = known.get(id)
+    // The id says which rail sold it — crypto order ids are minted by us with an
+    // "air_" prefix and Ziina's never look like that. Routing on the id rather
+    // than on anything supplied means a crypto sale is never handed to Ziina,
+    // which would 404 and read as "never paid".
+    const rail = id.startsWith("air_") || row?.kind === "airraw_pass_crypto" ? "crypto" : "card"
+
+    let sale = null
+    if (rail === "crypto") {
+      // There is nothing to poll: an invoice has no status endpoint, so the row
+      // the IPN wrote IS the record of the payment.
+      if (!row) { console.log(`refused  ${id}  no crypto record — the IPN never landed, so there is no proof of payment`); refused++; continue }
+      sale = saleFrom({ rail, status: row.status, amountMinor: row.amount })
+    } else {
+      let intent = null
+      try { intent = await ziinaIntent(id) } catch (e) { console.log(`refused  ${id}  ${e.message}`); refused++; continue }
+      if (!intent) { console.log(`refused  ${id}  no such payment intent at Ziina`); refused++; continue }
+      sale = saleFrom({ rail, status: intent.status, amountMinor: intent.amount })
+    }
+
+    const plan = reissuePlan({ sale, purchasedAt: row ? Date.parse(row.created_at) : null })
     if (!plan.ok) { console.log(`refused  ${id}  ${plan.why}`); refused++; continue }
 
     if (DRY) {
-      console.log(`would     ${id}  valid until ${new Date(plan.until).toISOString().slice(0, 10)}`)
+      console.log(`would     ${id}  (${rail})  valid until ${new Date(plan.until).toISOString().slice(0, 10)}`)
       done++
       continue
     }
@@ -204,7 +259,7 @@ async function main() {
       const r = await grantChips(wallet, PASS_CHIPS, `reissue:${id}`)
       chips = r?.replay ? `${PASS_CHIPS} (already)` : String(PASS_CHIPS)
     } catch (e) { chips = `not granted (${e.message.slice(0, 40)})` }
-    console.log(`reissued  ${id}  until ${new Date(plan.until).toISOString().slice(0, 10)}  chips ${chips}`)
+    console.log(`reissued  ${id}  (${rail})  until ${new Date(plan.until).toISOString().slice(0, 10)}  chips ${chips}`)
     console.log(`          code: ${token}`)
     out.push({ id, until: new Date(plan.until).toISOString().slice(0, 10), code: token })
     done++

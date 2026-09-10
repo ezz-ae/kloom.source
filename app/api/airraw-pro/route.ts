@@ -111,6 +111,19 @@ export async function POST(req: NextRequest) {
         // and never be told about it.
         ipnUrl: `${origin}/api/crypto-webhook`,
       })
+      // The same bookkeeping row the card rail writes, for the same two reasons.
+      // recordIpn already reasons about "the quote recorded at checkout" and
+      // deliberately avoids erasing it — but nothing was writing one, so a
+      // callback that omits a usable price left the sale with no amount at all
+      // and the claim's price guard quietly skipped. It is also the only list of
+      // who bought on this rail: without it a crypto buyer is invisible to
+      // db/reissue-pass.mjs, which is the tool that exists to rescue them.
+      try {
+        if (hasAdmin()) await getAdminClient().from("ziina_payments").upsert({
+          id: co.id, wallet: "anon", credits: 0, kind: "airraw_pass_crypto",
+          amount: Math.round(PRICE_USD * 100), currency: "USD", status: "pending",
+        })
+      } catch { /* never block checkout on the bookkeeping row */ }
       metaEvent({
         eventName: "InitiateCheckout", value: PRICE_USD, currency: "USD", eventId: co.id,
         clientIp: clientIp(req), userAgent: req.headers.get("user-agent") || undefined, fbp, fbc,

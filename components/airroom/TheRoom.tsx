@@ -749,9 +749,9 @@ function ProfileCard({ c, talker, onClose, onPrivate, onWhisper }: { c: Cluster;
             <Face persona={{ name: c.host, gender: c.gender, seed: id }} lazy={false} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </span>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: accent, fontWeight: 600 }}>{c.vibe}{talker ? " · 🎙 talks" : ""}</div>
+            <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: accent, fontWeight: 600 }}>{t(c.vibe)}{talker ? ` · 🎙 ${t("talks")}` : ""}</div>
             <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.1, marginTop: 2 }}>{displayName(c.host, c.gender, t.locale)}</div>
-            <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.5)", marginTop: 3 }}>{card.work} · {card.where}</div>
+            <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.5)", marginTop: 3 }}>{t(card.work)} · {t(card.where)}</div>
           </div>
         </div>
         <div style={{ marginTop: 15, display: "flex", flexDirection: "column", gap: 9 }}>

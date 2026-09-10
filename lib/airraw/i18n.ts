@@ -28,6 +28,7 @@
 import { useEffect, useState } from "react"
 import { getLangPrefs } from "@/lib/airraw/lang-prefs"
 import { AR } from "@/lib/airraw/ar"
+import { AR_CONTENT } from "@/lib/airraw/ar-content"
 
 export type Locale = "en" | "ar"
 
@@ -54,7 +55,11 @@ export function isRTL(l: Locale): boolean {
  * immediately that nobody who speaks it was involved.
  */
 export function translate(key: string, locale: Locale, vars?: Record<string, string | number>): string {
-  let out = locale === "ar" ? (AR[key] ?? key) : key
+  // Interface first, then content. Two files because they are two jobs: AR is
+  // translation, AR_CONTENT is writing — the characters' own lines, the rooms
+  // they sit in, the scenes. One lookup so no caller has to know which is which,
+  // and both degrade to English independently as they get filled in.
+  let out = locale === "ar" ? (AR[key] ?? AR_CONTENT[key] ?? key) : key
   if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v))
   return out
 }

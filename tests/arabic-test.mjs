@@ -8,6 +8,7 @@
 // Gulf Arab called Frida. Neither showed up as an error.
 import { readFileSync } from "node:fs"
 import { AR, UNTRANSLATED } from "@/lib/airraw/ar"
+import { AR_CONTENT } from "@/lib/airraw/ar-content"
 import { translate, isRTL, currentLocale } from "@/lib/airraw/i18n"
 import { ALL_ARABIC_NAMES, displayName } from "@/lib/airraw/arabic-names"
 import { ethnicityForSeed } from "@/lib/airraw/portrait-prompt"
@@ -114,6 +115,41 @@ console.log("\n— Kloom cannot reach any of this —")
   const ar = strip("app/ar/page.tsx")
   check(/AIRRAW_HOME === "1"/.test(ar) && /notFound\(\)/.test(ar), "/ar 404s on a Kloom deployment")
   check(/index: false/.test(ar), "and is noindex, so a paid entrance never competes with the real home page")
+}
+
+console.log("\n— every pool the floor draws from has an Arabic version —")
+{
+  // Coverage, not spot checks. A line added to the roster without its Arabic
+  // renders in English on an Arabic floor and nothing errors — which is the
+  // failure mode this whole layer is built to make loud instead of silent.
+  const have = (k) => k in AR_CONTENT || k in AR
+  const roster = readFileSync("lib/airroom/roster.ts", "utf8")
+  const i = roster.indexOf("const ARCH: Arch[] = [")
+  const arch = roster.slice(i, roster.indexOf("\nconst NAMES_F", i))
+  const dossier = readFileSync("lib/airraw/dossier.ts", "utf8")
+  const talks = readFileSync("lib/airraw/talks.ts", "utf8")
+
+  const pools = {
+    "opening lines": [...arch.matchAll(/lines: \[([\s\S]*?)\n    \]/g)]
+      .flatMap((m) => [...m[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((x) => x[1])),
+    "vibes": [...arch.matchAll(/vibe: "([^"]+)"/g)].map((m) => m[1]),
+    "room names": [...arch.matchAll(/names: \[([^\]]*)\]/g)]
+      .flatMap((m) => [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1])),
+    // The SECOND half of each pair — the card half. The first is prompt text the
+    // model reads and is deliberately left in English.
+    "card halves": [...dossier.matchAll(/\[\s*"(?:[^"\\]|\\.)*",\s*"((?:[^"\\]|\\.)*)"\s*\]/g)].map((m) => m[1]),
+    "talk titles": [...talks.matchAll(/\["((?:[^"\\]|\\.)*)",\s*"[wmf]"\]/g)].map((m) => m[1]),
+  }
+  for (const [label, arr] of Object.entries(pools)) {
+    const miss = arr.filter((x) => !have(x))
+    if (miss.length) console.log(`   missing: ${miss.slice(0, 3).join(" | ")}`)
+    check(arr.length > 0 && miss.length === 0, `${label}: ${arr.length - miss.length}/${arr.length} written in Arabic`)
+  }
+  const bad = Object.entries(AR_CONTENT).filter(([, v]) => !ARABIC.test(v))
+  check(bad.length === 0, `and no content string was left in English (${Object.keys(AR_CONTENT).length} written)`)
+  // Two files, two jobs — a key in both is a merge conflict waiting to happen.
+  const dupes = Object.keys(AR_CONTENT).filter((k) => k in AR)
+  check(dupes.length === 0, `no key is in both the interface and the content table${dupes.length ? ": " + dupes[0] : ""}`)
 }
 
 console.log(fail === 0 ? "\nPASS — Arabic all the way down" : `\nFAIL — ${fail}`)

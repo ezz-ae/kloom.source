@@ -271,13 +271,13 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
               name onto its own ragged second line. */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: -2 }}>
             <span style={{ width: 14, height: 1.5, borderRadius: 2, background: accent, flex: "0 0 auto" }} aria-hidden />
-            <span style={{ fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", color: accent, fontWeight: 600 }}>{person.vibe}</span>
+            <span style={{ fontSize: 11, letterSpacing: 2.2, textTransform: "uppercase", color: accent, fontWeight: 600 }}>{t(person.vibe)}</span>
           </div>
           <div style={{ fontSize: "clamp(32px, 10vw, 46px)", fontWeight: 600, letterSpacing: -1.3, color: "#fbf7ff", lineHeight: .95 }}>{person.host}</div>
 
           {/* Who they are — the same facts they'll actually have in the call. */}
           <div style={{ fontSize: 12.5, color: "rgba(240,232,255,.66)", lineHeight: 1.4 }}>
-            {card.work} · {card.where}
+            {t(card.work)} · {t(card.where)}
           </div>
 
           {/* Something they'd say. The reason to press call. */}
@@ -286,7 +286,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
               portrait — and the lines vary in length by design. */}
           <div style={{ fontSize: 15, color: "#efe6ff", lineHeight: 1.38, fontStyle: "italic", maxWidth: "34ch",
                         display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-            &ldquo;{person.lines[0]}&rdquo;
+            &ldquo;{t(person.lines[0])}&rdquo;
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>

@@ -128,7 +128,7 @@ export function Talks({ onJoin, onSpent }: {
           const c = HEAT(t.heat)
           return (
             <div key={t.id} style={{ borderRadius: 16, padding: "14px 15px", background: "rgba(255,255,255,.045)", border: `.5px solid ${c}33`, display: "flex", flexDirection: "column", gap: 9 }}>
-              <div style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.3, color: "#f4ecff" }}>{t.title}</div>
+              <div style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.3, color: "#f4ecff" }}>{tr(t.title)}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "rgba(240,232,255,.55)" }}>
                 <Who t={t} />
                 <span style={{ color: c, fontWeight: 700 }}>{left === 1 ? tr("1 seat open") : tr("{n} seats open", { n: left })}</span>
@@ -141,7 +141,7 @@ export function Talks({ onJoin, onSpent }: {
               </div>
               {/* The label names WHICH talk. Four buttons reading "take a seat"
                   are one button to anyone not looking at the screen. */}
-              <button onClick={() => take(t)} aria-label={`take a seat in "${t.title}" · 1 FAI`}
+              <button onClick={() => take(t)} aria-label={tr("take a seat in \"{title}\" · 1 FAI", { title: tr(t.title) })}
                 style={{ minHeight: 44, borderRadius: 12, border: "none", cursor: "pointer", fontSize: 14.5, fontWeight: 700, color: "#150a1f", background: c, WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}>
                 {tr("take a seat · 1 FAI")}
               </button>

@@ -173,6 +173,8 @@ export const AR: Record<string, string> = {
   "one FAI takes a seat. you earn one every time you finish a talk.":
     "نقطة FAI وحدة تحجز لك مقعد. تكسب وحدة كل ما تخلّص جلسة.",
   "take a seat · 1 FAI": "احجز مقعد · 1 FAI",
+  "take a seat in \"{title}\" · 1 FAI": "احجز مقعد في \"{title}\" · 1 FAI",
+  "talks": "يتكلم",
   "open it · 1 FAI": "افتحها · 1 FAI",
   "seats": "مقاعد",
   "+ start your own talk": "+ ابدأ جلستك",
@@ -194,6 +196,9 @@ export const AR: Record<string, string> = {
   "Voice minutes": "دقائق الصوت",
   "Who you want to meet": "مين تبي تقابل",
   "You speak": "تتكلم",
+  "anyone": "أي أحد",
+  "women": "نساء",
+  "men": "رجال",
   "Your FAI": "نقاطك FAI",
   "free · tap the avatar to reshuffle": "مجاني · اضغط الصورة تغيّرها",
   "everyone, for now. pick anything to narrow the floor.":

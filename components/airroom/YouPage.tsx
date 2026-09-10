@@ -149,7 +149,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
                     on ? "brand-gradient text-[#1a0a1f]" : "border border-white/12 bg-white/[0.05] text-white/55 hover:text-white/80"
                   }`}
                 >
-                  {label}
+                  {tr(label)}
                 </button>
               )
             })}
@@ -167,7 +167,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
                     on ? "bg-fuchsia-400/90 text-[#1a0a1f]" : "border border-white/12 bg-white/[0.05] text-white/55 hover:text-white/80"
                   }`}
                 >
-                  {v.label}
+                  {tr(v.label)}
                 </button>
               )
             })}

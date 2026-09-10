@@ -51,6 +51,7 @@ const WHAT = {
   "room-test":        "the site lands in a room of distinct people, and it never spends unwatched",
   "norepeat-test":    "profile = character; nobody repeats in a room or across hours",
   "photo-test":       "a photo of her is pass-only, counted first, and the meter fails closed",
+  "warm-test":        "the face warmer covers what the screen actually asks for",
   "who-test":         "every person has a page, in their own words, that can never spend money",
   "fantasy-test":     "the scene menu is closed, clean, and cannot smuggle a prompt",
   "image-test":       "the best face engine runs first, and a refusal falls through instead of failing",

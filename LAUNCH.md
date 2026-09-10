@@ -57,6 +57,37 @@ before turning ads on. Each item maps to a failure mode that paid traffic punish
       ad traffic. Do not re-enable them for the public campaign without real age
       verification.
 
+## Changing the portrait prompt — the order that is safe
+
+A face's storage path contains `PROMPT_FINGERPRINT`, a hash of the assembled
+prompt. Edit the prompt and every cached face becomes a miss, to be redrawn on
+demand by whichever image provider is up, while people are looking at the
+screen. That has happened: the fingerprint moved, Together answered 402 and fal
+answered 403, and airraw.com served `image generation disabled` for its entire
+floor — blank monograms, with ads running.
+
+So never ship a prompt change straight to production. Instead:
+
+```
+git push origin <branch>                     # Vercel builds a preview
+node --import ./tests/alias.mjs db/warm-faces.mjs --base https://<preview>.vercel.app
+```
+
+Preview shares production's storage bucket, so every face it draws lands under
+the NEW fingerprint next to the old ones, while production keeps serving the old
+ones untouched. Promote only when it reports FULL COVERAGE; every face is then a
+cache hit on the first request, and reverting is instant because the old files
+were never removed.
+
+It is resumable — an existing face returns `cached` in milliseconds and costs
+nothing — and it stops itself after a run of failures rather than making
+hundreds of doomed calls at a dead provider.
+
+**It cannot finish, and is not supposed to.** The room draws a new cast every
+hour, so the face population is unbounded; `--hours 24` warms a day ahead of the
+clock. Ongoing cost is roughly 14 faces an hour, about 340 a day if every hour
+is visited.
+
 ## Money readiness — audit of 2026-09-04 (what actually blocks revenue)
 
 Checked live against airraw.com, the Vercel project, Supabase and every provider key

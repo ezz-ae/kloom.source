@@ -503,4 +503,6 @@ export const AR: Record<string, string> = {
   "we couldn't verify your pass — restore it and you're back": "ما قدرنا نتحقق من اشتراكك — استرجعه وترجع تكمّل",
   "✦ pass active · until {date}": "✦ اشتراكك فعّال · حتى {date}",
   "✦ pass active": "✦ اشتراكك فعّال",
+  "airraw opens with a ${usd} pass for {days} days. drop your email — founding access, free, and you're first through the door.": "airraw يفتح باشتراك {usd} دولار لمدة {days} يوم. اكتب إيميلك — دخول التأسيس، مجاناً، وتكون أول من يعبر الباب.",
+  "drop your email — founding access, free, and you're first through the door.": "اكتب إيميلك — دخول التأسيس، مجاناً، وتكون أول من يعبر الباب.",
 }

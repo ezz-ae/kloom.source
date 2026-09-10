@@ -62,6 +62,7 @@ const WHAT = {
   "onetab-test":      "no surface spawns a tab, and the call carries its own settings",
   "golden-test":      "the room you rent keeps the person you brought, and is priced for it",
   "money-test":       "a price shown in riyals is that price, and the statement currency is said out loud",
+  "price-truth-test":  "the price on the page is the price at the till",
   "profile-test":     "one person computed once — the card, the call and the photo can't disagree",
   "persona-test":     "one definition rendered per surface — no character left without a voice",
   "arabic-test":      "the Arabic build: everyone Arab, everything Arabic, Kloom out of reach",

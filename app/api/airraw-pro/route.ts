@@ -154,7 +154,19 @@ export async function POST(req: NextRequest) {
       const anchor = Date.now()
       const intent = await createPaymentIntent({
         usd: PRICE_USD,
-        message: `The Pass · ${DAYS} days`,
+        // THE BUYER MUST SEE THE NAME THEY CAME FOR.
+        //
+        // Ziina renders the merchant's account name on the payment page, and this
+        // account is registered as "Entrestate" — a name with no connection to
+        // anything the buyer has been looking at. So someone who clicked an AIRRAW
+        // ad, browsed airraw.com and tapped pay lands on a page branded for a
+        // company they have never heard of, being asked for a card. Five people
+        // reached that page in six weeks and none of them entered one.
+        //
+        // The account name is a dashboard setting and cannot be fixed from here.
+        // The line item can: it is the one piece of text on that page we control,
+        // so it carries the name and what is being bought.
+        message: `AIRRAW — the pass · ${DAYS} days`,
         successUrl: `${origin}${ret}?pro_ok=1`,
         cancelUrl:  `${origin}${ret}`,
         failureUrl: `${origin}${ret}?pro_fail=1`,

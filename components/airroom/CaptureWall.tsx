@@ -4,7 +4,7 @@
  * before. Captures a founding-access email. Skippable; this is validation, not a
  * paygate. Fires the airraw_lead conversion event on success.
  */
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useT } from "@/lib/airraw/i18n"
 import { track } from "@/lib/airraw/track"
 
@@ -14,6 +14,22 @@ export function CaptureWall({ source, onClose }: { source: string; onClose: () =
   const t = useT()
   const [email, setEmail] = useState("")
   const [state, setState] = useState<"idle" | "saving" | "done" | "error">("idle")
+  // THE PRICE COMES FROM THE CHECKOUT, NOT FROM THIS FILE.
+  //
+  // This said "airraw opens with a $1 day-pass" while the sheet charged $9, and
+  // it says it in the LOBBY — the page the ads land on. Five people reached the
+  // payment page in six weeks and not one entered a card; a stated $1 followed by
+  // a $9 charge is a good enough reason on its own. ProSheet already fetches the
+  // live offer for exactly this reason ("changing the env price can never leave
+  // the UI selling one thing and the checkout charging another"). This is that
+  // rule, applied where it was missing.
+  const [offer, setOffer] = useState<{ price: number; days: number } | null>(null)
+  useEffect(() => {
+    fetch("/api/airraw-pro")
+      .then((r) => r.json())
+      .then((d) => { if (typeof d?.price === "number") setOffer({ price: d.price, days: d.days || 90 }) })
+      .catch(() => {})
+  }, [])
 
   const submit = async () => {
     const e = email.trim().toLowerCase()
@@ -41,7 +57,9 @@ export function CaptureWall({ source, onClose }: { source: string; onClose: () =
           <>
             <div style={{ fontSize: 12, letterSpacing: 1, color: "#7fd6c0" }}>{t("you felt it.")}</div>
             <div style={{ fontSize: 21, fontWeight: 600, margin: "8px 0 8px", lineHeight: 1.25 }}>{t("get in before the floor fills.")}</div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.55, color: "#aebccb" }}>{t("airraw opens with a $1 day-pass. drop your email — founding access, free, and you're first through the door.")}</div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.55, color: "#aebccb" }}>{offer
+              ? t("airraw opens with a ${usd} pass for {days} days. drop your email — founding access, free, and you're first through the door.", { usd: offer.price, days: offer.days })
+              : t("drop your email — founding access, free, and you're first through the door.")}</div>
             <input
               value={email}
               onChange={(e) => { setEmail(e.target.value); if (state === "error") setState("idle") }}

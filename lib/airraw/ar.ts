@@ -501,4 +501,6 @@ export const AR: Record<string, string> = {
   "you": "أنت",
   "your pass has run out — restore or renew it to keep talking": "انتهى اشتراكك — استرجعه أو جدّده عشان تكمّل",
   "we couldn't verify your pass — restore it and you're back": "ما قدرنا نتحقق من اشتراكك — استرجعه وترجع تكمّل",
+  "✦ pass active · until {date}": "✦ اشتراكك فعّال · حتى {date}",
+  "✦ pass active": "✦ اشتراكك فعّال",
 }

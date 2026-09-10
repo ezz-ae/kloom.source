@@ -129,7 +129,7 @@ const PARTING = [
   "okay, drift off. but that thing you said? it's not done. come tell me how it ends.",
 ]
 
-export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang = "English", onGolden }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string; lang?: string; onGolden?: () => void }) {
+export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang, onGolden }: { cluster: Cluster; tempLabel: string; onClose: () => void; onTalked?: () => void; opening?: string; lang?: string; onGolden?: () => void }) {
   const t = useT()
   // The opener in the language of the room. Read synchronously: the lazy state
   // below is built on the first render, before useT has resolved the locale.
@@ -212,6 +212,11 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   // The language this call is actually in. Starts from whatever the surface asked
   // for, but is switchable mid-call from the top bar, so it can't just mirror the
   // prop. A bilingual person shouldn't have to leave the call to change it.
+  // NO DEFAULT ON THE PROP. It was `lang = "English"` in the signature, which is a
+  // truthy string, so `lang || getLangPrefs().primary` could never reach the
+  // second term — and Lobby and ZoomBuffet render this without a lang at all.
+  // Every visitor arriving at airraw.com therefore got an English character,
+  // whatever language they had chosen, on the surface the ads land on.
   const [activeLang, setActiveLang] = useState(() => lang || getLangPrefs().primary || "English")
   const [myLangs] = useState(() => spokenLanguages())
   const langRef = useRef(activeLang)

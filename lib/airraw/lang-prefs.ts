@@ -11,6 +11,7 @@
 // Stored per-browser. No account needed, same as the pass.
 
 import { LANGUAGES, DEFAULT_LANGUAGE } from "@/lib/languages"
+import { adultEnabled } from "@/lib/variant"
 import { ethnicityForSeed } from "@/lib/airraw/portrait-prompt"
 import { accentForSeed } from "@/lib/airraw/accent"
 import { isPro } from "@/lib/airroom/pro"
@@ -47,7 +48,26 @@ export interface LangPrefs {
   also: string[]
 }
 
-const DEFAULTS: LangPrefs = { primary: DEFAULT_LANGUAGE, also: [] }
+// ARABIC IS THE DEFAULT ON AIRRAW, NOT A DOOR YOU HAVE TO FIND.
+//
+// /ar was built as a dedicated Arabic entrance for the Gulf ad, and it set the
+// language on the way through. Which meant airraw.com itself — the domain in the
+// ad account, the one people type, the one every share link points at — was
+// still English, and the Arabic product existed only for people who arrived
+// through one specific URL.
+//
+// So the default moves to the product rather than the door. DEFAULT_LANGUAGE
+// stays English because it is shared with Kloom, and Kloom is not an Arabic
+// product; this override is inside the AIRRAW-only prefs module and gated on the
+// AIRRAW build, so nothing about kloom.io changes.
+//
+// It is a DEFAULT, not a lock: anyone who picks a language gets what they picked,
+// and that choice is what is read on every later visit.
+const AIRRAW_DEFAULT_LANGUAGE = "Arabic"
+const DEFAULTS: LangPrefs = {
+  primary: adultEnabled() ? AIRRAW_DEFAULT_LANGUAGE : DEFAULT_LANGUAGE,
+  also: [],
+}
 
 const known = (n: string) => LANGUAGES.some((l) => l.name === n)
 
@@ -150,7 +170,15 @@ export function isArabSeed(seedKey: string): boolean {
  * click becomes a bounce.
  */
 export function arabicEntry(): boolean {
-  try { return sessionStorage.getItem("airraw_arabic_entry") === "1" } catch { return false }
+  // The /ar door sets this explicitly. But an Arabic visitor who simply typed
+  // airraw.com is the same visitor and should get the same floor, so anyone
+  // whose language IS Arabic counts as an Arabic arrival — the flag is now the
+  // door's shortcut rather than the only way in.
+  try {
+    if (sessionStorage.getItem("airraw_arabic_entry") === "1") return true
+  } catch { /* private mode */ }
+  if (!adultEnabled()) return false
+  try { return getLangPrefs().primary === "Arabic" } catch { return false }
 }
 
 export function markArabicEntry() {

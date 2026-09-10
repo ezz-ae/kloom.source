@@ -121,7 +121,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
             className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-lg font-semibold text-white outline-none focus:border-fuchsia-400/40"
           />
           <div className="mt-1.5 text-[11px] text-white/35">
-            {pro ? `✦ pass active${untilStr ? ` · until ${untilStr}` : ""}` : tr("free · tap the avatar to reshuffle")}
+            {pro ? (untilStr ? tr("✦ pass active · until {date}", { date: untilStr }) : tr("✦ pass active")) : tr("free · tap the avatar to reshuffle")}
           </div>
         </div>
       </div>

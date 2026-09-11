@@ -42,7 +42,27 @@ const tts = (text, language, who, token) =>
 
 console.log(`\n═══ ${BASE} ═══\n`)
 
-console.log("── THE VOICE, as a visitor who has not paid ──")
+console.log("── THE DOOR ──")
+{
+  // A deploy that half-landed shows as a page that loads and scripts that 404,
+  // and nothing else here would catch it.
+  const r = await fetch(BASE + "/", { headers: { "User-Agent": UA } })
+  const html = await r.text()
+  const chunks = [...html.matchAll(/src="(\/_next\/static\/chunks\/[^"]+)"/g)].map((m) => m[1])
+  say(r.status === 200 && html.length > 4000, "the front page loads", `${r.status} ${(html.length / 1024).toFixed(0)}KB`)
+  let broken = 0
+  for (const u of chunks) {
+    const c = await fetch(BASE + u, { headers: { "User-Agent": UA } })
+    if (!c.ok) broken++
+  }
+  say(chunks.length > 0 && broken === 0, "and every script it needs", `${chunks.length - broken}/${chunks.length} load`)
+  // The faces are served from storage, not from us. A dead bucket empties the
+  // floor and the app itself would look fine.
+  const face = await fetch("https://sekntmutponnopywhnsd.supabase.co/storage/v1/object/public/character-photos/layla-1530719533-r3-gsfz3k.jpg", { method: "HEAD" })
+  say(face.ok, "and a warmed face is still in storage", `${face.status}`)
+}
+
+console.log("\n── THE VOICE, as a visitor who has not paid ──")
 const probe = await tts("hello.", "English", "bea")
 const TTS_LIVE = probe.r.status === 200
 if (!TTS_LIVE) skip("no voice engine on this server", `${probe.r.status} ${(probe.json?.error || "").slice(0, 60)} — the voice checks are not exercised`)
@@ -119,6 +139,25 @@ if (PASS) {
   say(a.json?.reason === "bad-email", "restore by email refuses a non-address", JSON.stringify(a.json))
   const b = await post("/api/airraw-pro", { action: "restore_by_email", email: `nobody-${Date.now()}@example.com`, visitorId: rid() })
   say(["no-pass", "unavailable"].includes(b.json?.reason), "and an address that never bought gets nothing", JSON.stringify(b.json))
+}
+
+// A fresh visitor must be able to hear her TWICE — the free minute used to be
+// spent for the life of the browser, so a second visit was silent.
+if (TTS_LIVE) {
+  console.log("\n── AND TOMORROW'S VISITOR ──")
+  const v = rid()
+  const line = "a sentence of roughly a hundred and twenty characters, spoken out loud, to spend a little of the free allowance."
+  let last = 0
+  for (let i = 0; i < 3; i++) {
+    const r = await fetch(BASE + "/api/tts", {
+      method: "POST", headers: { "Content-Type": "application/json", "User-Agent": UA },
+      body: JSON.stringify({ text: line, personaName: "bea", seedKey: "bea", gender: "female", language: "English", visitorId: v, mode: "voice" }),
+    })
+    last = r.status
+    if (r.status !== 200) break
+    await r.arrayBuffer()
+  }
+  say(last === 200, "one visitor can hear three lines in a row", `last call ${last}`)
 }
 
 console.log(bad ? `\n${bad} FAILED\n` : "\nall green\n")

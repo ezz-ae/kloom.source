@@ -189,6 +189,11 @@ export async function POST(request: Request) {
 
   // ── Groq Whisper (primary — fast, cheap, direct upload, no cold starts) ──
   const groqKey = process.env.GROQ_API_KEY
+  // Why the primary did not answer — carried on whatever answers instead, and
+  // on the 503 if nothing does. Measured on production: every English clip was
+  // 503 "temporarily unavailable" with no reason anywhere, while the Arabic path
+  // one tier up transcribed the same audio perfectly.
+  let groqWhy = groqKey ? "" : "groq:no-key"
   if (groqKey) {
     const groqForm = new FormData()
     groqForm.append("file", file, (file as File).name || "audio.webm")
@@ -233,9 +238,24 @@ export async function POST(request: Request) {
         return transcript(data.text, "groq", groqModel, arabicTierNote(adult, isArabic, gemKey, elKey))
       }
       console.error("[stt] groq failed:", res.status, (await res.text().catch(() => "")).slice(0, 200))
+      groqWhy = `groq:${res.status}`
     } catch (e) {
       console.error("[stt] groq error:", e instanceof Error ? e.message : String(e))
+      groqWhy = "groq:error"
     }
+  }
+
+  // ── ElevenLabs Scribe — every language (AIRRAW, behind Groq) ─────────────
+  // Scribe was scoped to Arabic because Groq is cheaper for English. As a tier
+  // BEHIND Groq that reasoning does not apply: the choice here is Scribe or a
+  // 503, and a 503 ends the mic — the client takes it as "no recogniser" and
+  // falls back to the browser's own, which most phones' in-app browsers do not
+  // have. Scribe detects the language itself, and it is the tier that already
+  // answers Arabic, so the key is known to be live. Kloom never reaches this:
+  // `adult` is false there and its path below is what it was.
+  if (adult && elKey && process.env.STT_SCRIBE !== "0" && !isArabic) {
+    const t = await scribeSTT(file, elKey)
+    if (t !== null) return transcript(t, "scribe", process.env.ELEVENLABS_STT_MODEL || "scribe_v1", groqWhy || "groq:skipped")
   }
 
   // ── RunPod Faster-Whisper (secondary) ─────────────────────────────────────
@@ -259,7 +279,11 @@ export async function POST(request: Request) {
   // Don't attempt the call with no key — an anonymous request to OpenAI returns 401,
   // which the client treats as a permanent failure and destroys the microphone.
   if (!apiKey) {
-    return Response.json({ error: "STT temporarily unavailable — try again" }, { status: 503 })
+    // Say which tiers declined, so the next person holding a curl does not have
+    // to guess between "no key" and "the provider is down".
+    const why = [groqWhy, elKey ? (adult ? "scribe:failed" : "scribe:not-adult-variant") : "scribe:no-key", "openai:no-key"].filter(Boolean).join(",")
+    console.error(`[stt] no tier answered — ${why}`)
+    return Response.json({ error: "STT temporarily unavailable — try again" }, { status: 503, headers: { "X-STT-Fallback": why } })
   }
 
   const upstreamForm = new FormData()

@@ -42,6 +42,18 @@ check(/why === "daily-cap"/.test(air), "a pass holder at today's cap is told to 
   const meter = readFileSync("lib/airraw/pass-meter.ts", "utf8")
   const perIp = Number((meter.match(/FREE_IP_DAILY_CHARS \?\? ([\d_]+)\)/) || [])[1]?.replace(/_/g, ""))
   const perBrowser = Number((meter.match(/FREE_VOICE_CHARS \?\? ([\d_]+)\)/) || [])[1]?.replace(/_/g, ""))
+  // THE MINUTE IS A MINUTE A DAY, NOT A MINUTE EVER.
+  //
+  // It used to be spent against a lifetime cap, so a new visitor got three
+  // spoken lines and every later visit was silent — measured on production, and
+  // reported as "no sound at all for someone who isn't registered". A voice you
+  // cannot hear twice does not sell a pass.
+  check(/spendChars\(`free:v:\$\{bucket\(vid\)\}`, chars, FREE_VOICE_TOTAL, FREE_VOICE_CHARS\)/.test(meter),
+    "the browser's minute is the DAILY cap; the lifetime figure sits behind it")
+  check(/FREE_VOICE_TOTAL = FREE_VOICE_CHARS \* FREE_VOICE_DAYS/.test(meter) && /FREE_VOICE_LIFETIME_DAYS \?\? 30/.test(meter),
+    "and the lifetime ceiling is thirty of those minutes, so one browser cannot farm forever")
+  check(/spendMem\(`v:\$\{bucket\(vid\)\}`, chars, FREE_VOICE_CHARS\)/.test(meter),
+    "and when the durable meter is down the fallback enforces the DAILY figure, never the lifetime one")
   check(perIp >= 50 * perBrowser, `one IP gets at least fifty first minutes a day (${perIp / perBrowser}) — a phone network, not a household`)
   check(/X-Free"\) === "daily-cap"/.test(air) && /spent on your network/.test(air), "and a phone that hit the network's cap is told the truth, not 'your minute is up'")
 }

@@ -156,14 +156,30 @@ export async function spendPassPhoto(token: string): Promise<SpendVerdict> {
 // A free caller hears the SAME premium voice a pass holder does — nobody is sold
 // a downgrade — but only for about a minute of a call. Counted in characters the
 // engine bills for, against two buckets:
-//   • the browser id, for life — the minute is once, not once per visit;
+//   • the browser id, PER DAY — a minute a day, not a minute a lifetime;
 //   • the IP, per day — bounds a visitor who clears storage for a new id, while
 //     still letting a household or a carrier-NAT'd phone network have a bounded
 //     number of first minutes a day rather than one between all of them.
 // 0 for FREE_VOICE_CHARS switches the free meter off (launch mode).
-
-/** ≈ one minute of a call: the character speaks roughly half of it. */
+//
+// THE MINUTE USED TO BE FOR LIFE, AND THAT IS WHY THE PRODUCT WENT SILENT.
+//
+// Measured against production: a brand new visitor gets three spoken lines and
+// then 402s forever on that browser. Not for the day — for good. So every
+// returning visitor met a product that does not talk, which is exactly how it
+// was reported: "no sound at all for someone who isn't registered". Nobody
+// buys a voice they cannot hear, and nobody comes back to silence.
+//
+// A day is the right window. It costs a bounded amount per browser per day,
+// the IP bucket still bounds someone minting ids, and it gives a person who
+// liked it yesterday a reason to open it again today — which is the only way a
+// second visit ever turns into a sale.
+export const FREE_VOICE_DAYS = Math.max(1, Number(process.env.FREE_VOICE_LIFETIME_DAYS ?? 30))
+/** ≈ one minute of a call, a day: the character speaks roughly half of it. */
 export const FREE_VOICE_CHARS = Math.max(0, Number(process.env.FREE_VOICE_CHARS ?? 400))
+/** The lifetime ceiling behind the daily one, so a single browser cannot farm
+ *  forever. Thirty days of minutes, not one. */
+export const FREE_VOICE_TOTAL = FREE_VOICE_CHARS * FREE_VOICE_DAYS
 /**
  * ≈ sixty free minutes a day behind one IP, however many browser ids it mints.
  *
@@ -217,10 +233,12 @@ export async function spendFreeChars(visitorId: string | undefined, ip: string, 
   if (!FREE_VOICE_CHARS) return { ok: true, unmetered: true }
   const vid = (visitorId || "").trim().slice(0, 80)
   if (vid) {
-    const v = await spendChars(`free:v:${bucket(vid)}`, chars, FREE_VOICE_CHARS, FREE_VOICE_CHARS)
+    const v = await spendChars(`free:v:${bucket(vid)}`, chars, FREE_VOICE_TOTAL, FREE_VOICE_CHARS)
     if (!v.ok) return v
     // The durable meter counted nothing. Count it here instead, or the free
-    // minute is not a minute — it is everything, forever, for nothing.
+    // minute is not a minute — it is everything, forever, for nothing. The
+    // in-memory fallback is per instance and short-lived, so it is the daily
+    // figure it enforces, never the lifetime one.
     if (v.unmetered && !spendMem(`v:${bucket(vid)}`, chars, FREE_VOICE_CHARS)) {
       return { ok: false, reason: "exhausted" }
     }

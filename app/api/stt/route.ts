@@ -133,7 +133,7 @@ export async function POST(request: Request) {
   // like the other billable endpoints (generous limit — a live call fires often).
   const gate = globalGate()
   if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
-  const rl = rateLimit(`stt:${clientIp(request)}`, 90, 60_000)
+  const rl = rateLimit(`stt:${clientIp(request)}`, 240, 60_000)
   if (!rl.ok) return Response.json({ error: "slow down" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
   let form: FormData

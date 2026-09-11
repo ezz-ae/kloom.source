@@ -43,7 +43,11 @@ export async function POST(request: Request) {
   const gate = globalGate()
   if (!gate.ok) return Response.json({ error: "the floor's at capacity right now — back in a bit." }, { status: 503, headers: { "Retry-After": "120" } })
   // Per-client guard: cap how fast one client can hit the open endpoint.
-  const rl = rateLimit(`chat:${clientIp(request)}`, 45, 60_000)
+  // PER-IP, NOT PER-PERSON. Mobile ad traffic shares a carrier-NAT address
+  // between hundreds of phones; the old 45/min was a dozen people talking at
+  // once. The global spend gate above is what bounds cost — this only has to
+  // stop one runaway client. (Same reasoning on /api/tts and /api/stt.)
+  const rl = rateLimit(`chat:${clientIp(request)}`, 120, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
   let body: {

@@ -43,7 +43,7 @@ console.log("— the free minute ends, with or without the database —")
     body: JSON.stringify({ text, personaName: "Mara", gender: "female", language: "English", mode: "voice", visitorId }),
   })
   const CHARS = Number(process.env.FREE_VOICE_CHARS || 400)
-  const IP_CAP = Number(process.env.FREE_IP_DAILY_CHARS || 4000)
+  const IP_CAP = Number(process.env.FREE_IP_DAILY_CHARS || 24000)
   const LINE = "x".repeat(100)
 
   const vid = `live-${Date.now()}`

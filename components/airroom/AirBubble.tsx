@@ -570,6 +570,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             // it just did.
             markProRefused(); setPassRefused(true)
           }
+          else if (res.headers.get("X-Free") === "daily-cap") {
+            // The free voice ran out on their NETWORK, not on them: a carrier
+            // address shared by many phones has spent today's bucket. "Your
+            // minute is up" to someone who never heard a word is a lie that reads
+            // as broken; the truth still sells the same pass.
+            setMicHint("the free voice is spent on your network for today — the pass opens it now"); setShowPro(true)
+          }
           else { setMicHint("your free minute is up — unlock the pass to keep talking"); setShowPro(true) }
           // THE CALL DOES NOT END HERE.
           //
@@ -589,11 +596,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       const blob = await res.blob()
       if (tok !== speakTokenRef.current) return
       audioQueueRef.current.push({ url: URL.createObjectURL(blob), seq })
-      // NOTE: the mic deliberately stays LIVE while the character speaks. It used
-      // to be aborted (segRef.abort()), which made barge-in physically impossible
-      // — there was no VAD and no recorder running, so there was nothing to
-      // interrupt with. getUserMedia already requests hardware echo-cancellation
-      // (phoneMicAudio), so the character's own voice is largely cancelled out.
+      // The mic is handed back to the phone while she speaks (see releaseMic
+      // above the pump) — an open capture degrades the speaker to a phone-call
+      // codec on iOS and to 8kHz on any Bluetooth — and taken again when the
+      // reply ends. The speaker button is how she is cut off.
     } catch {
       // Queue a hole rather than nothing, or every later chunk waits forever on a
       // sequence number that will never arrive.

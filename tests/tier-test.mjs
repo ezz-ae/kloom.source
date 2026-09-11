@@ -36,6 +36,15 @@ const air = read("components/airroom/AirBubble.tsx")
 check(/res\.status === 402/.test(air) && /setShowPro\(true\)/.test(air) && /your free minute is up/.test(air),
   "a used-up minute opens the pass sheet and says why")
 check(/why === "daily-cap"/.test(air), "a pass holder at today's cap is told to come back, not sold a pass")
+// A carrier's worth of first minutes. The per-IP day bucket was ten minutes,
+// which on carrier-NAT mobile traffic silenced every phone after the tenth.
+{
+  const meter = readFileSync("lib/airraw/pass-meter.ts", "utf8")
+  const perIp = Number((meter.match(/FREE_IP_DAILY_CHARS \?\? ([\d_]+)\)/) || [])[1]?.replace(/_/g, ""))
+  const perBrowser = Number((meter.match(/FREE_VOICE_CHARS \?\? ([\d_]+)\)/) || [])[1]?.replace(/_/g, ""))
+  check(perIp >= 50 * perBrowser, `one IP gets at least fifty first minutes a day (${perIp / perBrowser}) — a phone network, not a household`)
+  check(/X-Free"\) === "daily-cap"/.test(air) && /spent on your network/.test(air), "and a phone that hit the network's cap is told the truth, not 'your minute is up'")
+}
 
 const meter = read("lib/airraw/pass-meter.ts")
 check(/export async function spendFreeChars/.test(meter) && /free:v:\$\{bucket\(vid\)\}/.test(meter) && /free:ip:\$\{bucket\(ip/.test(meter),

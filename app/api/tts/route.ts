@@ -57,7 +57,7 @@ export async function POST(request: Request) {
   const gate = globalGate()
   if (!gate.ok) return Response.json({ error: "at capacity" }, { status: 503, headers: { "Retry-After": "120" } })
   // Per-client guard on the open TTS endpoint.
-  const rl = rateLimit(`tts:${clientIp(request)}`, 80, 60_000)
+  const rl = rateLimit(`tts:${clientIp(request)}`, 240, 60_000)
   if (!rl.ok) return Response.json({ error: "Slow down a sec." }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
   const { text, voice, voiceId, elevenId, personaName, seedKey, gender, language, mode, prevText, proToken, visitorId } = (await request.json()) as {

@@ -115,8 +115,19 @@ export async function spendPassPhoto(token: string): Promise<SpendVerdict> {
 
 /** ≈ one minute of a call: the character speaks roughly half of it. */
 export const FREE_VOICE_CHARS = Math.max(0, Number(process.env.FREE_VOICE_CHARS ?? 400))
-/** ≈ ten free minutes a day behind one IP, however many browser ids it mints. */
-export const FREE_IP_DAILY_CHARS = Math.max(0, Number(process.env.FREE_IP_DAILY_CHARS ?? 4000))
+/**
+ * ≈ sixty free minutes a day behind one IP, however many browser ids it mints.
+ *
+ * This was ten (4,000). Ten is a household; it is not a phone network. Ad
+ * traffic arrives on mobile data through carrier-grade NAT, where hundreds of
+ * phones share one public address — so on a day the ads delivered a hundred
+ * visitors, the eleventh phone on each carrier was told its free minute was
+ * used before it had heard a word, and every phone after it too. The
+ * per-browser minute above is what makes the minute a minute; this bucket only
+ * bounds a visitor who mints ids by clearing storage, and sixty minutes a day
+ * bounds that plenty. Still env-overridable; 0 disables the free meter.
+ */
+export const FREE_IP_DAILY_CHARS = Math.max(0, Number(process.env.FREE_IP_DAILY_CHARS ?? 24_000))
 
 const bucket = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32)
 

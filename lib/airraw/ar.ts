@@ -450,6 +450,7 @@ export const AR: Record<string, string> = {
   "paused to save your minutes — tap talk to wake it up": "وقفناها نحفظ دقايقك — اضغط تكلم تصحيها",
   "voice isn't supported on this browser — tap the keypad to type": "الصوت ما يشتغل على هذا المتصفح — اضغط الكيبورد وتكتب",
   "voice needs your real browser — tap ⋯ at the top, then “open in browser” — or tap the keypad to type": "الصوت محتاج المتصفح الحقيقي — اضغط ⋯ فوق وبعدين «فتح في المتصفح» — أو اضغط الكيبورد وتكتب",
+  "the free voice is spent on your network for today — the pass opens it now": "الصوت المجاني خلص على شبكتك النهارده — الاشتراك يفتحه دلوقتي",
   "voice needs your real browser.": "الصوت محتاج المتصفح الحقيقي.",
   "voice needs your real browser — tap ⋯ at the top, then “open in browser”.": "الصوت محتاج المتصفح الحقيقي — اضغط ⋯ فوق وبعدين «فتح في المتصفح».",
   "open in Chrome": "افتح في كروم",

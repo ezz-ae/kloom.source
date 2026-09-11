@@ -21,6 +21,7 @@ import { faceUrl, cachedFace } from "@/lib/airraw/face"
 import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw/voice-pin"
 import { visitorId } from "@/lib/airraw/visitor"
 import { AirBubble } from "@/components/airroom/AirBubble"
+import { OpenInBrowser } from "@/components/airroom/OpenInBrowser"
 import { publicCharacter, PUBLIC_CAST_SIZE } from "@/lib/airraw/public-cast"
 import { FantasyBuilder } from "@/components/airroom/FantasyBuilder"
 import { SceneRoom } from "@/components/airroom/SceneRoom"
@@ -873,6 +874,8 @@ export function Planet() {
 
   return (
     <div className="airraw-ui" style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>
+      {/* In-app browsers (where the ads land) mostly cannot open a mic: say so, once, with the way out. */}
+      <OpenInBrowser />
       {/* THE FEEL — one shared interaction layer for every surface inside the planet
           (rooms, calls, sheets are all children of this node). Every button gets the
           same press physics and eased state changes; every full-screen surface rises

@@ -40,11 +40,18 @@ console.log("— the way out —")
 
 console.log("— the front door says it, once, and the mic hint says it too —")
 {
-  const lobby = readFileSync("components/airroom/Lobby.tsx", "utf8")
+  const planet = readFileSync("components/airroom/Planet.tsx", "utf8")
+  const page = readFileSync("app/airraw/page.tsx", "utf8")
   const bar = readFileSync("components/airroom/OpenInBrowser.tsx", "utf8")
   const bubble = readFileSync("components/airroom/AirBubble.tsx", "utf8")
   const ar = readFileSync("lib/airraw/ar.ts", "utf8")
-  check(/<OpenInBrowser \/>/.test(lobby), "the lobby renders the bar")
+  // The FRONT DOOR renders it — which is the planet: "/" rewrites to /airraw
+  // and /airraw renders <Planet />. The first version put it on the lobby, a
+  // component no page imports, and a headless Instagram visit to production
+  // showed nothing.
+  check(/return <Planet \/>/.test(page), "the AIRRAW front page is the planet")
+  check(/<OpenInBrowser \/>/.test(planet), "and the planet renders the bar")
+  check(/position: "fixed", top: 0, left: 0, right: 0/.test(bar) && /zIndex: 35/.test(bar), "fixed to the top of the planet's full-screen layer, under the sheets")
   check(/if \(!a\) return/.test(bar) && /inAppBrowser\(\)/.test(bar), "which renders nothing on a real browser")
   check(/localStorage\.getItem\(KEY\) === "1"/.test(bar) && /localStorage\.setItem\(KEY, "1"\)/.test(bar), "and stays dismissed")
   check(/track\("inapp_shown"/.test(bar) && /track\("inapp_open_tap"/.test(bar), "and is measured — shown, and tapped")

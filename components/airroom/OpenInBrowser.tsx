@@ -1,8 +1,11 @@
 "use client"
 
-// One line at the top of the front door, for visitors inside the Facebook /
-// Instagram / TikTok in-app browser: voice needs their real browser, here is
-// the way there. See lib/airraw/in-app.ts for the measurement behind it.
+// One line at the top of the front door — the planet, which is what "/" renders
+// — for visitors inside the Facebook / Instagram / TikTok in-app browser: voice
+// needs their real browser, here is the way there. See lib/airraw/in-app.ts for
+// the measurement behind it. Fixed to the top of the viewport (the planet's UI is
+// a fixed full-screen layer), under the sheets (zIndex 40) so it never covers a
+// checkout.
 //
 // Shown once per browser (dismissed is remembered). Never on a real browser.
 // It does not block anything — the page underneath works as far as a webview
@@ -28,7 +31,7 @@ export function OpenInBrowser() {
   if (!app) return null
   const dismiss = () => { setApp(null); try { localStorage.setItem(KEY, "1") } catch { /* */ } }
   return (
-    <div role="status" style={{ position: "sticky", top: 0, zIndex: 7, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(255,217,138,.96)", color: "#1a0d2a", fontSize: 13, lineHeight: 1.35, fontFamily: "system-ui, sans-serif" }}>
+    <div role="status" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 35, display: "flex", alignItems: "center", gap: 10, padding: "max(10px, env(safe-area-inset-top)) 14px 10px", background: "rgba(255,217,138,.96)", color: "#1a0d2a", fontSize: 13, lineHeight: 1.35, fontFamily: "system-ui, sans-serif" }}>
       <span aria-hidden>🎙</span>
       <span style={{ flex: 1 }}>
         {href

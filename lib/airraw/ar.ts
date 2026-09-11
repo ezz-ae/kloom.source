@@ -50,6 +50,8 @@ export const AR: Record<string, string> = {
   "talk": "تكلم",
   "type to {name}…": "اكتب لـ {name}…",
   "tap — she talks, you type": "اضغط — هي بتتكلم وإنت بتكتب",
+  "voices sounding the same? tap to hear them fresh": "الأصوات شبه بعضها؟ اضغط تسمعهم من جديد",
+  "your voices have collapsed onto one — tap to hear them fresh": "كل الأصوات بقت صوت واحد — اضغط تسمعهم من جديد",
   "say something to the room…": "قول شي للغرفة…",
   "one sec…": "لحظة…",
   "mention someone": "نادِ أحد",

@@ -22,6 +22,7 @@ import { getCredits, FREE_GRANT } from "@/lib/airroom/credits"
 import { isPro, proUntil } from "@/lib/airroom/pro"
 import { getFai, DAILY_EARN_CAP, PRO_EARN_CAP, earnedToday } from "@/lib/airraw/fai"
 import { listTalks, forgetAll, forgetTalk, memoryEnabled, memoryOff, setMemoryOff, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
+import { clearVoicePins, voicePinStats } from "@/lib/airraw/voice-pin"
 import { getLangPrefs, saveLangPrefs, langPrefsPersist, type LangPrefs } from "@/lib/airraw/lang-prefs"
 import { LANGUAGES } from "@/lib/languages"
 import { VIBES, faceSeedFor } from "@/lib/airroom/roster"
@@ -57,6 +58,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
   const [off, setOff] = useState(false)
   const [alsoOpen, setAlsoOpen] = useState(false)
   const [pro, setPro] = useState(false)
+  const [pins, setPins] = useState<{ people: number; collapsed: boolean }>({ people: 0, collapsed: false })
   const [taste, setTaste] = useState<Taste>({ gender: "any", vibes: [] })
 
   // Everything here reads localStorage, so it has to wait for the client or the
@@ -68,7 +70,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
     setP(prof); setName(prof.name)
     setFai(getFai()); setCredits(getCredits())
     setTalks(listTalks()); setPrefs(getLangPrefs())
-    setOff(memoryOff()); setPro(isPro())
+    setOff(memoryOff()); setPro(isPro()); setPins(voicePinStats())
     setTaste(getTaste())
   }, [])
 
@@ -143,6 +145,19 @@ export function YouPage({ onPass, onResume, onGolden }: {
             <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
               <div className="brand-gradient h-full" style={{ width: `${Math.round(100 * Math.max(0, Math.min(1, credits / FREE_GRANT)))}%` }} />
             </div>
+          )}
+          {/* The first voice a person is heard in is pinned to this device for
+              good, so a bad casting window is frozen here with no way out. The
+              map heals itself when it has obviously collapsed; this is the way
+              out for everything else, and it is only offered once there is
+              something to reset. */}
+          {pins.people > 0 && (
+            <button
+              onClick={() => { clearVoicePins(); setPins(voicePinStats()); window.location.reload() }}
+              className="mt-3 w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 text-left text-xs text-white/45 transition hover:bg-white/[0.06] hover:text-white/70"
+            >
+              {pins.collapsed ? tr("your voices have collapsed onto one — tap to hear them fresh") : tr("voices sounding the same? tap to hear them fresh")}
+            </button>
           )}
         </Card>
 

@@ -49,9 +49,16 @@ check(localPrice(11, "sar") === null, "and the lookup is exact, so a typo shows 
 console.log("\n— it declines rather than guesses —")
 check(localPrice(0, "SAR") === null, "a zero price has no local equivalent")
 check(localPrice(-5, "SAR") === null, "and neither does a negative one")
-// No region is resolvable in a bare Node process, which is the same situation as
-// a browser reporting a country we have no peg for.
-check(localPrice(11) === null, "an unrecognised region falls back to dollars instead of inventing a currency")
+// WHERE THE MACHINE THINKS IT IS MUST NOT DECIDE WHETHER THIS PASSES.
+//
+// This line used to read localPrice(11) with no region and expect null, on the
+// note that "no region is resolvable in a bare Node process". That is true of a
+// server in UTC and false of a laptop in Dubai: region() reads the system
+// timezone first, so the suite passed everywhere except on the machine of the
+// one person in the Gulf — who is the person this feature is for. The currency
+// is now named outright instead of being read off the clock.
+check(localPrice(11, "XXX") === null, "an unrecognised region falls back to dollars instead of inventing a currency")
+check(localPrice(11, "AED") !== null, "while a currency we do peg resolves to a real number")
 
 console.log("\n— the statement currency is always said —")
 check(chargeNote("AED") === "charged in AED", "an AED gateway says AED")
@@ -65,7 +72,10 @@ for (const usd of [5, 11, 30]) {
 }
 {
   // A Saudi buyer: their number AND the one on the statement, both present.
-  const f = priceFootnote(11, "AED")
+  // Pinned to the riyal rather than to whatever machine runs this — on a laptop
+  // in the UAE the gateway currency IS local, and the disclosure correctly does
+  // not appear, which used to read as a failure.
+  const f = priceFootnote(11, "AED", "SAR")
   check(/charged in AED/.test(f), "a non-local gateway currency is disclosed in the footnote")
 }
 

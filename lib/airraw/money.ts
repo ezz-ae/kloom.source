@@ -107,8 +107,11 @@ export function chargeNote(charge?: string): string {
  * gateway's own configured currency) rather than being assumed here — the app
  * should not be the second place that fact is written down.
  */
-export function priceFootnote(usd: number, charge?: string): string {
-  const local = localPrice(usd)
+export function priceFootnote(usd: number, charge?: string, forced?: string): string {
+  // `forced` names the buyer's currency outright instead of reading their region
+  // off the machine — used by the tests, which otherwise pass or fail depending
+  // on the timezone of whoever runs them.
+  const local = localPrice(usd, forced)
   const c = (charge || "").toUpperCase()
   const billed = chargeNote(charge)
   if (!local) return billed

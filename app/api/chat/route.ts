@@ -182,6 +182,33 @@ export async function POST(request: Request) {
 
   const encoder = new TextEncoder()
 
+  // WHICH MODEL SPOKE. Grok (xAI) is the primary voice model when XAI_API_KEY is
+  // set — more permissive for the adult floor, OpenAI-compatible, fast. If its
+  // key is absent it resolves down the chain (Gemini → GPT → local), and any
+  // runtime failure falls over via houseFallback, so it never dead-ends. That
+  // resilience hid a problem for hours: with Grok's key out of credit every turn
+  // quietly ran on the house model and nothing outside the logs could tell. So
+  // the first token is pulled BEFORE the headers go out — the first byte was
+  // going to wait for it anyway — and X-LLM-Seat names the seat that answered.
+  let seat: string = "none"
+  const llm = streamLLM("xai", llmMessages, {
+    temperature: 0.95,
+    maxTokens: 180,
+    uncensored: useUncensored,
+    onSeat: (b) => { seat = b },
+  })
+  let first: IteratorResult<string, void>
+  try { first = await llm.next() } catch (err) {
+    // Every backend failed. Emit nothing — the client falls back to the
+    // character's own lines (cluster.lines[1]) rather than a hardcoded English
+    // phrase that breaks Arabic/non-English sessions and sounds identical every time.
+    // LOG IT — a silent catch here made prod outages (dead keys, no credits)
+    // undiagnosable: the function returned 200 + empty body and the logs showed
+    // nothing. This line is what Vercel runtime logs will show when chat is mute.
+    console.error("[chat] all LLM backends failed:", err instanceof Error ? err.message : String(err))
+    first = { done: true, value: undefined }
+  }
+
   // Stream via the resilient router. A Pro turn with a fully-configured uncensored
   // endpoint routes there (opts.uncensored); otherwise it rides the default chain.
   // streamLLM internally falls the configured endpoint → house model → local, so a
@@ -211,32 +238,27 @@ export async function POST(request: Request) {
         }
         if (kept.length) { emittedAny = true; controller.enqueue(encoder.encode(joinSentences(kept) + " ")) }
       }
+      const feed = (delta: string | void) => {
+        if (!delta) return
+        buf += delta
+        // Flush only up to the last completed sentence; keep the trailing partial.
+        // ؟ = Arabic question mark (U+061F) included so Arabic replies flush on time.
+        const m = buf.match(/^[\s\S]*[.!?…؟\n]/)
+        if (m) { flush(m[0]); buf = buf.slice(m[0].length) }
+      }
       try {
-        // Grok (xAI) is the primary voice model when XAI_API_KEY is set — more
-        // permissive for the adult floor, OpenAI-compatible, fast. If its key is
-        // absent it resolves down the chain (Claude → Gemini → Together), and any
-        // runtime failure falls over via houseFallback, so it never dead-ends.
-        for await (const delta of streamLLM("xai", llmMessages, {
-          temperature: 0.95,
-          maxTokens: 180,
-          uncensored: useUncensored,
-        })) {
-          if (!delta) continue
-          buf += delta
-          // Flush only up to the last completed sentence; keep the trailing partial.
-          // ؟ = Arabic question mark (U+061F) included so Arabic replies flush on time.
-          const m = buf.match(/^[\s\S]*[.!?…؟\n]/)
-          if (m) { flush(m[0]); buf = buf.slice(m[0].length) }
+        // The first token was already pulled above (for X-LLM-Seat); the rest of
+        // the reply streams here. A generator that threw on its first pull is
+        // done and is not touched again.
+        if (!first.done) {
+          feed(first.value)
+          for await (const delta of llm) feed(delta)
         }
         if (buf.trim()) flush(buf)
       } catch (err) {
-        // Every backend failed. Emit nothing — the client falls back to the
-        // character's own lines (cluster.lines[1]) rather than a hardcoded English
-        // phrase that breaks Arabic/non-English sessions and sounds identical every time.
-        // LOG IT — a silent catch here made prod outages (dead keys, no credits)
-        // undiagnosable: the function returned 200 + empty body and the logs showed
-        // nothing. This line is what Vercel runtime logs will show when chat is mute.
-        console.error("[chat] all LLM backends failed:", err instanceof Error ? err.message : String(err))
+        // A backend that died MID-reply. What already streamed stays; the client
+        // finishes on the character's own lines. Logged for the same reason as above.
+        console.error("[chat] LLM stream broke mid-reply:", err instanceof Error ? err.message : String(err))
       }
       controller.close()
     },
@@ -248,6 +270,7 @@ export async function POST(request: Request) {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
       "X-Content-Tier": pro ? "unrestricted" : "public",   // diagnostic: did the paid unlock fire
+      "X-LLM-Seat": seat,                                   // diagnostic: which model answered
       // The one moment a free user has actually FELT the ceiling — and therefore
       // the only moment the upgrade means anything concrete to them. The reply
       // itself is untouched; this just lets the UI name what happened.

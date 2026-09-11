@@ -39,6 +39,12 @@ export interface LLMOptions {
    *  404ing models FOREVER (observed live: 164 requests in one 60s invocation,
    *  presenting as a total chat hang). */
   _tried?: Set<string>
+  /** Told which seat is about to stream — the primary, then each fallback that
+   *  is tried. The LAST call is the seat that answered (or the last one that
+   *  tried). Lets a route say which model spoke, the way X-TTS-Provider says
+   *  which voice did: when Grok's key was out of credit the floor quietly ran
+   *  on the house model for hours and nothing outside the logs could tell. */
+  onSeat?: (seat: Backend) => void
 }
 
 // ── Config ────────────────────────────────────────────────────────────────
@@ -600,6 +606,7 @@ export async function* streamLLM(
   const backend = resolveBackend(requested)
 
   if (backend === "local") {
+    opts.onSeat?.("local")
     try { yield* streamLocal(messages, opts); return }
     catch (err) {
       console.error(`[llm] local seat failed: ${err instanceof Error ? err.message : err}`)
@@ -608,6 +615,7 @@ export async function* streamLLM(
   }
   if (backend === "mistral" || backend === "dolphin") {
     const localModel = backend === "mistral" ? "mistral:latest" : "dolphin-mistral:latest"
+    opts.onSeat?.(backend)
     try { yield* streamLocal(messages, { ...opts, localModel }); return }
     catch { yield* houseFallback(messages, opts, backend); return }
   }
@@ -623,6 +631,7 @@ export async function* streamLLM(
   // strictly faster than a round trip that is certain to 401.
   if (seatRejected(backend)) { yield* houseFallback(messages, opts, backend); return }
   let emitted = false
+  opts.onSeat?.(backend)
   try {
     for await (const chunk of primary(messages, opts)) {
       emitted = true
@@ -658,6 +667,7 @@ async function* houseFallback(
     // 401 the primary just paid — twice the wasted latency, same dead key.
     if (name === failed || !backendAvailable(name) || seatRejected(name)) continue
     let emitted = false
+    opts.onSeat?.(name)
     try {
       for await (const chunk of fn(messages, opts)) { emitted = true; yield chunk }
       return
@@ -668,6 +678,7 @@ async function* houseFallback(
     }
   }
   if (failed !== "local") {
+    opts.onSeat?.("local")
     try { yield* streamLocal(messages, { ...opts, localModel: undefined }); return }
     catch (err) { console.error(`[llm] fallback local failed: ${err instanceof Error ? err.message : err}`) }
   }

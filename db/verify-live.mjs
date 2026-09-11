@@ -6,11 +6,13 @@
 // "the accounts are broken" becomes a line with a provider name next to it.
 //
 //   node db/verify-live.mjs                     # production, visitor only
+//   node db/verify-live.mjs --token <restore code>   # production, paid side too
 //   node db/verify-live.mjs --base http://localhost:3131 --secret probe-secret
 //
-// The pass side needs a secret to mint a token with, so against production —
-// where the secret lives in Vercel and not here — it reports the visitor side
-// in full and says plainly that the pass side was not exercised.
+// The pass side needs a token. Locally --secret mints one; against production —
+// where the secret lives in Vercel and not here — hand it a real restore code
+// with --token. Without either it reports the visitor side in full and says
+// plainly that the pass side was not exercised.
 import { createHmac } from "node:crypto"
 
 const arg = (k, d) => { const i = process.argv.indexOf(k); return i > -1 ? process.argv[i + 1] : d }
@@ -22,7 +24,11 @@ const mint = (sec, ms = 86_400_000) => {
   const p = Buffer.from(JSON.stringify({ until: Date.now() + ms, v: 1, adult18: true, minutes: 6000 })).toString("base64")
   return `${p}.${createHmac("sha256", sec).update(p).digest("hex")}`
 }
-const PASS = SECRET ? mint(SECRET) : ""
+// A token can also be handed in directly — which is the only way to exercise the
+// paid side against production, where the signing secret lives in Vercel and not
+// here. `--token <code>` takes a real restore code.
+const GIVEN = arg("--token", process.env.AIRRAW_PASS_TOKEN || "")
+const PASS = GIVEN || (SECRET ? mint(SECRET) : "")
 const FORGED = mint("definitely-not-the-secret")
 const rid = () => `v-${Math.random().toString(36).slice(2)}${Date.now()}`
 
@@ -37,8 +43,8 @@ const post = async (path, body, headers = {}) => {
   const buf = Buffer.from(await r.arrayBuffer())
   return { r, buf, json: ct.includes("json") ? JSON.parse(buf.toString() || "{}") : null, text: ct.startsWith("text") ? buf.toString() : "" }
 }
-const tts = (text, language, who, token) =>
-  post("/api/tts", { text, personaName: who, seedKey: who, gender: "female", language, visitorId: rid(), mode: "voice", ...(token ? { proToken: token } : {}) })
+const tts = (text, language, who, token, vid) =>
+  post("/api/tts", { text, personaName: who, seedKey: who, gender: "female", language, visitorId: vid || rid(), mode: "voice", ...(token ? { proToken: token } : {}) })
 
 console.log(`\n═══ ${BASE} ═══\n`)
 
@@ -104,7 +110,7 @@ for (const lang of ["English", "Arabic"]) {
 }
 
 console.log("\n── THE VOICE, with a pass ──")
-if (!PASS) skip("the paid voice is not exercised", "no secret here — pass --secret, or run this against a local build")
+if (!PASS) skip("the paid voice is not exercised", "no pass here — give --token <restore code>, or --secret")
 else if (!TTS_LIVE) skip("the paid voice is not exercised", "no voice engine on this server")
 else {
   const { r } = await tts("hey, it's good to hear you.", "English", "bea", PASS)
@@ -133,6 +139,19 @@ console.log("\n── THE ACCOUNTS ──")
 if (PASS) {
   const { json } = await post("/api/airraw-pro", { action: "verify", token: PASS })
   say(json?.valid === true && json?.until > Date.now(), "a real restore code is accepted", `until ${json?.until ? new Date(json.until).toISOString().slice(0, 10) : "-"}`)
+  // A pass holder must never be metered against the free minute.
+  if (TTS_LIVE) {
+    const v = rid()
+    let lastTier = "-", calls = 0
+    for (let i = 0; i < 5; i++) {
+      const r = await tts("a sentence of roughly a hundred and twenty characters, spoken out loud, well past what a free visitor is given.", "English", "bea", PASS, v)
+      lastTier = r.r.headers.get("x-tts-tier") || "-"
+      if (r.r.status !== 200) break
+      await r.buf
+      calls++
+    }
+    say(calls === 5 && lastTier === "pass", "and the pass keeps talking past the free minute", `${calls}/5 calls, tier=${lastTier}`)
+  }
 }
 {
   const a = await post("/api/airraw-pro", { action: "restore_by_email", email: "not-an-email" })

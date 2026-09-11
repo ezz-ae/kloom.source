@@ -18,6 +18,7 @@ import { registerComputeTools }  from "@/mcp-server/src/tools/compute"
 import { registerCreatorTools }  from "@/mcp-server/src/tools/creator"
 import { registerAdvancedTools } from "@/mcp-server/src/tools/advanced"
 import { registerPrompts }       from "@/mcp-server/src/prompts/index"
+import { registerCastTools, CAST_TOOLS } from "@/lib/airraw/cast-tools"
 import { rateLimit, clientIp, globalGate } from "@/lib/rate-limit"
 import { adultEnabled } from "@/lib/variant"
 
@@ -27,7 +28,7 @@ export const maxDuration = 30
 // Tools that only belong on the adult (.fun) build. Filtered from tools/list and
 // refused on tools/call on the safe (.io/.me) deployments, so the SFW product
 // never surfaces or runs sexual-content tooling.
-const ADULT_TOOLS = new Set(["kloom_onlyfans_dm"])
+const ADULT_TOOLS = new Set(["kloom_onlyfans_dm", ...CAST_TOOLS])
 
 function buildServer(): McpServer {
   const server = new McpServer({ name: "kloom-mcp-server", version: "1.0.0" })
@@ -36,6 +37,10 @@ function buildServer(): McpServer {
   registerComputeTools(server)
   registerCreatorTools(server)
   registerAdvancedTools(server)
+  // The AIRRAW character registry — authoring and previewing the cast over the
+  // same functions the floor speaks from. Adult build only: on Kloom these are
+  // never registered, and ADULT_TOOLS refuses them by name as well.
+  if (adultEnabled()) registerCastTools(server)
   registerPrompts(server)
   return server
 }

@@ -61,6 +61,7 @@ const WHAT = {
   "mic-release-test":   "the mic is handed back while she speaks, or the phone plays her as a robot",
   "stt-fallback-test":  "the ear never answers 503 while a recogniser is alive",
   "inapp-test":         "the in-app browser is told the way out",
+  "cast-tools-test":    "the cast over MCP is the cast the floor speaks from",
   "browser-language-test": "the visitor browser picks the language, nobody else does",
   "cast50-test":      "fifty written people, no two alike, and one person in every language",
   "chips-test":       "every pack clears its own cost, and nothing is taken back to make you move",

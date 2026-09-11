@@ -132,7 +132,11 @@ check(/if \(quotedUsd != null\) row\.amount/.test(src),
 const pro = readFileSync("app/api/airraw-pro/route.ts", "utf8")
 check(/intentId\.startsWith\("air_"\)/.test(pro),
   "the claim routes on the id we minted, not on a client-supplied method")
-const cryptoClaim = pro.slice(pro.indexOf('intentId.startsWith("air_")'), pro.indexOf('const intent = await getPaymentIntent'))
+// Anchored inside the CLAIM, not at the first match in the file: restore_by_email
+// now also asks the rails, so it contains both of the strings this used to slice
+// between — and the slice silently became the wrong region of the file.
+const claimSection = pro.slice(pro.indexOf('if (action === "claim")'))
+const cryptoClaim = claimSection.slice(claimSection.indexOf('intentId.startsWith("air_")'), claimSection.indexOf('const intent = await getPaymentIntent'))
 check(/amount_mismatch/.test(cryptoClaim), "the crypto claim checks the amount, like the card claim")
 check(/verifyIntentSig/.test(cryptoClaim), "and anchors the window to purchase time, so re-claiming can't extend it")
 // Matches whatever does the minting rather than one function's name — the pass is

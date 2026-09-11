@@ -35,6 +35,13 @@ console.log("— and it opens the pass again on a phone that has nothing —")
   check(/\.eq\("wallet", email\)/.test(block) && /\.in\("kind", \["airraw_pass", "airraw_pass_crypto"\]\)/.test(block), "it looks for a purchase on that address, either rail")
   check(/\["completed", "finished", "confirmed", "paid"\]/.test(block), "and only a PAID one — an abandoned checkout is not a pass")
   check(/reason: "no-pass"/.test(block) && !/reason: "unknown-email"/.test(block), "an address with no pass gets the same answer whether or not it exists — never an oracle for who bought")
+  // The row is written "pending" and only a webhook moves it. A webhook that is
+  // not registered, or one lost delivery, would otherwise mean a buyer who
+  // really paid is refused their own pass forever.
+  check(/const st = await cryptoGateway\.getStatus\(r\.id\)/.test(block) && /const intent = await getPaymentIntent\(r\.id\)/.test(block),
+    "when nothing is marked paid it ASKS THE RAIL about the recent attempts, on either rail")
+  check(/\.update\(\{ status: "completed" \}\)\.eq\("id", paidRow\.id\)/.test(block), "and writes the answer back, so the next visit is one query")
+  check(/rows\.slice\(0, 5\)/.test(block), "bounded — five attempts, not the whole history")
   check(/Date\.parse\(paidRow\.created_at\)/.test(block) && /\+ DAYS \* 86_400_000/.test(block), "the window is anchored to the PURCHASE, so restoring cannot roll it forward")
   check(/if \(until <= Date\.now\(\)\) return Response\.json\(\{ paid: false, reason: "expired" \}/.test(block), "an expired purchase restores nothing")
   check(block.indexOf("claimDevice(email") > 0 && block.indexOf("claimDevice(email") < block.indexOf("mintPassWithChips"), "the device is claimed BEFORE a token is minted")
@@ -64,6 +71,14 @@ console.log("— the screen offers it —")
 check(/action: "restore_by_email", email: e, visitorId: visitorId\(\)/.test(sheet), "the restore box asks by email, carrying this device")
 for (const k of ["your email — this is how you get back in", "the email you paid with", "open it with my email", "this pass has already been opened on {n} devices"]) {
   check(ar.includes(`"${k}":`), `Arabic: ${k}`)
+}
+
+console.log("— and a claim records the sale, instead of waiting on a webhook —")
+{
+  const i = route.indexOf('if (intent?.status !== "completed") return Response.json({ paid: false')
+  const claim = i > 0 ? route.slice(i, i + 2000) : ""
+  check(/\.update\(\{ status: "completed" \}\)\.eq\("id", intentId\)/.test(claim),
+    "the card claim marks the row paid — Ziina just said so, which is what the webhook would have said")
 }
 
 console.log("— and the code itself stops vanishing —")

@@ -136,7 +136,37 @@ export async function POST(req: NextRequest) {
         .order("created_at", { ascending: false })
         .limit(10)
       const rows = (data || []) as Array<{ id: string; created_at: string; status: string; kind: string }>
-      const paidRow = rows.find((r) => ["completed", "finished", "confirmed", "paid"].includes(String(r.status).toLowerCase()))
+      const PAID = ["completed", "finished", "confirmed", "paid"]
+      let paidRow = rows.find((r) => PAID.includes(String(r.status).toLowerCase()))
+
+      // OUR "completed" IS ONLY AS GOOD AS A WEBHOOK THAT MAY NEVER HAVE FIRED.
+      //
+      // The row is written "pending" at checkout and nothing moves it except
+      // /api/ziina-webhook. If that is not registered with the gateway, or a
+      // delivery is lost, a buyer who really paid is stored as pending forever —
+      // and this door, which only looked at our own column, would refuse them
+      // their own pass with "no pass found". A first real payment sat in that
+      // exact state.
+      //
+      // So when nothing is marked paid, ASK THE RAIL about the recent attempts
+      // on this address. The rail is the authority on whether money moved; our
+      // column is a cache of its answer, and this is where the cache is filled.
+      if (!paidRow) {
+        for (const r of rows.slice(0, 5)) {
+          try {
+            if (r.id.startsWith("air_")) {
+              const st = await cryptoGateway.getStatus(r.id)
+              if (st.paid) { paidRow = r; break }
+            } else {
+              const intent = await getPaymentIntent(r.id)
+              if (intent?.status === "completed") { paidRow = r; break }
+            }
+          } catch { /* one unanswerable attempt must not hide a paid one behind it */ }
+        }
+        if (paidRow) {
+          try { await getAdminClient().from("ziina_payments").update({ status: "completed" }).eq("id", paidRow.id) } catch { /* the pass matters, the bookkeeping can catch up */ }
+        }
+      }
       if (!paidRow) {
         // Never say whether the address is known — that would make this an
         // oracle for which addresses bought.
@@ -351,6 +381,14 @@ export async function POST(req: NextRequest) {
       const anchor = verifyIntentSig(intentId, Number(claimTs), claimSig) ?? Date.now()
       const until = anchor + DAYS * 86_400_000
       if (until <= Date.now()) return Response.json({ paid: false, status: "expired" })
+      // Ziina has just told us this intent is completed, which is the same thing
+      // the webhook would have said — so record it here rather than leaving the
+      // row "pending" until a webhook that may never arrive. restore_by_email
+      // reads this column, and a buyer who claimed on their phone and then tried
+      // their email on another one used to be told they had never bought.
+      if (hasAdmin()) {
+        try { await getAdminClient().from("ziina_payments").update({ status: "completed" }).eq("id", intentId) } catch { /* never block the pass on bookkeeping */ }
+      }
       // Server-side Purchase → Meta CAPI. This is the AIRRAW ad funnel's ACTUAL
       // conversion (the $9 Pro pass) — without it, ad traffic that buys is invisible
       // to Meta and can't be optimized for. event_id = intentId so a repeated claim

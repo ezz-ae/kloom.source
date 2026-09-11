@@ -128,6 +128,10 @@ export function GroupRoom({ seed, f, tempLabel, onClose, count = 3, opening, lan
           setWallNote(t(why === "expired"
             ? "your pass has run out — restore or renew it to keep talking"
             : "we couldn't verify your pass — restore it and you're back"))
+        } else if (res.headers.get("X-Free") === "daily-cap") {
+          // Their NETWORK's free voice is spent for today (a carrier address shared by
+          // many phones), not theirs — say so; the same pass opens it.
+          setWallNote(t("the free voice is spent on your network for today — the pass opens it now")); setShowPro(true)
         } else { setWallNote(t("your free minute is up — unlock the pass to keep talking")); setShowPro(true) }
         return
       }

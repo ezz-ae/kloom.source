@@ -79,7 +79,7 @@ console.log("\n— a paid caller is never sold the pass they already hold —")
   // The rule with teeth: inside that branch, the buy sheet must not open and the
   // free minute must not be named.
   const refused = block.slice(block.indexOf('why === "rejected"'))
-  const nextBranch = refused.indexOf("else {")
+  const nextBranch = refused.search(/\}\s*else\b/)
   const arm = nextBranch > 0 ? refused.slice(0, nextBranch) : refused
   check(!/setShowPro\(true\)/.test(arm),
     "it does NOT open the buy sheet — asking twice for one purchase is the worst answer here")
@@ -105,7 +105,7 @@ console.log("\n— a paid caller is never sold the pass they already hold —")
   const block = g.slice(at, at + 1200)
   check(/why === "rejected" \|\| why === "expired"/.test(block), "a refused pass is its own branch here as well")
   const refused = block.slice(block.indexOf('why === "rejected"'))
-  const nextBranch = refused.indexOf("else {")
+  const nextBranch = refused.search(/\}\s*else\b/)
   const arm = nextBranch > 0 ? refused.slice(0, nextBranch) : refused
   check(!/setShowPro\(true\)/.test(arm), "and it does not sell the pass to someone who holds one")
   const freeArm = nextBranch > 0 ? refused.slice(nextBranch) : ""

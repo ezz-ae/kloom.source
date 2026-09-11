@@ -35,7 +35,7 @@ console.log("— a refused pass does not tear the call down —")
 
   // And the refused-pass arm never sells them the pass they hold.
   const refused = block.slice(block.indexOf('why === "rejected"'))
-  const arm = refused.slice(0, Math.max(0, refused.indexOf("else {")))
+  const arm = refused.slice(0, Math.max(0, refused.search(/\}\s*else\b/)))
   check(arm.length > 40, "the refused-pass arm exists")
   check(!/setShowPro\(true\)/.test(arm), "and does not open the buy sheet")
   check(/markProRefused\(\)/.test(arm), "it records the server's refusal instead of arguing with it")

@@ -37,7 +37,7 @@
 //
 // It refuses to point at production by default, because warming production is
 // the one thing this exists to avoid.
-import { ROSTER, groupCast, faceSeedFor } from "@/lib/airroom/roster"
+import { ROSTER, groupCast, faceSeedFor, roomSeed, CAST_CYCLE_HOURS } from "@/lib/airroom/roster"
 import { writtenCast, CAST_COUNT, CAST_LANGS } from "@/lib/airraw/cast50"
 import { isArabSeed, nativeLanguageFor } from "@/lib/airraw/lang-prefs"
 
@@ -78,11 +78,11 @@ if (/airraw\.com|\/\/airroom\.vercel\.app/.test(BASE) && !has("--yes-production"
 /**
  * WHICH FACES, AND WHY IT IS NOT "ALL OF THEM".
  *
- * The room draws a new cast every hour — TheRoom seeds it
- * `Math.floor(Date.now() / 3_600_000) * 3` — so the set of faces the product
- * will ever ask for is unbounded, and "pre-warm the floor" is not a thing that
- * can finish. What CAN be done is warm AHEAD OF THE CLOCK, because that seed is
- * a pure function of the hour: tomorrow's cast is computable today.
+ * The room draws a new cast every hour — TheRoom seeds it with roomSeed(),
+ * which loops over CAST_CYCLE_HOURS slots (roster.ts) — so the set of faces the
+ * product will ever ask for is FINITE: one cycle of casts, warmed once, and the
+ * floor never draws live again. It used to be the absolute hour, unbounded, and
+ * this file could only stay a day ahead of the clock.
  *
  * So three populations, in the order they matter:
  *   1. the written cast, who are on every floor at every hour
@@ -114,9 +114,12 @@ function cast() {
 
   // The hours ahead. Warming the CURRENT hour too, because a face missing right
   // now is the one someone is looking at.
-  const h0 = Math.floor(Date.now() / HOUR)
-  for (let h = 0; h < HOURS; h++) {
-    const seed = (h0 + h) * 3
+  // The room's hour loops over CAST_CYCLE_HOURS slots (roster.ts), so past one
+  // full cycle every further hour is a seed already in `seen` — and a run with
+  // the default --hours covers the floor for good, not for a day.
+  const now = Date.now()
+  for (let h = 0; h < Math.min(HOURS, CAST_CYCLE_HOURS); h++) {
+    const seed = roomSeed(now + h * HOUR)
     // The same wide draw the room makes. It takes the leading CAST of whatever
     // survives the visitor's language filter; warming the leading 2×CAST covers
     // the default visitor and most filtered ones without warming the whole tail.

@@ -41,7 +41,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { RoomChips } from "@/components/airroom/ChipBar"
-import { groupCast, faceSeedFor, type Cluster } from "@/lib/airroom/roster"
+import { groupCast, faceSeedFor, type Cluster, roomSeed } from "@/lib/airroom/roster"
 import { writtenCast, langFor, CAST_COUNT, writtenFor, identityFor, soulPrompt } from "@/lib/airraw/cast50"
 
 /** The written soul behind a cluster, as prompt text — or "" if generated. */
@@ -225,7 +225,7 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
   // permutation, but this is the guarantee the visitor was promised, so it is
   // enforced rather than assumed — dedupe by face key AND by name.
   const t = useT()
-  const seed = useMemo(() => Math.floor(Date.now() / 3_600_000) * 3, [])
+  const seed = useMemo(() => roomSeed(), [])   // the hour, on the warmed 24-hour loop (roster.ts)
   // WHO IS IN THE ROOM: the written cast first, the generated floor behind them.
   //
   // The generator can make thousands of plausible people and that is what makes

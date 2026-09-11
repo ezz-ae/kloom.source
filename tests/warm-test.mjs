@@ -16,7 +16,7 @@
 // So this asserts the warmer's population against the REAL surfaces, by running
 // both and comparing seeds.
 import { readFileSync } from "node:fs"
-import { ROSTER, groupCast, faceSeedFor } from "@/lib/airroom/roster"
+import { ROSTER, groupCast, faceSeedFor, roomSeed, CAST_EPOCH_HOUR, CAST_CYCLE_HOURS } from "@/lib/airroom/roster"
 import { writtenCast, CAST_COUNT, CAST_LANGS } from "@/lib/airraw/cast50"
 
 let fail = 0
@@ -35,10 +35,22 @@ check(!/publicCharacter/.test(body),
 // ── the hourly seed matches TheRoom's, or it warms the wrong hours ──────────
 console.log("\n— and it warms the hours the room will actually draw —")
 const room = readFileSync("components/airroom/TheRoom.tsx", "utf8")
-const roomSeed = /Math\.floor\(Date\.now\(\) \/ 3_600_000\) \* 3/.test(room)
-check(roomSeed, "TheRoom still seeds its cast on the hour (× 3)")
-check(/Math\.floor\(Date\.now\(\) \/ HOUR\)/.test(body) && /\(h0 \+ h\) \* 3/.test(body),
-  "and the warmer computes the same seed, so hour+1 is the cast hour+1 will show")
+check(/useMemo\(\(\) => roomSeed\(\), \[\]\)/.test(room), "TheRoom seeds its cast with roomSeed() — the hour, on the loop")
+check(!/Math\.floor\(Date\.now\(\) \/ 3_600_000\)/.test(room), "and no longer with the absolute hour, which was unbounded")
+check(/roomSeed\(now \+ h \* HOUR\)/.test(body) && /Math\.min\(HOURS, CAST_CYCLE_HOURS\)/.test(body),
+  "and the warmer walks the same loop, one full cycle at most — after which it is done for good")
+{
+  // The loop itself: a day later is the same room, an hour later is not, and
+  // the epoch's own slot is the epoch — so the day that was warmed IS the loop.
+  const H = 3_600_000
+  const t = CAST_EPOCH_HOUR * H + 5 * H + 1234
+  check(roomSeed(t) === roomSeed(t + CAST_CYCLE_HOURS * H), "hour h and hour h+24 draw the same cast")
+  check(roomSeed(t) !== roomSeed(t + H), "hour h and hour h+1 do not")
+  check(roomSeed(CAST_EPOCH_HOUR * H) === CAST_EPOCH_HOUR * 3, "the epoch hour is slot 0, so the warm that ran that day is the whole loop")
+  check(roomSeed(CAST_EPOCH_HOUR * H - H) === (CAST_EPOCH_HOUR + CAST_CYCLE_HOURS - 1) * 3, "and an hour before the epoch wraps to the last slot, never negative")
+  const slots = new Set(Array.from({ length: 48 }, (_, i) => roomSeed(t + i * H)))
+  check(slots.size === CAST_CYCLE_HOURS, `48 hours touch exactly ${CAST_CYCLE_HOURS} casts`)
+}
 const castN = /const CAST = (\d+)/.exec(room)
 const warmN = /const CAST_PER_ROOM = (\d+)/.exec(body)
 check(!!castN && !!warmN, "both name a cast size")
@@ -48,8 +60,7 @@ check(castN && warmN && Number(warmN[1]) === Number(castN[1]),
 // ── the seeds it would warm are the seeds the room would request ────────────
 console.log("\n— the seeds line up, not just the function names —")
 {
-  const h0 = Math.floor(Date.now() / 3_600_000)
-  const seed = h0 * 3
+  const seed = roomSeed()
   const roomAsks = new Set(groupCast(seed, 0.5, 14).map((c) => faceSeedFor(c)).filter(Boolean))
   const warmerDraws = new Set(groupCast(seed, 0.5, 14 * 2).map((c) => faceSeedFor(c)).filter(Boolean))
   const missing = [...roomAsks].filter((s) => !warmerDraws.has(s))

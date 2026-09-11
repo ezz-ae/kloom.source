@@ -508,6 +508,33 @@ export function makeCharacter(seed: number, f: number): Cluster {
 
 
 /**
+ * THE ROOM'S HOUR, ON A 24-HOUR LOOP.
+ *
+ * The room used to seed its cast on the absolute hour — `floor(now / 1h) * 3` —
+ * so the set of faces the product would ever ask for was unbounded. A warm run
+ * could only stay ahead of the clock: 24 hours of casts today, cold again
+ * tomorrow, and every cold face is a portrait generated with someone watching,
+ * which is the failure that emptied the floor once already.
+ *
+ * So the hour now loops. Hour h maps onto one of CAST_CYCLE_HOURS slots,
+ * counted from CAST_EPOCH_HOUR — the hour the floor was first warmed in full —
+ * and the same slot is the same cast. Every face the room can ask for is a
+ * finite set, warmed once, and the room at 9pm is the room at 9pm tomorrow,
+ * which is how a room with regulars reads anyway.
+ *
+ * The epoch is what makes the already-warmed day the loop rather than a fresh
+ * one: the 24 hours from that epoch are exactly the 24 slots. Move it and the
+ * loop is 24 cold hours until the warmer is run again.
+ */
+export const CAST_CYCLE_HOURS = 24
+export const CAST_EPOCH_HOUR = 496967   // 2026-09-10T23:00Z, the first full warm
+export function roomSeed(now: number = Date.now()): number {
+  const h = Math.floor(now / 3_600_000)
+  const slot = (((h - CAST_EPOCH_HOUR) % CAST_CYCLE_HOURS) + CAST_CYCLE_HOURS) % CAST_CYCLE_HOURS
+  return (CAST_EPOCH_HOUR + slot) * 3
+}
+
+/**
  * The cast of a group room, as ONE formula.
  *
  * Exported because two screens need the same crowd: the talks board shows small

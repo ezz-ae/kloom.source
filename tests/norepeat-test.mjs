@@ -53,7 +53,12 @@ check(/seenFace\.has\(fk\) \|\| seenName\.has\(c\.host\)/.test(src), "the room d
 }
 
 // ── consecutive hours share nobody ─────────────────────────────────────────
-check(/Math\.floor\(Date\.now\(\) \/ 3_600_000\) \* 3/.test(src), "the room seed is spaced by 3 (21 member-seeds apart, past the 14 drawn)")
+// The hour now loops over 24 slots (roster.ts roomSeed) — the spacing between
+// consecutive slots is still 3, and the wrap from the last slot to the first is
+// wider still, so nothing about "nobody repeats" changed.
+const rosterSrc = readFileSync("lib/airroom/roster.ts", "utf8")
+check(/return \(CAST_EPOCH_HOUR \+ slot\) \* 3/.test(rosterSrc), "the room seed is spaced by 3 (21 member-seeds apart, past the 14 drawn)")
+check(/useMemo\(\(\) => roomSeed\(\), \[\]\)/.test(src), "and TheRoom takes it from roomSeed(), the looping hour")
 let overlapHours = 0
 for (let h = 0; h < 5000; h++) {
   const a = new Set(memberSeeds(h * 3)), b = memberSeeds((h + 1) * 3)

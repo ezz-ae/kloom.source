@@ -71,7 +71,12 @@ check(/req\.then\(\(\) => undefined, \(\) => undefined\)/.test(pin), "a failed f
 check(/isoForLanguage\(language\)/.test(pin), "pins are per language, so Arabic and English may differ deliberately")
 
 const pro = read("app/api/airraw-pro/route.ts")
-check(/wallet: "anon", credits: 0, kind: "airraw_pass"/.test(pro), "the pending pass row satisfies the table's NOT NULL wallet (the webhook can find it)")
+// The wallet column is NOT NULL and a null there once made the insert fail
+// silently, so the webhook answered "unknown_intent" for every pass. It now
+// carries the buyer's email when they gave one — which is what restore_by_email
+// looks them up by — and falls back to the old constant when they did not.
+check(/wallet: buyerEmail, credits: 0, kind: "airraw_pass"/.test(pro), "the pending pass row always writes a wallet (the webhook can find it)")
+check(/const buyerEmail = [^\n]*: "anon"/.test(pro), "and it is never null — an address, or \"anon\"")
 
 const photo = read("app/api/character-photo/route.ts")
 check(/b === RATE_LIMITED/.test(photo) && /limited = true; break/.test(photo), "a Together 429 backs off once, then stops the walk instead of asking twenty more models")

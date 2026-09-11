@@ -65,6 +65,41 @@ async function spendChars(key: string, chars: number, cap: number, dayCap: numbe
 }
 
 /**
+ * DEVICES ON A PASS, COUNTED IN THE METER WE ALREADY HAVE.
+ *
+ * A pass bought by email can be opened from another phone by typing that email
+ * — no password, which is what makes it usable by someone who has lost their
+ * code. The bound on that is the number of devices, and counting devices needs
+ * exactly what pass_usage already is: a key with a counter and a cap, applied
+ * atomically. So no new table, and nothing for anyone to run.
+ *
+ * Two keys. The device's own key answers "have I seen this phone before" — the
+ * first spend on it comes back as 1. Only a phone that is NEW spends from the
+ * email's device budget, so coming back to a phone you already used is free and
+ * does not burn a change.
+ *
+ * It fails OPEN, like the rest of the meter: if the table is missing or the
+ * database is down, a buyer is let in rather than locked out of what they paid
+ * for. A cap that occasionally lets an extra phone in is a smaller failure than
+ * one that refuses the owner.
+ */
+export const PASS_DEVICES = Math.max(1, Number(process.env.AIRRAW_PASS_DEVICES || 3))
+
+export async function claimDevice(email: string, deviceId: string): Promise<{ ok: boolean; devices?: number; limit: number }> {
+  const e = (email || "").trim().toLowerCase()
+  const d = (deviceId || "").trim()
+  if (!e || !d) return { ok: false, limit: PASS_DEVICES }
+  const seen = await spendChars(`dev:${bucket(e)}:${bucket(d)}`, 1, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
+  // Unmetered means the meter is unavailable — let them in.
+  if (seen.unmetered) return { ok: true, limit: PASS_DEVICES }
+  if ((seen.used ?? 1) > 1) return { ok: true, limit: PASS_DEVICES }   // a phone already on this pass
+  const budget = await spendChars(`devs:${bucket(e)}`, 1, PASS_DEVICES, Number.MAX_SAFE_INTEGER)
+  if (budget.unmetered) return { ok: true, limit: PASS_DEVICES }
+  if (!budget.ok) return { ok: false, devices: budget.used, limit: PASS_DEVICES }
+  return { ok: true, devices: budget.used, limit: PASS_DEVICES }
+}
+
+/**
  * Spend `chars` of premium speech from the pass behind `token`. The token has
  * already been verified by the caller; `minutes` is its allowance.
  */

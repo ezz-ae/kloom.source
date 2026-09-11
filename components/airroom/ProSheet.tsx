@@ -8,6 +8,7 @@
 import { useState, useEffect } from "react"
 import { useT } from "@/lib/airraw/i18n"
 import { setPendingIntent, setProToken, isPro, clearPro, fbCookies } from "@/lib/airroom/pro"
+import { visitorId } from "@/lib/airraw/visitor"
 import { track } from "@/lib/track"
 import { LANGUAGES } from "@/lib/languages"
 import { getLangPrefs, saveLangPrefs, langPrefsPersist, type LangPrefs } from "@/lib/airraw/lang-prefs"
@@ -39,6 +40,9 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
   const [restoring, setRestoring] = useState(false)
   const [code, setCode] = useState("")
   const [rErr, setRErr] = useState("")
+  // The address the pass is bought under, and the one it comes back with.
+  const [email, setEmail] = useState("")
+  const [rBusy, setRBusy] = useState(false)
   const [offer, setOffer] = useState(DEFAULT_OFFER)
   // Languages are choosable by everyone — free included. What the pass changes is
   // that the choice sticks between visits and steers who you meet.
@@ -96,12 +100,39 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
       .finally(() => { try { track("paywall_view", { value: live.price, currency: "USD", kind: "pass" }) } catch { /* */ } })
   }, [])
 
+  const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+  /**
+   * Come back with the email, on a phone that has nothing.
+   *
+   * The restore CODE only helps someone who still has it. This is for the
+   * person who does not: the address they paid with, no password, bounded by
+   * the pass's device budget on the server.
+   */
+  const restoreByEmail = async () => {
+    const e = email.trim().toLowerCase()
+    if (!EMAIL_OK.test(e)) { setRErr(t("that doesn't look like an email")); return }
+    setRBusy(true); setRErr("")
+    try {
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "restore_by_email", email: e, visitorId: visitorId() }) })
+      const d = await r.json()
+      if (d?.paid && d?.token) { setProToken(d.token); onClose(); window.location.reload(); return }
+      setRErr(
+        d?.reason === "device-limit" ? t("this pass has already been opened on {n} devices", { n: d?.limit ?? 3 })
+        : d?.reason === "expired" ? t("that pass has expired — the floor's open again with a new one")
+        : d?.reason === "unavailable" ? t("can't check right now — try again in a moment")
+        : t("no pass found on that email — check the address you paid with"),
+      )
+    } catch { setRErr(t("network hiccup — try again")) }
+    finally { setRBusy(false) }
+  }
+
   // One function, either rail. The server decides what a method means and refuses
   // one it can't honour; this only has to say which was asked for.
   const go = async (method: "card" | "crypto" = "card") => {
     setBusy(true); setErr("")
     try {
-      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", method, ...fbCookies() }) })
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "checkout", method, email: email.trim().toLowerCase(), ...fbCookies() }) })
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || t("couldn’t start checkout — try again")); setBusy(false); return }
       setPendingIntent(d.intentId, d.t, d.s)
@@ -180,14 +211,25 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
         </div>
         {err && <div style={{ fontSize: 12.5, color: "#ffb59c", textAlign: "center", padding: "2px 22px 6px" }}>{err}</div>}
         <div style={{ padding: "10px 22px 22px", display: "flex", flexDirection: "column", gap: 9 }}>
+          {/* THE ONE THING THAT MAKES A PASS SURVIVE THIS PHONE.
+              Asked for before paying, not after: the restore code is shown once
+              in a toast and a buyer who misses it has a pass that lives on one
+              browser until that browser is cleared. */}
+          <input
+            type="email" inputMode="email" autoComplete="email"
+            value={email} onChange={(e) => { setEmail(e.target.value); setErr("") }}
+            placeholder={t("your email — this is how you get back in")}
+            aria-label={t("your email")}
+            style={{ width: "100%", boxSizing: "border-box", fontSize: 14, color: "#eef4f8", background: "rgba(255,255,255,.06)", border: `.5px solid ${email && !EMAIL_OK.test(email.trim()) ? "rgba(255,181,156,.6)" : "rgba(255,255,255,.2)"}`, borderRadius: 12, padding: "12px 13px", outline: "none", marginBottom: 2 }}
+          />
           {offer.methods.includes("card") && (
-            <button onClick={() => go("card")} disabled={busy} style={{ width: "100%", minHeight: 52, fontSize: 16, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", border: "none", borderRadius: 14, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{busy ? t("opening checkout…") : `unlock — $${offer.price}`}</button>
+            <button onClick={() => go("card")} disabled={busy || !EMAIL_OK.test(email.trim())} style={{ width: "100%", minHeight: 52, fontSize: 16, fontWeight: 600, color: "#1a0d2a", background: "linear-gradient(180deg,#ffe1a0,#e9b6ff)", border: "none", borderRadius: 14, cursor: busy ? "default" : "pointer", opacity: busy || !EMAIL_OK.test(email.trim()) ? 0.55 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{busy ? t("opening checkout…") : `unlock — $${offer.price}`}</button>
           )}
           {/* Crypto is offered only when the server says that rail is live — see
               the `methods` field. Second, not first: most buyers want a card, and
               a crypto-first paywall reads as "we can't take normal money". */}
           {offer.methods.includes("crypto") && (
-            <button onClick={() => go("crypto")} disabled={busy} style={{ width: "100%", minHeight: offer.methods.includes("card") ? 46 : 52, fontSize: offer.methods.includes("card") ? 14 : 16, fontWeight: 600, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(199,179,255,.32)", borderRadius: 14, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("pay with crypto")}</button>
+            <button onClick={() => go("crypto")} disabled={busy || !EMAIL_OK.test(email.trim())} style={{ width: "100%", minHeight: offer.methods.includes("card") ? 46 : 52, fontSize: offer.methods.includes("card") ? 14 : 16, fontWeight: 600, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(199,179,255,.32)", borderRadius: 14, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("pay with crypto")}</button>
           )}
           <button onClick={onClose} style={{ width: "100%", minHeight: 44, fontSize: 13, color: "#9fb2c4", background: "transparent", border: ".5px solid rgba(255,255,255,.16)", borderRadius: 14, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("not now")}</button>
           <div style={{ fontSize: 11, color: "#6b7d8e", textAlign: "center", marginTop: 2 }}>secure checkout · {offer.methods.includes("card") ? (offer.methods.includes("crypto") ? "card / apple pay / crypto" : "card / apple pay") : "crypto"} · one-time, {offer.days} days · adults 18+ only</div>
@@ -197,6 +239,17 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
           ) : (
             <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 7 }}>
               <input value={code} onChange={(e) => { setCode(e.target.value); setRErr("") }} placeholder={t("paste your restore code")} aria-label={t("restore code")} style={{ fontSize: 13, color: "#eef4f8", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "11px 13px", outline: "none" }} />
+              <div style={{ fontSize: 11, color: "#6b7d8e", textAlign: "center" }}>{t("— or —")}</div>
+              <input
+                type="email" inputMode="email" autoComplete="email"
+                value={email} onChange={(e) => { setEmail(e.target.value); setRErr("") }}
+                placeholder={t("the email you paid with")} aria-label={t("your email")}
+                style={{ fontSize: 13, color: "#eef4f8", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "11px 13px", outline: "none" }}
+              />
+              <button onClick={restoreByEmail} disabled={rBusy || !EMAIL_OK.test(email.trim())}
+                style={{ minHeight: 44, fontSize: 14, fontWeight: 600, color: "#1a0d2a", background: "#e9b6ff", border: "none", borderRadius: 12, cursor: EMAIL_OK.test(email.trim()) ? "pointer" : "default", opacity: rBusy || !EMAIL_OK.test(email.trim()) ? 0.6 : 1, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+                {rBusy ? t("checking…") : t("open it with my email")}
+              </button>
               {rErr && <div style={{ fontSize: 11.5, color: "#ffb59c", textAlign: "center" }}>{rErr}</div>}
               <button onClick={restore} disabled={!code.trim()} style={{ minHeight: 44, fontSize: 14, fontWeight: 600, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 12, cursor: code.trim() ? "pointer" : "default", opacity: code.trim() ? 1 : 0.6, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("restore my pass")}</button>
             </div>

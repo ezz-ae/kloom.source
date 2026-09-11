@@ -8,11 +8,14 @@ import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { cryptoGateway } from "@/lib/pay/crypto"
 import { walletFor } from "@/lib/airraw/purse"
 import { grantChips, PASS_CHIPS } from "@/lib/airraw/chips"
+import { claimDevice, PASS_DEVICES } from "@/lib/airraw/pass-meter"
 
 // AIRRAW Pro — anonymous one-time 30-day pass via Ziina hosted checkout.
 //   POST { action: "checkout", method? }   → { url, intentId }  (redirect the user to url)
 //   POST { action: "claim", intentId }     → { paid, token, until }  (after they return)
 //   POST { action: "verify", token }       → { valid, until, minutes } | { valid: false, reason }
+//   POST { action: "restore_by_email", email, visitorId }
+//                                          → { paid, token, until } | { paid: false, reason }
 //   GET                                    → the offer, and which rails are live
 //
 // TWO RAILS, ONE PASS. `method: "crypto"` sells the same thing through
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit(`airrawpro:${clientIp(req)}`, 20, 60_000)
   if (!rl.ok) return Response.json({ error: "slow down a sec" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  let body: { action?: string; method?: string; intentId?: string; t?: number; s?: string; fbp?: string; fbc?: string; token?: string } = {}
+  let body: { action?: string; method?: string; intentId?: string; t?: number; s?: string; fbp?: string; fbc?: string; token?: string; email?: string; visitorId?: string } = {}
   try { body = await req.json() } catch { /* */ }
   const { action, method, intentId, t: claimTs, s: claimSig, fbp, fbc } = body
 
@@ -100,6 +103,60 @@ export async function POST(req: NextRequest) {
     if (claims) return Response.json({ valid: true, until: claims.until, minutes: claims.minutes ?? PASS_MINUTES }, { headers: { "Cache-Control": "no-store" } })
     return Response.json({ valid: false, reason: proTokenRefusal(token) || "rejected" }, { headers: { "Cache-Control": "no-store" } })
   }
+
+  // ── the email IS the way back in ──
+  //
+  // The pass is anonymous and its only credential is a long signed code shown
+  // once, in a toast, at the moment of purchase. Miss it and the pass lives on
+  // exactly one browser until that browser is cleared — "I made a new account
+  // and got no code, so I can't use it anywhere and it will be lost".
+  //
+  // So the email given at checkout opens it again, with no password. That is a
+  // deliberate trade: anyone who knows the address can claim the pass. What
+  // bounds it is the device budget — three phones, counted in the meter — so a
+  // guessed address cannot be spread around, and the owner's own phones are
+  // free to return to. For a nine dollar anonymous pass that is the right
+  // balance; a password on it would lose more buyers than it protects.
+  //
+  // The re-minted token is anchored to the PURCHASE row, so the window is the
+  // one that was paid for and cannot be rolled forward by restoring again.
+  if (action === "restore_by_email") {
+    const email = (body.email || "").trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return Response.json({ paid: false, reason: "bad-email" }, { status: 400, headers: { "Cache-Control": "no-store" } })
+    }
+    if (!hasAdmin()) return Response.json({ paid: false, reason: "unavailable" }, { status: 503, headers: { "Cache-Control": "no-store" } })
+    try {
+      // The newest paid purchase on this address, either rail.
+      const { data } = await getAdminClient()
+        .from("ziina_payments")
+        .select("id,created_at,status,kind")
+        .eq("wallet", email)
+        .in("kind", ["airraw_pass", "airraw_pass_crypto"])
+        .order("created_at", { ascending: false })
+        .limit(10)
+      const rows = (data || []) as Array<{ id: string; created_at: string; status: string; kind: string }>
+      const paidRow = rows.find((r) => ["completed", "finished", "confirmed", "paid"].includes(String(r.status).toLowerCase()))
+      if (!paidRow) {
+        // Never say whether the address is known — that would make this an
+        // oracle for which addresses bought.
+        return Response.json({ paid: false, reason: "no-pass" }, { headers: { "Cache-Control": "no-store" } })
+      }
+      const anchor = Date.parse(paidRow.created_at)
+      const until = (Number.isFinite(anchor) ? anchor : Date.now()) + DAYS * 86_400_000
+      if (until <= Date.now()) return Response.json({ paid: false, reason: "expired" }, { headers: { "Cache-Control": "no-store" } })
+      const dev = await claimDevice(email, String(body.visitorId || "").slice(0, 80))
+      if (!dev.ok) {
+        return Response.json({ paid: false, reason: "device-limit", limit: dev.limit }, { headers: { "Cache-Control": "no-store" } })
+      }
+      return Response.json(
+        { paid: true, token: await mintPassWithChips(until, paidRow.id), until, minutes: PASS_MINUTES, devices: dev.devices, limit: dev.limit },
+        { headers: { "Cache-Control": "no-store" } },
+      )
+    } catch (e) {
+      return Response.json({ paid: false, reason: e instanceof Error ? e.message : "failed" }, { status: 502, headers: { "Cache-Control": "no-store" } })
+    }
+  }
   // Gate on "can we sell AT ALL", not on the card rail specifically. This read
   // `!ziinaConfigured()` when there was only one rail; leaving it that way would
   // have made crypto unreachable on any deploy without Ziina keys — the exact
@@ -107,6 +164,12 @@ export async function POST(req: NextRequest) {
   if (!ziinaConfigured() && !cryptoGateway.ready()) {
     return Response.json({ error: "payments not configured" }, { status: 503 })
   }
+
+  // The address the buyer can come back with. "anon" where they gave none, which
+  // is the column's old constant and is not a valid address, so it can never be
+  // matched by restore_by_email.
+  const rawEmail = (body.email || "").trim().toLowerCase()
+  const buyerEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : "anon"
 
   // ── crypto rail ──
   // Same product, same guards, different plumbing. It gets its own branch rather
@@ -138,7 +201,7 @@ export async function POST(req: NextRequest) {
       // db/reissue-pass.mjs, which is the tool that exists to rescue them.
       try {
         if (hasAdmin()) await getAdminClient().from("ziina_payments").upsert({
-          id: co.id, wallet: "anon", credits: 0, kind: "airraw_pass_crypto",
+          id: co.id, wallet: buyerEmail, credits: 0, kind: "airraw_pass_crypto",
           amount: Math.round(PRICE_USD * 100), currency: "USD", status: "pending",
         })
       } catch { /* never block checkout on the bookkeeping row */ }
@@ -202,7 +265,7 @@ export async function POST(req: NextRequest) {
         // has no account, so the wallet is a constant that can never collide with
         // an email — ziina-verify keys its reconcile on the buyer's email.
         if (hasAdmin()) await getAdminClient().from("ziina_payments").insert({
-          id: intent.id, wallet: "anon", credits: 0, kind: "airraw_pass",
+          id: intent.id, wallet: buyerEmail, credits: 0, kind: "airraw_pass",
           amount: intent.amount ?? null, currency: intent.currency_code ?? null, status: "pending",
         })
       } catch { /* never block checkout on the bookkeeping row */ }

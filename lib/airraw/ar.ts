@@ -49,6 +49,7 @@ export const AR: Record<string, string> = {
   "ask her for a photo": "اطلب منها صورة",
   "talk": "تكلم",
   "type to {name}…": "اكتب لـ {name}…",
+  "tap — she talks, you type": "اضغط — هي بتتكلم وإنت بتكتب",
   "say something to the room…": "قول شي للغرفة…",
   "one sec…": "لحظة…",
   "mention someone": "نادِ أحد",

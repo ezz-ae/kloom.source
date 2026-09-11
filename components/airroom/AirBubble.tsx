@@ -361,7 +361,18 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   }, [])
   useEffect(() => { hfRef.current = handsFree }, [handsFree])
   useEffect(() => { scrollRef.current?.scrollTo({ top: 1e9 }) }, [msgs])
-  useEffect(() => { setSttOk(canListen()) }, [])
+  // A WEBVIEW IS A PHONE WITH NO MICROPHONE, WHATEVER THE API CLAIMS.
+  //
+  // canListen() asks whether the browser HAS getUserMedia. The Instagram and
+  // Facebook in-app browsers have it and will never grant it — and that is where
+  // 101 of 117 ad visitors arrive. So the screen offered them "call", they
+  // tapped it, the mic was refused, and a voice product met them with a dead
+  // button and an apology. They left; almost nobody opened a second page.
+  //
+  // Treated as no-mic, the same screen still delivers the thing worth paying
+  // for: she says hello OUT LOUD on the first tap, and they type back. Voice in
+  // one direction is most of the product. A dead button is none of it.
+  useEffect(() => { setSttOk(canListen() && !inAppBrowser()) }, [])
   useEffect(() => { try { if (!localStorage.getItem("airraw_human_note")) setHumanNote(true) } catch { /* */ } }, [])
 
   // Restore the saved volume / speaker choice, and register the call with the OS
@@ -865,6 +876,21 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /**
+   * The no-mic path: she speaks, you type.
+   *
+   * This tap is the gesture the phone wants, so it unlocks the speaker and
+   * starts her greeting out loud — the same first line a caller hears — and
+   * then opens the keypad. Before this it only opened the keypad, so a visitor
+   * with no microphone met a silent screen and never learned she had a voice.
+   */
+  const onType = () => {
+    unlockAudio(audioRef.current)
+    lastActivityRef.current = Date.now()
+    greetIfNeeded()
+    setChatOpen(true)
+  }
+
   const onTalk = () => {
     unlockAudio(audioRef.current)   // FIRST, and synchronously: this is the gesture.
     setMicHint(""); lastActivityRef.current = Date.now()
@@ -1005,7 +1031,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
   const last = msgs[msgs.length - 1]
   const host = cluster.host.toLowerCase()
-  const status = speaking ? t("{name} is talking…", { name: host }) : busy ? t("{name} is thinking…", { name: host }) : handsFree ? t("listening — just talk") : t("tap call to start")
+  const status = speaking ? t("{name} is talking…", { name: host }) : busy ? t("{name} is thinking…", { name: host }) : handsFree ? t("listening — just talk") : sttOk ? t("tap call to start") : t("tap — she talks, you type")
 
   // Swipe right anywhere → the words (text sheet). A 1:1 call has no swipe left —
   // there's no one else on the line. Pointer events cover touch AND trackpad.
@@ -1362,7 +1388,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
           <button
-            onClick={leaving ? onClose : handsFree ? leaveCall : sttOk ? onTalk : () => setChatOpen(true)}
+            onClick={leaving ? onClose : handsFree ? leaveCall : sttOk ? onTalk : onType}
             aria-label={leaving ? t("close") : handsFree ? t("end the call") : sttOk ? t("call") : t("type")}
             style={{
               width: (handsFree || leaving) ? 72 : 92, height: (handsFree || leaving) ? 72 : 92, borderRadius: "50%", cursor: "pointer",

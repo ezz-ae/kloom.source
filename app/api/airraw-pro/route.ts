@@ -199,18 +199,22 @@ export async function POST(req: NextRequest) {
       // and the claim's price guard quietly skipped. It is also the only list of
       // who bought on this rail: without it a crypto buyer is invisible to
       // db/reissue-pass.mjs, which is the tool that exists to rescue them.
+      let recorded: string = hasAdmin() ? "yes" : "no-db"
       try {
-        if (hasAdmin()) await getAdminClient().from("ziina_payments").upsert({
-          id: co.id, wallet: buyerEmail, credits: 0, kind: "airraw_pass_crypto",
-          amount: Math.round(PRICE_USD * 100), currency: "USD", status: "pending",
-        })
-      } catch { /* never block checkout on the bookkeeping row */ }
+        if (hasAdmin()) {
+          const { error } = await getAdminClient().from("ziina_payments").upsert({
+            id: co.id, wallet: buyerEmail, credits: 0, kind: "airraw_pass_crypto",
+            amount: Math.round(PRICE_USD * 100), currency: "USD", status: "pending",
+          })
+          if (error) { recorded = `failed: ${error.message.slice(0, 80)}`; console.error("[pass] crypto row NOT written:", error.message) }
+        }
+      } catch (e) { recorded = `threw: ${(e instanceof Error ? e.message : String(e)).slice(0, 60)}`; console.error("[pass] crypto row threw:", e) }
       metaEvent({
         eventName: "InitiateCheckout", value: PRICE_USD, currency: "USD", eventId: co.id,
         clientIp: clientIp(req), userAgent: req.headers.get("user-agent") || undefined, fbp, fbc,
       }).catch(() => {})
       return Response.json({
-        url: co.url, intentId: co.id, price: PRICE_USD, days: DAYS, method: "crypto",
+        url: co.url, intentId: co.id, price: PRICE_USD, days: DAYS, method: "crypto", recorded,
         t: anchor, s: signIntent(co.id, anchor),
         // Crypto does not land while the buyer watches. The client uses this to
         // show a "waiting for the chain" state and keep polling the claim, rather
@@ -258,17 +262,30 @@ export async function POST(req: NextRequest) {
       // even if the buyer never returns to claim (closed tab / cleared localStorage). The
       // anonymous pass has no account, so the webhook is the only GUARANTEED capture point —
       // without this row the webhook sees "unknown_intent" and the paid conversion is lost.
+      let recorded: string = hasAdmin() ? "yes" : "no-db"
       try {
         // wallet is NOT NULL on the table; a null here made the insert fail silently
         // (it's in a try/catch by design), so the webhook answered "unknown_intent"
         // for every pass and its guaranteed-capture Purchase never fired. The pass
         // has no account, so the wallet is a constant that can never collide with
         // an email — ziina-verify keys its reconcile on the buyer's email.
-        if (hasAdmin()) await getAdminClient().from("ziina_payments").insert({
-          id: intent.id, wallet: buyerEmail, credits: 0, kind: "airraw_pass",
-          amount: intent.amount ?? null, currency: intent.currency_code ?? null, status: "pending",
-        })
-      } catch { /* never block checkout on the bookkeeping row */ }
+        if (hasAdmin()) {
+          const { error } = await getAdminClient().from("ziina_payments").insert({
+            id: intent.id, wallet: buyerEmail, credits: 0, kind: "airraw_pass",
+            amount: intent.amount ?? null, currency: intent.currency_code ?? null, status: "pending",
+          })
+          // THE ROW IS THE WHOLE RECOVERY STORY, AND IT WAS WRITTEN BLIND.
+          //
+          // This insert carries the buyer's email, and that email is the only
+          // way they get their pass back on another phone. It has always been
+          // wrapped in a catch that says nothing — which is correct (a
+          // bookkeeping failure must not cost someone a checkout) and was also
+          // how a null wallet once broke every webhook for weeks without a
+          // sound. So the checkout now REPORTS whether it landed, on the
+          // response and in the log.
+          if (error) { recorded = `failed: ${error.message.slice(0, 80)}`; console.error("[pass] purchase row NOT written:", error.message) }
+        }
+      } catch (e) { recorded = `threw: ${(e instanceof Error ? e.message : String(e)).slice(0, 60)}`; console.error("[pass] purchase row threw:", e) }
       // Mirror InitiateCheckout server-side (event_id=intent.id → de-duped against the
       // browser fbq IC). The browser IC is the one most lost to iOS/ITP/ad-blockers, so a
       // server copy keeps the dense mid-funnel signal a low-AOV pixel optimizes on.
@@ -280,7 +297,7 @@ export async function POST(req: NextRequest) {
       // true here means ZIINA_TEST=1 and every "sale" is a test payment (no money moves).
       // t/s = signed purchase anchor the client stores and returns on claim.
       return Response.json({
-        url, intentId: intent.id, price: PRICE_USD, days: DAYS,
+        url, intentId: intent.id, price: PRICE_USD, days: DAYS, recorded,
         t: anchor, s: signIntent(intent.id, anchor),
         test: (intent as { test?: boolean }).test === true,
       })

@@ -17,6 +17,7 @@ import { avatarBg, avatarGlow } from "@/lib/airroom/avatar"
 import { Face } from "@/components/airroom/Face"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { CaptureWall } from "@/components/airroom/CaptureWall"
+import { OpenInBrowser } from "@/components/airroom/OpenInBrowser"
 import { usePresence } from "@/lib/airroom/presence"
 import { startAmbience, setAmbienceDepth, setAmbienceMuted, stopAmbience } from "@/lib/airroom/ambience"
 import { track } from "@/lib/airraw/track"
@@ -91,6 +92,8 @@ export function Lobby() {
       <div className="world-glow-top" aria-hidden />
       <div className="world-glow-bot" aria-hidden />
 
+      {/* In-app browsers (where the ads land) mostly cannot open a mic: say so, once, with the way out. */}
+      <OpenInBrowser />
       <div className="topbar">
         <div className="wordmark">{t("airraw")}</div>
         <button onClick={() => setCapture(true)} className="pass-cta">{t("get the pass")}</button>

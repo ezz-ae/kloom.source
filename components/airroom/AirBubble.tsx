@@ -17,6 +17,7 @@ import { visitorId } from "@/lib/airraw/visitor"
 import type { Cluster, Heat } from "@/lib/airroom/roster"
 import { SpeechSegmenter, phoneMicAudio } from "@/lib/speech-segmenter"
 import { canListen } from "@/lib/voice-once"
+import { inAppBrowser } from "@/lib/airraw/in-app"
 import { Face } from "@/components/airroom/Face"
 import { VoiceWave } from "@/components/airroom/VoiceWave"
 import { isPro, getProToken, markProRefused } from "@/lib/airroom/pro"
@@ -919,11 +920,13 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       const canRecord = typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia
       if (!canRecord) {
         if (SR) { startBrowserFallback(); return }
-        setMicHint("voice isn't supported on this browser — tap the keypad to type"); setHandsFree(false); return
+        // Inside Facebook / Instagram the mic is not the phone's to give: the hint
+        // has to name the way out, or "not supported" reads as "this product is broken".
+        setMicHint(inAppBrowser() ? "voice needs your real browser — tap ⋯ at the top, then “open in browser” — or tap the keypad to type" : "voice isn't supported on this browser — tap the keypad to type"); setHandsFree(false); return
       }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: phoneMicAudio() })
-      } catch { setMicHint("allow mic access to talk — or tap the keypad to type"); setHandsFree(false); return }
+      } catch { setMicHint(inAppBrowser() ? "voice needs your real browser — tap ⋯ at the top, then “open in browser” — or tap the keypad to type" : "allow mic access to talk — or tap the keypad to type"); setHandsFree(false); return }
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
       micStreamRef.current = stream
       seg = new SpeechSegmenter({

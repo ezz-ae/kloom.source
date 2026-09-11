@@ -89,13 +89,27 @@ export async function claimDevice(email: string, deviceId: string): Promise<{ ok
   const e = (email || "").trim().toLowerCase()
   const d = (deviceId || "").trim()
   if (!e || !d) return { ok: false, limit: PASS_DEVICES }
-  const seen = await spendChars(`dev:${bucket(e)}:${bucket(d)}`, 1, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
-  // Unmetered means the meter is unavailable — let them in.
-  if (seen.unmetered) return { ok: true, limit: PASS_DEVICES }
-  if ((seen.used ?? 1) > 1) return { ok: true, limit: PASS_DEVICES }   // a phone already on this pass
+  const devKey = `dev:${bucket(e)}:${bucket(d)}`
+  // ORDER MATTERS, AND GETTING IT WRONG LETS A REFUSED PHONE IN.
+  //
+  // The first version recorded the phone and then asked the budget. A phone
+  // over the limit was refused — but it had already been written down, so on
+  // the very next tap it read as "a phone I know" and walked straight in. The
+  // cap was one retry deep.
+  //
+  // So the phone is only written down AFTER the budget has said yes. Asking
+  // whether we know it has to not write anything, and the RPC only ever
+  // increments — so the question is asked with a cap of zero, which the SQL
+  // always refuses while telling us the count it refused against. A refusal
+  // that reports is a read.
+  const probe = await spendChars(devKey, 1, 0, Number.MAX_SAFE_INTEGER)
+  if (probe.unmetered) return { ok: true, limit: PASS_DEVICES }   // meter down — let them in
+  if ((probe.used ?? 0) > 0) return { ok: true, limit: PASS_DEVICES }   // a phone already on this pass
   const budget = await spendChars(`devs:${bucket(e)}`, 1, PASS_DEVICES, Number.MAX_SAFE_INTEGER)
   if (budget.unmetered) return { ok: true, limit: PASS_DEVICES }
   if (!budget.ok) return { ok: false, devices: budget.used, limit: PASS_DEVICES }
+  // It has a place. Now it is one of the phones.
+  await spendChars(devKey, 1, Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER)
   return { ok: true, devices: budget.used, limit: PASS_DEVICES }
 }
 

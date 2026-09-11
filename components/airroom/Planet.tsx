@@ -272,7 +272,10 @@ export function Planet() {
       if (u.get("pro_fail") === "1") setProMsg("payment didn't go through — you weren't charged.")
       if (justPaid || u.get("pro_fail")) window.history.replaceState({}, "", "/airraw")
       const pending = getPending()
-      if (!pending?.id || isPro()) return
+      // Never skipped because isPro() says so — see components/ProClaim.tsx: the
+      // client cannot verify a token, so a stale one that looks active must not
+      // block the claim of the pass that was actually paid for.
+      if (!pending?.id) return
       const { id, t, s } = pending
       fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "claim", intentId: id, t, s, ...fbCookies() }) })
         .then((r) => r.json())

@@ -4,7 +4,7 @@
 // domains — after a redirect-back (?pro_ok=1) it claims the anonymous pass and
 // stores the signed token. The AIRRAW planet has its own copy of this effect for its
 // in-canvas toast; this one covers kloom.io and every non-planet route. Both are
-// idempotent (claim is no-op once isPro() / the pending intent is cleared).
+// idempotent (the pending intent is cleared once a claim mints, so re-running is free).
 //
 // CARD vs CRYPTO. A card is already settled when the buyer lands back here, so one
 // claim answers. An on-chain payment is not: the buyer returns while the network is
@@ -38,7 +38,14 @@ export function ProClaim() {
         window.history.replaceState({}, "", url.pathname + url.search)
       }
       const pending = getPending()
-      if (!pending?.id || isPro()) {
+      // A pending intent is claimed no matter what the browser already holds.
+      // This used to bail when isPro() said yes — and isPro() reads the expiry
+      // out of the stored token without checking its signature, because the
+      // client cannot. So a browser holding a stale or hand-typed token that
+      // still LOOKED active skipped the claim of a pass that had just been paid
+      // for, and kept the token the server was refusing. The claim is idempotent
+      // and clears the pending intent itself; there is no reason to skip it.
+      if (!pending?.id) {
         // Returned from a successful pay but this browser has no pending intent
         // (Apple Pay / 3DS handed off to another browser, or storage was cleared):
         // don't leave the buyer in silence — point them at recovery.
@@ -51,7 +58,13 @@ export function ProClaim() {
       // Retry only on the RETURN TRIP. On any later page load a single claim is
       // right: it still picks the pass up the moment the chain has confirmed,
       // without every mounted page settling into a two-minute poll.
-      const MAX_TRIES = isCrypto && justPaid ? 24 : 1   // ~2 min at 5s
+      //
+      // A card gets a short run too. The hosted page can send the buyer back a
+      // beat before the intent reads "completed", and one claim in that beat
+      // answered "still processing — reopen in a moment" to someone who had just
+      // paid and was looking at a locked app. Eight tries is forty seconds,
+      // which is more than a settlement takes and less than anyone waits.
+      const MAX_TRIES = !justPaid ? 1 : isCrypto ? 24 : 8   // 5s apart
       let tries = 0
       let timer: ReturnType<typeof setTimeout> | undefined
       let stopped = false

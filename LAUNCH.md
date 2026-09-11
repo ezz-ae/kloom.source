@@ -211,3 +211,11 @@ instead of a 20-model walk, and a dead FAL key no longer retried per face.
 - Real age verification before any adult tier goes public.
 - Consent banner for pixels if targeting EU/UK (GDPR).
 - Moderation on the human+AI group rooms before promoting `/universe` group chat.
+
+## A pass for your own phone (no payment)
+
+    AIRRAW_PRO_SECRET=… node db/owner-pass.mjs --days 7
+
+Prints a restore code signed with the live secret. Paste it into "already
+paid? restore it" on the pass sheet. Restore now checks with the server
+first, so a code signed with any other secret is refused at the box.

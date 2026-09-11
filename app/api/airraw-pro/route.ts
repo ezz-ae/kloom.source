@@ -2,7 +2,7 @@ import { SITE_URL } from "@/lib/brand"
 import type { NextRequest } from "next/server"
 import { createPaymentIntent, getPaymentIntent, usdToMinor, ziinaConfigured } from "@/lib/ziina"
 import { rateLimit, clientIp } from "@/lib/rate-limit"
-import { mintProToken, signIntent, verifyIntentSig } from "@/lib/airraw-pro-token"
+import { mintProToken, signIntent, verifyIntentSig, proTokenClaims, proTokenRefusal } from "@/lib/airraw-pro-token"
 import { metaPurchase, metaEvent } from "@/lib/meta-capi"
 import { getAdminClient, hasAdmin } from "@/lib/supabase-admin"
 import { cryptoGateway } from "@/lib/pay/crypto"
@@ -12,6 +12,7 @@ import { grantChips, PASS_CHIPS } from "@/lib/airraw/chips"
 // AIRRAW Pro — anonymous one-time 30-day pass via Ziina hosted checkout.
 //   POST { action: "checkout", method? }   → { url, intentId }  (redirect the user to url)
 //   POST { action: "claim", intentId }     → { paid, token, until }  (after they return)
+//   POST { action: "verify", token }       → { valid, until, minutes } | { valid: false, reason }
 //   GET                                    → the offer, and which rails are live
 //
 // TWO RAILS, ONE PASS. `method: "crypto"` sells the same thing through
@@ -86,9 +87,23 @@ export async function POST(req: NextRequest) {
   const rl = rateLimit(`airrawpro:${clientIp(req)}`, 20, 60_000)
   if (!rl.ok) return Response.json({ error: "slow down a sec" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
-  let body: { action?: string; method?: string; intentId?: string; t?: number; s?: string; fbp?: string; fbc?: string } = {}
+  let body: { action?: string; method?: string; intentId?: string; t?: number; s?: string; fbp?: string; fbc?: string; token?: string } = {}
   try { body = await req.json() } catch { /* */ }
   const { action, method, intentId, t: claimTs, s: claimSig, fbp, fbc } = body
+
+  // ── is this pass real? ──
+  // The client stores a pass and reads its expiry, but cannot check its
+  // signature. "Restore" therefore accepted anything shaped like a pass, showed
+  // it as active, and let every voice request be refused afterwards. This is
+  // the same check /api/tts makes, answered up front, so a bad code is refused
+  // at the box it was typed into. It mints nothing and reveals nothing beyond
+  // what the token itself carries.
+  if (action === "verify") {
+    const token = typeof body.token === "string" ? body.token.trim() : ""
+    const claims = proTokenClaims(token)
+    if (claims) return Response.json({ valid: true, until: claims.until, minutes: claims.minutes ?? PASS_MINUTES }, { headers: { "Cache-Control": "no-store" } })
+    return Response.json({ valid: false, reason: proTokenRefusal(token) || "rejected" }, { headers: { "Cache-Control": "no-store" } })
+  }
 
   // ── crypto rail ──
   // Same product, same guards, different plumbing. It gets its own branch rather

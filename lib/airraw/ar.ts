@@ -104,6 +104,7 @@ export const AR: Record<string, string> = {
   "couldn’t start checkout — try again": "ما بدأت عملية الدفع — جرّب مرة ثانية",
   "network hiccup — try again": "الشبكة تعثّرت — جرّب مرة ثانية",
   "that code looks invalid or expired — copy the whole thing": "الكود غير صالح أو منتهي — انسخه كامل",
+  "that pass has expired — the floor's open again with a new one": "الاشتراك ده انتهى — الفلور يفتح تاني باشتراك جديد",
   "airraw pro": "airraw pro",
   "airraw": "airraw",
   "you@email.com": "you@email.com",

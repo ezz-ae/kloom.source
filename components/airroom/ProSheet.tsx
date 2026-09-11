@@ -63,9 +63,24 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
 
   // Restore a pass bought on another device/browser. The pass is a portable signed
   // token, so pasting the saved restore code re-activates it with no account.
-  const restore = () => {
+  //
+  // The server checks the signature first. The client cannot: it used to store
+  // the code, read the expiry out of it, and call that a restore — which
+  // "restored" any well-formed garbage, showed it as active, and then had every
+  // voice request refused. A code is only kept once the server has said it is
+  // the one it signed.
+  const restore = async () => {
     const c = code.trim()
     if (!c) return
+    setRErr("")
+    try {
+      const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "verify", token: c }) })
+      const d = await r.json()
+      if (!d?.valid) {
+        setRErr(d?.reason === "expired" ? t("that pass has expired — the floor's open again with a new one") : t("that code looks invalid or expired — copy the whole thing"))
+        return
+      }
+    } catch { setRErr(t("network hiccup — try again")); return }
     setProToken(c)
     if (isPro()) { onClose(); window.location.reload() }
     else { clearPro(); setRErr(t("that code looks invalid or expired — copy the whole thing")) }

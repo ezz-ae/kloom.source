@@ -49,6 +49,7 @@ const WHAT = {
   "tier-test":        "one free minute, same voice as the pass, metered on the server",
   "upsell-test":      "a free user finds out the wall exists, once, where it matters",
   "refused-pass-test": "a refused pass never ends the call, and never still reads as active",
+  "claim-test":        "a paid pass is claimed, and a typed one is checked",
   "room-test":        "the site lands in a room of distinct people, and it never spends unwatched",
   "norepeat-test":    "profile = character; nobody repeats in a room or across hours",
   "photo-test":       "a photo of her is pass-only, counted first, and the meter fails closed",

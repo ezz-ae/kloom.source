@@ -49,7 +49,9 @@ export async function POST(request: Request) {
   form.append("title", name || "YouTube Clone")
   form.append("train_mode", "fast")
   form.append("enhance_audio_quality", "true")
-  form.append("voices", new Blob([audioBuffer], { type: "audio/mpeg" }), "voice.mp3")
+  // A Node Buffer is not a BlobPart under the DOM types (its ArrayBufferLike may
+  // be a SharedArrayBuffer). A view over the same bytes is, and copies nothing.
+  form.append("voices", new Blob([new Uint8Array(audioBuffer)], { type: "audio/mpeg" }), "voice.mp3")
 
   let fishRes: Response
   try {

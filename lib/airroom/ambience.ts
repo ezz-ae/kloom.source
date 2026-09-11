@@ -22,23 +22,27 @@ export function startAmbience() {
   try {
     const AC = (window as any).AudioContext || (window as any).webkitAudioContext
     if (!AC) return
-    ctx = new AC()
-    master = ctx.createGain(); master.gain.value = 0
-    filter = ctx.createBiquadFilter(); filter.type = "lowpass"; filter.frequency.value = 380
-    filter.connect(master); master.connect(ctx.destination)
+    // Held locally as well as on the module: a module-level `let` widens back to
+    // null the moment a closure below captures it, which is what made every use
+    // here an error (and taught the closures to write `ctx!`).
+    const ac: AudioContext = new AC()
+    ctx = ac
+    master = ac.createGain(); master.gain.value = 0
+    filter = ac.createBiquadFilter(); filter.type = "lowpass"; filter.frequency.value = 380
+    filter.connect(master); master.connect(ac.destination)
     const tones = [110, 138.6, 164.8, 196, 220, 261.6, 293.7]
     tones.forEach((base, i) => {
-      const o = ctx!.createOscillator()
+      const o = ac.createOscillator()
       o.type = i % 2 ? "sine" : "triangle"
       o.frequency.value = base * (0.992 + i * 0.0035)
-      const g = ctx!.createGain(); g.gain.value = 0.05
-      const lfo = ctx!.createOscillator(); lfo.frequency.value = 0.04 + i * 0.017
-      const lfg = ctx!.createGain(); lfg.gain.value = 0.035
+      const g = ac.createGain(); g.gain.value = 0.05
+      const lfo = ac.createOscillator(); lfo.frequency.value = 0.04 + i * 0.017
+      const lfg = ac.createGain(); lfg.gain.value = 0.035
       lfo.connect(lfg); lfg.connect(g.gain); lfo.start()
       o.connect(g); g.connect(filter!); o.start()
     })
     started = true
-    master.gain.linearRampToValueAtTime(0.16, ctx.currentTime + 2.5)
+    master.gain.linearRampToValueAtTime(0.16, ac.currentTime + 2.5)
   } catch { /* */ }
 }
 

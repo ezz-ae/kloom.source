@@ -219,3 +219,20 @@ instead of a 20-model walk, and a dead FAL key no longer retried per face.
 Prints a restore code signed with the live secret. Paste it into "already
 paid? restore it" on the pass sheet. Restore now checks with the server
 first, so a code signed with any other secret is refused at the box.
+
+## The room's hour loops — warm once, not daily
+
+TheRoom seeds its cast with roomSeed() (lib/airroom/roster.ts): the hour maps
+onto one of 24 slots counted from CAST_EPOCH_HOUR, so the set of faces the
+room can ask for is finite and already in storage. `db/warm-faces.mjs
+--dry-run` should report every face already there. Re-warm only after a
+prompt change (the fingerprint moves), and never move the epoch without
+re-warming: the 24 hours from it ARE the loop.
+
+## In-app browsers
+
+Most ad visitors arrive inside the Facebook / Instagram webview, which
+mostly cannot open a mic. The lobby shows a one-line bar there (Android: a
+link that opens Chrome; iOS: the ⋯ → open in browser instruction). Events:
+`inapp_shown`, `inapp_open_tap` — in Vercel Web Analytics alongside the rest
+of the funnel, which track() now also sends there.

@@ -185,7 +185,54 @@ async function grantChips(wallet, n, event) {
   })
 }
 
+/**
+ * ATTACH AN ADDRESS TO A PURCHASE THAT WAS MADE WITHOUT ONE.
+ *
+ * The email is asked for at checkout now, and it is what reopens a pass on
+ * another phone. Anyone who paid BEFORE that shipped has a row with no address
+ * on it, so the email door cannot find them — including the first person who
+ * ever paid for this, whose money arrived against a row with a blank wallet.
+ *
+ *   node db/reissue-pass.mjs --email someone@example.com <intentId>
+ *
+ * It refuses a row the rail has not confirmed as paid, so this can attach an
+ * address to a sale but never invent one.
+ */
+async function attachEmail(address, intentId) {
+  const a = String(address || "").trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a)) { console.error(`"${address}" is not an email address.`); process.exit(2) }
+  const rows = await sb(`ziina_payments?id=eq.${encodeURIComponent(intentId)}&select=id,kind,status,wallet`)
+  const row = rows?.[0]
+  if (!row) { console.error(`no purchase on record with id ${intentId}`); process.exit(2) }
+  const rail = intentId.startsWith("air_") || row.kind === "airraw_pass_crypto" ? "crypto" : "card"
+  let sale
+  if (rail === "crypto") {
+    sale = saleFrom({ rail, status: row.status, amountMinor: null })
+  } else {
+    let intent = null
+    try { intent = await ziinaIntent(intentId) } catch (e) { console.error(`refused  ${intentId}  ${e.message}`); process.exit(1) }
+    if (!intent) { console.error(`refused  ${intentId}  no such payment intent at Ziina`); process.exit(1) }
+    sale = saleFrom({ rail, status: intent.status, amountMinor: intent.amount })
+  }
+  if (!sale.paid) { console.error(`refused  ${intentId}  the rail says "${sale.status}", not a settled payment`); process.exit(1) }
+  await sb(`ziina_payments?id=eq.${encodeURIComponent(intentId)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ wallet: a, status: "completed" }),
+  })
+  console.log(`\nattached  ${a}  →  ${intentId}`)
+  console.log(`\nThat address now opens this pass on any phone: type it into`)
+  console.log(`"already paid? restore it" on airraw.com. Three devices.\n`)
+}
+
 async function main() {
+  if (has("--email")) {
+    const address = val("--email")
+    const id = ids[0]
+    if (!address || !id) { console.error("usage: node db/reissue-pass.mjs --email you@example.com <intentId>"); process.exit(2) }
+    await attachEmail(address, id)
+    return
+  }
   if (!SECRET) {
     console.error("AIRRAW_PRO_SECRET is not set (and neither is SUPABASE_SERVICE_ROLE_KEY).")
     console.error("Run `vercel env pull .env.production.local` first, or export it.")

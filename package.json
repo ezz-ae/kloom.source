@@ -15,6 +15,7 @@
     "assets:standalone": "rm -rf .next/standalone/.next/static .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public",
     "test": "node tests/run.mjs",
     "phone": "node --import ./tests/alias.mjs db/phone-walk.mjs",
+    "verify": "node db/verify-live.mjs",
     "verify": "tsc --noEmit && node tests/run.mjs"
   },
   "dependencies": {

@@ -77,13 +77,6 @@ async function mintPassWithChips(until: number, intentId: string) {
 export async function POST(req: NextRequest) {
   // return the buyer to the public host they're on (proxy-aware), like the kloom flow
   const origin = process.env.AIRRAW_ORIGIN || req.nextUrl.origin || SITE_URL
-  // Gate on "can we sell AT ALL", not on the card rail specifically. This read
-  // `!ziinaConfigured()` when there was only one rail; leaving it that way would
-  // have made crypto unreachable on any deploy without Ziina keys — the exact
-  // deploy most likely to be leaning on crypto.
-  if (!ziinaConfigured() && !cryptoGateway.ready()) {
-    return Response.json({ error: "payments not configured" }, { status: 503 })
-  }
   const rl = rateLimit(`airrawpro:${clientIp(req)}`, 20, 60_000)
   if (!rl.ok) return Response.json({ error: "slow down a sec" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter) } })
 
@@ -92,6 +85,9 @@ export async function POST(req: NextRequest) {
   const { action, method, intentId, t: claimTs, s: claimSig, fbp, fbc } = body
 
   // ── is this pass real? ──
+  // Before the rails gate: checking a signature needs no rail, and a deploy with
+  // no payment keys must still be able to restore a pass that was bought on one
+  // that had them.
   // The client stores a pass and reads its expiry, but cannot check its
   // signature. "Restore" therefore accepted anything shaped like a pass, showed
   // it as active, and let every voice request be refused afterwards. This is
@@ -103,6 +99,13 @@ export async function POST(req: NextRequest) {
     const claims = proTokenClaims(token)
     if (claims) return Response.json({ valid: true, until: claims.until, minutes: claims.minutes ?? PASS_MINUTES }, { headers: { "Cache-Control": "no-store" } })
     return Response.json({ valid: false, reason: proTokenRefusal(token) || "rejected" }, { headers: { "Cache-Control": "no-store" } })
+  }
+  // Gate on "can we sell AT ALL", not on the card rail specifically. This read
+  // `!ziinaConfigured()` when there was only one rail; leaving it that way would
+  // have made crypto unreachable on any deploy without Ziina keys — the exact
+  // deploy most likely to be leaning on crypto.
+  if (!ziinaConfigured() && !cryptoGateway.ready()) {
+    return Response.json({ error: "payments not configured" }, { status: 503 })
   }
 
   // ── crypto rail ──

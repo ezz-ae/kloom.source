@@ -1,7 +1,8 @@
 "use client"
 
 /**
- * Site-entry 18+ gate for the adult variant (airraw.com).
+ * Site-entry 18+ gate for kloom.fun. (airraw.com attests age inside its own
+ * flow — see confirm18 in components/airroom/Planet.tsx.)
  *
  * Kloom.fun is an entirely unrestricted / adult product, so — unlike the per-room
  * AdultGate on .io — a single age confirmation must block the WHOLE site on first
@@ -15,7 +16,7 @@
  */
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { adultEnabled } from "@/lib/variant"
+import { isFun } from "@/lib/variant"
 import { hasAgeAck } from "@/components/widgets/AdultGate"
 import { ShieldAlert } from "lucide-react"
 
@@ -23,7 +24,13 @@ const ACK_KEY = "kloom_age_ack"
 
 export function FunAgeGate() {
   const [open, setOpen] = useState(false)
-  useEffect(() => { if (adultEnabled()) setOpen(!hasAgeAck()) }, [])
+  // kloom.fun ONLY. AIRRAW attests age in its own flow (the planet parks the
+  // person you tapped behind confirm18 until you say you are 18+, in your own
+  // language) — and this gate never actually ran there: adultEnabled() read a
+  // server-only variable and was false in every browser. Now that the browser
+  // knows it is AIRRAW, keying this on adultEnabled() would put an English-only
+  // second wall in front of the front door. Keyed on the variant instead.
+  useEffect(() => { if (isFun()) setOpen(!hasAgeAck()) }, [])
   if (!open) return null
 
   const enter = () => { try { localStorage.setItem(ACK_KEY, "1") } catch { /* */ } setOpen(false) }

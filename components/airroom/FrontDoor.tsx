@@ -294,7 +294,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
               onClick={() => { if (!dragged.current) onCall(person) }}
               style={{ flex: 1, minHeight: 48, borderRadius: 999, border: "none", cursor: "pointer", fontSize: 15.5, fontWeight: 700, letterSpacing: .3, color: "#150a1f", background: `linear-gradient(180deg, ${accent}, ${accent}cc)`, boxShadow: `0 10px 30px -14px ${accent}`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}
             >
-              call {person.host}
+              {t("call {name}", { name: person.host })}
             </button>
             <button
               onClick={() => { if (!dragged.current) fling("left") }}

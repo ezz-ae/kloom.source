@@ -127,6 +127,25 @@ export function YouPage({ onPass, onResume, onGolden }: {
       </div>
 
       <div className="space-y-3 pb-8">
+        {/* ── the pass ── FIRST. It used to be the fourth card, which on a phone
+            put the one button this page exists to show — get a pass — at the very
+            bottom, under the dock, reachable only by scrolling to the end. */}
+        <Card title={tr("Voice minutes")} hint={pro ? tr("the pass covers your minutes.") : tr("what's left of your free minutes on the floor.")}>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-2xl font-bold tabular-nums text-white">{pro ? "∞" : credits}</span>
+            {!pro && (
+              <button onClick={onPass} className="brand-gradient brand-glow rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#1a0a1f] transition-transform hover:scale-[1.02]">
+                {tr("Get a pass")}
+              </button>
+            )}
+          </div>
+          {!pro && (
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
+              <div className="brand-gradient h-full" style={{ width: `${Math.round(100 * Math.max(0, Math.min(1, credits / FREE_GRANT)))}%` }} />
+            </div>
+          )}
+        </Card>
+
         {/* ── who you want to meet ──
             The one control that changes what the front door actually shows.
             Subtractive and empty by default (see lib/airraw/taste.ts), so this
@@ -213,23 +232,6 @@ export function YouPage({ onPass, onResume, onGolden }: {
             </div>
           </Card>
         )}
-
-        {/* ── the pass ── */}
-        <Card title={tr("Voice minutes")} hint={pro ? tr("the pass covers your minutes.") : tr("what's left of your free minutes on the floor.")}>
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-2xl font-bold tabular-nums text-white">{pro ? "∞" : credits}</span>
-            {!pro && (
-              <button onClick={onPass} className="brand-gradient brand-glow rounded-xl px-4 py-2.5 text-xs font-bold uppercase tracking-[0.14em] text-[#1a0a1f] transition-transform hover:scale-[1.02]">
-                {tr("Get a pass")}
-              </button>
-            )}
-          </div>
-          {!pro && (
-            <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
-              <div className="brand-gradient h-full" style={{ width: `${Math.round(100 * Math.max(0, Math.min(1, credits / FREE_GRANT)))}%` }} />
-            </div>
-          )}
-        </Card>
 
         {/* ── language ── */}
         <Card title={tr("You speak")} hint={langPrefsPersist() ? tr("saved as your default between visits.") : tr("kept for this visit. a pass makes it stick.")}>

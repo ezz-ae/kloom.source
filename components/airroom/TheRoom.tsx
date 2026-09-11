@@ -641,7 +641,10 @@ export function TheRoom({ onPrivate, onPass, onChips, topic = "tonight" }: {
             </button>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
-                <button onClick={() => setOpen(l.who)} style={{ fontSize: 12, fontWeight: 700, color: dot(l.who.f), background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent" }}>{l.who.host}</button>
+                {/* 20x18 before the padding: a name is a thumb target like any
+                    other. Negative margin keeps the baseline where it was. */}
+                <button onClick={() => setOpen(l.who)} aria-label={t("open {name}'s profile", { name: displayName(l.who.host, l.who.gender, t.locale) })}
+                  style={{ fontSize: 12, fontWeight: 700, color: dot(l.who.f), background: "none", border: "none", padding: "9px 8px", margin: "-9px -8px", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}>{displayName(l.who.host, l.who.gender, t.locale)}</button>
                 {l.spoken && <span style={{ fontSize: 10, color: `${dot(l.who.f)}cc`, letterSpacing: .8, textTransform: "uppercase" }}>{t("🎙 said out loud")}</span>}
                 {l.toYou && <span style={{ fontSize: 10, color: "rgba(240,232,255,.5)", letterSpacing: .8, textTransform: "uppercase" }}>{t("to you")}</span>}
               </div>

@@ -505,9 +505,18 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     a.onended = done; a.onerror = done
     a.src = next.url
     a.volume = volumeRef.current
-    // If play() is rejected (blocked autoplay), still advance the queue rather than
-    // wedge it — but log it, so "AI went silent" is diagnosable instead of invisible.
-    a.play().catch((err) => { console.error("[air] audio play blocked:", err?.message || err); done() })
+    a.play().catch((err) => {
+      // Refused for want of a gesture — the first line of the call, fetched on
+      // mount before anyone has tapped. The chunk STAYS loaded and the pump
+      // stays parked on it: the next tap anywhere (registerAudio) or on the call
+      // button (unlockAudio) plays this very element, onended fires, and the
+      // queue moves on from here. Dropping it, as this used to, meant the first
+      // thing she said was never heard on a phone — with nothing on screen.
+      if (err?.name === "NotAllowedError") { console.warn("[air] first line waits for a tap"); return }
+      // Anything else (a source that failed, a pause() from stopSpeaking): log
+      // and advance rather than wedge the queue.
+      console.error("[air] audio play blocked:", err?.message || err); done()
+    })
   }
 
   const speakChunk = async (text: string, tok: number, prevText = "") => {
@@ -1100,8 +1109,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
             <span style={{ fontSize: 11.5, letterSpacing: 1.3, textTransform: "uppercase", color: "rgba(240,232,255,.4)" }}>{t("while you talk")}</span>
+            {/* A 44px target: the glyph is 20px but a thumb is not. */}
             <button onClick={() => setAudioPanel(false)} aria-label={t("close settings")}
-              style={{ background: "none", border: "none", color: "rgba(240,232,255,.5)", fontSize: 20, lineHeight: 1, cursor: "pointer", padding: "0 2px", fontFamily: "inherit" }}>×</button>
+              style={{ background: "none", border: "none", color: "rgba(240,232,255,.5)", fontSize: 20, lineHeight: 1, cursor: "pointer", width: 44, height: 44, margin: "-12px -12px -12px 0", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>×</button>
           </div>
 
           {/* Language, as one button that names where it goes. Not a picker:
@@ -1325,13 +1335,21 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
           {micHint ? t(micHint) : (handsFree ? "" : t("swipe → for the words"))}
         </div>
 
-        {handsFree && !leaving && (
+        {/* The row is there BEFORE the call starts too. It used to appear only in
+            hands-free — so when the mic was refused (every in-app browser) the hint
+            said "tap the keypad to type" under a screen with no keypad on it. Mute
+            is the one button that only means something with a live mic. */}
+        {!leaving && (
           <div style={{ display: "flex", justifyContent: "center", gap: 26, marginBottom: 18 }}>
             {([
-              { label: micMuted ? t("unmute") : t("mute"), icon: micMuted ? "🔇" : "🎙", on: micMuted, act: toggleMicMute, aria: micMuted ? t("unmute your microphone") : t("mute your microphone") },
-              { label: "speaker", icon: "🔊", on: audioPanel, act: () => setAudioPanel((v) => !v), aria: "sound" },
-              { label: "keypad", icon: "⌨", on: false, act: () => setChatOpen(true), aria: "type" },
-              { label: photoBusy ? "taking\u2026" : "photo", icon: "\ud83d\udcf7", on: photoBusy, act: () => askPhoto(), aria: "ask her for a photo" },
+              ...(handsFree ? [{ label: micMuted ? t("unmute") : t("mute"), icon: micMuted ? "🔇" : "🎙", on: micMuted, act: toggleMicMute, aria: micMuted ? t("unmute your microphone") : t("mute your microphone") }] : []),
+              // Named "speaker", not "sound": the header button is already
+              // aria-labelled "sound" and opens this same drawer, and two
+              // controls with one name is a screen reader reading the screen
+              // wrong — and a test clicking the wrong one.
+              { label: t("speaker"), icon: "🔊", on: audioPanel, act: () => setAudioPanel((v) => !v), aria: t("speaker") },
+              { label: t("keypad"), icon: "⌨", on: false, act: () => setChatOpen(true), aria: t("type") },
+              { label: photoBusy ? t("taking…") : t("photo"), icon: "\ud83d\udcf7", on: photoBusy, act: () => askPhoto(), aria: t("ask her for a photo") },
             ] as Array<{ label: string; icon: string; on: boolean; act: () => void; aria: string }>).map((b) => (
               <button key={b.label} onClick={b.act} aria-label={b.aria} aria-pressed={b.on}
                 style={{ width: 64, background: "none", border: "none", padding: 0, cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation", color: "rgba(240,232,255,.8)", fontFamily: "inherit" }}>
@@ -1413,7 +1431,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") send() }}
-                placeholder={`type to ${cluster.host.toLowerCase()}…`}
+                placeholder={t("type to {name}…", { name: cluster.host.toLowerCase() })}
                 style={{ flex: 1, minWidth: 0, fontSize: 16, color: "#f0e8ff", background: "rgba(255,255,255,.07)", border: `.5px solid ${accent}40`, borderRadius: 14, padding: "12px 14px", minHeight: 44, boxSizing: "border-box", outline: "none" }}
               />
               <button

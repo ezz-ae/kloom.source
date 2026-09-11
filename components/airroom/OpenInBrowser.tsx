@@ -10,6 +10,10 @@
 // Shown once per browser (dismissed is remembered). Never on a real browser.
 // It does not block anything — the page underneath works as far as a webview
 // lets it (she still talks; you can still type).
+//
+// `inline` renders it as a block in the flow (the onboarding gate, which every
+// new visitor sees first). The fixed top bar covered the planet's own header —
+// the back button of a call sat under it, and "leave" tapped the bar instead.
 import { useEffect, useState } from "react"
 import { useT } from "@/lib/airraw/i18n"
 import { inAppBrowser, openInBrowserUrl, type InApp } from "@/lib/airraw/in-app"
@@ -17,7 +21,7 @@ import { track } from "@/lib/airraw/track"
 
 const KEY = "airraw_inapp_dismissed"
 
-export function OpenInBrowser() {
+export function OpenInBrowser({ inline = false }: { inline?: boolean } = {}) {
   const t = useT()
   const [app, setApp] = useState<InApp>(null)
   const [href, setHref] = useState<string | null>(null)
@@ -31,7 +35,10 @@ export function OpenInBrowser() {
   if (!app) return null
   const dismiss = () => { setApp(null); try { localStorage.setItem(KEY, "1") } catch { /* */ } }
   return (
-    <div role="status" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 35, display: "flex", alignItems: "center", gap: 10, padding: "max(10px, env(safe-area-inset-top)) 14px 10px", background: "rgba(255,217,138,.96)", color: "#1a0d2a", fontSize: 13, lineHeight: 1.35, fontFamily: "system-ui, sans-serif" }}>
+    <div role="status" style={{ ...(inline
+        ? { position: "relative" as const, borderRadius: 14, margin: "0 0 14px" }
+        : { position: "fixed" as const, top: 0, left: 0, right: 0, zIndex: 35 }),
+      display: "flex", alignItems: "center", gap: 10, padding: inline ? "10px 12px" : "max(10px, env(safe-area-inset-top)) 14px 10px", background: "rgba(255,217,138,.96)", color: "#1a0d2a", fontSize: 13, lineHeight: 1.35, fontFamily: "system-ui, sans-serif", textAlign: "left" }}>
       <span aria-hidden>🎙</span>
       <span style={{ flex: 1 }}>
         {href
@@ -41,7 +48,7 @@ export function OpenInBrowser() {
       {href && (
         <a href={href} onClick={() => track("inapp_open_tap", { app })} style={{ flexShrink: 0, background: "#1a0d2a", color: "#ffd98a", textDecoration: "none", fontWeight: 600, padding: "7px 12px", borderRadius: 999, fontSize: 13 }}>{t("open in Chrome")}</a>
       )}
-      <button onClick={dismiss} aria-label={t("dismiss")} style={{ flexShrink: 0, background: "transparent", border: "none", color: "#1a0d2a", fontSize: 18, lineHeight: 1, padding: "2px 4px", cursor: "pointer" }}>×</button>
+      <button onClick={dismiss} aria-label={t("dismiss")} style={{ flexShrink: 0, background: "transparent", border: "none", color: "#1a0d2a", fontSize: 18, lineHeight: 1, width: 40, height: 40, margin: "-8px -10px -8px -4px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>×</button>
     </div>
   )
 }

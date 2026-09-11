@@ -36,6 +36,16 @@ const nextConfig = {
   },
   // On the AIRRAW deployment (AIRRAW_HOME=1) the root opens the universe; other
   // builds (kloom) keep their own homepage. The old /airroom path redirects on all.
+  // THE BROWSER HAS TO KNOW IT IS AIRRAW TOO. adultEnabled() reads AIRRAW_HOME,
+  // which is a server-only variable: in the client bundle it compiles to
+  // `"1" === undefined` and every browser-side AIRRAW check — the browser-picked
+  // language, the free-minute count, the Arabic entrance — silently ran as Kloom
+  // on airraw.com (seen in the live bundle). `env` inlines at build time, so the
+  // one flag the build already has becomes the public one the browser can read.
+  // Kloom builds leave AIRRAW_HOME unset and are unchanged.
+  env: {
+    ...(process.env.AIRRAW_HOME === "1" ? { NEXT_PUBLIC_ADULT_ENABLED: "1" } : {}),
+  },
   async rewrites() {
     return { beforeFiles: process.env.AIRRAW_HOME === "1" ? [{ source: "/", destination: "/airraw" }] : [] }
   },

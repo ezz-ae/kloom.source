@@ -30,6 +30,18 @@ const unlocked = new WeakSet<HTMLAudioElement>()
 export function unlockAudio(el: HTMLAudioElement | null | undefined): void {
   if (!el || unlocked.has(el)) return
   try {
+    // A REAL chunk is already loaded — the first line of a call, fetched on
+    // mount, whose play() was refused for want of a gesture. This tap IS the
+    // gesture: play THAT, not a moment of silence over the top of it. Swapping
+    // the source here interrupted the line ("play() request was interrupted by
+    // a call to pause()"), the queue moved on, and the first thing she said was
+    // never heard on any phone.
+    if (el.src && !el.src.startsWith("data:")) {
+      const q = el.play()
+      if (q && typeof q.then === "function") q.then(() => unlocked.add(el)).catch(() => { /* the pump logs the block */ })
+      else unlocked.add(el)
+      return
+    }
     const wasSrc = el.src
     el.src = SILENCE
     const done = () => {

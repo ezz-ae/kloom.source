@@ -132,7 +132,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
           <button
             onClick={() => setLangOpen((o) => !o)}
             aria-expanded={langOpen}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "inherit", fontFamily: "inherit" }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, width: "100%", minHeight: 40, background: "transparent", border: "none", padding: 0, cursor: "pointer", color: "inherit", fontFamily: "inherit", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
           >
             <span style={{ fontSize: 12.5, fontWeight: 600, color: "#e9deff" }}>{t("your languages")}</span>
             <span style={{ fontSize: 11.5, color: "#9fb2c4" }}>
@@ -193,7 +193,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
           <div style={{ fontSize: 11, color: "#6b7d8e", textAlign: "center", marginTop: 2 }}>secure checkout · {offer.methods.includes("card") ? (offer.methods.includes("crypto") ? "card / apple pay / crypto" : "card / apple pay") : "crypto"} · one-time, {offer.days} days · adults 18+ only</div>
           {/* restore on a new device/browser — paste the code you saved when you bought it */}
           {!restoring ? (
-            <button onClick={() => setRestoring(true)} style={{ marginTop: 4, fontSize: 12, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3 }}>{t("already paid? restore it")}</button>
+            <button onClick={() => setRestoring(true)} style={{ marginTop: 4, minHeight: 40, padding: "0 12px", fontSize: 12, color: "#7f93a5", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 3, WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>{t("already paid? restore it")}</button>
           ) : (
             <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 7 }}>
               <input value={code} onChange={(e) => { setCode(e.target.value); setRErr("") }} placeholder={t("paste your restore code")} aria-label={t("restore code")} style={{ fontSize: 13, color: "#eef4f8", background: "rgba(255,255,255,.06)", border: ".5px solid rgba(255,255,255,.2)", borderRadius: 12, padding: "11px 13px", outline: "none" }} />

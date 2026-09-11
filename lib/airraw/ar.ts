@@ -46,6 +46,10 @@ export const AR: Record<string, string> = {
   "hold to talk to the room": "اضغط مطوّلاً وتكلّم",
   "listening": "يسمعك",
   "listening…": "يسمعك…",
+  "ask her for a photo": "اطلب منها صورة",
+  "talk": "تكلم",
+  "type to {name}…": "اكتب لـ {name}…",
+  "say something to the room…": "قول شي للغرفة…",
   "one sec…": "لحظة…",
   "mention someone": "نادِ أحد",
   "send whisper": "أرسل همسة",
@@ -169,6 +173,7 @@ export const AR: Record<string, string> = {
 
   // ── the deck, the tabs, the account page ─────────────────────────────────
   "swipe for someone else": "اسحب لشخص ثاني",
+  "call {name}": "اتصل بـ {name}",
   "someone else": "شخص ثاني",
   "your scenes": "مشاهدك",
   "go back in": "ارجع لها",
@@ -269,6 +274,9 @@ export const AR: Record<string, string> = {
   "couldn't reach the voice — tap to retry": "ما وصلنا للصوت — اضغط تعيد",
   "some voices here are real people — you won't always know.": "بعض الأصوات هنا ناس حقيقيين — وما بتعرف دايم.",
   "speaker": "السماعة",
+  "keypad": "الكيبورد",
+  "photo": "صورة",
+  "taking…": "بتصوّر…",
   "speaker · system default": "السماعة · الافتراضي",
   "volume": "مستوى الصوت",
 

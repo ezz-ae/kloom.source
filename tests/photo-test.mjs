@@ -84,7 +84,7 @@ check(bubble.indexOf("photoScene(text)") > bubble.indexOf("const send = async") 
   "and it is routed to a photo before it could become a chat reply")
 
 // ── it is findable, and it is sold ──────────────────────────────────────────
-check(/aria: "ask her for a photo"/.test(bubble), "there is a photo button on the call screen")
+check(/aria: t\("ask her for a photo"\)/.test(bubble), "there is a photo button on the call screen, in the visitor's language")
 check(/see her photos/.test(bubble), "and the newest photo shows on the call itself, not only behind the keypad")
 check(/photos of her, three a day/.test(sheet), "the pass sells it")
 check(sheet.indexOf("photos of her") < sheet.indexOf("fully unrestricted"), "first — the one perk a person can picture")

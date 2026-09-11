@@ -125,7 +125,7 @@ export function FantasyBuilder({ onStart, onClose }: { onStart: (cfg: SceneConfi
           )}
           <p style={{ fontSize: 13, color: "rgba(240,232,255,.45)", margin: "2px 0 12px", lineHeight: 1.5 }}>
             {tr("Tap one and it starts.")} <button onClick={() => { setFantasyId(fantasyId || shown[0]?.id || FANTASIES[0].id); setStep(2) }}
-              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: ACCENT, cursor: "pointer", textDecoration: "underline" }}>
+              style={{ background: "none", border: "none", padding: "10px 0", margin: "-10px 0", font: "inherit", color: ACCENT, cursor: "pointer", textDecoration: "underline", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
               {tr("or cast it yourself")}
             </button>
           </p>

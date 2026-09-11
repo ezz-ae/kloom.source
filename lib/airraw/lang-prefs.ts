@@ -117,6 +117,9 @@ export function saveLangPrefs(p: LangPrefs) {
   const primary = known(p.primary) ? p.primary : DEFAULT_LANGUAGE
   const also = Array.from(new Set(p.also.filter((x) => known(x) && x !== primary)))
   try { store()?.setItem(KEY, JSON.stringify({ primary, also })) } catch { /* private mode or quota */ }
+  // The page direction follows the language (components/airroom/PageDirection),
+  // and nothing else would know the choice had changed until a reload.
+  try { window.dispatchEvent(new CustomEvent("airraw:langs")) } catch { /* SSR */ }
 }
 
 /** Everything they speak, default first. */

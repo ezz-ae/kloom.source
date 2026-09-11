@@ -93,7 +93,7 @@ export function Lobby() {
       <div className="world-glow-bot" aria-hidden />
 
       {/* In-app browsers (where the ads land) mostly cannot open a mic: say so, once, with the way out. */}
-      <OpenInBrowser />
+      <OpenInBrowser inline />
       <div className="topbar">
         <div className="wordmark">{t("airraw")}</div>
         <button onClick={() => setCapture(true)} className="pass-cta">{t("get the pass")}</button>

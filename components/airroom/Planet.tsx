@@ -874,8 +874,6 @@ export function Planet() {
 
   return (
     <div className="airraw-ui" style={{ position: "fixed", inset: 0, background: "#04050b", overflow: "hidden", touchAction: "none" }}>
-      {/* In-app browsers (where the ads land) mostly cannot open a mic: say so, once, with the way out. */}
-      <OpenInBrowser />
       {/* THE FEEL — one shared interaction layer for every surface inside the planet
           (rooms, calls, sheets are all children of this node). Every button gets the
           same press physics and eased state changes; every full-screen surface rises
@@ -1339,6 +1337,9 @@ function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
         <div className="air-rise" style={{ width: "100%", maxWidth: 340, textAlign: "center" }}>
           <div style={{ fontSize: 11, letterSpacing: 3, textTransform: "uppercase", color: "#7fd6c0", marginBottom: 10 }}>{t("airraw")}</div>
           <div style={{ fontSize: 24, fontWeight: 600, color: "#eef4f8", lineHeight: 1.3, marginBottom: 20 }}>{t("hey — what should I call you?")}</div>
+          {/* In-app browsers (where the ads land) mostly cannot open a mic: say so here,
+              once, with the way out — in the flow, never over the product. */}
+          <OpenInBrowser inline />
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}

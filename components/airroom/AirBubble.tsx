@@ -396,11 +396,14 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       const next = !m
       micMutedRef.current = next
       if (next) {
-        try { segRef.current?.abort() } catch { /* */ }
+        // The tracks end too, not just the listening: a muted mic that keeps the
+        // capture session open still degrades the speaker, and still shows the
+        // OS's recording indicator.
+        releaseMic()
         try { onceRecRef.current?.stop() } catch { /* */ }
         setMicHint("your mic is off — they can't hear you")
       } else {
-        if (hfRef.current) { try { segRef.current?.start() } catch { /* */ } }
+        void reopenMic()
         setMicHint("")
       }
       return next
@@ -422,6 +425,51 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   }
   const dismissHumanNote = () => { setHumanNote(false); try { localStorage.setItem("airraw_human_note", "1") } catch { /* */ } }
 
+  /**
+   * HAND THE MIC BACK WHILE SHE SPEAKS.
+   *
+   * The server sends 192kbps ElevenLabs audio and the phone plays it like a
+   * bad phone call: thin, metallic, "robot". Nothing in the file is wrong; the
+   * phone does it. Any open microphone capture puts iOS into its play-and-record
+   * session — voice processing on the OUTPUT, a lower volume ceiling — and on
+   * AirPods (any Bluetooth, any OS) it switches from the music profile to the
+   * headset profile, which is 8kHz mono. Muting the segmenter does not help: the
+   * tracks stay live and the capture session with them. Only ending the tracks
+   * ends it.
+   *
+   * So the tracks are stopped the moment the first chunk starts playing, and a
+   * fresh stream is taken the moment the reply ends (or is cut off). The
+   * segmenter stays alive and is re-sourced from the new stream. The cost: the
+   * mic cannot hear you WHILE she speaks — the speaker button cuts her off —
+   * which is what a phone does anyway when it is busy playing.
+   *
+   * The generation counter is the guard for the one race that matters: a reopen
+   * still waiting on getUserMedia when she starts again, the user mutes, or the
+   * call ends. A track that goes live after any of those is the bug itself.
+   */
+  const micStreamRef = useRef<MediaStream | null>(null)
+  const micGenRef = useRef(0)
+  const releaseMic = () => {
+    micGenRef.current++
+    try { segRef.current?.abort() } catch { /* */ }
+    const s = micStreamRef.current
+    micStreamRef.current = null
+    try { s?.getTracks().forEach((t) => t.stop()) } catch { /* */ }
+  }
+  const reopenMic = async () => {
+    if (!hfRef.current || micMutedRef.current || !segRef.current) return
+    if (micStreamRef.current) { try { segRef.current.start() } catch { /* */ } ; return }
+    const gen = ++micGenRef.current
+    let s: MediaStream
+    try { s = await navigator.mediaDevices.getUserMedia({ audio: phoneMicAudio() }) } catch { return }
+    if (gen !== micGenRef.current || !hfRef.current || micMutedRef.current || !segRef.current) {
+      try { s.getTracks().forEach((t) => t.stop()) } catch { /* */ }
+      return
+    }
+    micStreamRef.current = s
+    try { segRef.current.replaceStream(s); segRef.current.start() } catch { /* */ }
+  }
+
   /** Play whatever is next IN ORDER. Returns quietly if the next chunk in the
    *  sequence hasn't finished downloading yet — the chunk's own arrival calls
    *  pump() again, so playback resumes the moment it lands. */
@@ -433,9 +481,9 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
       // later ones) or the reply is finished.
       if (!audioQueueRef.current.length && !inflightRef.current) {
         hostSpeakingRef.current = false; setSpeaking(false)
-        // Never re-arm a mic the user muted — the character finishing its turn is
-        // not consent to start listening again.
-        if (hfRef.current && !micMutedRef.current) { try { segRef.current?.start() } catch { /* */ } }
+        // Take the mic back now that she is quiet. Never for a mic the user muted
+        // — the character finishing its turn is not consent to start listening.
+        void reopenMic()
       }
       return
     }
@@ -445,6 +493,8 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     const a = audioRef.current
     if (!a) { URL.revokeObjectURL(next.url); pump(); return }
     qPlayingRef.current = true
+    // First chunk of a reply: the capture session ends BEFORE the speaker opens.
+    if (!hostSpeakingRef.current) releaseMic()
     hostSpeakingRef.current = true; setSpeaking(true)
     const done = () => {
       qPlayingRef.current = false
@@ -570,6 +620,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
     const a = audioRef.current
     if (a) { try { a.pause(); a.removeAttribute("src"); a.load() } catch { /* */ } }
     hostSpeakingRef.current = false; setSpeaking(false)
+    void reopenMic()
   }
 
   /** Start a fresh reply: new token, empty queue, sequence counters back to zero. */
@@ -874,6 +925,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         stream = await navigator.mediaDevices.getUserMedia({ audio: phoneMicAudio() })
       } catch { setMicHint("allow mic access to talk — or tap the keypad to type"); setHandsFree(false); return }
       if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
+      micStreamRef.current = stream
       seg = new SpeechSegmenter({
         stream,
         // Snappier endpoint for a live call — 800ms felt like a lag between turns.
@@ -915,11 +967,15 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
         },
       })
       segRef.current = seg
-      if (!micMutedRef.current) seg.start()
+      // Hands-free switched on mid-reply (the opener, usually): the mic must not
+      // sit live under her voice. The end of the reply takes it back.
+      if (hostSpeakingRef.current || micMutedRef.current) releaseMic()
+      else seg.start()
     })()
 
     return () => {
       cancelled = true; stopped = true
+      releaseMic()
       try { seg?.destroy() } catch { /* */ }
       segRef.current = null
       try { stream?.getTracks().forEach((t) => t.stop()) } catch { /* */ }

@@ -209,6 +209,29 @@ export class SpeechSegmenter {
     this.abort()
   }
 
+  /**
+   * Swap the live mic stream under a running segmenter: the analyser is re-sourced
+   * and the next utterance records from the new stream. Nothing else changes.
+   *
+   * Exists so the caller can HAND THE MICROPHONE BACK to the OS while the
+   * character speaks and take it again after (see AirBubble). abort() is not
+   * that: it stops listening, but the tracks stay live and so does the capture
+   * session — and the capture session is what makes a phone degrade its own
+   * speaker. Only ending the tracks ends it, and a new stream is the only way
+   * back. The AudioContext is kept: it was created on a tap, and on iOS it
+   * cannot be re-created outside one.
+   */
+  replaceStream(stream: MediaStream) {
+    if (this.destroyed) return
+    this.discardRecorder()
+    this.opts.stream = stream
+    if (this.ctx && this.analyser) {
+      try { this.source?.disconnect() } catch {}
+      this.source = this.ctx.createMediaStreamSource(stream)
+      this.source.connect(this.analyser)
+    }
+  }
+
   /** Full teardown. */
   destroy() {
     this.destroyed = true

@@ -1,13 +1,17 @@
 // Conversation memory — come back to a character and pick the thread up.
 //
-// Pro-gated: a saved thread is the reason to keep the pass. Free sessions store
-// nothing at all, so this is not a feature that quietly degrades — it's simply
-// absent, and nothing about a free session is written to disk.
+// Two tiers, one store:
+//   FREE keeps WHO you met — the character, and when. Never a word said. So a
+//        free visitor who comes back finds the faces they talked to waiting, and
+//        the reason to buy the pass is on the screen: she would remember it.
+//   PRO  keeps WHAT was said — the tail of the thread, to pick it back up.
 //
 // PRIVACY: this writes adult conversation transcripts to localStorage on a device
 // that may not be private. Three rules follow from that and none of them are
 // optional:
-//   1. Nothing is stored unless the user is Pro AND has not switched it off.
+//   1. No TRANSCRIPT is stored unless the user is Pro AND has not switched it
+//      off. A free session stores the character and a timestamp, nothing else;
+//      "off" stops even that, and erases what is there.
 //   2. It is erasable from the call itself (forget one) and wholesale (forgetAll).
 //   3. Storage is capped, so it can't quietly grow into a large archive of
 //      everything the user has ever said.
@@ -50,9 +54,13 @@ export function setMemoryOff(off: boolean) {
   } catch { /* private mode */ }
 }
 
-/** Memory is live only for a Pro session that hasn't switched it off. */
+/** TRANSCRIPT memory is live only for a Pro session that hasn't switched it off. */
 export function memoryEnabled(): boolean {
   return isPro() && !memoryOff()
+}
+/** WHO-you-met memory is live for everyone who hasn't switched memory off. */
+export function metEnabled(): boolean {
+  return !memoryOff()
 }
 
 function readAll(): SavedTalk[] {
@@ -82,9 +90,14 @@ function writeAll(list: SavedTalk[]) {
   }
 }
 
-/** Saved threads, most recently spoken in first. */
+/**
+ * People you have talked to, most recent first. For everyone (unless off): a
+ * free session sees the faces and the times; the transcripts inside are only
+ * ever handed out by loadTalk, which stays Pro. An entry written while free
+ * carries no messages at all.
+ */
 export function listTalks(): SavedTalk[] {
-  if (!memoryEnabled()) return []
+  if (!metEnabled()) return []
   return readAll().sort((a, b) => (b.at || 0) - (a.at || 0))
 }
 
@@ -97,14 +110,18 @@ export function loadTalk(key: string): SavedTalk | null {
  * Record where this conversation got to. Keeps only the tail, and only if there
  * is actually a conversation — a room the user opened and left without speaking
  * is not something to offer them again.
+ *
+ * Free keeps the person and the moment, with an EMPTY thread: the entry that
+ * replaces any older one is written without messages, so a lapsed pass never
+ * leaves yesterday's transcript sitting under today's free session.
  */
 export function saveTalk(cluster: Cluster, msgs: SavedMsg[]) {
-  if (!memoryEnabled()) return
+  if (!metEnabled()) return
   const key = cluster.key
   if (!key) return
   if (!msgs.some((m) => m.who === "you")) return   // never spoken in — don't save
   const rest = readAll().filter((t) => t.key !== key)
-  const entry: SavedTalk = { key, cluster, msgs: msgs.slice(-MAX_MSGS), at: Date.now() }
+  const entry: SavedTalk = { key, cluster, msgs: memoryEnabled() ? msgs.slice(-MAX_MSGS) : [], at: Date.now() }
   writeAll([entry, ...rest].slice(0, MAX_TALKS))
 }
 

@@ -239,6 +239,9 @@ export const AR: Record<string, string> = {
   "kept for this visit. a pass makes it stick.": "محفوظة لهذي الزيارة. الاشتراك يخليها ثابتة.",
   "a free session keeps nothing — nothing is stored, on this device or anywhere else.":
     "الجلسة المجانية ما تحفظ شي — لا على هذا الجهاز ولا في أي مكان ثاني.",
+  "we keep who you met, on this device only. with the pass, she also remembers what you said.": "بنحتفظ بمين قابلت، على جهازك بس. مع الاشتراك هي كمان بتفتكر اللي اتقال.",
+  "Remember who I met": "افتكر مين قابلت",
+  "remember who I met": "افتكر مين قابلت",
 
   // ── the call ───────────────────────────────────────────────────────────────
   "while you talk": "وأنت تتكلم",

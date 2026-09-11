@@ -272,57 +272,58 @@ export function YouPage({ onPass, onResume, onGolden }: {
         </Card>
 
         {/* ── memory ── */}
+        {/* Everyone can see who they met and switch memory off; only a pass
+            keeps what was said. The toggle is ALWAYS shown — it used to vanish
+            when memory was off, which left a pass holder who switched it off
+            with no way to switch it back on. */}
         <Card
           title={tr("Conversations")}
           hint={memoryEnabled()
             ? tr("kept on this device only, so you can pick one back up. nothing leaves your browser.")
-            : tr("a free session keeps nothing — nothing is stored, on this device or anywhere else.")}
+            : tr("we keep who you met, on this device only. with the pass, she also remembers what you said.")}
         >
-          {memoryEnabled() ? (
-            <>
-              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5">
-                <span className="text-sm text-white/70">{tr("Remember my conversations")}</span>
-                <input
-                  type="checkbox"
-                  checked={!off}
-                  aria-label={tr("remember my conversations")}
-                  onChange={(e) => { const v = !e.target.checked; setMemoryOff(v); setOff(v); setTalks(listTalks()) }}
-                  className="h-5 w-5 accent-fuchsia-400"
-                />
-              </label>
-              {talks.length > 0 && (
-                <ul className="mt-3 space-y-1.5">
-                  {talks.slice(0, 8).map((t) => (
-                    <li key={t.key} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2">
-                      <span className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#160f24]">
-                        <Face persona={{ name: t.cluster.host, gender: t.cluster.gender, seed: faceSeedFor(t.cluster) }} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                      </span>
-                      <button onClick={() => onResume?.(t)} className="min-w-0 flex-1 text-left">
-                        <span className="block truncate text-sm font-medium text-white/85">{displayName(t.cluster.host, t.cluster.gender, tr.locale)}</span>
-                        <span className="block truncate text-[11px] text-white/35">{agoLabel(t.at)}</span>
-                      </button>
-                      <button
-                        onClick={() => { forgetTalk(t.key); setTalks(listTalks()) }}
-                        aria-label={tr("forget your conversation with {name}", { name: displayName(t.cluster.host, t.cluster.gender, tr.locale) })}
-                        className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-white/30 hover:bg-white/5 hover:text-rose-300"
-                      >
-                        {tr("forget")}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {talks.length > 0 && (
-                <button
-                  onClick={() => { forgetAll(); setTalks(listTalks()) }}
-                  className="mt-3 w-full rounded-xl border border-rose-400/25 bg-rose-500/[0.08] px-4 py-2.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/15"
-                >
-                  {tr("Forget everything")}
-                </button>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-white/45">{tr("Nothing to erase — nothing was kept.")}</p>
+          <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5">
+            <span className="text-sm text-white/70">{pro ? tr("Remember my conversations") : tr("Remember who I met")}</span>
+            <input
+              type="checkbox"
+              checked={!off}
+              aria-label={pro ? tr("remember my conversations") : tr("remember who I met")}
+              onChange={(e) => { const v = !e.target.checked; setMemoryOff(v); setOff(v); setTalks(listTalks()) }}
+              className="h-5 w-5 accent-fuchsia-400"
+            />
+          </label>
+          {!off && talks.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {talks.slice(0, 8).map((t) => (
+                <li key={t.key} className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] p-2">
+                  <span className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-[#160f24]">
+                    <Face persona={{ name: t.cluster.host, gender: t.cluster.gender, seed: faceSeedFor(t.cluster) }} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  </span>
+                  <button onClick={() => onResume?.(t)} className="min-w-0 flex-1 text-left">
+                    <span className="block truncate text-sm font-medium text-white/85">{displayName(t.cluster.host, t.cluster.gender, tr.locale)}</span>
+                    <span className="block truncate text-[11px] text-white/35">{agoLabel(t.at)}</span>
+                  </button>
+                  <button
+                    onClick={() => { forgetTalk(t.key); setTalks(listTalks()) }}
+                    aria-label={tr("forget your conversation with {name}", { name: displayName(t.cluster.host, t.cluster.gender, tr.locale) })}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11px] text-white/30 hover:bg-white/5 hover:text-rose-300"
+                  >
+                    {tr("forget")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {!off && talks.length > 0 && (
+            <button
+              onClick={() => { forgetAll(); setTalks(listTalks()) }}
+              className="mt-3 w-full rounded-xl border border-rose-400/25 bg-rose-500/[0.08] px-4 py-2.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-500/15"
+            >
+              {tr("Forget everything")}
+            </button>
+          )}
+          {(off || talks.length === 0) && (
+            <p className="mt-3 text-sm text-white/45">{tr("Nothing to erase — nothing was kept.")}</p>
           )}
         </Card>
 

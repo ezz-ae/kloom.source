@@ -656,9 +656,10 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
   }
 
   // Persist the thread as it goes, so closing the tab mid-sentence still leaves
-  // something to come back to. No-op entirely for a free session.
+  // something to come back to. saveTalk decides what that is: the tail of the
+  // thread for a pass, only WHO and WHEN for a free session, nothing when memory
+  // is off (lib/airraw/memory.ts).
   useEffect(() => {
-    if (!memoryEnabled()) return
     saveTalk(cluster, msgs)
   }, [msgs, cluster])
 

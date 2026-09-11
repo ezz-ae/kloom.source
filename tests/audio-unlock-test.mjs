@@ -61,5 +61,26 @@ console.log("\n— and the call unlocks on the button itself, not just on any to
     "as its FIRST act, synchronously — an await before it would end the gesture")
 }
 
+// ── and no decoy unlock is trusted ──────────────────────────────────────────
+//
+// Planet used to play a throwaway `new Audio(silence)` on the first tap, with a
+// comment asserting the unlock is per-session. It is per-element: that blessed
+// the throwaway and left the real speaker locked, and the product stayed silent
+// through a fix aimed directly at it. An unlock must target the element that
+// will play.
+{
+  console.log("\n— and the unlock targets the element that speaks, never a decoy —")
+  const dir = "components/airroom"
+  let decoys = []
+  for (const f of readdirSync(dir).filter((f) => f.endsWith(".tsx"))) {
+    const src = strip(readFileSync(`${dir}/${f}`, "utf8"))
+    if (/new Audio\(SILENT|new Audio\("data:audio\/wav/.test(src)) decoys.push(f)
+  }
+  check(decoys.length === 0, `no surface unlocks by playing a throwaway element${decoys.length ? ` (${decoys.join(", ")})` : ""}`)
+  const u = strip(readFileSync("lib/airraw/audio-unlock.ts", "utf8"))
+  check(/el\.src = SILENCE/.test(u) && /el\.play\(\)/.test(u),
+    "the shared unlock plays silence through the caller's OWN element")
+}
+
 console.log(fail === 0 ? "\nPASS" : `\nFAIL — ${fail}`)
 process.exit(fail === 0 ? 0 : 1)

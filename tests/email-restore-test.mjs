@@ -47,9 +47,14 @@ console.log("— the device budget lives in the meter that already exists —")
   const fn = i < 0 ? "" : meter.slice(i, meter.indexOf("export async function spendPassChars"))
   check(i > 0, "claimDevice is part of the pass meter")
   check(/dev:\$\{bucket\(e\)\}:\$\{bucket\(d\)\}/.test(fn), "each phone has its own key, hashed — no address or device id is stored in the clear")
-  check(/\(seen\.used \?\? 1\) > 1\) return \{ ok: true/.test(fn), "a phone already on this pass returns free and does not burn a change")
+  check(/\(probe\.used \?\? 0\) > 0\) return \{ ok: true/.test(fn), "a phone already on this pass returns free and does not burn a change")
   check(/spendChars\(`devs:\$\{bucket\(e\)\}`, 1, PASS_DEVICES/.test(fn), "only a NEW phone spends from the budget")
-  check(/if \(seen\.unmetered\) return \{ ok: true/.test(fn) && /if \(budget\.unmetered\) return \{ ok: true/.test(fn),
+  // Order is the whole security of this: recording the phone first made a
+  // refusal one retry deep. device-budget-test proves the behaviour against a
+  // stand-in for the RPC; this pins the shape that makes it possible.
+  check(fn.indexOf("const probe = await spendChars(devKey, 1, 0,") < fn.indexOf("spendChars(`devs:"), "it asks whether we know the phone WITHOUT recording it")
+  check(fn.lastIndexOf("await spendChars(devKey, 1, Number.MAX_SAFE_INTEGER") > fn.indexOf("if (!budget.ok)"), "and records it only after the budget has said yes")
+  check(/if \(probe\.unmetered\) return \{ ok: true/.test(fn) && /if \(budget\.unmetered\) return \{ ok: true/.test(fn),
     "and it fails OPEN — a database that is down lets a buyer in rather than locking them out of what they paid for")
   check(/PASS_DEVICES = Math\.max\(1, Number\(process\.env\.AIRRAW_PASS_DEVICES \|\| 3\)\)/.test(meter), "three devices, env-overridable")
   check(!/create table/i.test(meter), "and no new table — it reuses pass_usage, so there is nothing for anyone to run")

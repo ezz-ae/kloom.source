@@ -28,6 +28,7 @@ import { LANGUAGES } from "@/lib/languages"
 import { VIBES, faceSeedFor } from "@/lib/airroom/roster"
 import { getTaste, saveTaste, tasteIsSet, type Taste, type TasteGender } from "@/lib/airraw/taste"
 import { Face } from "@/components/airroom/Face"
+import { LangToggle } from "@/components/airroom/LangToggle"
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -290,6 +291,13 @@ export function YouPage({ onPass, onResume, onGolden }: {
         )}
 
         {/* ── language ── */}
+        {/* The app's own language, separate from the one conversations happen in.
+            Rendered above "You speak" because someone looking for it is looking
+            for the screen to change, not the conversation. */}
+        <Card title={tr("App language")} hint={tr("the buttons and labels. your conversations follow the setting below.")}>
+          <LangToggle style={{ justifyContent: "flex-start" }} />
+        </Card>
+
         <Card title={tr("You speak")} hint={langPrefsPersist() ? tr("saved as your default between visits.") : tr("kept for this visit. a pass makes it stick.")}>
           <select
             value={prefs.primary}

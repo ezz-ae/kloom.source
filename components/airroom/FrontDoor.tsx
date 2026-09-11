@@ -28,6 +28,7 @@ import { walkFor, matchesTaste, getTaste } from "@/lib/airraw/taste"
 import { cardLinesFor } from "@/lib/airraw/dossier"
 import { earnFai, canEarnToday, DAILY_EARN_CAP, earnedToday } from "@/lib/airraw/fai"
 import { Face } from "@/components/airroom/Face"
+import { displayName } from "@/lib/airraw/arabic-names"
 
 // The deck's gradient walk now comes from the visitor's taste — see
 // lib/airraw/taste.ts. It used to be a hardcoded list of temperatures, which
@@ -294,7 +295,7 @@ export function FrontDoor({ onCall, onRooms, onEarned }: {
               onClick={() => { if (!dragged.current) onCall(person) }}
               style={{ flex: 1, minHeight: 48, borderRadius: 999, border: "none", cursor: "pointer", fontSize: 15.5, fontWeight: 700, letterSpacing: .3, color: "#150a1f", background: `linear-gradient(180deg, ${accent}, ${accent}cc)`, boxShadow: `0 10px 30px -14px ${accent}`, WebkitTapHighlightColor: "transparent", touchAction: "manipulation", fontFamily: "inherit" }}
             >
-              {t("call {name}", { name: person.host })}
+              {t("call {name}", { name: displayName(person.host, person.gender, t.locale) })}
             </button>
             <button
               onClick={() => { if (!dragged.current) fling("left") }}

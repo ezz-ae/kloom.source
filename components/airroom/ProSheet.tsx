@@ -25,7 +25,7 @@ function perks(minutes: number, days: number): [string, string][] {
     ["✦  best matches, lit up", "tap once and the people most worth your night light up across the whole floor"],
     ["✦  FAI twice as fast", "FAI still cannot be bought — the pass just lets you earn far more of it in a day"],
     ["✦  set the vibe", "steer any room — flirty, hyped, brutally honest — and the voices follow"],
-    ["✦  your languages, kept", "your default sticks between visits, and the floor fills with people who actually open in it"],
+    ["✦  your languages, everywhere", "the floor fills with people who actually open in the languages you speak, instead of you finding them"],
   ]
 }
 

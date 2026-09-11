@@ -48,8 +48,14 @@ check(/\/api\/stt/.test(media), "voice-to-media transcribes through the existing
 check(!/whisper|scribe|gemini/i.test(media), "and contains no recogniser of its own to drift from it")
 
 // ── storage matches the promise made elsewhere ──────────────────────────────
-check(/isPro\(\) \? localStorage : sessionStorage/.test(char),
-  "a free session keeps nothing — the same rule memory.ts follows")
+// Kept for everyone now. A face is not conversation content, and the old rule
+// gave a returning free visitor a different face for the same person on every
+// open — the product forgetting it had ever met them. Transcripts remain the
+// pass-only, erasable thing (memory-test).
+check(/try \{ return localStorage \}/.test(char),
+  "the face a person has already been seen with is kept on the device, pass or no pass")
+check(/catch \{ try \{ return sessionStorage \}/.test(char),
+  "and private mode falls back rather than throwing")
 
 
 // The browser overrides the image provider per request because IMAGE_PROVIDER is

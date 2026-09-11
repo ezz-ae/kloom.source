@@ -28,17 +28,33 @@ const KEY = "airraw_langs"
 //
 // Storage is resolved through a function rather than captured once, because the
 // user can buy the pass mid-session and the very next save must be permanent.
+/**
+ * THE LANGUAGE SOMEONE PICKED IS NOT AN UPSELL.
+ *
+ * This used to be sessionStorage for a free visitor and localStorage for a pass
+ * holder, so that "your languages, kept" had something to sell. What it
+ * actually sold was this, reported from a phone: "I have Arabic open, I refresh
+ * because it hung, and it puts me back on English." Opening the link again from
+ * an app is a new tab, and a new tab had no memory of the one choice that makes
+ * the product readable.
+ *
+ * A person who told us which language they speak is not a trial feature. The
+ * pass still changes what the language DOES — the floor fills with people who
+ * open in it — which is the part worth paying for.
+ */
 function store(): Storage | null {
   try {
-    return isPro() ? localStorage : sessionStorage
+    return localStorage
   } catch {
-    return null
+    // Private mode with storage disabled. Better a language for this page than
+    // a crash, and sessionStorage usually survives where localStorage does not.
+    try { return sessionStorage } catch { return null }
   }
 }
 
-/** Does the pass currently apply to language settings? */
+/** Language settings persist for everyone now; kept for the copy that reads it. */
 export function langPrefsPersist(): boolean {
-  return isPro()
+  return true
 }
 
 export interface LangPrefs {

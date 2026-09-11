@@ -66,6 +66,7 @@ const WHAT = {
   "voice-reset-test":   "a pinned voice is forever, so a bad one has to be survivable",
   "email-restore-test": "the email is the way back in",
   "device-budget-test": "three devices, and coming back is free",
+  "ui-lang-test":       "the app language is a choice, and it is findable",
   "cast-tools-test":    "the cast over MCP is the cast the floor speaks from",
   "browser-language-test": "the visitor browser picks the language, nobody else does",
   "cast50-test":      "fifty written people, no two alike, and one person in every language",

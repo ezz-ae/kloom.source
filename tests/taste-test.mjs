@@ -107,11 +107,14 @@ check(matchesTaste("female", { gender: "female", vibes: [] }) && !matchesTaste("
   "a set gender filters")
 check(matchesTaste("", { gender: "female", vibes: [] }) === false, "a character with no gender is not smuggled through")
 
-// ── a free session still leaves nothing behind ──────────────────────────────
-// The privacy promise is made on the platform-facts page, so every store in
-// this repo has to honour it — a preference is not an exemption.
-check(/isPro\(\)\s*\?\s*localStorage\s*:\s*sessionStorage/.test(taste),
-  "a free visit keeps the taste in sessionStorage; only a pass persists it")
+// ── a choice survives closing the app ───────────────────────────────────────
+// This was session-only for a free visit. The one control that changes what the
+// front door shows therefore forgot itself every time the app was opened, which
+// is how the product came to feel like it had never met anyone. Conversation
+// content is still pass-only and erasable (memory-test); a preference is not
+// content.
+check(/try \{ return localStorage \}/.test(taste),
+  "the taste is kept on the device, pass or no pass")
 check(/known\.has/.test(taste), "unknown vibe keys are dropped on read, so a rename can't silently empty the floor")
 check(/gender:\s*"any",\s*vibes:\s*\[\]/.test(taste), "the default taste is empty, meaning everything")
 

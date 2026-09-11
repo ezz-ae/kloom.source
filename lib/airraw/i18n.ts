@@ -27,6 +27,7 @@
 
 import { useEffect, useState } from "react"
 import { getLangPrefs } from "@/lib/airraw/lang-prefs"
+import { uiLangChoice } from "@/lib/airraw/ui-lang"
 import { AR } from "@/lib/airraw/ar"
 import { AR_CONTENT } from "@/lib/airraw/ar-content"
 
@@ -34,6 +35,12 @@ export type Locale = "en" | "ar"
 
 /** The locale right now, from the language the visitor chose. Client-only. */
 export function currentLocale(): Locale {
+  // An explicit choice wins. Without one the interface follows the language
+  // conversations are in, which is how this behaved before the choice existed.
+  try {
+    const picked = uiLangChoice()
+    if (picked) return picked
+  } catch { /* SSR */ }
   try {
     return getLangPrefs().primary === "Arabic" ? "ar" : "en"
   } catch {

@@ -22,6 +22,7 @@ import { pinnedVoice, pinFromResponse, awaitPin, claimFirst } from "@/lib/airraw
 import { visitorId } from "@/lib/airraw/visitor"
 import { AirBubble } from "@/components/airroom/AirBubble"
 import { OpenInBrowser } from "@/components/airroom/OpenInBrowser"
+import { LangToggle } from "@/components/airroom/LangToggle"
 import { publicCharacter, PUBLIC_CAST_SIZE } from "@/lib/airraw/public-cast"
 import { FantasyBuilder } from "@/components/airroom/FantasyBuilder"
 import { SceneRoom } from "@/components/airroom/SceneRoom"
@@ -1249,19 +1250,22 @@ function RoomDeck({ onJoin, onExplore, fai, onProfile, pos, setPos, onResume, on
           onPointerUp={(e) => e.stopPropagation()}
           style={{ position: "absolute", top: "calc(env(safe-area-inset-top) + 58px)", left: 0, right: 0, zIndex: 22, display: "flex", gap: 10, overflowX: "auto", padding: "0 16px 4px", touchAction: "pan-x", WebkitOverflowScrolling: "touch" }}
         >
-          {talks.map((t) => (
+          {/* `talk`, not `t` — the translator is called t in this component and a
+              map parameter named t shadowed it, which is how a name ended up
+              reaching for a locale that was not in scope. */}
+          {talks.map((talk) => (
             <button
-              key={t.key}
-              onClick={() => onResume(t.cluster)}
-              aria-label={`back to ${t.cluster.host}`}
+              key={talk.key}
+              onClick={() => onResume(talk.cluster)}
+              aria-label={t("back to {name}", { name: displayName(talk.cluster.host, talk.cluster.gender, t.locale) })}
               style={{ flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8, height: 44, padding: "0 12px 0 4px", borderRadius: 999, background: "rgba(4,5,11,.62)", border: ".5px solid rgba(255,255,255,.14)", cursor: "pointer", WebkitTapHighlightColor: "transparent", color: "#eef4f8", fontFamily: "inherit" }}
             >
               <span style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", flex: "0 0 auto", background: "rgba(255,255,255,.08)" }}>
-                <Face persona={{ name: t.cluster.host, gender: t.cluster.gender, seed: faceSeedFor(t.cluster) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <Face persona={{ name: talk.cluster.host, gender: talk.cluster.gender, seed: faceSeedFor(talk.cluster) }} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               </span>
               <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t.cluster.host}</span>
-                <span style={{ fontSize: 10.5, color: "rgba(238,244,248,.55)" }}>{agoLabel(t.at)}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600 }}>{displayName(talk.cluster.host, talk.cluster.gender, t.locale)}</span>
+                <span style={{ fontSize: 10.5, color: "rgba(238,244,248,.55)" }}>{agoLabel(talk.at)}</span>
               </span>
             </button>
           ))}
@@ -1325,7 +1329,7 @@ function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
   const choose = (m: typeof MOODS[number]) => {
     setPick(m); setStep("shaping")
     setOnboardName(name)
-    markOnboarded()
+    markOnboarded()   // belt and braces; the name step already marked it
     // ONE beat, deterministic — this is the whole "building it for you" moment.
     // No fake errors, no re-asking, no loop: say it once, mean it, deliver it.
     setTimeout(() => onDone(m.c), 1450)
@@ -1340,15 +1344,22 @@ function OnboardGate({ onDone, onRestore, onPhotos, onReport }: {
           {/* In-app browsers (where the ads land) mostly cannot open a mic: say so here,
               once, with the way out — in the flow, never over the product. */}
           <OpenInBrowser inline />
+          {/* عربي / English, on the first screen, for anyone it could be for. */}
+          <LangToggle style={{ marginBottom: 14 }} />
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") setStep("mood") }}
+            onKeyDown={(e) => { if (e.key === "Enter") { setOnboardName(name); markOnboarded(); setStep("mood") } }}
             placeholder={t("optional — go by anything")}
             autoFocus
             style={{ width: "100%", fontSize: 16, color: "#eef4f8", background: "rgba(255,255,255,.07)", border: ".5px solid rgba(255,255,255,.18)", borderRadius: 14, padding: "14px 16px", minHeight: 50, boxSizing: "border-box", outline: "none", textAlign: "center", marginBottom: 16 }}
           />
-          <button onClick={() => setStep("mood")} style={{ width: "100%", minHeight: 52, fontSize: 15.5, fontWeight: 700, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 15, cursor: "pointer", boxShadow: "0 12px 30px -10px rgba(127,214,192,.55)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
+          {/* MARKED HERE, NOT AT THE END.
+              It used to be marked only once a mood was picked, so anyone who
+              reloaded in the middle — which is what you do when a page hangs —
+              was asked their name again on every single visit. One step in is
+              far enough to know they have been here. */}
+          <button onClick={() => { setOnboardName(name); markOnboarded(); setStep("mood") }} style={{ width: "100%", minHeight: 52, fontSize: 15.5, fontWeight: 700, color: "#06121e", background: "#7fd6c0", border: "none", borderRadius: 15, cursor: "pointer", boxShadow: "0 12px 30px -10px rgba(127,214,192,.55)", WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}>
             {name.trim() ? t("continue →") : t("skip, just take me in →")}
           </button>
 

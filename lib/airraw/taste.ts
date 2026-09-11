@@ -10,8 +10,10 @@
 // them anybody, and an empty filter is also the honest default — we don't know
 // yet. Choosing narrows; it never has to be set up.
 //
-// Stored like every other preference here: sessionStorage for a free visit,
-// localStorage once there is a pass, so a free session still leaves nothing.
+// Stored like every other preference here: on the device, for everyone. It was
+// session-only for a free visit, so the one control that changes what the front
+// door shows forgot itself every time the app was opened — see
+// lib/airraw/lang-prefs.ts for the same change and the report behind it.
 
 import { VIBES } from "@/lib/airroom/roster"
 import { isPro } from "@/lib/airroom/pro"
@@ -29,7 +31,10 @@ const EMPTY: Taste = { gender: "any", vibes: [] }
 
 function store(): Storage | null {
   if (typeof window === "undefined") return null
-  try { return isPro() ? localStorage : sessionStorage } catch { return null }
+  // Kept for everyone, not only a pass. who they said they want to meet is not a trial
+  // feature — losing it on every app open is how the product came to feel like
+  // it had never met you. See lib/airraw/lang-prefs.ts, same change, same reason.
+  try { return localStorage } catch { try { return sessionStorage } catch { return null } }
 }
 
 export function getTaste(): Taste {

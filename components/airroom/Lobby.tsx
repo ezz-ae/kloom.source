@@ -21,6 +21,7 @@ import { OpenInBrowser } from "@/components/airroom/OpenInBrowser"
 import { usePresence } from "@/lib/airroom/presence"
 import { startAmbience, setAmbienceDepth, setAmbienceMuted, stopAmbience } from "@/lib/airroom/ambience"
 import { track } from "@/lib/airraw/track"
+import { displayName } from "@/lib/airraw/arabic-names"
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const hsh = (n: number) => { const x = Math.sin(n * 99.73) * 4391.37; return x - Math.floor(x) } // deterministic, SSR-safe
@@ -79,7 +80,7 @@ export function Lobby() {
           {/* Real face on top of the gradient (which stays as the load/fallback). */}
           <Face persona={{ name: c.host, gender: c.gender, seed: faceSeedFor(c) }} className="orb-img" />
         </span>
-        <span className="orb-name" style={{ color: nameColor(f) }}>{c.host}</span>
+        <span className="orb-name" style={{ color: nameColor(f) }}>{displayName(c.host, c.gender, t.locale)}</span>
         <span className="orb-line" style={{ opacity: isHover ? 1 : 0.62, maxHeight: isHover ? 60 : 32 }}>&ldquo;{t(c.lines[0])}&rdquo;</span>
       </button>
     )

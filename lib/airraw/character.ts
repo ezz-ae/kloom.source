@@ -20,10 +20,15 @@
 // character) would take as its anchor if the pipeline gains one; the shape here
 // is deliberately ready for that without depending on it.
 //
-// STORAGE follows memory.ts exactly: sessionStorage for a free visit,
-// localStorage once there is a pass. A free session leaves nothing behind, and
-// that promise is made on the platform-facts page, so it is honoured here rather
-// than restated.
+// STORAGE: kept on the device for everyone.
+//
+// This used to be sessionStorage for a free visit and localStorage once there
+// was a pass, under a promise that "a free session leaves nothing behind". That
+// promise is no longer made to anyone — memory.ts keeps WHO you met for free
+// sessions, and the welcome has always kept a name — and what the old rule
+// actually produced was a product that had never met you: a different face for
+// the same person on every app open. Conversation content is still the thing
+// that is pass-only and erasable; which face someone has is not content.
 
 import type { Cluster } from "@/lib/airroom/roster"
 import { profileFor, lookLine } from "@/lib/airraw/profile"
@@ -57,7 +62,10 @@ const MAX_MEDIA = 40
 
 function store(): Storage | null {
   if (typeof window === "undefined") return null
-  try { return isPro() ? localStorage : sessionStorage } catch { return null }
+  // Kept for everyone, not only a pass. the face and look a person has already been seen with is not a trial
+  // feature — losing it on every app open is how the product came to feel like
+  // it had never met you. See lib/airraw/lang-prefs.ts, same change, same reason.
+  try { return localStorage } catch { try { return sessionStorage } catch { return null } }
 }
 
 function read(): SavedCharacter[] {

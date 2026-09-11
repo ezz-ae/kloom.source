@@ -1300,7 +1300,7 @@ export function AirBubble({ cluster, tempLabel, onClose, onTalked, opening, lang
             aria-label={t("set the vibe")}
             style={{ background: "none", border: "none", cursor: "pointer", padding: 0, WebkitTapHighlightColor: "transparent" }}
           >
-            <div style={{ fontSize: 23, fontWeight: 500, color: "#f0e8ff" }}>{cluster.host}</div>
+            <div style={{ fontSize: 23, fontWeight: 500, color: "#f0e8ff" }}>{displayName(cluster.host, cluster.gender, t.locale)}</div>
           </button>
           {vibe && (
             <div style={{ fontSize: 12, color: accent + "cc", marginTop: 3, letterSpacing: 0.3 }}>{vibe}</div>

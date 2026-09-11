@@ -7,7 +7,7 @@
  */
 import { useState, useEffect } from "react"
 import { useT } from "@/lib/airraw/i18n"
-import { setPendingIntent, setProToken, isPro, clearPro, fbCookies } from "@/lib/airroom/pro"
+import { setPendingIntent, setProToken, isPro, clearPro, fbCookies, setPassEmail } from "@/lib/airroom/pro"
 import { visitorId } from "@/lib/airraw/visitor"
 import { track } from "@/lib/track"
 import { LANGUAGES } from "@/lib/languages"
@@ -116,7 +116,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
     try {
       const r = await fetch("/api/airraw-pro", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "restore_by_email", email: e, visitorId: visitorId() }) })
       const d = await r.json()
-      if (d?.paid && d?.token) { setProToken(d.token); onClose(); window.location.reload(); return }
+      if (d?.paid && d?.token) { setProToken(d.token); setPassEmail(e); onClose(); window.location.reload(); return }
       setRErr(
         d?.reason === "device-limit" ? t("this pass has already been opened on {n} devices", { n: d?.limit ?? 3 })
         : d?.reason === "expired" ? t("that pass has expired — the floor's open again with a new one")
@@ -136,6 +136,7 @@ export function ProSheet({ onClose }: { onClose: () => void }) {
       const d = await r.json()
       if (!r.ok || !d.url) { setErr(d.error || t("couldn’t start checkout — try again")); setBusy(false); return }
       setPendingIntent(d.intentId, d.t, d.s)
+      setPassEmail(email)   // so the You page can show what to come back with
       try { track("initiate_checkout", { value: d.price ?? offer.price, currency: "USD", method: method === "crypto" ? "nowpayments" : "ziina", kind: "pass" }, d.intentId) } catch { /* never block redirect */ }
       window.location.href = d.url
     } catch { setErr(t("network hiccup — try again")); setBusy(false) }

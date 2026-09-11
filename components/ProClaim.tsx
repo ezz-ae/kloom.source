@@ -77,7 +77,11 @@ export function ProClaim() {
             if (stopped) return
             if (d?.paid && d?.token) {
               setProToken(d.token); clearPendingIntent()
-              setSticky(false)
+              // STICKY. This carries the one credential the pass has, and it
+              // used to clear itself after five seconds — "I made a new account
+              // and got no code". It now waits until they touch it, and the You
+              // page keeps a copy either way.
+              setSticky(true)
               setMsg("you're in ✦ — tap here to copy your restore code & save it (gets you back in on any device)")
               try { track("purchase", { value: d?.price ?? 9, currency: "USD", method: isCrypto ? "nowpayments" : "ziina", kind: "pass" }, id) } catch { /* */ }
               return
@@ -109,8 +113,8 @@ export function ProClaim() {
     <div
       onClick={() => {
         const tk = getProToken()
-        if (tk && navigator.clipboard) navigator.clipboard.writeText(tk).then(() => setMsg("restore code copied — keep it somewhere safe ✦")).catch(() => setMsg(""))
-        else setMsg("")
+        if (tk && navigator.clipboard) navigator.clipboard.writeText(tk).then(() => { setSticky(false); setMsg("restore code copied — keep it somewhere safe ✦") }).catch(() => { setSticky(false); setMsg("") })
+        else { setSticky(false); setMsg("") }
       }}
       style={{ position: "fixed", left: "50%", bottom: "calc(env(safe-area-inset-bottom) + 18px)", transform: "translateX(-50%)", zIndex: 60, background: "rgba(10,12,18,.96)", border: ".5px solid rgba(127,214,192,.45)", color: "#cfe9df", fontSize: 13, padding: "10px 16px", borderRadius: 12, maxWidth: "90vw", textAlign: "center", cursor: "pointer", fontFamily: "system-ui, sans-serif", boxShadow: "0 12px 40px -12px rgba(0,0,0,.7)" }}
     >

@@ -61,5 +61,16 @@ for (const k of ["your email — this is how you get back in", "the email you pa
   check(ar.includes(`"${k}":`), `Arabic: ${k}`)
 }
 
+console.log("— and the code itself stops vanishing —")
+{
+  const you = readFileSync("components/airroom/YouPage.tsx", "utf8")
+  const claim = readFileSync("components/ProClaim.tsx", "utf8")
+  check(/title=\{tr\("How you get back in"\)\}/.test(you), "a pass holder's first card on the You page IS how to get back in")
+  check(/navigator\.clipboard\.writeText\(tk\)/.test(you) && /copy my restore code/.test(you), "the code can be copied from there, any day, not only at purchase")
+  check(/showCode &&/.test(you) && /readOnly value=\{getProToken\(\) \|\| ""\}/.test(you), "and shown, for a browser that refuses the clipboard")
+  check(/\{passEmail\}/.test(you), "with the address it can be reopened under")
+  check(/setSticky\(true\)\s*\n\s*setMsg\("you're in/.test(claim), "and the message at purchase waits to be touched instead of clearing itself in five seconds")
+}
+
 console.log(fail ? `\n${fail} FAILED` : "\nPASS")
 process.exit(fail ? 1 : 0)

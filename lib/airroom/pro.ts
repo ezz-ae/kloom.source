@@ -95,6 +95,21 @@ export function fbCookies(): { fbp?: string; fbc?: string } {
   return { fbp: g("_fbp"), fbc }
 }
 
+// ── THE ADDRESS THIS PASS CAN BE REOPENED WITH ────────────────────────────────
+// Kept so the You page can show it back: "you can open this on any phone with
+// m@…". Without it the buyer has to remember which of their addresses they
+// typed, weeks later, on a phone that has nothing else.
+const EMAIL_KEY = "airraw_pass_email"
+export function setPassEmail(e: string) {
+  const v = (e || "").trim().toLowerCase()
+  if (!v) return
+  try { localStorage.setItem(EMAIL_KEY, v) } catch { /* */ }
+}
+export function getPassEmail(): string {
+  if (typeof window === "undefined") return ""
+  try { return localStorage.getItem(EMAIL_KEY) || "" } catch { return "" }
+}
+
 // the Ziina intent we're mid-paying for — stashed before redirect, claimed on return.
 // Now carries the signed purchase anchor {t,s} so the claim pins the pass to purchase
 // time (anti-replay). Back-compat: a bare-string value (old pending) is read as {id}.

@@ -19,7 +19,7 @@ import { GOLDEN_USD, GOLDEN_MINUTES, GOLDEN_MAX_BOOKED } from "@/lib/airraw/gold
 import { goldHeld, onGold, refreshGold } from "@/lib/airroom/golden-client"
 import { getProfile, setProfileName, rerollAvatar, type Profile } from "@/lib/airroom/profile"
 import { getCredits, FREE_GRANT } from "@/lib/airroom/credits"
-import { isPro, proUntil } from "@/lib/airroom/pro"
+import { isPro, proUntil, getPassEmail, getProToken } from "@/lib/airroom/pro"
 import { getFai, DAILY_EARN_CAP, PRO_EARN_CAP, earnedToday } from "@/lib/airraw/fai"
 import { listTalks, forgetAll, forgetTalk, memoryEnabled, memoryOff, setMemoryOff, agoLabel, type SavedTalk } from "@/lib/airraw/memory"
 import { clearVoicePins, voicePinStats } from "@/lib/airraw/voice-pin"
@@ -59,6 +59,9 @@ export function YouPage({ onPass, onResume, onGolden }: {
   const [alsoOpen, setAlsoOpen] = useState(false)
   const [pro, setPro] = useState(false)
   const [pins, setPins] = useState<{ people: number; collapsed: boolean }>({ people: 0, collapsed: false })
+  const [passEmail, setPassEmail] = useState("")
+  const [copied, setCopied] = useState(false)
+  const [showCode, setShowCode] = useState(false)
   const [taste, setTaste] = useState<Taste>({ gender: "any", vibes: [] })
 
   // Everything here reads localStorage, so it has to wait for the client or the
@@ -70,7 +73,7 @@ export function YouPage({ onPass, onResume, onGolden }: {
     setP(prof); setName(prof.name)
     setFai(getFai()); setCredits(getCredits())
     setTalks(listTalks()); setPrefs(getLangPrefs())
-    setOff(memoryOff()); setPro(isPro()); setPins(voicePinStats())
+    setOff(memoryOff()); setPro(isPro()); setPins(voicePinStats()); setPassEmail(getPassEmail())
     setTaste(getTaste())
   }, [])
 
@@ -129,6 +132,44 @@ export function YouPage({ onPass, onResume, onGolden }: {
       </div>
 
       <div className="space-y-3 pb-8">
+        {/* ── HOW YOU GET BACK IN ── the first card a pass holder sees.
+            "I made a new account and got no code, so I can't use it anywhere
+            and it will easily be lost." The code was shown once, in a toast
+            that clears itself after five seconds, and lived nowhere else. Now
+            it is on the one page that is theirs, with the address it can be
+            reopened under, and it can be copied or mailed to themselves. */}
+        {pro && (
+          <Card title={tr("How you get back in")} hint={tr("on a new phone, either of these opens your pass.")}>
+            {passEmail && (
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5">
+                <div className="text-[11px] uppercase tracking-[0.14em] text-white/35">{tr("your email")}</div>
+                <div className="mt-0.5 break-all text-sm text-white/85">{passEmail}</div>
+                <div className="mt-1 text-[11px] text-white/35">{tr("type it on any phone — no password. up to {n} devices.", { n: 3 })}</div>
+              </div>
+            )}
+            <button
+              onClick={() => {
+                const tk = getProToken(); if (!tk) return
+                if (navigator.clipboard) navigator.clipboard.writeText(tk).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2500) }).catch(() => setShowCode(true))
+                else setShowCode(true)
+              }}
+              className="mt-2 w-full rounded-xl border border-emerald-300/25 bg-emerald-400/[0.08] px-4 py-3 text-xs font-semibold text-emerald-200 transition hover:bg-emerald-400/15"
+            >
+              {copied ? tr("copied — keep it somewhere safe ✦") : tr("copy my restore code")}
+            </button>
+            {showCode && (
+              <textarea
+                readOnly value={getProToken() || ""} onFocus={(e) => e.currentTarget.select()}
+                aria-label={tr("restore code")}
+                className="mt-2 h-20 w-full resize-none break-all rounded-xl border border-white/[0.08] bg-black/40 p-2.5 font-mono text-[10px] leading-relaxed text-white/70"
+              />
+            )}
+            <button onClick={() => setShowCode((v) => !v)} className="mt-1.5 w-full px-2 py-2 text-left text-[11px] text-white/35 hover:text-white/60">
+              {showCode ? tr("hide the code") : tr("show the code")}
+            </button>
+          </Card>
+        )}
+
         {/* ── the pass ── FIRST. It used to be the fourth card, which on a phone
             put the one button this page exists to show — get a pass — at the very
             bottom, under the dock, reachable only by scrolling to the end. */}

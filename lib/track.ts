@@ -20,6 +20,8 @@
  * learning phase — far more frequent than Purchase, and it already carries the USD
  * value for value-based bidding.
  */
+import { track as vercelTrack } from "@vercel/analytics"
+
 type Props = Record<string, string | number | boolean>
 
 // Map our events to each platform's recognized standard event, so ad delivery can
@@ -43,6 +45,12 @@ export function track(event: string, props: Props = {}, eventId?: string) {
   const w = window as any
   const std = STD[event]
   try { (w.dataLayer = w.dataLayer || []).push({ event, ...props }) } catch { /* */ }
+  // Vercel Web Analytics, which is already on every page (<Analytics/> in the root
+  // layout) and is the one sink we can query without a pixel account: the funnel
+  // was invisible there because nothing ever sent it an event — 109 mobile
+  // visitors on "/" and no way to tell how many started a voice, hit the wall, or
+  // tapped pay. Same names, same flat props; no-op where analytics is not mounted.
+  try { vercelTrack(event, props) } catch { /* */ }
   try {
     if (typeof w.fbq === "function") {
       // eventId is shared with the server-side Conversions API event → Meta de-dupes.
